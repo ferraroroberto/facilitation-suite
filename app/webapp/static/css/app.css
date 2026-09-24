@@ -419,3 +419,13 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .banner .icon { width: 18px; height: 18px; flex: none; margin-top: 1px; }
 .banner.ok { background: var(--success-soft); color: var(--success-text); }
 .banner.warn { background: var(--attention-soft); color: var(--attention-text); }
+
+/* ---- Settings ----------------------------------------------------------- */
+.settings-card { display: grid; gap: var(--space-sm); }
+.settings-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-left: 0; padding-right: 0; }
+.settings-row .grow { display: grid; }
+.settings-row > .icon { color: var(--muted); }
+.settings-ico { width: 64px; display: grid; place-items: center; color: var(--muted); }
+.settings-note { margin: 0; }
+.zone-thumb { position: relative; flex: none; width: 64px; height: 36px; border-radius: 6px; background: var(--card-off); border: 1px solid var(--line); overflow: hidden; }
+.zone-thumb span { position: absolute; background: var(--muted); border-radius: 3px; }

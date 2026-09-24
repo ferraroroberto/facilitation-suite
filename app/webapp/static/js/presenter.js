@@ -424,6 +424,15 @@ function drawChips() {
   const r = s.reader || { state: 'off' };
   const rc = READER_CHIP[r.state] || ['bad', `Zoom chat · ${r.state}`];
   chips.push([rc[0], rc[1], rc[2], r.detail]);
+  const o = s.obs || { state: 'off' };
+  const profileLabel = { camera_strip: 'Camera strip', camera_pip: 'Camera PiP', screen_only: 'Screen only' }[o.profile] || '';
+  if (o.state === 'connected') {
+    chips.push(o.warning ? ['warn', `OBS · ${profileLabel || 'check scenes'}`, null, o.warning] : ['ok', `OBS · ${profileLabel ? 'profile ' + profileLabel : 'connected'}`, null, o.detail]);
+  } else if (o.state === 'off') {
+    chips.push(['', 'OBS · off', null, o.detail]);
+  } else {
+    chips.push(['bad', o.state === 'connecting' ? 'OBS · connecting' : 'OBS · not reachable', 'obs-retry', o.detail]);
+  }
   const st = s.stages || [];
   if (st.length) chips.push(['ok', `Stage · ${st.length > 1 ? st.length + ' windows' : `${st[0].w}×${st[0].h}`}`]);
   else chips.push(['warn', 'Stage · not open', 'open-stage']);
@@ -438,6 +447,8 @@ function drawChips() {
     if (open) open.addEventListener('click', () => window.open('/stage', 'fs-stage', 'popup,width=1280,height=720'));
     const start = box.querySelector('[data-act="start-reader"]');
     if (start) start.addEventListener('click', startReader);
+    const retry = box.querySelector('[data-act="obs-retry"]');
+    if (retry) retry.addEventListener('click', () => api('/api/settings/obs/test', { method: 'POST' }).catch((e) => toast(e.message, 'error')));
   }
   drawChatFoot();
 }

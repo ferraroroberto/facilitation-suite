@@ -12,15 +12,12 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from src.activities.registry import editors
+from src.config import DEFAULT_PROFILES
 from src.sessions.model import Session
 
-# Camera zones as fractions of the 1920×1080 canvas (x0, y0, x1, y1). The strip
-# box matches the grey area of the house slides; content avoids the whole strip.
-ZONES: dict[str, Optional[list[float]]] = {
-    "camera_strip": [0.583, 0.23, 0.983, 0.77],
-    "camera_pip": [0.72, 0.04, 0.98, 0.3],
-    "screen_only": None,
-}
+# Camera zones as fractions of the 1920×1080 canvas (x0, y0, x1, y1): the
+# defaults; Settings can move them (config "profiles", passed in as ``zones``).
+ZONES: dict[str, Optional[list[float]]] = {k: v["zone"] for k, v in DEFAULT_PROFILES.items()}
 
 
 def _slide_index(meta: Optional[dict[str, Any]]) -> dict[int, dict[str, Any]]:
@@ -39,13 +36,15 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
     return (types.get(item.type or "") or {}).get("label") or "Activity"
 
 
-def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional[dict[str, Any]] = None,
+              zones: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """``{"items": [...], "sections": [...]}`` in live order (included items only).
 
     ``rounds`` (from groups.yaml) gives each "who are you with?" item its rooms.
     """
     slides = _slide_index(meta)
     types = editors()
+    zones = zones or ZONES
     items: list[dict[str, Any]] = []
     sections: list[dict[str, Any]] = []
     start = 0
@@ -76,7 +75,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "slide_file": (slide or {}).get("file") if slide else None,
                 "slide_missing": it.kind == "slide" and slide is None,
                 "profile": profile,
-                "zone": ZONES.get(profile),
+                "zone": zones.get(profile),
                 "timer": it.timer.model_dump() if it.timer and it.timer.enabled else None,
                 "section_id": sec.id,
                 "section_name": sec.name,

@@ -45,16 +45,18 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.errors import AppError, error_response
-from app.webapp.routers import activities, chat, groups, live, pages, sessions, slides
+from app.webapp.routers import activities, chat, groups, live, pages, sessions, settings, slides
 from src.build_info import build_identity
 from src.certs import cert_paths
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
-from src.config import load_config
+from src.config import load_config, profiles
 from src.importer.service import Importer
+from src.live.actions import Action, register
 from src.live.capture import CaptureService
-from src.live.hub import LiveHub
+from src.live.hub import LiveError, LiveHub
 from src.logger import configure_logging
+from src.obs.service import ObsService
 from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -84,9 +86,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     cfg = app.state.config
     app.state.live.bind(asyncio.get_running_loop())
     monitor = asyncio.create_task(app.state.chat.monitor())
+    app.state.obs.start()
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
     monitor.cancel()
+    app.state.obs.stop()
     await asyncio.to_thread(app.state.reader_process.stop)
     logger.info("👋 facilitation-suite stopping")
 
@@ -142,6 +146,29 @@ def _install_chat(app: FastAPI) -> None:
     live.session_listeners.append(on_session)
 
 
+def _install_obs(app: FastAPI) -> None:
+    """OBS follows each item's profile; its state rides on every live snapshot."""
+    live = app.state.live
+
+    def pushed() -> None:  # called from the OBS worker thread
+        if live.loop is not None:
+            live.loop.call_soon_threadsafe(live.push_state)
+
+    obs = ObsService(lambda: app.state.config, on_change=pushed)
+    app.state.obs = obs
+    live.zones = lambda: {k: v["zone"] for k, v in profiles(app.state.config).items()}
+    live.item_listeners.append(lambda prev, cur: obs.switch(cur.get("profile")))
+    live.session_listeners.append(lambda sid: obs.switch((live.current() or {}).get("profile")) if sid else None)
+    live.extra_state.append(lambda: {"obs": obs.snapshot()})
+
+    def by_hand(hub: LiveHub, name: Optional[str]) -> None:
+        if name not in profiles(app.state.config):
+            raise LiveError(404, "unknown_profile", f"No OBS profile {name!r} (camera_strip, camera_pip, screen_only)")
+        obs.switch(name)
+
+    register(Action("obs_profile", "Switch the OBS profile", by_hand, arg="name"))
+
+
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
@@ -152,6 +179,7 @@ def create_app() -> FastAPI:
     app.state.importer = Importer(load=store.load, save=store.save, folder=store.folder)
     app.state.live = LiveHub(store)
     _install_chat(app)
+    _install_obs(app)
     _install_error_handlers(app)
     app.mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static")
     # Stage themes (public, repo-level): the stage follows the session theme, not the fleet design.
@@ -163,6 +191,7 @@ def create_app() -> FastAPI:
     app.include_router(live.router)
     app.include_router(chat.router)
     app.include_router(groups.router)
+    app.include_router(settings.router)
     return app
 
 

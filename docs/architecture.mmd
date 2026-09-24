@@ -44,6 +44,11 @@ flowchart LR
   roster --> shuffle["src/groups/shuffle.py<br/>build_groups (ported verbatim)"]
   roster --> gfiles[("roster.xlsx · groups.yaml · exports/zoom-rooms-*.csv")]
   hub -->|reveal rooms| roster
+  hub -->|item profile| obs["src/obs/service.py<br/>ObsService · own thread · reconnect"]
+  obs -->|obs-websocket v5| obsapp["OBS Studio"]
+  appv --> settingsr["routers/settings.py<br/>OBS connection · profiles · reader"]
+  settingsr --> settingsf["src/settings.py → config/config.json"]
+  settingsr --> obs
   stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg
