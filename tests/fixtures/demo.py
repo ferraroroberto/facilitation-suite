@@ -270,6 +270,48 @@ def zoom_saved_chat(chat: list[dict[str, Any]], *, host: str = "Demo Host", layo
     return "\n".join(lines) + "\n"
 
 
+# The deck, edited after the first import (synthetic): what a re-import review shows.
+REIMPORT_EDITS: dict[str, Any] = {
+    "redrawn": 103,  # "What we want from today": a new drawing
+    "renamed": (108, "Our common enemy"),
+    "notes": (105, "Ask for one example each.\nKeep it to two minutes."),
+    "new": {"id": 111, "title": "How do we want to be remembered?", "shape": "sun", "after": 106},
+    "removed": 109,  # "What do we need to win?" — the ideas feed after it now follows slide 108
+    "moved": (102, 104),  # "Today's menu" now comes after "Getting to know each other"
+}
+
+
+def stage_demo_reimport(folder: Path) -> Path:
+    """Stage a re-import of the edited demo deck in ``slides/incoming/``, as the importer does."""
+    from src.importer.service import INCOMING
+
+    inc = folder / "slides" / INCOMING
+    inc.mkdir(parents=True, exist_ok=True)
+    e = REIMPORT_EDITS
+    specs = [dict(sp) for sp in SLIDES if sp["id"] != e["removed"]]
+    for sp in specs:
+        if sp["id"] == e["redrawn"]:
+            sp["shape"] = "badges"
+        if sp["id"] == e["renamed"][0]:
+            sp["title"] = e["renamed"][1]
+    at = next(i for i, sp in enumerate(specs) if sp["id"] == e["new"]["after"])
+    specs.insert(at + 1, {k: v for k, v in e["new"].items() if k != "after"})
+    mover = next(sp for sp in specs if sp["id"] == e["moved"][0])
+    specs.remove(mover)
+    specs.insert(next(i for i, sp in enumerate(specs) if sp["id"] == e["moved"][1]) + 1, mover)
+    export_slides = []
+    for i, sp in enumerate(specs, start=1):
+        file = f"slide-{sp['id']}.png"
+        draw_slide(sp, inc / file)
+        notes = e["notes"][1] if sp["id"] == e["notes"][0] else ""
+        export_slides.append({"slide_id": sp["id"], "index": i, "title": sp["title"], "notes": notes,
+                              "texts": [sp["title"]], "pictures": 0 if sp.get("divider") else 1,
+                              "background": "#f2f2f2", "hidden": False, "file": file})
+    meta = build_slides_meta({"sections": [], "slides": export_slides}, inc, Path("demo-v2.pptx"))
+    (inc / "slides.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    return inc
+
+
 def build_demo_session(folder: Path, ledger: Path | None = None) -> tuple[str, Path]:
     """Write the demo session into ``folder`` (and the ledger, when given)."""
     slides_dir = folder / "slides"

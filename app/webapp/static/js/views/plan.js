@@ -8,6 +8,7 @@ import { switchEl } from '/static/_vendored/switch/switch.js';
 import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
+import { openReview } from '/static/js/reimport.js';
 import { createStage } from '/static/js/stage-render.js';
 
 const PROFILES = [
@@ -30,7 +31,10 @@ let head;
 let listCard;
 let editor;
 let toolbar;
-const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, dirty: false, collapsed: new Set(), loadedFor: null };
+let reviewNote;
+let split;
+let reviewHost;
+const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
 
 // ---------------------------------------------------------------- helpers
 
@@ -98,20 +102,25 @@ function chipHtml(it) {
 export async function mount(el, context) {
   ctx = context;
   el.innerHTML = '';
-  const split = document.createElement('div');
+  split = document.createElement('div');
   split.className = 'split plan-split';
+  reviewHost = document.createElement('div');
+  reviewHost.className = 'review-host';
+  reviewHost.hidden = true;
   const left = document.createElement('div');
   left.className = 'split-list';
   editor = document.createElement('div');
   editor.className = 'split-detail';
   split.append(left, editor);
-  el.appendChild(split);
+  el.append(split, reviewHost);
 
   head = pageHead({ glyph: 'presentation', title: 'Plan', status: '' });
   left.appendChild(head);
   toolbar = document.createElement('div');
   toolbar.className = 'plan-toolbar';
   left.appendChild(toolbar);
+  reviewNote = document.createElement('div');
+  left.appendChild(reviewNote);
   listCard = document.createElement('div');
   listCard.className = 'card list-card plan-list';
   left.appendChild(listCard);
@@ -120,7 +129,33 @@ export async function mount(el, context) {
 }
 
 export function show() {
+  if (ctx.reviewFor && ctx.reviewFor === ctx.sessionId) { load(); return; }
   if (st.loadedFor !== ctx.sessionId && !st.dirty) load();
+}
+
+function showReview() {
+  split.hidden = true;
+  reviewHost.hidden = false;
+  window.scrollTo(0, 0);
+  openReview(reviewHost, st.sid, {
+    onClose: (changed) => {
+      reviewHost.hidden = true;
+      reviewHost.innerHTML = '';
+      split.hidden = false;
+      if (changed) load(); else renderReviewNote();
+    },
+  });
+}
+
+function renderReviewNote() {
+  reviewNote.innerHTML = '';
+  if (!st.pending) return;
+  const b = document.createElement('div');
+  b.className = 'banner warn review-banner';
+  b.innerHTML = `${icon('refresh-cw')}<span class="grow">A re-import is waiting for your review — nothing has changed yet.</span>` +
+    '<button type="button" class="banner-action" data-review>Review</button>';
+  b.querySelector('[data-review]').addEventListener('click', showReview);
+  reviewNote.appendChild(b);
 }
 
 async function load() {
@@ -138,11 +173,13 @@ async function load() {
   listCard.innerHTML = '';
   listCard.appendChild(emptyStateEl('refresh-cw', 'Reading the plan…'));
   try {
-    const [detail, deck, acts] = await Promise.all([
+    const [detail, deck, acts, review] = await Promise.all([
       api(`/api/sessions/${st.sid}`),
       api(`/api/sessions/${st.sid}/slides`),
       api('/api/activities'),
+      api(`/api/sessions/${st.sid}/reimport`).catch(() => ({ pending: false })),
     ]);
+    st.pending = review.pending;
     st.session = detail.session;
     st.deck = deck;
     st.slides = new Map(deck.slides.map((s) => [s.slide_id, s]));
@@ -159,9 +196,14 @@ async function load() {
     st.selected = first ? first.it.id : null;
   }
   render();
+  if (st.pending && ctx.reviewFor === st.sid) {
+    ctx.reviewFor = null;
+    showReview();
+  }
 }
 
 function render() {
+  renderReviewNote();
   const secs = st.session.sections || [];
   const total = secs.reduce((a, s) => a + (s.minutes || 0), 0);
   setStatus(head, `${secs.length} sections · ${fmtMinutes(total)}`);
@@ -457,7 +499,10 @@ async function reimport() {
   }
   const had = st.deck && st.deck.slides.length > 0;
   const done = await importDialog(st.sid, { lastPath: (st.session.source && st.session.source.pptx) || '', reimport: had });
-  if (done) { st.dirty = false; await load(); }
+  if (!done) return;
+  st.dirty = false;
+  if (done.review) ctx.reviewFor = st.sid;
+  await load();
 }
 
 async function saveSession() {

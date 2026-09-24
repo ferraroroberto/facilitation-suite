@@ -272,7 +272,14 @@ async function readinessAction(sid, s, action) {
 
 async function runImport(sid, s, reimport) {
   const done = await importDialog(sid, { lastPath: (s.source && s.source.pptx) || '', reimport });
-  if (done) await refresh();
+  if (!done) return;
+  if (done.review) {
+    if (ctx.sessionId !== sid) ctx.setSession(sid);
+    ctx.reviewFor = sid;  // the Plan tab opens the review
+    ctx.goTo('plan');
+    return;
+  }
+  await refresh();
 }
 
 async function save(sid, session) {

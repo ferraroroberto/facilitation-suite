@@ -9,7 +9,7 @@ flowchart LR
   subgraph server[FastAPI :8449 — app/webapp/server.py]
     pages["routers/pages.py<br/>pages · /healthz · /api/version"]
     sessr["routers/sessions.py<br/>/api/sessions…"]
-    slidesr["routers/slides.py<br/>import jobs · slides · native picker"]
+    slidesr["routers/slides.py<br/>import jobs · re-import review · slides · native picker"]
     actr["routers/activities.py<br/>/api/activities"]
     liver["routers/live.py<br/>WS /ws · /api/live…"]
   end
@@ -68,6 +68,10 @@ flowchart LR
   slidesr --> importer["src/importer/service.py<br/>ImportJob · plan build · re-import"]
   importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
   importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]
+  importer -->|re-import| staged[("slides/incoming/<br/>staged export")]
+  slidesr --> review["src/importer/review.py<br/>diff · per-change apply · anchors"]
+  review --> staged
+  review --> folder
   importer --> folder
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]

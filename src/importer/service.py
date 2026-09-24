@@ -13,11 +13,9 @@ process with a timeout, reports progress, then:
      ``activity – <question>`` (or the old ``streamalive N – <question>``)
      becomes an activity, ``breakout – <title>`` a break, ``mentimeter …`` a
      skipped slide;
-   - **re-import** (simple, step 3): slides are matched by SlideID; surviving
-     slide items stay where they are (the plan order is the user's), removed
-     slides drop out (an activity after them now follows the previous
-     surviving slide), new slides are inserted after the slide that precedes
-     them in the deck. The full review screen is step 13.
+   - **re-import**: nothing changes yet — the export is staged in
+     ``slides/incoming/`` and the review screen (``review.py``) says what
+     changed; each change is accepted one by one before it applies.
 """
 
 from __future__ import annotations
@@ -47,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 EXPORT_TIMEOUT_S = 300
+INCOMING = "incoming"  # slides/incoming/: a re-import waiting for review
 
 _DASH = r"\s*[\-–—:]\s*"
 ACTIVITY_RE = re.compile(rf"^\s*(?:streamalive|activity|actividad)\s*\d*{_DASH}(.+)$", re.I | re.S)
@@ -161,11 +160,11 @@ def build_slides_meta(export: dict[str, Any], slides_dir: Path, deck: Path) -> d
     }
 
 
-def _slide_item(s: dict[str, Any]) -> Item:
+def slide_item(s: dict[str, Any]) -> Item:
     return Item(kind="slide", slide_id=s["slide_id"], profile=s["profile"], include=not s["hidden"])
 
 
-def _placeholder_item(s: dict[str, Any], ph: dict[str, Any]) -> Optional[Item]:
+def placeholder_item(s: dict[str, Any], ph: dict[str, Any]) -> Optional[Item]:
     if ph["kind"] == "skip":
         return Item(kind="slide", slide_id=s["slide_id"], include=False, profile=s["profile"])
     if ph["kind"] == "activity":
@@ -189,7 +188,7 @@ def first_plan(meta: dict[str, Any], duration_minutes: int) -> list[Section]:
         if s["index"] in starts or not sections:
             sections.append(Section(name=starts.get(s["index"], "Opening"), items=[]))
         ph = s.get("placeholder")
-        item = _placeholder_item(s, ph) if ph else _slide_item(s)
+        item = placeholder_item(s, ph) if ph else slide_item(s)
         if item is not None:
             sections[-1].items.append(item)
     # Planned minutes: the session's duration split by item count, rounded to 5.
@@ -197,45 +196,6 @@ def first_plan(meta: dict[str, Any], duration_minutes: int) -> list[Section]:
     for sec in sections:
         sec.minutes = max(5, int(round(duration_minutes * len(sec.items) / total / 5.0)) * 5)
     return sections
-
-
-def merge_reimport(session: Session, meta: dict[str, Any]) -> dict[str, int]:
-    """Simple re-import: keep plan order, drop removed slides, insert new ones."""
-    by_id = {s["slide_id"]: s for s in meta["slides"]}
-    deck_order = [s["slide_id"] for s in meta["slides"]]
-    present = {it.slide_id for it in session.all_items() if it.kind == "slide"}
-    removed = 0
-    for sec in session.sections:
-        before = len(sec.items)
-        sec.items = [it for it in sec.items if not (it.kind == "slide" and it.slide_id not in by_id)]
-        removed += before - len(sec.items)
-    added = 0
-    for pos, sid in enumerate(deck_order):
-        if sid in present:
-            continue
-        s = by_id[sid]
-        if s.get("placeholder"):
-            continue
-        new_item = _slide_item(s)
-        # after the nearest preceding deck slide that is in the plan
-        anchor = next((deck_order[j] for j in range(pos - 1, -1, -1) if deck_order[j] in present), None)
-        placed = False
-        if anchor is not None:
-            for sec in session.sections:
-                for k, it in enumerate(sec.items):
-                    if it.kind == "slide" and it.slide_id == anchor:
-                        sec.items.insert(k + 1, new_item)
-                        placed = True
-                        break
-                if placed:
-                    break
-        if not placed:
-            if not session.sections:
-                session.sections.append(Section(name="Slides", items=[]))
-            session.sections[0].items.insert(0, new_item)
-        present.add(sid)
-        added += 1
-    return {"added": added, "removed": removed, "kept": len(present) - added}
 
 
 @dataclass
@@ -288,7 +248,11 @@ class Importer:
         try:
             folder = self._folder(job.session_id)
             session = self._load(job.session_id)
+            first = not session.all_items()
             slides_dir = folder / "slides"
+            staged = slides_dir / INCOMING
+            shutil.rmtree(staged, ignore_errors=True)  # a newer export replaces one waiting for review
+            target = slides_dir if first else staged
             with tempfile.TemporaryDirectory(prefix="fs-export-") as tmp:
                 out = Path(tmp)
 
@@ -298,30 +262,30 @@ class Importer:
 
                 export = self._exporter(Path(job.deck), out, progress)
                 job.message = "Analysing slides…"
-                slides_dir.mkdir(parents=True, exist_ok=True)
-                keep = {s["file"] for s in export["slides"]}
-                for old in slides_dir.glob("slide-*.png"):
-                    if old.name not in keep:
-                        old.unlink()
+                target.mkdir(parents=True, exist_ok=True)
+                if first:
+                    keep = {s["file"] for s in export["slides"]}
+                    for old in slides_dir.glob("slide-*.png"):
+                        if old.name not in keep:
+                            old.unlink()
                 for s in export["slides"]:
-                    shutil.copy2(out / s["file"], slides_dir / s["file"])
-            meta = build_slides_meta(export, slides_dir, Path(job.deck))
-            (slides_dir / "slides.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
-
-            first = not session.all_items()
+                    shutil.copy2(out / s["file"], target / s["file"])
+            meta = build_slides_meta(export, target, Path(job.deck))
+            (target / "slides.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+            unsure = sum(1 for s in meta["slides"] if s["profile"] is None and not s.get("placeholder"))
             if first:
                 session.sections = first_plan(meta, session.duration_minutes)
-                summary = {"first_import": True, "sections": len(session.sections),
+                session.source = Source(pptx=job.deck, imported_at=datetime.now().replace(microsecond=0))
+                self._save(job.session_id, ensure_ids(session))
+                summary = {"first_import": True, "review": False, "sections": len(session.sections),
                            "items": len(session.all_items())}
+                job.message = f"Imported {len(meta['slides'])} slides"
             else:
-                summary = {"first_import": False, **merge_reimport(session, meta)}
-            session.source = Source(pptx=job.deck, imported_at=datetime.now().replace(microsecond=0))
-            self._save(job.session_id, ensure_ids(session))
-            unsure = sum(1 for s in meta["slides"] if s["profile"] is None and not s.get("placeholder"))
+                summary = {"first_import": False, "review": True}
+                job.message = f"Exported {len(meta['slides'])} slides — review the changes"
             job.result = {"slides": len(meta["slides"]), "unsure_profiles": unsure, **summary}
             job.state = "done"
-            job.message = f"Imported {len(meta['slides'])} slides"
-            logger.info("✅ import: %s slides into session %s (%s)", len(meta["slides"]), job.session_id, summary)
+            logger.info("✅ import: %s slides for session %s (%s)", len(meta["slides"]), job.session_id, summary)
         except ImportError_ as exc:
             job.state, job.code, job.message = "error", exc.code, str(exc)
             logger.error("❌ import failed (%s): %s", exc.code, exc)

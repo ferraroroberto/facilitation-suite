@@ -18,6 +18,8 @@ const mounted = {};
 const ctx = {
   /** The session every tab works on; views subscribe with onSession(). */
   sessionId: null,
+  /** A session whose re-import waits for review: the Plan tab opens the review for it. */
+  reviewFor: null,
   listeners: new Set(),
   setSession(id) {
     this.sessionId = id;

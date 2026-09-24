@@ -1,4 +1,4 @@
-"""PowerPoint import jobs, the imported slides, and the native file picker."""
+"""PowerPoint import jobs, the re-import review, the imported slides, and the native file picker."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError, require_local
-from src.importer.service import Importer, ImportError_
-from src.sessions.store import SessionError, SessionStore
+from src.importer import review as rv
+from src.importer.service import INCOMING, Importer, ImportError_
+from src.sessions.model import Session, Source, ensure_ids
+from src.sessions.store import SessionError, SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -81,6 +84,67 @@ def slide_png(request: Request, sid: str, name: str) -> FileResponse:
     if not path.is_file():
         raise AppError(404, "not_found", "No such slide")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})
+
+
+class ApplyRequest(BaseModel):
+    accepted: list[str] = Field(default_factory=list, max_length=5000)
+
+
+def _session(request: Request, sid: str) -> Session:
+    try:
+        return _store(request).load(sid)
+    except SessionError as exc:
+        raise AppError(exc.status, exc.code, str(exc)) from exc
+
+
+@router.get("/api/sessions/{sid}/reimport")
+def reimport_review(request: Request, sid: str) -> dict[str, Any]:
+    """The staged re-import compared with the slides and the plan (``pending: false`` when none waits)."""
+    folder = _folder(request, sid)
+    new_meta = rv.pending(folder)
+    if new_meta is None:
+        return {"pending": False}
+    old_meta = rv.read_meta(folder / "slides" / "slides.json")
+    return {"pending": True, **rv.diff(old_meta, new_meta, _session(request, sid))}
+
+
+@router.get("/api/sessions/{sid}/reimport/slides/{name}")
+def reimport_png(request: Request, sid: str, name: str) -> FileResponse:
+    if not SLIDE_FILE.match(name):
+        raise AppError(404, "not_found", "No such slide")
+    path = _folder(request, sid) / "slides" / INCOMING / name
+    if not path.is_file():
+        raise AppError(404, "not_found", "No such slide")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})
+
+
+@router.post("/api/sessions/{sid}/reimport/apply")
+def reimport_apply(request: Request, sid: str, body: ApplyRequest) -> dict[str, Any]:
+    folder = _folder(request, sid)
+    session = _session(request, sid)
+    try:
+        result = rv.apply(folder, session, set(body.accepted))
+    except rv.ReviewError as exc:
+        raise AppError(exc.status, exc.code, str(exc)) from exc
+    meta = result.pop("meta")
+    atomic_write_text(folder / "slides" / "slides.json", json.dumps(meta, ensure_ascii=False, indent=1))
+    session.source = Source(pptx=meta.get("source", ""), imported_at=datetime.now().replace(microsecond=0))
+    try:
+        _store(request).save(sid, ensure_ids(session))
+    except SessionError as exc:
+        raise AppError(exc.status, exc.code, str(exc)) from exc
+    rv.discard(folder)
+    hub = getattr(request.app.state, "live", None)
+    if hub is not None:
+        hub.session_saved(sid)
+    logger.info("✅ re-import applied to %s: %s", sid, result)
+    return result
+
+
+@router.delete("/api/sessions/{sid}/reimport")
+def reimport_discard(request: Request, sid: str) -> dict[str, bool]:
+    rv.discard(_folder(request, sid))
+    return {"pending": False}
 
 
 class PickRequest(BaseModel):
