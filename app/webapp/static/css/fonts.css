@@ -1,0 +1,9 @@
+/* Fonts vendored into the repo so the stage works offline.
+   Patrick Hand — SIL Open Font License 1.1 (fonts/OFL-PatrickHand.txt). */
+@font-face {
+  font-family: "Patrick Hand";
+  src: url("/static/fonts/PatrickHand-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}

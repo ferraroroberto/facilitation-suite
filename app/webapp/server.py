@@ -39,7 +39,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.errors import AppError, error_response
-from app.webapp.routers import pages, sessions, slides
+from app.webapp.routers import activities, pages, sessions, slides
 from src.build_info import build_identity
 from src.config import load_config
 from src.importer.service import Importer
@@ -103,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(pages.router)
     app.include_router(sessions.router)
     app.include_router(slides.router)
+    app.include_router(activities.router)
     return app
 
 

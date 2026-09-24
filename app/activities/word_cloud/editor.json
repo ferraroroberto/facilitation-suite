@@ -1,0 +1,14 @@
+{
+  "type": "word_cloud",
+  "label": "Word cloud",
+  "icon": "cloud",
+  "order": 1,
+  "description": "Every answer grows the cloud live. Answers of up to three words stay one phrase.",
+  "chat_prompt_hint": "One or two words: …",
+  "options": [
+    {"key": "merge_variants", "label": "Merge plurals, accents and case", "kind": "switch", "default": true},
+    {"key": "stopwords", "label": "Ignore filler words", "kind": "select", "default": "es",
+     "choices": [["none", "Keep everything"], ["es", "Spanish"], ["en", "English"], ["both", "Spanish + English"]]},
+    {"key": "show_names", "label": "Show names on stage", "kind": "switch", "default": false}
+  ]
+}

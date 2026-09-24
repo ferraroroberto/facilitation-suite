@@ -1,12 +1,754 @@
-// Plan view — placeholder until its step lands.
+// Plan tab: sections with planned minutes, and slides / activities / breaks in
+// order (left), the selected item's editor (right). Edits are staged in memory;
+// "Save to session.yaml" is the one persistence boundary.
 
+import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { pageHead } from '/static/js/ui.js';
+import { switchEl } from '/static/_vendored/switch/switch.js';
+import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
+import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
+import { importDialog } from '/static/js/importer.js';
 
-export function mount(el) {
-  el.appendChild(pageHead({ glyph: 'presentation', title: 'Plan' }));
+const PROFILES = [
+  ['camera_strip', 'Camera strip'],
+  ['camera_pip', 'Camera PiP'],
+  ['screen_only', 'Screen only'],
+];
+const FONTS = [
+  ['Patrick Hand', 'Patrick Hand · session theme'],
+  ['system-ui', 'System sans'],
+  ['Georgia', 'Georgia (serif)'],
+  ['Segoe Print', 'Segoe Print (handwriting)'],
+];
+const TIMER_START = { manual: 'When I start it', on_enter: 'When the item opens', with_capture: 'With the capture' };
+const TIMER_END = { keep: 'Keep showing 00:00', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
+const KIND_ICON = { break: 'coffee' };
+
+let ctx;
+let head;
+let listCard;
+let editor;
+let toolbar;
+const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, dirty: false, collapsed: new Set(), loadedFor: null };
+
+// ---------------------------------------------------------------- helpers
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function allItems() {
+  const out = [];
+  (st.session.sections || []).forEach((sec, si) => sec.items.forEach((it, ii) => out.push({ it, sec, si, ii })));
+  return out;
+}
+
+function findItem(id) { return allItems().find((x) => x.it.id === id) || null; }
+
+function slideOf(it) { return it.kind === 'slide' ? st.slides.get(it.slide_id) : null; }
+
+function titleOf(it) {
+  if (it.title) return it.title;
+  if (it.kind === 'slide') { const s = slideOf(it); return s ? s.title : `Slide ${it.slide_id}`; }
+  if (it.kind === 'activity') return it.question || (st.types[it.type] || {}).label || 'Activity';
+  return 'Break';
+}
+
+function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8)}`; }
+
+function fmtTimer(sec) {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function parseTimer(text) {
+  const t = String(text).trim();
+  const m = t.match(/^(\d+)(?::(\d{1,2}))?$/);
+  if (!m) return null;
+  return m[2] === undefined ? parseInt(m[1], 10) * 60 : parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function markDirty() {
+  st.dirty = true;
+  renderToolbar();
+}
+
+function thumbHtml(it) {
+  if (it.kind === 'slide') {
+    const s = slideOf(it);
+    if (s) return `<img class="thumb" loading="lazy" alt="" src="/api/sessions/${st.sid}/slides/${s.file}">`;
+  }
+  const glyph = it.kind === 'activity' ? ((st.types[it.type] || {}).icon || 'message-square') : (KIND_ICON[it.kind] || 'image');
+  return `<span class="thumb thumb-icon">${icon(glyph)}</span>`;
+}
+
+function chipHtml(it) {
+  const chips = [];
+  if (it.kind === 'activity') chips.push(`<span class="chip accent">${esc((st.types[it.type] || {}).label || it.type)}</span>`);
+  if (it.kind === 'break') chips.push('<span class="chip">Break</span>');
+  if (it.timer && it.timer.enabled) chips.push(`<span class="chip">${icon('timer')}${fmtTimer(it.timer.seconds)}</span>`);
+  if (!it.profile && it.kind === 'slide') chips.push('<span class="chip warn">Pick profile</span>');
+  return chips.join('');
+}
+
+// ---------------------------------------------------------------- mount
+
+export async function mount(el, context) {
+  ctx = context;
+  el.innerHTML = '';
+  const split = document.createElement('div');
+  split.className = 'split plan-split';
+  const left = document.createElement('div');
+  left.className = 'split-list';
+  editor = document.createElement('div');
+  editor.className = 'split-detail';
+  split.append(left, editor);
+  el.appendChild(split);
+
+  head = pageHead({ glyph: 'presentation', title: 'Plan', status: '' });
+  left.appendChild(head);
+  toolbar = document.createElement('div');
+  toolbar.className = 'plan-toolbar';
+  left.appendChild(toolbar);
+  listCard = document.createElement('div');
+  listCard.className = 'card list-card plan-list';
+  left.appendChild(listCard);
+  ctx.onSession(() => { if (!st.dirty) load(); });
+  await load();
+}
+
+export function show() {
+  if (st.loadedFor !== ctx.sessionId && !st.dirty) load();
+}
+
+async function load() {
+  st.sid = ctx.sessionId;
+  st.loadedFor = st.sid;
+  st.dirty = false;
+  if (!st.sid) {
+    setStatus(head, 'no session');
+    toolbar.innerHTML = '';
+    listCard.innerHTML = '';
+    listCard.appendChild(emptyStateEl('calendar-days', 'Pick or create a session first.', { actionLabel: 'Sessions', onAction: () => ctx.goTo('sessions') }));
+    editor.innerHTML = '';
+    return;
+  }
+  listCard.innerHTML = '';
+  listCard.appendChild(emptyStateEl('refresh-cw', 'Reading the plan…'));
+  try {
+    const [detail, deck, acts] = await Promise.all([
+      api(`/api/sessions/${st.sid}`),
+      api(`/api/sessions/${st.sid}/slides`),
+      api('/api/activities'),
+    ]);
+    st.session = detail.session;
+    st.deck = deck;
+    st.slides = new Map(deck.slides.map((s) => [s.slide_id, s]));
+    st.types = Object.fromEntries(acts.types.map((t) => [t.type, t]));
+  } catch (e) {
+    listCard.innerHTML = '';
+    listCard.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
+    return;
+  }
+  if (!st.selected || !findItem(st.selected)) {
+    const first = allItems()[0];
+    st.selected = first ? first.it.id : null;
+  }
+  render();
+}
+
+function render() {
+  const secs = st.session.sections || [];
+  const total = secs.reduce((a, s) => a + (s.minutes || 0), 0);
+  setStatus(head, `${secs.length} sections · ${fmtMinutes(total)}`);
+  renderToolbar();
+  renderList();
+  renderEditor();
+}
+
+function renderToolbar() {
+  const secs = st.session ? st.session.sections || [] : [];
+  const total = secs.reduce((a, s) => a + (s.minutes || 0), 0);
+  const timers = allItems().reduce((a, x) => a + (x.it.timer && x.it.timer.enabled ? x.it.timer.seconds : 0), 0);
+  const over = st.session && total > st.session.duration_minutes;
+  toolbar.innerHTML =
+    `<button type="button" class="button-surface" data-reimport>${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
+    `<button type="button" class="button-surface" data-add-section>${icon('plus')} Add section</button>` +
+    `<span class="plan-totals ${over ? 'over' : ''}">Planned ${fmtMinutes(total)} of ${fmtMinutes(st.session ? st.session.duration_minutes : 0)}` +
+    `${timers ? ` · ${Math.round(timers / 60)} min on timers` : ''}</span>` +
+    (st.dirty ? `<span class="dirty-bar"><span class="chip warn">Unsaved changes</span>` +
+      `<button type="button" class="button-ghost" data-discard>Discard</button>` +
+      `<button type="button" class="button-primary save-small" data-save>Save</button></span>` : '');
+  toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
+  toolbar.querySelector('[data-add-section]').addEventListener('click', addSection);
+  const save = toolbar.querySelector('[data-save]');
+  if (save) save.addEventListener('click', saveSession);
+  const discard = toolbar.querySelector('[data-discard]');
+  if (discard) discard.addEventListener('click', load);
+}
+
+// ---------------------------------------------------------------- list
+
+function renderList() {
+  listCard.innerHTML = '';
+  const secs = st.session.sections || [];
+  if (!secs.length) {
+    listCard.appendChild(emptyStateEl('upload', 'Import the PowerPoint to start the plan.', { actionLabel: 'Import PowerPoint', onAction: reimport }));
+    return;
+  }
+  let n = 0;
+  secs.forEach((sec, si) => {
+    const collapsed = st.collapsed.has(sec.id);
+    const h = document.createElement('div');
+    h.className = 'sec-row';
+    h.dataset.sec = sec.id;
+    h.draggable = true;
+    h.innerHTML =
+      `<span class="grip" aria-hidden="true">${icon('grip-vertical')}</span>` +
+      `<button type="button" class="sec-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
+      `<button type="button" class="sec-name" title="Rename">${esc(sec.name)}</button>` +
+      `<span class="sec-meta">${sec.items.length} item${sec.items.length === 1 ? '' : 's'}${collapsed ? ' · collapsed' : ''}</span>` +
+      `<label class="sec-min"><input type="number" min="0" max="1440" value="${sec.minutes}" aria-label="Planned minutes for ${esc(sec.name)}"><span>min</span></label>` +
+      `<button type="button" class="kebab hit-target" aria-label="Section actions">${icon('ellipsis-vertical')}</button>`;
+    h.querySelector('.sec-toggle').addEventListener('click', () => {
+      if (collapsed) st.collapsed.delete(sec.id); else st.collapsed.add(sec.id);
+      renderList();
+    });
+    h.querySelector('.sec-name').addEventListener('click', () => renameSection(sec));
+    h.querySelector('.sec-min input').addEventListener('change', (e) => {
+      sec.minutes = Math.max(0, parseInt(e.target.value, 10) || 0);
+      markDirty();
+      setStatus(head, `${secs.length} sections · ${fmtMinutes(secs.reduce((a, s) => a + (s.minutes || 0), 0))}`);
+    });
+    h.querySelector('.kebab').addEventListener('click', (e) => {
+      e.stopPropagation();
+      rowMenu(e.currentTarget, [
+        { label: 'Rename', icon: 'pencil', onClick: () => renameSection(sec) },
+        { label: 'Add an activity here', icon: 'plus', onClick: () => addItem(si, 'activity') },
+        { label: 'Move up', icon: 'chevron-up', onClick: () => moveSection(si, -1) },
+        { label: 'Move down', icon: 'chevron-down', onClick: () => moveSection(si, 1) },
+        { label: 'Delete section', icon: 'trash-2', danger: true, onClick: () => deleteSection(si) },
+      ]);
+    });
+    wireDrop(h, { sec: si, index: sec.items.length, header: true });
+    h.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/fs-sec', String(si)); e.dataTransfer.effectAllowed = 'move'; });
+    listCard.appendChild(h);
+
+    sec.items.forEach((it, ii) => {
+      n += 1;
+      if (collapsed) return;
+      const row = document.createElement('div');
+      row.className = 'item-row' + (it.id === st.selected ? ' selected' : '') + (it.include === false ? ' excluded' : '');
+      row.dataset.item = it.id;
+      row.tabIndex = 0;
+      row.draggable = true;
+      row.setAttribute('role', 'button');
+      row.innerHTML =
+        `<span class="num">${n}</span>${thumbHtml(it)}` +
+        `<span class="item-title">${esc(titleOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
+      row.addEventListener('click', () => select(it.id));
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(it.id); }
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveItem(it.id, e.key === 'ArrowUp' ? -1 : 1, true); }
+      });
+      row.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/fs-item', it.id); e.dataTransfer.effectAllowed = 'move'; row.classList.add('dragging'); });
+      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      wireDrop(row, { sec: si, index: ii });
+      listCard.appendChild(row);
+    });
+    if (!collapsed) {
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'add-row';
+      add.innerHTML = `${icon('plus')} Add slide or activity`;
+      add.addEventListener('click', (e) => {
+        rowMenu(e.currentTarget, [
+          { label: 'Activity', icon: 'message-square', onClick: () => addItem(si, 'activity') },
+          { label: 'Break', icon: 'coffee', onClick: () => addItem(si, 'break') },
+          { label: 'Slide from the deck', icon: 'image', onClick: () => addSlide(si) },
+        ]);
+      });
+      wireDrop(add, { sec: si, index: sec.items.length });
+      listCard.appendChild(add);
+    }
+  });
+}
+
+function wireDrop(el, target) {
+  el.addEventListener('dragover', (e) => {
+    const types = e.dataTransfer.types;
+    if (types.includes('text/fs-item') || (target.header && types.includes('text/fs-sec'))) {
+      e.preventDefault();
+      el.classList.add('drop-target');
+    }
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+  el.addEventListener('drop', (e) => {
+    el.classList.remove('drop-target');
+    const itemId = e.dataTransfer.getData('text/fs-item');
+    const secIdx = e.dataTransfer.getData('text/fs-sec');
+    e.preventDefault();
+    if (itemId) {
+      const r = el.getBoundingClientRect();
+      const after = !target.header && e.clientY > r.top + r.height / 2;
+      dropItem(itemId, target.sec, target.index + (after ? 1 : 0), target.header);
+    } else if (secIdx !== '') {
+      const from = parseInt(secIdx, 10);
+      const [moved] = st.session.sections.splice(from, 1);
+      st.session.sections.splice(target.sec > from ? target.sec - 1 : target.sec, 0, moved);
+      markDirty();
+      renderList();
+    }
+  });
+}
+
+function dropItem(id, secIdx, index, toEnd) {
+  const found = findItem(id);
+  if (!found) return;
+  const [it] = found.sec.items.splice(found.ii, 1);
+  const dest = st.session.sections[secIdx];
+  let at = toEnd ? dest.items.length : index;
+  if (found.si === secIdx && found.ii < at) at -= 1;
+  dest.items.splice(Math.max(0, Math.min(at, dest.items.length)), 0, it);
+  markDirty();
+  renderList();
+}
+
+function moveItem(id, dir, keepFocus = false) {
+  const flat = allItems();
+  const pos = flat.findIndex((x) => x.it.id === id);
+  if (pos < 0) return;
+  const cur = flat[pos];
+  const secs = st.session.sections;
+  cur.sec.items.splice(cur.ii, 1);
+  if (dir < 0) {
+    if (cur.ii > 0) cur.sec.items.splice(cur.ii - 1, 0, cur.it);
+    else if (cur.si > 0) secs[cur.si - 1].items.push(cur.it);
+    else cur.sec.items.unshift(cur.it);
+  } else if (cur.ii < cur.sec.items.length) {
+    cur.sec.items.splice(cur.ii + 1, 0, cur.it);
+  } else if (cur.si < secs.length - 1) {
+    secs[cur.si + 1].items.unshift(cur.it);
+  } else {
+    cur.sec.items.push(cur.it);
+  }
+  markDirty();
+  renderList();
+  renderEditor();
+  if (keepFocus) {
+    const row = listCard.querySelector(`[data-item="${id}"]`);
+    if (row) row.focus();
+  }
+}
+
+function moveSection(si, dir) {
+  const secs = st.session.sections;
+  const to = si + dir;
+  if (to < 0 || to >= secs.length) return;
+  const [s] = secs.splice(si, 1);
+  secs.splice(to, 0, s);
+  markDirty();
+  renderList();
+}
+
+function select(id) {
+  st.selected = id;
+  listCard.querySelectorAll('.item-row').forEach((r) => r.classList.toggle('selected', r.dataset.item === id));
+  renderEditor();
+}
+
+// ---------------------------------------------------------------- sections + items
+
+async function renameSection(sec) {
+  const v = await formDialog({ title: 'Rename section', fields: [{ name: 'name', label: 'Name', value: sec.name, required: true }] });
+  if (!v) return;
+  sec.name = v.name.trim();
+  markDirty();
+  render();
+}
+
+async function addSection() {
+  const v = await formDialog({
+    title: 'Add section',
+    fields: [
+      { name: 'name', label: 'Name', required: true, placeholder: 'Working agreement' },
+      { name: 'minutes', label: 'Planned minutes', type: 'number', value: 10 },
+    ],
+  });
+  if (!v) return;
+  st.session.sections.push({ id: newId('sec'), name: v.name.trim(), minutes: Math.max(0, parseInt(v.minutes, 10) || 0), items: [] });
+  markDirty();
+  render();
+}
+
+async function deleteSection(si) {
+  const sec = st.session.sections[si];
+  const target = si > 0 ? st.session.sections[si - 1] : st.session.sections[si + 1];
+  if (sec.items.length && !target) { toast('The last section cannot be deleted while it holds items', 'error'); return; }
+  const ok = await confirmDialog({
+    title: 'Delete section?',
+    message: sec.items.length ? `Its ${sec.items.length} items move to "${target.name}".` : 'The section is empty.',
+    actionLabel: 'Delete section', danger: true,
+  });
+  if (!ok) return;
+  if (sec.items.length) {
+    if (si > 0) target.items.push(...sec.items); else target.items.unshift(...sec.items);
+  }
+  st.session.sections.splice(si, 1);
+  markDirty();
+  render();
+}
+
+function addItem(si, kind) {
+  const sec = st.session.sections[si];
+  const item = kind === 'activity'
+    ? { kind: 'activity', id: newId('act'), type: 'word_cloud', question: '', chat_prompt: '', profile: 'camera_pip', options: {} }
+    : { kind: 'break', id: newId('brk'), title: 'Break', profile: 'camera_strip' };
+  const selectedPos = sec.items.findIndex((x) => x.id === st.selected);
+  sec.items.splice(selectedPos >= 0 ? selectedPos + 1 : sec.items.length, 0, item);
+  st.selected = item.id;
+  markDirty();
+  render();
+}
+
+async function addSlide(si) {
+  if (!st.deck || !st.deck.slides.length) { toast('Import the PowerPoint first', 'error'); return; }
+  const used = new Set(allItems().filter((x) => x.it.kind === 'slide').map((x) => x.it.slide_id));
+  const options = st.deck.slides.map((s) => ({ value: s.slide_id, label: `${s.index}. ${s.title}${used.has(s.slide_id) ? ' (already in the plan)' : ''}` }));
+  const firstFree = st.deck.slides.find((s) => !used.has(s.slide_id));
+  const v = await formDialog({
+    title: 'Add a slide',
+    fields: [{ name: 'slide', label: 'Slide', type: 'select', options, value: firstFree ? firstFree.slide_id : options[0].value }],
+    saveLabel: 'Add',
+  });
+  if (!v) return;
+  const s = st.slides.get(parseInt(v.slide, 10));
+  const id = used.has(s.slide_id) ? newId('slide') : `slide-${s.slide_id}`;
+  st.session.sections[si].items.push({ kind: 'slide', id, slide_id: s.slide_id, profile: s.profile });
+  st.selected = id;
+  markDirty();
+  render();
+}
+
+async function deleteItem(id) {
+  const found = findItem(id);
+  if (!found) return;
+  const ok = await confirmDialog({
+    title: `Delete this ${found.it.kind}?`,
+    message: `"${titleOf(found.it)}" leaves the plan when you save.`,
+    actionLabel: 'Delete', danger: true,
+  });
+  if (!ok) return;
+  found.sec.items.splice(found.ii, 1);
+  const next = found.sec.items[found.ii] || found.sec.items[found.ii - 1];
+  st.selected = next ? next.id : null;
+  markDirty();
+  render();
+}
+
+async function reimport() {
+  if (st.dirty) {
+    const ok = await confirmDialog({ title: 'Unsaved changes', message: 'Save or discard your plan edits before importing.', actionLabel: 'Discard edits and continue', danger: true });
+    if (!ok) return;
+  }
+  const had = st.deck && st.deck.slides.length > 0;
+  const done = await importDialog(st.sid, { lastPath: (st.session.source && st.session.source.pptx) || '', reimport: had });
+  if (done) { st.dirty = false; await load(); }
+}
+
+async function saveSession() {
+  try {
+    const res = await api(`/api/sessions/${st.sid}`, { method: 'PUT', body: { session: st.session } });
+    st.session = res.session;
+    st.dirty = false;
+    toast('Saved to session.yaml');
+    render();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ---------------------------------------------------------------- editor
+
+function field(label, control, extraClass = '') {
+  const row = document.createElement('div');
+  row.className = 'ed-row ' + extraClass;
+  const l = document.createElement('div');
+  l.className = 'ed-label';
+  l.textContent = label;
+  const c = document.createElement('div');
+  c.className = 'ed-control';
+  if (typeof control === 'string') c.innerHTML = control; else c.appendChild(control);
+  row.append(l, c);
+  return row;
+}
+
+function rangeTabs(options, value, onPick, label) {
+  const nav = document.createElement('div');
+  nav.className = 'range-tabs ed-tabs';
+  nav.setAttribute('role', 'group');
+  nav.setAttribute('aria-label', label);
+  options.forEach(([v, text]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'range-tab' + (v === value ? ' active' : '');
+    b.textContent = text;
+    b.setAttribute('aria-pressed', String(v === value));
+    b.addEventListener('click', () => onPick(v));
+    nav.appendChild(b);
+  });
+  return nav;
+}
+
+function input(value, onChange, attrs = {}) {
+  const el = document.createElement(attrs.textarea ? 'textarea' : 'input');
+  el.className = 'input';
+  if (!attrs.textarea) el.type = attrs.type || 'text';
+  el.value = value == null ? '' : value;
+  Object.entries(attrs).forEach(([k, v]) => { if (k !== 'textarea' && k !== 'type') el.setAttribute(k, v); });
+  el.addEventListener('input', () => onChange(el.value, el));
+  return el;
+}
+
+function switchRow(on, text, onToggle, labelText) {
+  const wrap = document.createElement('div');
+  wrap.className = 'switch-line';
+  const sw = switchEl(on, { label: labelText || text, onToggle: (next, btn) => { onToggle(next); btn.className = 'toggle' + (next ? ' on' : ''); btn.setAttribute('aria-checked', String(next)); } });
+  const t = document.createElement('span');
+  t.className = 'muted small';
+  t.textContent = text;
+  wrap.append(sw, t);
+  return wrap;
+}
+
+function renderEditor() {
+  editor.innerHTML = '';
+  if (!st.session) return;
+  const found = st.selected ? findItem(st.selected) : null;
+  if (!found) {
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.appendChild(emptyStateEl('presentation', allItems().length ? 'Select an item to edit it.' : 'The plan is empty.'));
+    editor.appendChild(c);
+    return;
+  }
+  const { it, sec } = found;
+  const flat = allItems();
+  const pos = flat.findIndex((x) => x.it.id === it.id);
+  const prev = pos > 0 ? titleOf(flat[pos - 1].it) : null;
+
+  const title = document.createElement('div');
+  title.className = 'detail-title';
+  title.innerHTML = `<h1>${esc(titleOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
+  editor.appendChild(title);
+
+  editor.appendChild(previewCard(it));
+
+  const form = document.createElement('div');
+  form.className = 'card ed-card';
+  editor.appendChild(form);
+  const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = titleOf(it); };
+
+  if (it.kind === 'activity') {
+    const types = Object.values(st.types).map((t) => [t.type, t.label]);
+    const extra = types.slice(5).find(([t]) => t === it.type);
+    const moreTab = types.length > 5 ? [[extra ? it.type : '__more', extra ? `${extra[1]} ▾` : 'More…']] : [];
+    form.appendChild(field('Type', rangeTabs(types.slice(0, 5).concat(moreTab), it.type, (v) => {
+      if (v === it.type && extra) v = '__more';
+      if (v === '__more') {
+        rowMenu(form.querySelector('.ed-tabs .range-tab:last-child'), types.slice(5).map(([t, l]) => ({ label: l, icon: (st.types[t] || {}).icon, onClick: () => { it.type = t; it.options = {}; markDirty(); renderList(); renderEditor(); } })));
+        return;
+      }
+      it.type = v;
+      it.options = {};
+      markDirty();
+      renderList();
+      renderEditor();
+    }, 'Activity type')));
+    const spec = st.types[it.type] || {};
+    if (spec.capture !== false) {
+      form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' })));
+      const font = it.font || { family: 'Patrick Hand', size_px: 72 };
+      const fam = document.createElement('select');
+      fam.className = 'select-native';
+      fam.setAttribute('aria-label', 'Question font');
+      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === font.family; fam.appendChild(o); });
+      fam.addEventListener('change', () => { it.font = Object.assign({}, it.font || font, { family: fam.value }); markDirty(); updatePreview(it); });
+      const size = input(font.size_px, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) { it.font = Object.assign({}, it.font || font, { size_px: n }); markDirty(); updatePreview(it); } }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
+      size.classList.add('size-input');
+      const fontRow = document.createElement('div');
+      fontRow.className = 'inline-controls';
+      fontRow.append(fam, size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
+      form.appendChild(field('Question font', fontRow));
+      form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
+    } else {
+      form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.label })));
+    }
+  } else {
+    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : 'Break';
+    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
+    const hint = document.createElement('p');
+    hint.className = 'ed-hint';
+    hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage.';
+    form.lastChild.querySelector('.ed-control').appendChild(hint);
+  }
+
+  form.appendChild(field('OBS profile', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'OBS profile')));
+  if (it.kind === 'slide' && it.profile == null) {
+    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint warn">Detection was unsure for this slide — pick one.</p>');
+  } else if (it.kind === 'slide') {
+    const s = slideOf(it);
+    if (s && s.profile && s.profile !== it.profile) {
+      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">Detected: ${esc(PROFILES.find((p) => p[0] === s.profile)[1])}</p>`);
+    }
+  }
+
+  form.appendChild(timerField(it));
+
+  form.appendChild(field('In this session', switchRow(it.include !== false, 'Off = skipped live, kept in the plan', (next) => {
+    it.include = next;
+    markDirty();
+    renderList();
+  }, 'In this session')));
+
+  if (it.kind === 'activity') {
+    const spec = st.types[it.type] || {};
+    const opts = spec.options || [];
+    if (opts.length) {
+      const box = document.createElement('div');
+      box.className = 'opt-list';
+      it.options = it.options || {};
+      opts.forEach((o) => {
+        const cur = it.options[o.key] !== undefined ? it.options[o.key] : o.default;
+        const setOpt = (v) => { it.options[o.key] = v; markDirty(); };
+        if (o.kind === 'switch') {
+          box.appendChild(switchRow(!!cur, o.label, setOpt));
+        } else if (o.kind === 'select') {
+          const sel = document.createElement('select');
+          sel.className = 'select-native';
+          sel.setAttribute('aria-label', o.label);
+          o.choices.forEach(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; op.selected = v === cur; sel.appendChild(op); });
+          sel.addEventListener('change', () => setOpt(sel.value));
+          const line = document.createElement('label');
+          line.className = 'opt-line';
+          line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), sel);
+          box.appendChild(line);
+        } else {
+          const el = input(cur, (v) => setOpt(o.kind === 'number' ? (v === '' ? o.default : Number(v)) : v), { type: o.kind === 'number' ? 'number' : 'text', placeholder: o.placeholder || '', 'aria-label': o.label });
+          const line = document.createElement('label');
+          line.className = 'opt-line';
+          line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), el);
+          box.appendChild(line);
+        }
+      });
+      form.appendChild(field('Answers', box));
+    }
+  }
+
+  const tools = document.createElement('div');
+  tools.className = 'ed-tools';
+  tools.innerHTML =
+    `<button type="button" class="button-surface" data-up>${icon('chevron-up')} Move up</button>` +
+    `<button type="button" class="button-surface" data-down>${icon('chevron-down')} Move down</button>` +
+    (it.kind !== 'slide' ? `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>` : '');
+  tools.querySelector('[data-up]').addEventListener('click', () => moveItem(it.id, -1));
+  tools.querySelector('[data-down]').addEventListener('click', () => moveItem(it.id, 1));
+  const del = tools.querySelector('[data-delete]');
+  if (del) del.addEventListener('click', () => deleteItem(it.id));
+  form.appendChild(tools);
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'button-primary ed-save';
+  save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved';
+  save.disabled = !st.dirty;
+  save.addEventListener('click', saveSession);
+  form.appendChild(save);
+  const observer = () => { save.disabled = !st.dirty; save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved'; };
+  form.addEventListener('input', observer);
+  form.addEventListener('click', () => setTimeout(observer, 0));
+}
+
+function timerField(it) {
+  const wrap = document.createElement('div');
+  wrap.className = 'timer-box';
+  const on = !!(it.timer && it.timer.enabled);
+  const isAct = it.kind === 'activity';
+  wrap.appendChild(switchRow(on, on ? '' : 'No timer on this item', (next) => {
+    if (next) {
+      it.timer = Object.assign({ seconds: isAct ? 180 : it.kind === 'break' ? 600 : 120, start: isAct ? 'with_capture' : 'manual', show_on: isAct || it.kind === 'break' ? 'stage' : 'presenter', end: isAct ? 'stop_capture' : 'keep' }, it.timer || {}, { enabled: true });
+    } else if (it.timer) {
+      it.timer.enabled = false;
+    }
+    markDirty();
+    renderList();
+    renderEditor();
+  }, 'Timer on this item'));
+  if (on) {
+    const t = it.timer;
+    const dur = input(fmtTimer(t.seconds), (v, el) => {
+      const s = parseTimer(v);
+      el.classList.toggle('invalid', s == null || s < 5);
+      if (s != null && s >= 5) { t.seconds = s; markDirty(); }
+    }, { 'aria-label': 'Timer duration (m:ss)', placeholder: '3:00' });
+    dur.classList.add('dur-input');
+    wrap.querySelector('.switch-line').appendChild(dur);
+    const grid = document.createElement('div');
+    grid.className = 'timer-grid';
+    const sel = (label, map, value, onPick, skip = []) => {
+      const s = document.createElement('select');
+      s.className = 'select-native';
+      s.setAttribute('aria-label', label);
+      Object.entries(map).filter(([k]) => !skip.includes(k)).forEach(([k, l]) => { const o = document.createElement('option'); o.value = k; o.textContent = l; o.selected = k === value; s.appendChild(o); });
+      s.addEventListener('change', () => { onPick(s.value); markDirty(); });
+      const line = document.createElement('label');
+      line.className = 'opt-line';
+      line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: label }), s);
+      return line;
+    };
+    grid.appendChild(sel('Starts', TIMER_START, t.start, (v) => { t.start = v; }, isAct ? [] : ['with_capture']));
+    grid.appendChild(sel('Shows on', { stage: 'Stage', presenter: 'Presenter only', both: 'Stage and presenter' }, t.show_on, (v) => { t.show_on = v; }));
+    grid.appendChild(sel('At the end', TIMER_END, t.end, (v) => { t.end = v; }, isAct ? [] : ['stop_capture']));
+    wrap.appendChild(grid);
+  }
+  return field('Timer', wrap);
+}
+
+function previewCard(it) {
   const card = document.createElement('div');
-  card.className = 'card';
-  card.appendChild(emptyStateEl('presentation', 'Open a session to plan it.'));
-  el.appendChild(card);
+  card.className = 'card preview-card';
+  card.innerHTML =
+    `<div class="preview-frame" data-preview></div>` +
+    `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'
+      ? 'The slide as imported. The dashed box is where the camera goes for the chosen profile.'
+      : 'The question in its font and size, at the size Zoom will see it.'}</p></div>`;
+  setTimeout(() => updatePreview(it), 0);
+  return card;
+}
+
+const ZONES = {
+  camera_strip: [0.583, 0.23, 0.983, 0.77],
+  camera_pip: [0.72, 0.04, 0.98, 0.3],
+  screen_only: null,
+};
+
+function updatePreview(it) {
+  const frame = editor.querySelector('[data-preview]');
+  if (!frame) return;
+  const w = frame.clientWidth || 320;
+  const scale = w / 1920;
+  let inner = '';
+  const s = slideOf(it);
+  if (s) {
+    inner = `<img alt="" src="/api/sessions/${st.sid}/slides/${s.file}">`;
+  } else {
+    const font = it.font || { family: 'Patrick Hand', size_px: 72 };
+    const capture = it.kind === 'activity' && (st.types[it.type] || {}).capture !== false;
+    const text = capture ? (it.question || 'Your question here') : titleOf(it);
+    inner = `<div class="pv-question" style="font-family:'${esc(font.family)}',system-ui,sans-serif;font-size:${Math.max(6, Math.round((capture ? font.size_px : 96) * scale))}px">${esc(text)}</div>`;
+  }
+  const zone = s && s.zone ? s.zone : ZONES[it.profile || 'screen_only'];
+  if (zone && it.profile !== 'screen_only') {
+    const z = it.profile === 'camera_pip' ? ZONES.camera_pip : zone;
+    inner += `<div class="pv-zone" style="left:${z[0] * 100}%;top:${z[1] * 100}%;width:${(z[2] - z[0]) * 100}%;height:${(z[3] - z[1]) * 100}%">${icon('video')}</div>`;
+  }
+  frame.innerHTML = inner;
 }

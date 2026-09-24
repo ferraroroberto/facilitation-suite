@@ -1,0 +1,15 @@
+{
+  "type": "scale",
+  "label": "Scale",
+  "icon": "gauge",
+  "order": 3,
+  "description": "The first number in range counts (or a keyword from the list); bars and the average update live.",
+  "chat_prompt_hint": "A number from 1 to 5",
+  "options": [
+    {"key": "min", "label": "Lowest", "kind": "number", "default": 1},
+    {"key": "max", "label": "Highest", "kind": "number", "default": 5},
+    {"key": "keywords", "label": "Keywords, lowest to highest (optional)", "kind": "text", "default": "",
+     "placeholder": "storm, rain, cloudy, sunny spells, sun"},
+    {"key": "show_average", "label": "Show the average", "kind": "switch", "default": true}
+  ]
+}
