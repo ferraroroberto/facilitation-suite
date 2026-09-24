@@ -49,6 +49,8 @@ flowchart LR
   appv --> settingsr["routers/settings.py<br/>OBS connection · profiles · reader"]
   settingsr --> settingsf["src/settings.py → config/config.json"]
   settingsr --> obs
+  deck["Stream Deck · fleet plugin (fleet-config#1006)"] -->|POST /api/actions/id| actionsr["routers/actions.py<br/>home-automation's action contract"]
+  actionsr --> acts
   stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg

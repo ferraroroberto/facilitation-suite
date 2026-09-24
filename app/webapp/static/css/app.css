@@ -429,3 +429,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .settings-note { margin: 0; }
 .zone-thumb { position: relative; flex: none; width: 64px; height: 36px; border-radius: 6px; background: var(--card-off); border: 1px solid var(--line); overflow: hidden; }
 .zone-thumb span { position: absolute; background: var(--muted); border-radius: 3px; }
+.deck-row { gap: var(--space-md); padding: 8px 0; }
+.deck-label { width: 220px; flex: none; font-weight: 600; font-size: var(--font-body-sm); }
+.deck-row code { font-family: var(--mono); font-size: var(--font-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-row .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+@media (max-width: 640px) { .deck-label { width: auto; } .deck-row { flex-wrap: wrap; } }

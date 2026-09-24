@@ -53,7 +53,42 @@ function render() {
   setStatus(head, 'Shared by every session');
   root.appendChild(obsCard());
   root.appendChild(readerCard());
+  root.appendChild(streamDeckCard());
   root.appendChild(creditsCard());
+}
+
+let actions = null;
+function streamDeckCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  const base = `${location.protocol}//127.0.0.1:${location.port || (location.protocol === 'https:' ? 443 : 80)}`;
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('keyboard')} Stream Deck buttons</h3><span class="muted small">one URL per button</span></div>` +
+    `<p class="small muted settings-note">Each button sends a POST to <code>${esc(base)}</code> plus the path below — the same pattern as home-automation's action alias, so the fleet Stream Deck plugin's “Call Action” key works with it. No token is needed from this PC.</p>` +
+    `<div class="list deck-list" data-deck><p class="muted small">Loading…</p></div>`;
+  const load = actions ? Promise.resolve(actions) : api('/api/actions').then((r) => { actions = r.actions; return actions; });
+  load.then((list) => {
+    const rows = [];
+    list.filter((a) => a.stream_deck).forEach((a) => {
+      if (a.id === 'obs_profile') {
+        Object.entries(data.profiles).forEach(([k, p]) => rows.push([`Switch to ${p.label}`, `/api/actions/obs_profile/${k}`]));
+      } else if (a.arg) {
+        rows.push([`${a.label} (1 = the first)`, `/api/actions/${a.id}/1`]);
+      } else {
+        rows.push([a.label, `/api/actions/${a.id}`]);
+      }
+    });
+    const box = card.querySelector('[data-deck]');
+    box.innerHTML = rows.map(([label, path]) =>
+      `<div class="list-row deck-row"><span class="deck-label">${esc(label)}</span><code class="grow">${esc(path)}</code>` +
+      `<button type="button" class="button-surface" data-copy="${esc(base + path)}">${icon('copy')} Copy</button></div>`).join('');
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-copy]');
+      if (!b) return;
+      try { await navigator.clipboard.writeText(b.dataset.copy); toast('URL copied'); } catch (err) { toast('Could not copy', 'error'); }
+    });
+  }).catch((e) => { card.querySelector('[data-deck]').textContent = e.message; });
+  return card;
 }
 
 function obsCard() {

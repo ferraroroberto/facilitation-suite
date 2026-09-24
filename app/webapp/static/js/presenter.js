@@ -436,6 +436,12 @@ function drawChips() {
   const st = s.stages || [];
   if (st.length) chips.push(['ok', `Stage · ${st.length > 1 ? st.length + ' windows' : `${st[0].w}×${st[0].h}`}`]);
   else chips.push(['warn', 'Stage · not open', 'open-stage']);
+  const la = s.last_action;
+  if (la) {
+    const ago = Math.max(0, Math.round((live.now() - la.at) / 1000));
+    const deck = la.source === 'streamdeck' || la.source === 'stream-deck';
+    if (ago < 3600) chips.push(['ok', `${deck ? 'Stream Deck' : 'Buttons'} · ${la.action.replace(/_/g, ' ')}`, null, `Last press ${ago} s ago (${la.source})`]);
+  }
   if (s.write_error) chips.push(['bad', s.write_error]);
   const html = chips.map(([k, t, act, title]) => act
     ? `<button type="button" class="chip ${k}" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`

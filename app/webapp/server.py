@@ -45,7 +45,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.errors import AppError, error_response
-from app.webapp.routers import activities, chat, groups, live, pages, sessions, settings, slides
+from app.webapp.routers import actions, activities, chat, groups, live, pages, sessions, settings, slides
 from src.build_info import build_identity
 from src.certs import cert_paths
 from src.chat.hub import ChatHub
@@ -178,6 +178,8 @@ def create_app() -> FastAPI:
     app.state.store = store
     app.state.importer = Importer(load=store.load, save=store.save, folder=store.folder)
     app.state.live = LiveHub(store)
+    app.state.last_action = None  # the latest /api/actions press (the presenter's Stream Deck chip)
+    app.state.live.extra_state.append(lambda: {"last_action": app.state.last_action})
     _install_chat(app)
     _install_obs(app)
     _install_error_handlers(app)
@@ -192,6 +194,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(groups.router)
     app.include_router(settings.router)
+    app.include_router(actions.router)
     return app
 
 
