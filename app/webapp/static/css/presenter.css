@@ -101,6 +101,12 @@
 .p-cap-dot.stopped { background: var(--success); }
 @keyframes p-pulse { 50% { box-shadow: 0 0 0 8px transparent; } }
 .p-cap-counts { margin: 0; }
+.p-unplaced { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--attention-soft); }
+.p-unplaced .overline { display: inline-flex; align-items: center; gap: 6px; color: var(--attention-text); }
+.p-unplaced-row { display: grid; gap: 6px; }
+.p-unplaced-row + .p-unplaced-row { border-top: 1px solid var(--line-muted); padding-top: 8px; }
+.p-unplaced .button-surface { min-height: 30px; padding: 0 10px; font-size: var(--font-body-sm); }
+.p-unplaced .input { height: 32px; }
 .p-cap-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
 .p-cap-btn.live { background: var(--danger); border-color: var(--danger); }
 .p-timer.compact .p-timer-clock { font-size: 1.8rem; }
@@ -182,7 +188,8 @@
   .p-now { grid-column: 1; grid-row: 1; }
   .p-next { grid-column: 2; grid-row: 1; }
   .p-side { grid-column: 3; grid-row: 1 / span 2; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
-  .p-side .p-chat { min-height: 0; }
+  .p-side .p-chat { min-height: 180px; }
+  .p-side .p-item { max-height: 64vh; }
   .p-notes { grid-column: 1; grid-row: 2; }
   .p-timing { grid-column: 2; grid-row: 2; }
   /* The live preview takes the largest 16:9 box its card body allows. */

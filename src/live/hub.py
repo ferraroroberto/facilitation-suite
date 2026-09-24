@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.groups.roster import RosterError, load_groups
 from src.live.plan import build_run
 from src.sessions.readiness import slides_meta
 from src.sessions.store import SessionError, SessionStore, atomic_write_text
@@ -51,6 +52,14 @@ ROLES = ("stage", "presenter", "remote", "app")
 
 def now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def _rounds(folder: Path) -> Optional[dict[str, Any]]:
+    try:
+        return load_groups(folder).get("rounds")
+    except RosterError as exc:
+        logger.warning("⚠️ live: %s — the reveal shows no rooms", exc)
+        return None
 
 
 class LiveError(Exception):
@@ -217,7 +226,7 @@ class LiveHub:
         self._cancel_timer_handles()
         self.session_id, self.folder = sid, folder
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
-        self.run = build_run(session, slides_meta(folder))
+        self.run = build_run(session, slides_meta(folder), _rounds(folder))
         self.plan_rev += 1
         self.index, self.blackout, self.names = 0, False, False
         self.clock_started_at, self.section_entered, self.timers = None, {}, {}
@@ -263,7 +272,7 @@ class LiveHub:
             return
         cur = self.current()
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
-        self.run = build_run(session, slides_meta(self.folder))
+        self.run = build_run(session, slides_meta(self.folder), _rounds(self.folder))
         self.plan_rev += 1
         found = self.item_by_id(cur["id"]) if cur else None
         self.index = found["index"] if found else min(self.index, max(0, len(self.items) - 1))
