@@ -1,0 +1,33 @@
+/* The stage window and the stage previews: a 1920×1080 canvas scaled into its
+   host. The canvas's look belongs to the theme (/themes/*.css). */
+
+.stage-host { position: relative; overflow: hidden; }
+.stage-frame { position: absolute; inset: 0; }
+.stage-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+.stage-canvas .icon { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.stage-canvas .st-item { position: absolute; inset: 0; }
+.stage-canvas [hidden] { display: none !important; }
+
+/* Camera-zone guide: previews only, never drawn on the real stage. */
+.stage-canvas .st-guide {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 4px dashed #8a8a8a;
+  border-radius: 24px;
+  color: #6b6b6b;
+  font-size: 32px;
+  font-weight: 600;
+}
+.stage-canvas .st-guide .icon { width: 44px; height: 44px; }
+
+/* The /stage window itself: the whole viewport, the theme's background in
+   the letterbox, no cursor once the mouse rests. */
+.stage-page { margin: 0; height: 100vh; overflow: hidden; background: #f2f2f2; }
+.stage-page .stage-host { width: 100vw; height: 100vh; }
+.stage-page.idle { cursor: none; }
+
+/* A frozen capture is photographed at rest: no transitions. */
+.freeze .stage-canvas * { transition: none !important; }

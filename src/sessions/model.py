@@ -90,6 +90,8 @@ class Session(_Open):
     date: Optional[datetime] = None
     duration_minutes: int = Field(120, ge=1, le=24 * 60)
     theme: str = "default"
+    # The chip on the stage under every activity, in the session's language.
+    chat_hint: str = "Write your answer in the Zoom chat"
     source: Optional[Source] = None
     # Manual readiness confirmations (e.g. zoom_autoupdate_off) the app cannot detect itself.
     checklist: dict[str, bool] = Field(default_factory=dict)

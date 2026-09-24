@@ -5,6 +5,10 @@ Pages (``app/webapp/routers/pages.py``):
     GET /            → the app (Sessions · Plan · Groups · Results tabs, Settings)
     GET /presenter   → the presenter cockpit (second monitor)
     GET /stage       → the stage (full-screen on the display OBS captures)
+    WS  /ws          → the live session: state snapshots out, intents in
+                       (``app/webapp/routers/live.py``, ``src/live/hub.py``)
+    /api/chat/…      → the Zoom chat: the reader process posts here (loopback
+                       only), views read it (``src/chat/``)
     GET /healthz     → liveness
     GET /api/version → build identity (git_sha captured at import, schema version)
 
@@ -25,11 +29,13 @@ aborted client — app-launcher#388):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -39,16 +45,22 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.errors import AppError, error_response
-from app.webapp.routers import activities, pages, sessions, slides
+from app.webapp.routers import activities, chat, live, pages, sessions, slides
 from src.build_info import build_identity
+from src.certs import cert_paths
+from src.chat.hub import ChatHub
+from src.chat.process import ReaderProcess
 from src.config import load_config
 from src.importer.service import Importer
+from src.live.capture import CaptureService
+from src.live.hub import LiveHub
 from src.logger import configure_logging
 from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
 
 
@@ -70,8 +82,12 @@ class NoCacheStaticFiles(StaticFiles):
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     cfg = app.state.config
+    app.state.live.bind(asyncio.get_running_loop())
+    monitor = asyncio.create_task(app.state.chat.monitor())
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
+    monitor.cancel()
+    await asyncio.to_thread(app.state.reader_process.stop)
     logger.info("👋 facilitation-suite stopping")
 
 
@@ -90,6 +106,42 @@ def _install_error_handlers(app: FastAPI) -> None:
         return error_response(exc.status_code, code, str(exc.detail))
 
 
+def _install_chat(app: FastAPI) -> None:
+    """The chat hub and its reader process: the reader runs while a session is
+    live (when the config enables it) and can be started by hand for a test."""
+    cfg = app.state.config
+    live = app.state.live
+    chat_hub = ChatHub(live)
+    scheme = "https" if cert_paths() else "http"  # the reader falls back to the other scheme itself
+    proc = ReaderProcess(f"{scheme}://127.0.0.1:{cfg.port}")
+
+    capture = CaptureService(live, chat_hub)
+    capture.freeze_url = f"{scheme}://127.0.0.1:{cfg.port}"
+    app.state.capture = capture
+
+    @app.middleware("http")
+    async def _note_server_address(request: Request, call_next):  # noqa: ANN202 — Starlette middleware signature
+        # The reader and the freeze renderer must reach the port this server
+        # really listens on (a dev or test instance can differ from the config).
+        server = request.scope.get("server")
+        if server and server[1]:
+            proc.server_url = capture.freeze_url = f"{request.url.scheme}://127.0.0.1:{server[1]}"
+        return await call_next(request)
+    chat_hub.process_running = proc.running
+    app.state.chat = chat_hub
+    app.state.reader = chat_hub  # readiness facts (sessions router)
+    app.state.reader_process = proc
+
+    def on_session(sid: Optional[str]) -> None:
+        chat_hub.sync_session()
+        if sid and cfg.reader.enabled and not proc.running():
+            proc.start()
+        elif sid is None and proc.running() and live.loop is not None:
+            live.loop.run_in_executor(None, proc.stop)
+
+    live.session_listeners.append(on_session)
+
+
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
@@ -98,12 +150,18 @@ def create_app() -> FastAPI:
     store = SessionStore(app.state.config)
     app.state.store = store
     app.state.importer = Importer(load=store.load, save=store.save, folder=store.folder)
+    app.state.live = LiveHub(store)
+    _install_chat(app)
     _install_error_handlers(app)
     app.mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static")
+    # Stage themes (public, repo-level): the stage follows the session theme, not the fleet design.
+    app.mount("/themes", NoCacheStaticFiles(directory=str(THEMES_DIR)), name="themes")
     app.include_router(pages.router)
     app.include_router(sessions.router)
     app.include_router(slides.router)
     app.include_router(activities.router)
+    app.include_router(live.router)
+    app.include_router(chat.router)
     return app
 
 
