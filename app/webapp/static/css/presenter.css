@@ -3,6 +3,8 @@
    screen everything fits one viewport — the cards scroll inside, never the
    page — so nothing moves while presenting. */
 
+/* `hidden` wins over every component's display rule here. */
+.presenter [hidden] { display: none !important; }
 .presenter-page { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); }
 .presenter {
   display: grid;
@@ -93,6 +95,24 @@
   opacity: 0.85;
 }
 .p-names { margin-top: var(--space-xs); }
+
+/* Zoom chat: chronological, newest at the bottom, the list scrolls inside the card. */
+.p-chat .p-body { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 0; gap: 0; }
+.p-age { margin-left: auto; flex: none; }
+.p-msgs { list-style: none; margin: 0; padding: 0 var(--space-md); flex: 1; min-height: 120px; overflow-y: auto; }
+.p-msg { padding: 8px 0; border-bottom: 1px solid var(--line-muted); }
+.p-msg-top { display: flex; align-items: center; gap: 6px; font-size: var(--font-body-sm); }
+.p-msg-top b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-msg-time { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.p-msg-text { overflow-wrap: anywhere; }
+.p-msg.own .p-msg-text { color: var(--muted); }
+.p-chat-foot { padding: var(--space-sm) var(--space-md) var(--space-md); border-top: 1px solid var(--line-muted); display: grid; gap: 6px; }
+.p-chat-foot .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.p-chat-hint { margin: 0; }
+
+/* The keys popover under the top bar. */
+.p-keys { position: fixed; top: 64px; right: var(--gap); z-index: 20; width: 300px; display: grid; gap: var(--space-sm);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18); }
 .p-keylist { margin: 0; display: grid; gap: 6px; }
 .p-keylist div { display: flex; gap: var(--space-sm); align-items: center; }
 .p-keylist dt { width: 120px; flex: none; }
@@ -148,6 +168,7 @@
   .p-now { grid-column: 1; grid-row: 1; }
   .p-next { grid-column: 2; grid-row: 1; }
   .p-side { grid-column: 3; grid-row: 1 / span 2; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+  .p-side .p-chat { min-height: 0; }
   .p-notes { grid-column: 1; grid-row: 2; }
   .p-timing { grid-column: 2; grid-row: 2; }
   /* The live preview takes the largest 16:9 box its card body allows. */

@@ -256,7 +256,14 @@ function readyRow(c) {
 async function readinessAction(sid, s, action) {
   if (action === 'pin') return pin(sid);
   if (action === 'import') return runImport(sid, s, false);
-  if (action === 'test_reader') { toast('The chat reader test arrives with the reader (step 6).'); return; }
+  if (action === 'test_reader') {
+    try {
+      await api('/api/chat/reader/start', { method: 'POST' });
+      toast('Chat reader started — pop out the Zoom meeting chat; this check turns green once it has read it');
+      setTimeout(renderDetail, 4000);
+    } catch (e) { toast(e.message, 'error'); }
+    return;
+  }
   if (action === 'confirm_zoom_update') {
     const next = Object.assign({}, s, { checklist: Object.assign({}, s.checklist, { zoom_autoupdate_off: true }) });
     await save(sid, next);

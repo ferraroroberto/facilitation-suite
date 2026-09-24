@@ -22,3 +22,13 @@ def error_response(status: int, code: str, message: str, detail: Optional[Any] =
     if detail is not None:
         body["detail"] = detail
     return JSONResponse({"error": body}, status_code=status)
+
+
+LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost")
+
+
+def require_local(request: Any, message: str) -> None:
+    """403 ``local_only`` unless the caller is on this PC (loopback)."""
+    host = request.client.host if request.client else ""
+    if host not in LOOPBACK_HOSTS:
+        raise AppError(403, "local_only", message)

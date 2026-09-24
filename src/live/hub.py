@@ -116,6 +116,7 @@ class LiveHub:
         self.item_listeners: list[Callable[[Optional[dict[str, Any]], dict[str, Any]], None]] = []
         self.timer_end_listeners: list[Callable[[dict[str, Any], str], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
+        self.session_listeners: list[Callable[[Optional[str]], None]] = []
 
     # ------------------------------------------------------------------ setup
 
@@ -224,6 +225,8 @@ class LiveHub:
         self._restore_state()
         logger.info("✅ live: session %s is live (%d items, resumed at %d)", sid, len(self.items), self.index + 1)
         self._event("session_live", items=len(self.items))
+        for fn in self.session_listeners:
+            fn(sid)
         self.broadcast(self.plan_message())
         self._commit()
 
@@ -238,6 +241,8 @@ class LiveHub:
         self.plan_rev += 1
         self.index = 0
         self.timers, self.section_entered, self.clock_started_at = {}, {}, None
+        for fn in self.session_listeners:
+            fn(None)
         self.broadcast(self.plan_message())
         self.rev += 1
         self._broadcast_state()

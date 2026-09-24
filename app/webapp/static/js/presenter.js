@@ -30,8 +30,16 @@ const live = connectLive('presenter', {
   onMessage(msg) {
     if (msg.type === 'error') toast(msg.message, 'error');
     if (msg.type === 'chime') chime();
+    if (msg.type === 'chat') {
+      addChat(msg.messages);
+      if (live.state && live.state.reader) live.state.reader.last_read_ms = live.now();
+    }
+    if (msg.type === 'reader_beat' && live.state && live.state.reader) live.state.reader.last_read_ms = msg.last_read_ms;
   },
-  onConnection() { if (plan && plan.active) drawChips(); },
+  onConnection(online) {
+    if (online && plan && plan.active) loadChat();
+    if (plan && plan.active) drawChips();
+  },
 });
 
 // ------------------------------------------------------------------ activation
@@ -93,6 +101,7 @@ function buildShell() {
       `<img class="p-brand" src="/static/icons/icon-192.png" alt="">` +
       `<div class="p-titles"><div class="p-title">${esc(plan.session.title)}</div><div class="p-sub" data-sub></div></div>` +
       `<div class="p-chips" data-chips></div>` +
+      `<button type="button" class="p-icon-btn" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
       `<button type="button" class="p-icon-btn" data-blackout title="Blackout (B)" aria-label="Blackout">${icon('eye-off')}</button>` +
       `<button type="button" class="p-icon-btn" data-theme title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
       `<button type="button" class="p-icon-btn" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button>` +
@@ -102,7 +111,7 @@ function buildShell() {
       card('p-next', 'Next', '') +
       `<div class="p-side">` +
         card('p-item', 'Timer', '') +
-        card('p-keys', 'Keys', 'stage or presenter window') +
+        card('p-chat', 'Zoom chat', '', '<span class="p-age small muted" data-age></span>') +
       `</div>` +
       card('p-notes', 'Notes', '') +
       card('p-timing', 'Timing', '', '<span class="chip" data-drift hidden></span>') +
@@ -111,7 +120,8 @@ function buildShell() {
       `<button type="button" class="p-nav" data-prev aria-label="Previous (←)">${icon('chevron-left')}</button>` +
       `<div class="p-thumbs" data-thumbs></div>` +
       `<button type="button" class="p-nav" data-next aria-label="Next (→)">${icon('chevron-right')}</button>` +
-    `</footer>`;
+    `</footer>` +
+    `<div class="card p-keys" data-keypop hidden><p class="overline">Keys · stage or presenter window</p><dl class="p-keylist"></dl></div>`;
 
   const nowHost = document.createElement('div');
   nowHost.className = 'stage-host p-stage';
@@ -123,10 +133,16 @@ function buildShell() {
     `<p class="overline p-then-label">Then</p><ol class="p-then" data-then></ol>`;
   nextStage = createStage(nextBody.querySelector('.p-stage-next'), { guides: true, blackout: false });
 
-  root.querySelector('.p-keys [data-body]').innerHTML =
-    `<dl class="p-keylist">` +
-    [['→ · PageDown', 'next'], ['← · PageUp', 'previous'], ['B', 'blackout'], ['T', 'timer start / pause'], ['M', 'timer +1 min'], ['Space', 'capture start / stop']]
-      .map(([k, v]) => `<div><dt><kbd>${k}</kbd></dt><dd>${v}</dd></div>`).join('') + `</dl>`;
+  root.querySelector('.p-keylist').innerHTML =
+    [['→ · PageDown', 'next'], ['← · PageUp', 'previous'], ['B', 'blackout'], ['T', 'timer start / pause'], ['M', 'timer +1 min'], ['Space', 'capture start / stop'], ['Home', 'first item']]
+      .map(([k, v]) => `<div><dt><kbd>${k}</kbd></dt><dd>${v}</dd></div>`).join('');
+  const keysBtn = root.querySelector('[data-keys]');
+  keysBtn.addEventListener('click', () => {
+    const pop = root.querySelector('[data-keypop]');
+    pop.hidden = !pop.hidden;
+    keysBtn.setAttribute('aria-expanded', String(!pop.hidden));
+  });
+  buildChat();
 
   root.querySelector('[data-prev]').addEventListener('click', () => live.send('prev'));
   root.querySelector('[data-next]').addEventListener('click', () => live.send('next'));
@@ -360,25 +376,125 @@ function drawTiming(cur, s) {
   }
 }
 
+const READER_CHIP = {
+  reading: ['ok', 'Zoom chat · reading'],
+  simulating: ['accent', 'Zoom chat · simulating'],
+  starting: ['warn', 'Zoom chat · starting'],
+  window_not_found: ['warn', 'Zoom chat · pop out the chat'],
+  stale: ['bad', 'Zoom chat · no answer'],
+  error: ['bad', 'Zoom chat · error'],
+  off: ['', 'Zoom chat · off', 'start-reader'],
+};
+
 function drawChips() {
   const box = root.querySelector('[data-chips]');
   if (!box || !live.state) return;
   const s = live.state;
   const chips = [];
   if (!live.online) chips.push(['bad', 'Server · reconnecting']);
+  const r = s.reader || { state: 'off' };
+  const rc = READER_CHIP[r.state] || ['bad', `Zoom chat · ${r.state}`];
+  chips.push([rc[0], rc[1], rc[2], r.detail]);
   const st = s.stages || [];
   if (st.length) chips.push(['ok', `Stage · ${st.length > 1 ? st.length + ' windows' : `${st[0].w}×${st[0].h}`}`]);
   else chips.push(['warn', 'Stage · not open', 'open-stage']);
   if (s.write_error) chips.push(['bad', s.write_error]);
-  const html = chips.map(([k, t, act]) => act
-    ? `<button type="button" class="chip ${k}" data-act="${act}"><span class="dot"></span>${esc(t)}</button>`
-    : `<span class="chip ${k}"><span class="dot"></span>${esc(t)}</span>`).join('');
+  const html = chips.map(([k, t, act, title]) => act
+    ? `<button type="button" class="chip ${k}" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`
+    : `<span class="chip ${k}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</span>`).join('');
   if (box.dataset.html !== html) {
     box.dataset.html = html;
     box.innerHTML = html;
     const open = box.querySelector('[data-act="open-stage"]');
     if (open) open.addEventListener('click', () => window.open('/stage', 'fs-stage', 'popup,width=1280,height=720'));
+    const start = box.querySelector('[data-act="start-reader"]');
+    if (start) start.addEventListener('click', startReader);
   }
+  drawChatFoot();
+}
+
+// ------------------------------------------------------------------------ chat
+
+let chat = [];
+
+function buildChat() {
+  const body = root.querySelector('.p-chat [data-body]');
+  body.innerHTML = `<ol class="p-msgs" data-msgs></ol><div class="p-chat-foot" data-chatfoot></div>`;
+  chat = [];
+  loadChat();
+}
+
+async function loadChat() {
+  try {
+    const data = await api('/api/chat/messages?since=0');
+    const list = root.querySelector('[data-msgs]');
+    if (!list) return;
+    chat = [];
+    list.innerHTML = '';
+    addChat(data.messages);
+  } catch (e) { /* the WS reconnect retries */ }
+}
+
+function addChat(messages) {
+  const list = root.querySelector('[data-msgs]');
+  if (!list || !messages || !messages.length) return;
+  const known = chat.length ? chat[chat.length - 1].id : 0;
+  const fresh = messages.filter((m) => m.id > known);
+  if (!fresh.length) return;
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  chat.push(...fresh);
+  list.insertAdjacentHTML('beforeend', fresh.map((m) =>
+    `<li class="p-msg${m.own ? ' own' : ''}" data-id="${m.id}"><div class="p-msg-top"><b>${esc(m.sender)}</b>` +
+    `${m.own ? '<span class="chip">you</span>' : ''}${m.source === 'simulator' ? '<span class="chip accent">sim</span>' : ''}` +
+    `<span class="p-msg-time">${esc(m.time)}</span></div><div class="p-msg-text">${esc(m.text) || '<i class="muted">(emoji only)</i>'}</div></li>`).join(''));
+  // Keep a long session light: the list holds the latest 400 rows.
+  while (list.children.length > 400) list.removeChild(list.firstChild);
+  if (atBottom || fresh.length === chat.length) list.scrollTop = list.scrollHeight;
+  root.querySelector('.p-chat .p-meta').textContent = `${chat.length} message${chat.length === 1 ? '' : 's'}`;
+  drawChatFoot();
+}
+
+function drawChatFoot() {
+  const foot = root.querySelector('[data-chatfoot]');
+  if (!foot || !live.state) return;
+  const r = live.state.reader || { state: 'off' };
+  const running = r.state !== 'off';
+  let hint = '';
+  if (r.state === 'window_not_found') hint = 'In Zoom: Chat → … → Pop out. The reader only sees the popped-out chat.';
+  else if (r.state === 'stale' || r.state === 'error') hint = r.detail || '';
+  else if (!chat.length && r.state === 'off') hint = 'Start the reader to see the Zoom chat here, or simulate answers to rehearse.';
+  const key = `${r.state}|${hint}`;
+  if (foot.dataset.key === key) return;
+  foot.dataset.key = key;
+  foot.innerHTML = (hint ? `<p class="small muted p-chat-hint">${esc(hint)}</p>` : '') +
+    `<div class="row-actions">` +
+    (running && r.state !== 'simulating'
+      ? `<button type="button" class="button-surface" data-reader="stop">${icon('square')} Stop reader</button>`
+      : `<button type="button" class="button-surface" data-reader="start">${icon('play')} Start reader</button>`) +
+    `<button type="button" class="button-surface" data-sim>${icon('wand-sparkles')} Simulate answers</button></div>`;
+  const rb = foot.querySelector('[data-reader]');
+  rb.addEventListener('click', () => (rb.dataset.reader === 'stop' ? stopReader() : startReader()));
+  foot.querySelector('[data-sim]').addEventListener('click', simulateAnswers);
+}
+
+async function startReader() {
+  try { await api('/api/chat/reader/start', { method: 'POST' }); } catch (e) { toast(e.message, 'error'); }
+}
+async function stopReader() {
+  try { await api('/api/chat/reader/stop', { method: 'POST' }); } catch (e) { toast(e.message, 'error'); }
+}
+async function simulateAnswers() {
+  try {
+    await api('/api/chat/simulate', { method: 'POST', body: { kind: 'random', count: 30, every_ms: 600 } });
+    toast('Simulating 30 answers through the chat pipeline');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function tickChatAge() {
+  const el = root.querySelector('[data-age]');
+  if (!el || !live.state || !live.state.reader) return;
+  const last = live.state.reader.last_read_ms;
+  el.textContent = last ? `updated ${Math.max(0, (live.now() - last) / 1000).toFixed(1)} s ago` : '';
 }
 
 // Clocks tick locally between snapshots.
@@ -390,6 +506,7 @@ setInterval(() => {
   nowStage.update(ctx);
   if (cur && cur.timer) tickItemTimer(cur, s);
   drawTiming(cur, s);
+  tickChatAge();
 }, 250);
 
 // ----------------------------------------------------------------------- chime
