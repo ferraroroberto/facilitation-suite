@@ -147,6 +147,8 @@ async function load() {
     st.deck = deck;
     st.slides = new Map(deck.slides.map((s) => [s.slide_id, s]));
     st.types = Object.fromEntries(acts.types.map((t) => [t.type, t]));
+    // Camera zones as set in Settings (the preview's dashed box); defaults if unreachable.
+    st.zones = await api('/api/settings').then((x) => Object.fromEntries(Object.entries(x.profiles).map(([k, v]) => [k, v.zone]))).catch(() => null);
   } catch (e) {
     listCard.innerHTML = '';
     listCard.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
@@ -750,7 +752,7 @@ function runItem(it) {
     capture: it.kind === 'activity' && spec.capture !== false,
     title: titleOf(it), question: it.question || (it.kind === 'activity' ? 'Your question here' : ''),
     font: it.font || { family: 'Patrick Hand', size_px: 72 }, options: it.options || {},
-    profile, zone: ZONES[profile], slide_file: s ? s.file : null,
+    profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
   };
 }

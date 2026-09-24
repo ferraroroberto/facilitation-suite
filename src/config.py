@@ -54,6 +54,16 @@ class ReaderConfig:
     window_title: str = "Meeting chat"
 
 
+# OBS profiles (epic §11): each item's profile picks an OBS scene, and the
+# stage keeps that profile's camera zone empty. Zones are fractions of the
+# 1920×1080 canvas (x0, y0, x1, y1); the strip matches the house slides' grey box.
+DEFAULT_PROFILES: dict[str, dict[str, Any]] = {
+    "camera_strip": {"label": "Camera strip", "scene": "", "zone": [0.583, 0.23, 0.983, 0.77]},
+    "camera_pip": {"label": "Camera PiP", "scene": "", "zone": [0.72, 0.04, 0.98, 0.3]},
+    "screen_only": {"label": "Screen only", "scene": "", "zone": None},
+}
+
+
 @dataclass(frozen=True)
 class AppConfig:
     host: str = "0.0.0.0"
@@ -63,7 +73,31 @@ class AppConfig:
     stage_display: int = 2
     obs: ObsConfig = field(default_factory=ObsConfig)
     reader: ReaderConfig = field(default_factory=ReaderConfig)
+    profiles: dict[str, Any] = field(default_factory=dict)
     source: str = "defaults"
+
+
+def _zone(value: Any, fallback: Any) -> Any:
+    if value is None:
+        return None
+    if (isinstance(value, list) and len(value) == 4 and all(isinstance(v, (int, float)) for v in value)
+            and 0 <= value[0] < value[2] <= 1 and 0 <= value[1] < value[3] <= 1):
+        return [float(v) for v in value]
+    logger.warning("⚠️ config: profile zone %r is not [x0, y0, x1, y1] within 0–1 — using the default", value)
+    return fallback
+
+
+def profiles(cfg: AppConfig) -> dict[str, dict[str, Any]]:
+    """The three OBS profiles: code defaults overlaid with the config's own values."""
+    out: dict[str, dict[str, Any]] = {}
+    for key, base in DEFAULT_PROFILES.items():
+        mine = cfg.profiles.get(key) if isinstance(cfg.profiles.get(key), dict) else {}
+        out[key] = {
+            "label": str(mine.get("label") or base["label"]),
+            "scene": str(mine.get("scene") or ""),
+            "zone": _zone(mine["zone"], base["zone"]) if "zone" in mine else base["zone"],
+        }
+    return out
 
 
 def _build[T](cls: type[T], raw: Any) -> T:
