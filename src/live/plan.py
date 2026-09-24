@@ -39,8 +39,11 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
     return (types.get(item.type or "") or {}).get("label") or "Activity"
 
 
-def build_run(session: Session, meta: Optional[dict[str, Any]]) -> dict[str, Any]:
-    """``{"items": [...], "sections": [...]}`` in live order (included items only)."""
+def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """``{"items": [...], "sections": [...]}`` in live order (included items only).
+
+    ``rounds`` (from groups.yaml) gives each "who are you with?" item its rooms.
+    """
     slides = _slide_index(meta)
     types = editors()
     items: list[dict[str, Any]] = []
@@ -77,6 +80,8 @@ def build_run(session: Session, meta: Optional[dict[str, Any]]) -> dict[str, Any
                 "timer": it.timer.model_dump() if it.timer and it.timer.enabled else None,
                 "section_id": sec.id,
                 "section_name": sec.name,
+                **({"rooms": (rounds or {}).get((it.options or {}).get("round", "pairs")) or []}
+                   if it.type == "groups_reveal" else {}),
             })
         start += sec.minutes
     return {"items": items, "sections": sections, "planned_minutes": start,

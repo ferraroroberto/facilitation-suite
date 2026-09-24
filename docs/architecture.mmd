@@ -39,6 +39,11 @@ flowchart LR
   parsers -->|map| geo["src/geo/gazetteer.py<br/>offline GeoNames · aliases · suggest"]
   geo --> geodata[("app/activities/map/cities.tsv.gz · countries.json · world.svg")]
   buildgeo["scripts/build_geo.py (network, once)"] -.-> geodata
+  appv --> groupsr["routers/groups.py<br/>roster · presence · shuffle · Zoom CSV · reveal"]
+  groupsr --> roster["src/groups/roster.py<br/>roster.xlsx · groups.yaml · Zoom text/CSV"]
+  roster --> shuffle["src/groups/shuffle.py<br/>build_groups (ported verbatim)"]
+  roster --> gfiles[("roster.xlsx · groups.yaml · exports/zoom-rooms-*.csv")]
+  hub -->|reveal rooms| roster
   stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg

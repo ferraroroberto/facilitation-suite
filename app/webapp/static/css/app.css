@@ -401,3 +401,21 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 
 .credit-list { margin: var(--space-sm) 0 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: var(--font-body-sm); }
 .credit-list a { color: var(--accent-text); font-weight: 600; }
+
+/* ---- Groups ------------------------------------------------------------- */
+.groups-filter { width: 100%; }
+.person-row { padding-left: var(--space-md); padding-right: var(--space-md); }
+.person-row.absent .row-title { color: var(--muted); }
+.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--gap); }
+.room-card { display: grid; gap: 6px; align-content: start; }
+.room-head { display: flex; justify-content: space-between; gap: var(--space-sm); align-items: baseline; }
+.room-names { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.groups-actions .button-primary, .groups-actions .button-tint, .groups-actions .button-surface {
+  display: inline-flex; align-items: center; gap: 8px; padding: 0 16px;
+}
+.groups-actions .button-primary, .groups-actions .button-tint { min-height: 48px; }
+.groups-actions .button-surface { min-height: 48px; }
+.banner { display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px; border-radius: var(--radius-md); font-size: var(--font-body-sm); font-weight: 600; }
+.banner .icon { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.banner.ok { background: var(--success-soft); color: var(--success-text); }
+.banner.warn { background: var(--attention-soft); color: var(--attention-text); }
