@@ -50,13 +50,19 @@ MUTEX_NAME = r"Global\facilitation-suite-tray"
 
 
 def _build_icon():
-    """Lazy-import Pillow so plain CLI use never drags it in."""
+    """Lazy-import Pillow so plain CLI use never drags it in.
+
+    Load the pixels and close the file: ``Image.open`` alone keeps the handle
+    for the image's lifetime (the tray's), which locks the .ico against a
+    ``git pull`` that updates it.
+    """
     from PIL import Image
 
-    if TRAY_ICON.exists():
-        return Image.open(TRAY_ICON)
-    if FALLBACK_ICON.exists():
-        return Image.open(FALLBACK_ICON)
+    for path in (TRAY_ICON, FALLBACK_ICON):
+        if path.exists():
+            with Image.open(path) as im:
+                im.load()
+                return im.copy()
     return Image.new("RGB", (32, 32), (10, 10, 10))
 
 
