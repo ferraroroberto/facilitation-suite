@@ -39,10 +39,11 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.errors import AppError, error_response
-from app.webapp.routers import pages
+from app.webapp.routers import pages, sessions
 from src.build_info import build_identity
 from src.config import load_config
 from src.logger import configure_logging
+from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
     app.state.config = load_config()
     app.state.build = BUILD
+    app.state.store = SessionStore(app.state.config)
     _install_error_handlers(app)
     app.mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(pages.router)
+    app.include_router(sessions.router)
     return app
 
 
