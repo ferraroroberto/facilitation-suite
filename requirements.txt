@@ -1,0 +1,31 @@
+# facilitation-suite — runtime + dev dependencies (one file; the app runs from
+# this checkout under its own .venv). Policy: lower bounds.
+
+# --- runtime ---------------------------------------------------------------
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+PyYAML>=6.0
+Pillow>=10.0
+# src/certs.py + scripts/gen_tailscale_cert.py read the Tailscale leaf (HTTPS for /remote).
+cryptography>=42
+pystray>=0.19
+# PowerPoint COM import + the Zoom-chat MSAA reader (Windows only).
+pywin32>=306; sys_platform == "win32"
+comtypes>=1.4; sys_platform == "win32"
+# Roster import / Excel report.
+openpyxl>=3.1
+# OBS scene switching (obs-websocket v5).
+obsws-python>=1.7
+# Frozen capture PNGs + the session PDF appendix render in headless Chromium.
+playwright>=1.45
+
+# --- dev / verification gate ----------------------------------------------
+pytest>=8.0
+# starlette's TestClient dependency (fastapi.testclient) — test-only.
+httpx2>=0.1
+pytest-playwright>=0.5
+ruff>=0.5
+# Brand-icon generation only (scripts/gen_icons.py -> project-scaffolding's
+# brand_gen). The generated PNG/ICO assets are committed.
+resvg-py>=0.1

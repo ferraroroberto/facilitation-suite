@@ -1,0 +1,29 @@
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+extend-exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+  # E501 line length is advisory (docstrings quote long paths/URLs).
+  "E501",
+  # Optional[T] is the fleet's return-type convention for "may be absent".
+  "UP045",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Body"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "src", "scripts", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Vendor-verbatim files keep their upstream style byte-for-byte.
+"app/tray/single_instance.py" = ["ALL"]
+"app/tray/watchdog.py" = ["ALL"]
+"app/webapp/event_loop.py" = ["ALL"]
+"tests/e2e/_e2e_live_guard.py" = ["ALL"]
+"scripts/classify_e2e.py" = ["ALL"]
+"src/build_info.py" = ["ALL"]
+"src/no_window.py" = ["ALL"]

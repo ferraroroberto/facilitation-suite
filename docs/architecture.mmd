@@ -1,0 +1,16 @@
+%% facilitation-suite — internal structure (hand-authored; update with structural changes)
+flowchart LR
+  subgraph clients[Browser views]
+    appv["/ app<br/>Sessions · Plan · Groups · Results · Settings"]
+    presenter["/presenter"]
+    stage["/stage (OBS display capture)"]
+  end
+  tray["tray.bat → app/tray/tray.py"] --> server
+  subgraph server[FastAPI :8449 — app/webapp/server.py]
+    pages["routers/pages.py<br/>pages · /healthz · /api/version"]
+  end
+  appv --> pages
+  presenter --> pages
+  stage --> pages
+  pages --> cfg["src/config.py<br/>config.json · env overrides"]
+  pages --> build["src/build_info.py"]

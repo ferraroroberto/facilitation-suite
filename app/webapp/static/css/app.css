@@ -1,0 +1,144 @@
+/* facilitation-suite app shell. Tokens: tokens.css; components: _vendored/. */
+
+* { box-sizing: border-box; }
+html, body { overscroll-behavior: none; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--font-body);
+  line-height: 1.5;
+  touch-action: manipulation;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  padding: var(--gap);
+  max-width: var(--layout-measure);
+  margin: 0 auto;
+}
+.pane-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  align-content: start;
+}
+.home-head .home-toggle + .home-toggle { margin-left: 0; }
+.home-head .home-title-text { overflow: hidden; text-overflow: ellipsis; }
+
+/* The rail's brand tile only exists in the wide layout. */
+.rail-brand { display: none; }
+
+/* Wide, fine pointer: left rail (vendored nav) + full-width content with
+   master-detail panes (design.md Layout). */
+@media (min-width: 1100px) and (pointer: fine) {
+  .app { max-width: none; margin: 0; min-height: 100vh; }
+  .rail-brand {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-md) 0 var(--space-sm);
+  }
+  .rail-brand img { width: 40px; height: 40px; border-radius: var(--radius-md); }
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    gap: var(--gap);
+    align-items: start;
+  }
+  .split > .split-list,
+  .split > .split-detail { min-width: 0; }
+}
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+.split-list, .split-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  align-content: start;
+}
+
+.page-foot { margin-top: var(--space-md); }
+
+/* Toast — user-initiated command results only. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-tabs-height) + var(--bottom-tabs-margin) + 16px);
+  transform: translateX(-50%);
+  max-width: min(90vw, 560px);
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--bg);
+  font-size: var(--font-body-sm);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 50;
+}
+.toast[data-kind="error"] { background: var(--danger); color: #fff; }
+@media (min-width: 1100px) and (pointer: fine) { .toast { bottom: 24px; } }
+
+/* ---- shared building blocks used by several views ---------------------- */
+
+.overline {
+  margin: 0;
+  font-size: var(--font-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.muted { color: var(--muted); }
+.small { font-size: var(--font-body-sm); }
+.mono { font-family: var(--mono); font-size: var(--font-body-sm); }
+.row-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--neutral-soft);
+  color: var(--ink);
+  font-size: var(--font-caption);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.chip .icon { width: 14px; height: 14px; }
+.chip.ok { background: var(--success-soft); color: var(--success-text); }
+.chip.warn { background: var(--attention-soft); color: var(--attention-text); }
+.chip.bad { background: var(--danger-soft); color: var(--danger-text); }
+.chip.accent { background: var(--accent-soft); color: var(--accent-text); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+
+.list { display: grid; grid-template-columns: minmax(0, 1fr); }
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--row-md);
+  padding: 12px 0;
+}
+.list-row + .list-row { border-top: 1px solid var(--line-muted); }
+.list-row .grow { flex: 1; min-width: 0; }
+.row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-meta { font-size: var(--font-body-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.field { display: grid; gap: 4px; }
+.field > span { font-size: var(--font-label); font-weight: 600; }
+.field .hint { font-size: var(--font-body-sm); color: var(--muted); }
+.input {
+  height: var(--control-h);
+  padding: 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--ink);
+  min-width: 0;
+}
+textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vertical; }

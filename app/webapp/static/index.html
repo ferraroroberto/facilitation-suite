@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<title>facilitation-suite</title>
+<script>
+  (function () {
+    var app = 'facilitation-suite';
+    var root = document.documentElement;
+    var theme = null;
+    var size = null;
+    try {
+      theme = localStorage.getItem(app + '.theme');
+      size = localStorage.getItem(app + '.textsize');
+    } catch (e) {}
+    var dark = theme ? theme === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.dataset.textsize = size === 'small' || size === 'large' ? size : 'default';
+  })();
+</script>
+<link rel="icon" href="/static/icons/favicon.ico">
+<link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/_vendored/base/base.css">
+<link rel="stylesheet" href="/static/_vendored/nav/nav-tabs.css">
+<link rel="stylesheet" href="/static/_vendored/card/card.css">
+<link rel="stylesheet" href="/static/_vendored/disclosure/disclosure.css">
+<link rel="stylesheet" href="/static/_vendored/modal/modal.css">
+<link rel="stylesheet" href="/static/_vendored/empty-state/empty-state.css">
+<link rel="stylesheet" href="/static/_vendored/switch/switch.css">
+<link rel="stylesheet" href="/static/_vendored/button/button.css">
+<link rel="stylesheet" href="/static/_vendored/range-tab/range-tab.css">
+<link rel="stylesheet" href="/static/_vendored/page-foot/page-foot.css">
+<link rel="stylesheet" href="/static/_vendored/home-head/home-head.css">
+<link rel="stylesheet" href="/static/_vendored/select-native/select-native.css">
+<link rel="stylesheet" href="/static/_vendored/text-size/text-size.css">
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<!--SPRITE-->
+
+<nav class="tabs" role="tablist" aria-label="Sections" data-active-tab="sessions">
+  <div class="rail-brand" aria-hidden="true"><img src="/static/icons/icon-192.png" alt=""></div>
+  <button id="tabSessions" type="button" class="tab active" data-tab="sessions"
+          role="tab" aria-selected="true" aria-controls="paneSessions">
+    <svg class="tab-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M3 10h18" />
+    </svg>
+    <span class="tab-label">Sessions</span>
+  </button>
+  <button id="tabPlan" type="button" class="tab" data-tab="plan"
+          role="tab" aria-selected="false" aria-controls="panePlan" tabindex="-1">
+    <svg class="tab-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M2 3h20" /><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" /><path d="m7 21 5-5 5 5" />
+    </svg>
+    <span class="tab-label">Plan</span>
+  </button>
+  <button id="tabGroups" type="button" class="tab" data-tab="groups"
+          role="tab" aria-selected="false" aria-controls="paneGroups" tabindex="-1">
+    <svg class="tab-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="m18 14 4 4-4 4" /><path d="m18 2 4 4-4 4" /><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" /><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" /><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+    </svg>
+    <span class="tab-label">Groups</span>
+  </button>
+  <button id="tabResults" type="button" class="tab" data-tab="results"
+          role="tab" aria-selected="false" aria-controls="paneResults" tabindex="-1">
+    <svg class="tab-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
+    </svg>
+    <span class="tab-label">Results</span>
+  </button>
+</nav>
+
+<main class="app">
+  <section id="paneSessions" class="pane" role="tabpanel" aria-labelledby="tabSessions" aria-label="Sessions">
+    <div class="pane-body" data-view="sessions"></div>
+  </section>
+  <section id="panePlan" class="pane" role="tabpanel" aria-labelledby="tabPlan" aria-label="Plan" hidden>
+    <div class="pane-body" data-view="plan"></div>
+  </section>
+  <section id="paneGroups" class="pane" role="tabpanel" aria-labelledby="tabGroups" aria-label="Groups" hidden>
+    <div class="pane-body" data-view="groups"></div>
+  </section>
+  <section id="paneResults" class="pane" role="tabpanel" aria-labelledby="tabResults" aria-label="Results" hidden>
+    <div class="pane-body" data-view="results"></div>
+  </section>
+  <section id="paneSettings" class="pane" aria-label="Settings" hidden>
+    <div class="pane-body" data-view="settings"></div>
+  </section>
+  <footer class="page-foot"><p id="buildReadout">Build: …</p></footer>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

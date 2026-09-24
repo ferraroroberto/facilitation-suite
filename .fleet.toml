@@ -1,0 +1,98 @@
+# .fleet.toml — this repo's card on the fleet architecture map.
+# fleet-config's /system-map aggregates every repo's .fleet.toml. Keep current:
+# update in the same PR as any material change (layer, port, role, one-line
+# description, exposed services). Schema: fleet-config/architecture/README.md.
+layer       = "working-web"
+icon        = "🎤"
+port        = ":8449"
+description = "<b>facilitation-suite</b> — one local app for live online workshops: a stage OBS captures, a presenter cockpit, Zoom-chat-driven activities read locally (no bot), breakout groups, per-item timers and session results."
+
+# Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
+# copy was taken from. /propagate-vendored hash-verifies + bumps.
+[vendored]
+base            = { src = "app/webapp/static/_vendored/base", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/base" }
+nav             = { src = "app/webapp/static/_vendored/nav", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/nav" }
+icons           = { src = "app/webapp/static/_vendored/icons", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/icons" }
+card            = { src = "app/webapp/static/_vendored/card", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/card" }
+button          = { src = "app/webapp/static/_vendored/button", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/button" }
+modal           = { src = "app/webapp/static/_vendored/modal", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/modal" }
+disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/disclosure" }
+empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/empty-state" }
+switch          = { src = "app/webapp/static/_vendored/switch", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/switch" }
+select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/select-native" }
+home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/home-head" }
+range-tab       = { src = "app/webapp/static/_vendored/range-tab", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/range-tab" }
+text-size       = { src = "app/webapp/static/_vendored/text-size", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/text-size" }
+page-foot       = { src = "app/webapp/static/_vendored/page-foot", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/page-foot" }
+single_instance = { src = "app/tray/single_instance.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/tray/single_instance.py" }
+tray_watchdog   = { src = "app/tray/watchdog.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/tray/watchdog.py" }
+e2e_live_guard  = { src = "tests/e2e/_e2e_live_guard.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "tests/e2e/_e2e_live_guard.py" }
+classify_e2e    = { src = "scripts/classify_e2e.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "scripts/classify_e2e.py" }
+no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
+build_info      = { src = "src/build_info.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/build_info.py" }
+# Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's
+# (via task-os), code verbatim; src/certs.py and scripts/gen_tailscale_cert.py are
+# copy-to-adapt (project-scaffolding#232), so they carry no [vendored] entry.
+
+# Diff-proportionate e2e routing (project-scaffolding#180): first match wins; an
+# unmatched path, a mixed diff, or an empty diff fails safe to the full suite.
+[e2e]
+static_pytest_target = "tests/e2e/test_smoke.py"
+static_browsers       = ["chromium"]
+full_pytest_target    = "tests/e2e"
+
+[[e2e.rule]]
+tier       = "static"
+prefix     = "app/webapp/static/"
+extensions = ["svg", "png", "jpg", "jpeg", "gif", "ico", "webp", "woff", "woff2", "ttf", "otf", "webmanifest"]
+[[e2e.rule]]
+tier       = "static"
+prefix     = "app/webapp/static/_vendored/"
+extensions = ["html"]
+[[e2e.rule]]
+tier   = "full"
+prefix = "app/"
+[[e2e.rule]]
+tier   = "full"
+prefix = "tests/e2e/"
+[[e2e.rule]]
+tier   = "full"
+prefix = "themes/"
+[[e2e.rule]]
+tier       = "none"
+prefix     = "src/"
+extensions = ["py"]
+[[e2e.rule]]
+tier       = "none"
+prefix     = "tests/"
+extensions = ["py", "json", "yaml", "txt"]
+[[e2e.rule]]
+tier   = "none"
+prefix = "scripts/"
+[[e2e.rule]]
+tier   = "none"
+prefix = "config/"
+[[e2e.rule]]
+tier   = "none"
+prefix = "docs/"
+[[e2e.rule]]
+tier   = "none"
+prefix = "brand/"
+[[e2e.rule]]
+tier   = "none"
+prefix = "assets/"
+[[e2e.rule]]
+tier       = "none"
+extensions = ["md", "bat", "toml", "ini", "txt", "yaml"]
+[[e2e.rule]]
+tier = "none"
+path = ".gitignore"
+[[e2e.rule]]
+tier = "none"
+path = ".gitattributes"
+[[e2e.rule]]
+tier = "none"
+path = "LICENSE"
+[[e2e.rule]]
+tier = "none"
+path = "launcher.py"

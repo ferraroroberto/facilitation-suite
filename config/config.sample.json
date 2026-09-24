@@ -1,0 +1,8 @@
+{
+  "host": "0.0.0.0",
+  "port": 8449,
+  "session_root": "",
+  "stage_display": 2,
+  "obs": { "enabled": true, "host": "127.0.0.1", "port": 4455, "password": "" },
+  "reader": { "enabled": true, "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat" }
+}
