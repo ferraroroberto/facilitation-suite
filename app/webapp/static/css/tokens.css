@@ -1,0 +1,146 @@
+/* Fleet design tokens (~/.claude/design.md light + design.dark.md dark), under the
+ * names the vendored _vendored/ components read. The app and the presenter use
+ * these; the stage does not (it follows the session theme, themes/*.css). */
+
+:root {
+  --bg: #ffffff;
+  --card: #ffffff;
+  --card-off: #f6f8fa;
+  --ink: #1f2328;
+  --muted: #656d76;
+  --line: #d1d9e0;
+  --line-muted: #d8dee4;
+  --accent: #0969da;
+  --accent-fg: #ffffff;
+  --accent-fill: #0969da;
+  --accent-text: #0550ae;
+  --control-border: #818b98;
+  --on: #1a7f37;
+  --success: #1a7f37;
+  --success-text: #116329;
+  --deficit: #cf222e;
+  --danger: #cf222e;
+  --danger-text: #a40e26;
+  --attention: #9a6700;
+  --attention-text: #7d4e00;
+  --tile-green: #1f883d;
+  --tile-blue: #0969da;
+  --tile-purple: #8250df;
+  --tile-orange: #bc4c00;
+  --tile-yellow: #bf8700;
+  --input-bg: var(--card-off);
+  --toggle-knob: #ffffff;
+  --close-bg: var(--card-off);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-border-soft: color-mix(in srgb, var(--accent) 24%, transparent);
+  --accent-border-strong: color-mix(in srgb, var(--accent) 28%, transparent);
+  --neutral-soft: color-mix(in srgb, var(--muted) 16%, transparent);
+  --success-soft: color-mix(in srgb, var(--success) 16%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 16%, transparent);
+  --attention-soft: color-mix(in srgb, var(--attention) 16%, transparent);
+  --deficit-soft: color-mix(in srgb, var(--deficit) 12%, transparent);
+  --deficit-border-soft: color-mix(in srgb, var(--deficit) 30%, transparent);
+  --tabbar-bg: rgba(255, 255, 255, 0.85);
+  --tabbar-border: rgba(31, 35, 40, 0.12);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius: 16px;
+  --radius-pill: 9999px;
+  --radius-nav: 30px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --gap: 12px;
+  --row-sm: 44px;
+  --row-md: 52px;
+  --row-lg: 60px;
+  --control-h: 36px;
+  --layout-measure: 772px;
+  --layout-rail: 80px;
+  --bottom-tabs-height: 61px;
+  --bottom-tabs-margin: 21px;
+  --bottom-tabs-pill-height: 53px;
+  --bottom-tabs-padding: 4px;
+  --bottom-tabs-gap: 4px;
+  --bottom-tabs-icon: 20px;
+  --bottom-tabs-label: 11px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-heading-xl: 2rem;
+  --font-heading-lg: 1.5rem;
+  --font-heading-md: 1.25rem;
+  --font-body: 1rem;
+  --font-body-sm: 0.875rem;
+  --font-label: 0.92rem;
+  --font-caption: 0.78rem;
+  --icon-inline: 16px;
+  --icon-title: 18px;
+  --icon-nav: 20px;
+  --icon-feature: 24px;
+  --tile-size: 48px;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --card: #161b22;
+  --card-off: #010409;
+  --ink: #e6edf3;
+  --muted: #7d8590;
+  --line: #30363d;
+  --line-muted: #21262d;
+  --accent: #2f81f7;
+  --accent-fg: #ffffff;
+  --accent-fill: #1f6feb;
+  --accent-text: #58a6ff;
+  --control-border: #6e7681;
+  --on: #3fb950;
+  --success: #3fb950;
+  --success-text: #56d364;
+  --deficit: #f85149;
+  --danger: #f85149;
+  --danger-text: #ff7b72;
+  --attention: #d29922;
+  --attention-text: #e3b341;
+  --tile-green: #2ea043;
+  --tile-blue: #2f81f7;
+  --tile-purple: #a371f7;
+  --tile-orange: #db6d28;
+  --tile-yellow: #d29922;
+  --input-bg: var(--bg);
+  --toggle-knob: var(--ink);
+  --close-bg: var(--line);
+  --tabbar-bg: rgba(22, 27, 34, 0.85);
+  --tabbar-border: rgba(240, 246, 252, 0.1);
+  color-scheme: dark;
+}
+
+html[data-textsize="small"] { font-size: 93.75%; }
+html[data-textsize="large"] { font-size: 112.5%; }
+
+.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.15em;
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.hit-target { position: relative; }
+.hit-target::before { content: ""; position: absolute; inset: -5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

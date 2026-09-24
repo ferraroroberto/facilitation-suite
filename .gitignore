@@ -5,7 +5,7 @@ config/*.json
 !config/*.sample.json
 .env
 sessions.local.yaml
-webapp/
+/webapp/
 .launcher-tmp/
 *.log
 # personal rosters and decks: only synthetic fixtures under tests/fixtures/

@@ -1,0 +1,6 @@
+# sessions.local.yaml — the ledger (git-ignored; this file is its committed example).
+# Only names and folder paths: every session lives in its own folder with its
+# own session.yaml. Copy this file to sessions.local.yaml or let the app create it.
+sessions:
+  - name: "Workshop · cohort A"
+    path: "C:/Users/you/OneDrive/speaking/material/workshop/cohort-a"
