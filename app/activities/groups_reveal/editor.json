@@ -1,0 +1,12 @@
+{
+  "type": "groups_reveal",
+  "label": "Who are you with?",
+  "icon": "users",
+  "order": 6,
+  "description": "Shows the breakout rooms from the Groups tab. No chat capture.",
+  "capture": false,
+  "options": [
+    {"key": "round", "label": "Round", "kind": "select", "default": "pairs",
+     "choices": [["pairs", "Pairs"], ["g4a", "Groups of 4 (A)"], ["g4b", "Groups of 4 (B)"]]}
+  ]
+}

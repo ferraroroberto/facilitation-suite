@@ -27,7 +27,7 @@ PLAN = {
                 {"kind": "slide", "slide_id": 263, "title": "Washing instructions", "profile": "camera_strip",
                  "annotation": "hand-written key"},
                 {"kind": "activity", "id": "a-kryptonite", "type": "word_cloud",
-                 "question": "What switches this group off?", "font": {"family": "Patrick Hand", "size_px": 46},
+                 "question": "What switches this group off?", "font": {"family": "Patrick Hand", "size_px": 72},
                  "timer": {"enabled": True, "seconds": 180, "start": "with_capture", "show_on": "stage", "end": "stop_capture"},
                  "options": {"merge_variants": True, "stopwords": "es"}},
             ],
@@ -197,3 +197,22 @@ def test_api_missing_folder_shows_in_the_list(client, tmp_path: Path) -> None:
 
 def test_session_model_default_is_valid() -> None:
     assert dump_session(Session())["schema"] == 1
+
+
+def test_activity_types_come_from_the_plugin_folders(client) -> None:
+    types = client.get("/api/activities").json()["types"]
+    assert [t["type"] for t in types] == ["word_cloud", "map", "scale", "cards", "feed", "groups_reveal"]
+    wc = types[0]
+    assert {o["key"] for o in wc["options"]} >= {"merge_variants", "stopwords"}
+    assert types[-1]["capture"] is False
+
+
+def test_demo_fixture_is_a_valid_session(tmp_path: Path) -> None:
+    from tests.fixtures.demo import build_demo_session
+
+    sid, folder = build_demo_session(tmp_path / "demo")
+    st = SessionStore(load_config(), ledger=tmp_path / "l.yaml")
+    st.add_existing(str(folder))
+    session = st.load(sid)
+    assert len(session.sections) == 5
+    assert sum(1 for it in session.all_items() if it.kind == "activity") == 7

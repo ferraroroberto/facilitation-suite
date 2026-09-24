@@ -1,0 +1,12 @@
+{
+  "type": "cards",
+  "label": "Cards",
+  "icon": "layout-grid",
+  "order": 4,
+  "description": "Each answer becomes a card with the person's name; the most recent ones stay on stage.",
+  "chat_prompt_hint": "One sentence: …",
+  "options": [
+    {"key": "max_cards", "label": "Cards on stage", "kind": "number", "default": 12},
+    {"key": "show_names", "label": "Show names", "kind": "switch", "default": true}
+  ]
+}

@@ -10,7 +10,11 @@ flowchart LR
     pages["routers/pages.py<br/>pages · /healthz · /api/version"]
     sessr["routers/sessions.py<br/>/api/sessions…"]
     slidesr["routers/slides.py<br/>import jobs · slides · native picker"]
+    actr["routers/activities.py<br/>/api/activities"]
   end
+  actr --> reg["src/activities/registry.py"]
+  model --> reg
+  reg --> plug[("app/activities/&lt;type&gt;/editor.json")]
   slidesr --> importer["src/importer/service.py<br/>ImportJob · plan build · re-import"]
   importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
   importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]
@@ -24,6 +28,7 @@ flowchart LR
   appv --> pages
   appv --> sessr
   appv --> slidesr
+  appv --> actr
   presenter --> pages
   stage --> pages
   pages --> cfg["src/config.py<br/>config.json · env overrides"]

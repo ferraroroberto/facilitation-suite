@@ -51,6 +51,17 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 
 `FS_TEST_POWERPOINT=1` runs the one test that drives the real PowerPoint (on a synthetic deck it builds itself).
 
+## Planning
+
+The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to reorder, rename, collapse), and inside each section the slides, activities and breaks in order (drag, or Alt+↑/↓, or Move up/down). Each item has:
+
+- an **OBS profile** (Camera strip / Camera PiP / Screen only; slides start with the detected one),
+- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep, stop the capture, next item, chime),
+- **In this session** (off = skipped live, kept in the plan),
+- for activities: type, question, question font and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options.
+
+Activity types are plug-ins: one folder per type under `app/activities/<type>/` with an `editor.json` (label, icon, options). Edits are staged; **Save to session.yaml** is the only write.
+
 ## Configuration
 
 `config/config.json` (gitignored; `config/config.sample.json` documents every key):

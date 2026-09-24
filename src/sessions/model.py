@@ -18,11 +18,12 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.activities.registry import editors
+
 SCHEMA_VERSION = 1
 
 Profile = Literal["camera_strip", "camera_pip", "screen_only"]
 PROFILES: tuple[str, ...] = ("camera_strip", "camera_pip", "screen_only")
-ACTIVITY_TYPES: tuple[str, ...] = ("word_cloud", "map", "scale", "cards", "feed", "groups_reveal")
 
 
 class _Open(BaseModel):
@@ -38,8 +39,10 @@ class Timer(_Open):
 
 
 class Font(_Open):
+    """``size_px`` is in stage pixels: the stage is a 1920×1080 canvas scaled to its window."""
+
     family: str = "Patrick Hand"
-    size_px: int = Field(46, ge=12, le=200)
+    size_px: int = Field(72, ge=12, le=240)
 
 
 class Item(_Open):
@@ -63,8 +66,9 @@ class Item(_Open):
     @field_validator("type")
     @classmethod
     def _known_type(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ACTIVITY_TYPES:
-            raise ValueError(f"unknown activity type {v!r} (known: {', '.join(ACTIVITY_TYPES)})")
+        known = editors()
+        if v is not None and v not in known:
+            raise ValueError(f"unknown activity type {v!r} (known: {', '.join(known)})")
         return v
 
 
