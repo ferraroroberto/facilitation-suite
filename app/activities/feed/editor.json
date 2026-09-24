@@ -6,7 +6,25 @@
   "description": "Answers flow in as bubbles, newest largest.",
   "chat_prompt_hint": "Your idea in the chat",
   "options": [
-    {"key": "max_items", "label": "Bubbles on stage", "kind": "number", "default": 16},
-    {"key": "show_names", "label": "Show names", "kind": "switch", "default": true}
+    {
+      "key": "max_items",
+      "label": "Bubbles on stage",
+      "kind": "number",
+      "default": 16
+    },
+    {
+      "key": "show_names",
+      "label": "Show names",
+      "kind": "switch",
+      "default": true
+    }
+  ],
+  "samples": [
+    "More breaks",
+    "Shared goals",
+    "Clear roles",
+    "Celebrate small wins",
+    "Honest feedback",
+    "Less email"
   ]
 }

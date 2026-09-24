@@ -71,7 +71,8 @@
   font-weight: 600;
 }
 .stage-canvas .st-hint svg, .stage-canvas .st-pill svg { width: 28px; height: 28px; }
-.stage-canvas .st-count { font-size: 26px; color: var(--st-muted); }
+.stage-canvas .st-count { display: inline-flex; align-items: center; gap: 8px; font-size: 30px; color: var(--st-muted); }
+.stage-canvas .st-count svg { width: 28px; height: 28px; }
 .stage-canvas .st-count b { color: var(--st-ink); }
 .stage-canvas .st-pill {
   display: inline-flex;

@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any, Optional
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
+from src.activities.registry import ACTIVITIES_DIR, editors
 from src.live.actions import catalog, run_action
 from src.live.hub import LiveError, LiveHub
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+ITEM_ID = re.compile(r"^[a-z]{2,6}-[a-z0-9-]{1,40}$")
+PLUGIN_ASSETS = {"stage.js": "text/javascript", "stage.css": "text/css"}
 
 
 def _hub(request: Request) -> LiveHub:
@@ -72,6 +77,36 @@ async def action(request: Request, body: ActionBody) -> dict[str, Any]:
 @router.get("/api/live/actions")
 def actions() -> dict[str, Any]:
     return {"actions": catalog()}
+
+
+@router.get("/api/live/captures/{item_id}")
+def frozen_capture(request: Request, item_id: str) -> dict[str, Any]:
+    """A frozen capture (answers + result + the item as it was)."""
+    if not ITEM_ID.match(item_id):
+        raise AppError(404, "not_found", "No such capture")
+    data = request.app.state.capture.frozen(item_id)
+    if data is None:
+        raise AppError(404, "not_found", "Not captured yet")
+    return data
+
+
+@router.get("/api/live/captures/{item_id}/png", include_in_schema=False)
+def frozen_png(request: Request, item_id: str) -> Response:
+    path = request.app.state.capture.frozen_path(item_id, "png") if ITEM_ID.match(item_id) else None
+    if path is None or not path.is_file():
+        raise AppError(404, "not_found", "No picture yet")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})
+
+
+@router.get("/activities/{activity_type}/{name}", include_in_schema=False)
+def plugin_asset(activity_type: str, name: str) -> Response:
+    """An activity plug-in's stage renderer (``stage.js``) and style (``stage.css``)."""
+    if name not in PLUGIN_ASSETS or activity_type not in editors():
+        raise AppError(404, "not_found", "No such plug-in file")
+    path = ACTIVITIES_DIR / activity_type / name
+    if not path.is_file():
+        raise AppError(404, "not_found", "No such plug-in file")
+    return FileResponse(path, media_type=PLUGIN_ASSETS[name], headers={"Cache-Control": "no-cache"})
 
 
 @router.get("/api/live/theme.css", include_in_schema=False)

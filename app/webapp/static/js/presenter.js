@@ -214,6 +214,7 @@ function draw() {
   drawItemCard(cur, s);
   drawTiming(cur, s);
   drawChips();
+  markChat();
 }
 
 function drawNext(s, nxt) {
@@ -263,22 +264,32 @@ function drawItemCard(cur, s) {
   const card = root.querySelector('.p-item');
   const body = card.querySelector('[data-body]');
   const t = cur && cur.timer;
+  const cap = !!(cur && cur.capture);
+  card.querySelector('.p-label').textContent = cap ? 'Capture' : 'Timer';
   card.querySelector('.p-meta').textContent = cur ? cur.title : '';
   const key = `${cur ? cur.id : ''}|${t ? 1 : 0}|${cur && cur.kind === 'activity' ? 1 : 0}`;
   if (body.dataset.key !== key) {
     body.dataset.key = key;
-    if (!t) {
+    body.innerHTML = '';
+    if (cap) {
+      body.insertAdjacentHTML('beforeend',
+        `<div class="p-cap-status"><span class="p-cap-dot" data-capdot></span><span data-capstate></span></div>` +
+        `<p class="small muted p-cap-counts" data-capcounts></p>` +
+        `<button type="button" class="button-primary p-cap-btn" data-captoggle></button>`);
+      body.querySelector('[data-captoggle]').addEventListener('click', () => live.send('capture_toggle'));
+    }
+    if (!t && !cap) {
       body.innerHTML = `<p class="muted">No timer on this item. Timers are decided item by item in the Plan tab.</p>`;
-    } else {
+    } else if (t) {
       const starts = { manual: 'you start it', on_enter: 'starts when the item opens', with_capture: 'starts with the capture' }[t.start];
       const shows = { stage: 'on the stage', presenter: 'here only', both: 'stage and here' }[t.show_on];
-      body.innerHTML =
-        `<div class="p-timer"><span class="p-timer-clock" data-tclock></span><span class="p-timer-state small muted" data-tstate></span></div>` +
-        `<p class="small muted">${esc(Math.round(t.seconds / 60 * 10) / 10)} min · ${esc(starts)} · shows ${esc(shows)}</p>` +
+      body.insertAdjacentHTML('beforeend',
+        `<div class="p-timer${cap ? ' compact' : ''}"><span class="p-timer-clock" data-tclock></span><span class="p-timer-state small muted" data-tstate></span></div>` +
+        `<p class="small muted">${esc(Math.round(t.seconds / 60 * 10) / 10)} min timer · ${esc(starts)} · shows ${esc(shows)}</p>` +
         `<div class="p-timer-actions">` +
-        `<button type="button" class="button-primary" data-ttoggle></button>` +
+        `<button type="button" class="${cap ? 'button-surface' : 'button-primary'}" data-ttoggle></button>` +
         `<button type="button" class="button-surface" data-tadd title="M">+1 min</button>` +
-        `<button type="button" class="button-surface" data-treset title="Reset">${icon('rotate-ccw')} Reset</button></div>`;
+        `<button type="button" class="button-surface" data-treset title="Reset">${icon('rotate-ccw')} Reset</button></div>`);
       body.querySelector('[data-ttoggle]').addEventListener('click', () => live.send('timer_toggle'));
       body.querySelector('[data-tadd]').addEventListener('click', () => live.send('timer_add_minute'));
       body.querySelector('[data-treset]').addEventListener('click', () => live.send('timer_reset'));
@@ -294,7 +305,24 @@ function drawItemCard(cur, s) {
   }
   const sw = body.querySelector('[data-names]');
   if (sw) setSwitch(sw, !!s.names);
+  if (cap) drawCapture(body, s.capture);
   if (t) tickItemTimer(cur, s);
+}
+
+function drawCapture(body, c) {
+  const status = c ? c.status : 'idle';
+  const btn = body.querySelector('[data-captoggle]');
+  const label = { idle: `${icon('play')} Start capture`, live: `${icon('square')} Stop capture`, stopped: `${icon('play')} Reopen capture` }[status];
+  if (btn.dataset.status !== status) {
+    btn.dataset.status = status;
+    btn.innerHTML = `${label}<kbd>Space</kbd>`;
+    btn.classList.toggle('live', status === 'live');
+  }
+  body.querySelector('[data-capdot]').className = `p-cap-dot ${status}`;
+  body.querySelector('[data-capstate]').textContent = { idle: 'Not started — answers are not counted yet', live: 'Capturing answers', stopped: 'Stopped — the result is frozen' }[status];
+  body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden)
+    ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}`
+    : status === 'idle' ? 'Press Space when the question is on stage.' : 'No answers yet.';
 }
 
 function tickItemTimer(cur, s) {
@@ -420,6 +448,11 @@ let chat = [];
 function buildChat() {
   const body = root.querySelector('.p-chat [data-body]');
   body.innerHTML = `<ol class="p-msgs" data-msgs></ol><div class="p-chat-foot" data-chatfoot></div>`;
+  body.querySelector('[data-msgs]').addEventListener('click', (e) => {
+    const li = e.target.closest('.p-msg');
+    if (!li || li.classList.contains('own')) return;
+    live.send(li.classList.contains('hidden-msg') ? 'unhide_message' : 'hide_message', li.dataset.id);
+  });
   chat = [];
   loadChat();
 }
@@ -433,6 +466,28 @@ async function loadChat() {
     list.innerHTML = '';
     addChat(data.messages);
   } catch (e) { /* the WS reconnect retries */ }
+}
+
+/** Mark each chat row: counted in the current capture, or hidden. Click toggles hidden. */
+function markChat() {
+  const list = root.querySelector('[data-msgs]');
+  const s = live.state;
+  if (!list || !s) return;
+  const hidden = new Set(s.hidden || []);
+  const wins = (s.capture && s.capture.windows) || [];
+  const inWin = (m) => wins.some(([a, b]) => m.received_at >= a && (b == null || m.received_at < b));
+  const sig = JSON.stringify([s.hidden, wins, chat.length]);
+  if (list.dataset.sig === sig) return;
+  list.dataset.sig = sig;
+  const byId = new Map(chat.map((m) => [m.id, m]));
+  list.querySelectorAll('.p-msg').forEach((li) => {
+    const m = byId.get(Number(li.dataset.id));
+    if (!m) return;
+    const isHidden = hidden.has(m.id);
+    li.classList.toggle('hidden-msg', isHidden);
+    li.classList.toggle('counted', !isHidden && !m.own && inWin(m));
+    li.title = m.own ? 'Your own message — never counted' : isHidden ? 'Hidden — click to count it again' : 'Click to hide it from the activity';
+  });
 }
 
 function addChat(messages) {
@@ -452,6 +507,7 @@ function addChat(messages) {
   if (atBottom || fresh.length === chat.length) list.scrollTop = list.scrollHeight;
   root.querySelector('.p-chat .p-meta').textContent = `${chat.length} message${chat.length === 1 ? '' : 's'}`;
   drawChatFoot();
+  markChat();
 }
 
 function drawChatFoot() {
@@ -483,9 +539,20 @@ async function startReader() {
 async function stopReader() {
   try { await api('/api/chat/reader/stop', { method: 'POST' }); } catch (e) { toast(e.message, 'error'); }
 }
+let activityTypes = null;
 async function simulateAnswers() {
+  // On an activity, the simulator answers with that type's sample answers.
+  const s = live.state;
+  const cur = s && plan ? items()[s.index] : null;
+  let answers = [];
+  if (cur && cur.kind === 'activity') {
+    try {
+      activityTypes = activityTypes || (await api('/api/activities')).types;
+      answers = (activityTypes.find((x) => x.type === cur.type) || {}).samples || [];
+    } catch (e) { answers = []; }
+  }
   try {
-    await api('/api/chat/simulate', { method: 'POST', body: { kind: 'random', count: 30, every_ms: 600 } });
+    await api('/api/chat/simulate', { method: 'POST', body: { kind: 'random', count: 30, every_ms: 600, answers } });
     toast('Simulating 30 answers through the chat pipeline');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -530,3 +597,10 @@ function chime() {
 }
 
 bindKeys(live, { Home: () => live.send('goto', '1') });
+
+// Space means "capture" on the presenter: a button clicked with the mouse must
+// not keep the focus (Space would click it again). Keyboard focus is kept.
+root.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b && e.detail > 0) b.blur();
+});

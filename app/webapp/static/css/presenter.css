@@ -95,6 +95,20 @@
   opacity: 0.85;
 }
 .p-names { margin-top: var(--space-xs); }
+.p-cap-status { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.p-cap-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); flex: none; }
+.p-cap-dot.live { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); animation: p-pulse 1.4s ease-in-out infinite; }
+.p-cap-dot.stopped { background: var(--success); }
+@keyframes p-pulse { 50% { box-shadow: 0 0 0 8px transparent; } }
+.p-cap-counts { margin: 0; }
+.p-cap-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+.p-cap-btn.live { background: var(--danger); border-color: var(--danger); }
+.p-timer.compact .p-timer-clock { font-size: 1.8rem; }
+.p-msg { cursor: pointer; }
+.p-msg.own { cursor: default; }
+.p-msg.counted { box-shadow: inset 3px 0 0 var(--success); padding-left: 10px; }
+.p-msg.hidden-msg .p-msg-text { text-decoration: line-through; color: var(--muted); }
+.p-msg.hidden-msg { opacity: 0.7; }
 
 /* Zoom chat: chronological, newest at the bottom, the list scrolls inside the card. */
 .p-chat .p-body { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 0; gap: 0; }

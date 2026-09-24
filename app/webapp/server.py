@@ -52,6 +52,7 @@ from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
 from src.config import load_config
 from src.importer.service import Importer
+from src.live.capture import CaptureService
 from src.live.hub import LiveHub
 from src.logger import configure_logging
 from src.sessions.store import SessionStore
@@ -114,13 +115,17 @@ def _install_chat(app: FastAPI) -> None:
     scheme = "https" if cert_paths() else "http"  # the reader falls back to the other scheme itself
     proc = ReaderProcess(f"{scheme}://127.0.0.1:{cfg.port}")
 
+    capture = CaptureService(live, chat_hub)
+    capture.freeze_url = f"{scheme}://127.0.0.1:{cfg.port}"
+    app.state.capture = capture
+
     @app.middleware("http")
     async def _note_server_address(request: Request, call_next):  # noqa: ANN202 — Starlette middleware signature
-        # The reader must post to the port this server really listens on (a
-        # dev or test instance can run on another port than the config's).
+        # The reader and the freeze renderer must reach the port this server
+        # really listens on (a dev or test instance can differ from the config).
         server = request.scope.get("server")
         if server and server[1]:
-            proc.server_url = f"{request.url.scheme}://127.0.0.1:{server[1]}"
+            proc.server_url = capture.freeze_url = f"{request.url.scheme}://127.0.0.1:{server[1]}"
         return await call_next(request)
     chat_hub.process_running = proc.running
     app.state.chat = chat_hub

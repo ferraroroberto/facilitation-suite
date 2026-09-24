@@ -12,6 +12,33 @@ export const H = 1080;
 
 const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
+// Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx);
+// an optional stage.css is linked once. Loaded on first use, then cached.
+const plugins = {};
+export function loadPlugin(type) {
+  if (!plugins[type]) {
+    plugins[type] = import(`/activities/${type}/stage.js`).then((mod) => {
+      if (!document.querySelector(`link[data-plugin="${type}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = `/activities/${type}/stage.css`;
+        link.dataset.plugin = type;
+        link.onerror = () => link.remove(); // stage.css is optional
+        document.head.appendChild(link);
+      }
+      return mod;
+    }).catch(() => null);
+  }
+  return plugins[type];
+}
+
+/** The result to draw for `item`: an explicit one (preview, freeze) or the live capture's. */
+function resultFor(item, ctx) {
+  if ('result' in ctx) return ctx.result;
+  const cap = ctx.state && ctx.state.capture;
+  return cap && cap.item_id === item.id ? cap.result : null;
+}
+
 /** "mm:ss" for the stage clocks. */
 export function clock(sec) {
   const s = Math.max(0, Math.ceil(sec));
@@ -36,6 +63,9 @@ export function createStage(host, opts = {}) {
 
   let key = null;
   let item = null;
+  let plugin = null;
+  let pluginFor = null;
+  let lastResult;
 
   function fit() {
     const w = host.clientWidth;
@@ -53,6 +83,17 @@ export function createStage(host, opts = {}) {
 
   function build(it, ctx) {
     item = it;
+    plugin = null;
+    lastResult = undefined;
+    if (it && it.kind === 'activity' && it.type) {
+      pluginFor = it.id;
+      loadPlugin(it.type).then((mod) => {
+        if (pluginFor !== it.id) return;
+        plugin = mod;
+        lastResult = undefined;
+        if (lastCtx) update(lastCtx);
+      });
+    }
     if (!it) {
       canvas.innerHTML = '';
       return;
@@ -79,7 +120,7 @@ export function createStage(host, opts = {}) {
         `<span class="st-pill" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>` +
         `</div></div>`;
     }
-    if (opts.guides && it.zone && it.kind !== 'slide') {
+    if (opts.guides && it.zone && (it.kind !== 'slide' || opts.slideGuides)) {
       const z = it.zone;
       html += `<div class="st-guide" style="left:${z[0] * W}px;top:${z[1] * H}px;width:${(z[2] - z[0]) * W}px;height:${(z[3] - z[1]) * H}px">${ICON('video')}<span>Camera</span></div>`;
     }
@@ -87,7 +128,9 @@ export function createStage(host, opts = {}) {
     canvas.innerHTML = html;
   }
 
+  let lastCtx = null;
   function update(ctx) {
+    lastCtx = ctx;
     const state = ctx.state || {};
     const blk = canvas.querySelector('[data-blackout]');
     if (blk) blk.hidden = !(opts.blackout !== false && state.blackout);
@@ -101,11 +144,32 @@ export function createStage(host, opts = {}) {
     }
     const pill = canvas.querySelector('[data-pill]');
     if (pill) {
-      pill.hidden = !t;
+      pill.hidden = !t || !!opts.noTimers;
       if (t) {
         pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
         pill.classList.toggle('done', !!t.done);
       }
+    }
+    if (item.kind === 'activity') drawResult(ctx);
+  }
+
+  function drawResult(ctx) {
+    const result = resultFor(item, ctx);
+    const names = 'names' in ctx ? ctx.names : !!(ctx.state && ctx.state.names);
+    const body = canvas.querySelector('[data-body]');
+    const count = canvas.querySelector('[data-count]');
+    if (count) {
+      count.innerHTML = result && result.answers
+        ? `${ICON('message-square')} <b>${result.answers}</b> · ${ICON('users')} <b>${result.people}</b>` : '';
+    }
+    if (!plugin || !body) return;
+    const sig = JSON.stringify([result, names]);
+    if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
+    lastResult = sig;
+    try {
+      plugin.render(body, result, { item, names, options: item.options || {} });
+    } catch (e) {
+      console.error('stage plug-in failed', item.type, e);
     }
   }
 
@@ -122,6 +186,8 @@ export function createStage(host, opts = {}) {
     },
     update,
     get body() { return canvas.querySelector('[data-body]'); },
+    /** Resolves once the item's plug-in (if any) is loaded and drawn. */
+    ready() { return item && item.kind === 'activity' && item.type ? loadPlugin(item.type) : Promise.resolve(); },
   };
 }
 

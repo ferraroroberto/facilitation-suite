@@ -1,0 +1,20 @@
+/* Feed: a column of bubbles, the newest at the bottom and largest; older ones
+   shrink and fade as they climb out of the top. */
+.stage-canvas .fd { position: absolute; inset: 0; display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 16px; overflow: hidden; }
+.stage-canvas .fd-bubble {
+  --age: 0;
+  flex: none;
+  max-width: 100%;
+  padding: 14px 26px;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 2px solid var(--st-chip-line);
+  font-size: calc(40px - var(--age) * 2px);
+  opacity: calc(1 - var(--age) * 0.08);
+  transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 450ms, font-size 450ms;
+}
+.stage-canvas .fd-newest { font-size: 60px; border: 4px solid var(--st-ink); }
+.stage-canvas .fd-name { display: block; font-family: var(--st-ui-font); font-size: max(18px, 0.42em); font-weight: 700; opacity: 0.75; }
+.stage-canvas .fd-name:empty { display: none; }
+.stage-canvas .fd-text { margin: 0; font-family: var(--st-font); line-height: 1.1; overflow-wrap: anywhere; }
+.stage-canvas .fd-enter { transform: translateY(40px) scale(0.85); opacity: 0; }
