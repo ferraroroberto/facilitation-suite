@@ -9,7 +9,12 @@ flowchart LR
   subgraph server[FastAPI :8449 — app/webapp/server.py]
     pages["routers/pages.py<br/>pages · /healthz · /api/version"]
     sessr["routers/sessions.py<br/>/api/sessions…"]
+    slidesr["routers/slides.py<br/>import jobs · slides · native picker"]
   end
+  slidesr --> importer["src/importer/service.py<br/>ImportJob · plan build · re-import"]
+  importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
+  importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]
+  importer --> folder
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
   sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]
@@ -18,6 +23,7 @@ flowchart LR
   store --> folder[("session folder<br/>session.yaml · slides/ · live/ · exports/")]
   appv --> pages
   appv --> sessr
+  appv --> slidesr
   presenter --> pages
   stage --> pages
   pages --> cfg["src/config.py<br/>config.json · env overrides"]
