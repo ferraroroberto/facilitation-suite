@@ -70,6 +70,39 @@ export function remaining(t, now) {
   return Math.max(0, t.total - t.elapsed - running);
 }
 
+/** Seconds → "mm:ss", or "h:mm:ss" from an hour on. */
+export function hms(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${String(m).padStart(2, '0')}:${ss}`;
+}
+
+/**
+ * The session clock against the plan, for the item on stage: seconds since
+ * the clock started, the item's section, minutes spent in it, and the drift —
+ * minutes behind (+) or ahead (−) of the planned section start, counting an
+ * overrun of the section itself. null until the session clock starts.
+ */
+export function timing(plan, state, cur, now) {
+  const started = state.clock.started_at;
+  if (!started) return null;
+  const section = cur ? plan.run.sections.find((x) => x.id === cur.section_id) || null : null;
+  const out = { elapsed: (now - started) / 1000, section, inSection: 0, drift: 0 };
+  if (section) {
+    const entered = state.section_entered[section.id] || now;
+    out.inSection = (now - entered) / 60000;
+    out.drift = Math.round((entered - started) / 60000 - section.planned_start + Math.max(0, out.inSection - section.minutes));
+  }
+  return out;
+}
+
+/** "+2 min" / "−3 min" / "on time". */
+export function driftText(minutes) {
+  return minutes >= 1 ? `+${minutes} min` : minutes <= -1 ? `−${-minutes} min` : 'on time';
+}
+
 /** The keyboard map shared by the stage and the presenter (PowerPoint-like). */
 export const KEYS = {
   ArrowRight: 'next', PageDown: 'next', ArrowDown: 'next', n: 'next', N: 'next',

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.conftest import write_test_config
+from tests.conftest import paired_remote, write_test_config
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.fake_obs import FakeObs
 
@@ -93,6 +93,6 @@ def test_settings_edit_profiles_and_never_return_the_password(obs_env, isolated_
 def test_settings_cannot_be_changed_remotely(isolated_env: Path) -> None:
     from app.webapp.server import create_app
 
-    with TestClient(create_app(), client=("10.1.2.3", 5000)) as remote:
+    with paired_remote(create_app(), "10.1.2.3") as remote:
         assert remote.get("/api/settings").status_code == 200
         assert remote.put("/api/settings", json={"obs": {"enabled": True}}).json()["error"]["code"] == "local_only"

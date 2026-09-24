@@ -44,6 +44,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import AppError, error_response
 from app.webapp.routers import (
     actions,
@@ -194,6 +195,9 @@ def create_app() -> FastAPI:
     _install_chat(app)
     _install_obs(app)
     _install_error_handlers(app)
+    # Outermost: other devices need the phone-remote token before anything else runs.
+    app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)
+    redact_server_logs()
     app.mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static")
     # Stage themes (public, repo-level): the stage follows the session theme, not the fleet design.
     app.mount("/themes", NoCacheStaticFiles(directory=str(THEMES_DIR)), name="themes")

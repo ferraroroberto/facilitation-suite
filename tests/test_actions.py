@@ -39,9 +39,16 @@ def test_the_list_carries_one_path_per_button(client) -> None:
     assert rows["capture_toggle"]["stream_deck"] is True and rows["hide_message"]["stream_deck"] is False
 
 
-def test_other_devices_are_refused_without_a_token(isolated_env: Path) -> None:
+def test_other_devices_need_the_remote_token(isolated_env: Path) -> None:
     from app.webapp.server import create_app
 
-    with TestClient(create_app(), client=("192.168.1.20", 5000)) as remote:
+    app = create_app()
+    with TestClient(app, client=("192.168.1.20", 5000)) as remote:
         r = remote.post("/api/actions/next")
-        assert r.status_code == 403 and r.json()["error"]["code"] == "local_only"
+        assert r.status_code == 401 and r.json()["error"]["code"] == "remote_off"
+    with TestClient(app, client=("127.0.0.1", 50000)) as pc:
+        pc.post("/api/settings/remote/token")
+    token = app.state.config.remote.token
+    with TestClient(app, client=("192.168.1.20", 5000)) as remote:
+        r = remote.post("/api/actions/next", headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 409 and r.json()["error"]["code"] == "not_live"  # through the gate, to the hub

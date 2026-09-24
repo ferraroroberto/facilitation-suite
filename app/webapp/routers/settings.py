@@ -1,16 +1,21 @@
-"""Settings shared by every session: OBS connection and profiles, the chat reader."""
+"""Settings shared by every session: OBS connection and profiles, the chat reader, the phone remote."""
 
 from __future__ import annotations
 
 import asyncio
+import logging
+import secrets
 from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from app.webapp.errors import AppError, require_local
+from app.webapp.errors import AppError, is_local, require_local
 from src import settings as settings_file
+from src.certs import cert_hostname
 from src.config import profiles
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings")
 
@@ -38,10 +43,23 @@ class SettingsPatch(BaseModel):
     reader: Optional[ReaderPatch] = None
 
 
+def remote_payload(request: Request) -> dict[str, Any]:
+    """Whether the phone remote is on, the app's base URL (the tailnet name over
+    HTTPS once a cert is in place), and — for this PC only — the pairing link."""
+    token = request.app.state.config.remote.token
+    # Only a server that really speaks HTTPS gives out an https link (a dev or test instance may not).
+    host = cert_hostname() if request.url.scheme == "https" else None
+    port = (request.scope.get("server") or ("", request.app.state.config.port))[1]
+    base = f"https://{host}:{port}" if host else f"{request.url.scheme}://127.0.0.1:{port}"
+    link = f"{base}/remote?token={token}" if token and host and is_local(request.scope) else None
+    return {"enabled": bool(token), "https": bool(host), "base_url": base, "link": link}
+
+
 def payload(request: Request) -> dict[str, Any]:
     cfg = request.app.state.config
     obs = request.app.state.obs
     return {
+        "remote": remote_payload(request),
         "obs": {"enabled": cfg.obs.enabled, "host": cfg.obs.host, "port": cfg.obs.port, "password_set": bool(cfg.obs.password)},
         "obs_state": obs.snapshot(),
         "scenes": list(obs.scenes),
@@ -103,4 +121,22 @@ async def test_obs(request: Request) -> dict[str, Any]:
         await asyncio.sleep(0.1)
         if obs.state == "off" or (obs.attempts > before and obs.state != "connecting"):
             break
+    return payload(request)
+
+
+@router.post("/remote/token")
+def new_remote_token(request: Request) -> dict[str, Any]:
+    """A fresh phone-remote token: turns the remote on, or unpairs every phone that had the old one."""
+    require_local(request, "The phone link can only be made on this PC")
+    request.app.state.config = settings_file.update({"remote": {"token": secrets.token_urlsafe(24)}})
+    logger.info("✅ phone remote: new token (every earlier pairing is void)")
+    return payload(request)
+
+
+@router.delete("/remote/token")
+def remote_off(request: Request) -> dict[str, Any]:
+    """Turn the phone remote off: no other device gets in."""
+    require_local(request, "The phone remote can only be switched off on this PC")
+    request.app.state.config = settings_file.update({"remote": {"token": ""}})
+    logger.info("ℹ️ phone remote switched off")
     return payload(request)
