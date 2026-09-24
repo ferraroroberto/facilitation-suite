@@ -1,0 +1,30 @@
+# --- private / machine-local (never committed) ------------------------------
+.venv/
+data/
+config/*.json
+!config/*.sample.json
+.env
+sessions.local.yaml
+webapp/
+.launcher-tmp/
+*.log
+# personal rosters and decks: only synthetic fixtures under tests/fixtures/
+*.xlsx
+!tests/fixtures/**/*.xlsx
+*.pptx
+!tests/fixtures/**/*.pptx
+
+# --- python / tooling ------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- e2e scratch -------------------------------------------------------------
+tests/e2e/_shots/
+test-results/
+
+# --- agent noise (AGENTS.md IS committed) -----------------------------------
+.agents/
+.codex/
