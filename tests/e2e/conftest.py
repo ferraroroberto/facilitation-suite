@@ -4,11 +4,14 @@
 temp copy of the sample config (OBS and the chat reader off),
 ``FS_LEDGER_PATH`` → a temp ledger and ``FS_DATA_DIR`` → a temp data dir, so a
 run never reads or writes the real config, ledger or session folders.
-``FS_E2E_LIVE=1`` is the one loudly-named opt-in to act on the live instance
-(read-only; the vendored guard refuses otherwise).
+The disposable instance always binds a free port, so a running tray on
+:8449 never collides with it. ``FS_E2E_LIVE=1`` is the one loudly-named
+opt-in to run the suite read-only against the live instance instead.
 
 Screenshots from a story go to ``docs/screenshots`` through ``shot()`` so the
-repo carries the proof; fixtures are synthetic only.
+repo carries the proof; fixtures are synthetic only. They are written only
+when ``FS_E2E_SHOTS=1`` (a deliberate re-baseline), so a gate run never
+rewrites the committed gallery.
 """
 
 from __future__ import annotations
@@ -26,7 +29,6 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import write_test_config
-from tests.e2e._e2e_live_guard import require_disposable_instance
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
@@ -96,7 +98,8 @@ def boot_instance(root: Path, **config: object) -> tuple[subprocess.Popen, Insta
 
 @pytest.fixture(scope="session")
 def webapp() -> Iterator[Instance]:
-    if require_disposable_instance(LIVE_PORT, LIVE_ENV):
+    if os.environ.get(LIVE_ENV) == "1":
+        print(f"[e2e] {LIVE_ENV}=1 - running against the live instance on :{LIVE_PORT}")
         yield Instance(f"http://127.0.0.1:{LIVE_PORT}", Path(tempfile.gettempdir()))
         return
     with tempfile.TemporaryDirectory(prefix="fs-e2e-", ignore_cleanup_errors=True) as tmp:
@@ -114,6 +117,8 @@ def shots() -> Path:
 
 
 def shot(page, path: Path) -> None:
-    """Deterministic capture: no caret, no animations, fonts settled."""
+    """Capture for the gallery (only under ``FS_E2E_SHOTS=1``): no caret, no animations."""
+    if os.environ.get("FS_E2E_SHOTS") != "1":
+        return
     page.evaluate("document.fonts.ready")
     page.screenshot(path=str(path), animations="disabled", caret="hide")

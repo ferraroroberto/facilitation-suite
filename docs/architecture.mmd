@@ -8,8 +8,16 @@ flowchart LR
   tray["tray.bat → app/tray/tray.py"] --> server
   subgraph server[FastAPI :8449 — app/webapp/server.py]
     pages["routers/pages.py<br/>pages · /healthz · /api/version"]
+    sessr["routers/sessions.py<br/>/api/sessions…"]
   end
+  sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
+  store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
+  sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]
+  sessr --> ready["src/sessions/readiness.py"]
+  store --> ledger[("sessions.local.yaml")]
+  store --> folder[("session folder<br/>session.yaml · slides/ · live/ · exports/")]
   appv --> pages
+  appv --> sessr
   presenter --> pages
   stage --> pages
   pages --> cfg["src/config.py<br/>config.json · env overrides"]

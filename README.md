@@ -55,6 +55,22 @@ Open `http://127.0.0.1:8449/` for the app, `/presenter` on the second monitor, a
 
 The **ledger** `sessions.local.yaml` (gitignored; example in `sessions.example.yaml`) lists session names and folders only. Each session lives in its own folder with its own `session.yaml`.
 
+## Sessions
+
+A session is a folder, by default `<session_root>\<workshop>\<session>\`:
+
+```
+session.yaml      the plan (schema v1) — human-readable, safe to edit by hand
+slides/           slide PNGs + slides.json (titles, notes, fingerprints, detected OBS profile)
+roster.xlsx       participants (optional)
+groups.yaml       breakout groups (optional)
+theme.css         per-session stage theme override (optional)
+live/             chat.jsonl, events.jsonl, captures/ — append-only during the session
+exports/          session PDF, Excel report, Zoom rooms CSV
+```
+
+The Sessions tab creates, duplicates (plan, slides, roster, theme — never live data) and adds existing folders, and shows a readiness checklist. **Files offline** checks OneDrive's file attributes without downloading anything and can pin the folder ("Always keep on this device"). Unknown keys in `session.yaml` survive a load → save round-trip. No database ever lives in the session folder.
+
 ## Layout
 
 ```
