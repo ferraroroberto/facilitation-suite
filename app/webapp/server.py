@@ -45,7 +45,18 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.errors import AppError, error_response
-from app.webapp.routers import actions, activities, chat, groups, live, pages, sessions, settings, slides
+from app.webapp.routers import (
+    actions,
+    activities,
+    chat,
+    groups,
+    live,
+    pages,
+    results,
+    sessions,
+    settings,
+    slides,
+)
 from src.build_info import build_identity
 from src.certs import cert_paths
 from src.chat.hub import ChatHub
@@ -193,6 +204,7 @@ def create_app() -> FastAPI:
     app.include_router(live.router)
     app.include_router(chat.router)
     app.include_router(groups.router)
+    app.include_router(results.router)
     app.include_router(settings.router)
     app.include_router(actions.router)
     return app

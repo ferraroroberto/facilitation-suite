@@ -420,6 +420,65 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .banner.ok { background: var(--success-soft); color: var(--success-text); }
 .banner.warn { background: var(--attention-soft); color: var(--attention-text); }
 
+/* ---- Results ------------------------------------------------------------ */
+.check-card { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+.check-card .grow { flex: 1 1 220px; min-width: 0; }
+.check-card .row-title, .check-card .row-meta { white-space: normal; }
+.check-card .button-tint { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; min-height: 44px; }
+.check-banner { align-items: center; }
+.check-banner .grow { flex: 1; min-width: 0; }
+.banner-action { border: 0; background: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; padding: 6px 0; flex: none; }
+.check-note { margin: -6px 4px 0; }
+.diff-row { padding-left: 0; padding-right: 0; align-items: flex-start; }
+.diff-row .row-title, .diff-row .row-meta { white-space: normal; }
+.result-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: var(--row-lg);
+  padding: 10px 12px 10px 16px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.result-row + .result-row { border-top: 1px solid var(--line-muted); }
+.result-row:hover { background: var(--card-off); }
+.result-row.selected { background: var(--accent-soft); }
+.result-row .grow { flex: 1; min-width: 0; display: grid; }
+.result-row > .icon { color: var(--muted); flex: none; }
+.result-num { width: 1.5em; flex: none; color: var(--muted); font-size: var(--font-body-sm); }
+.result-detail { display: grid; gap: var(--gap); }
+.result-visual { padding: 0; overflow: hidden; aspect-ratio: 16 / 9; background: var(--card-off); }
+.result-visual img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.result-visual.missing { display: flex; align-items: center; justify-content: center; gap: 8px; padding: var(--space-md); color: var(--muted); font-size: var(--font-body-sm); text-align: center; }
+.result-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+@media (min-width: 720px) { .result-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); } .result-cards.single { grid-template-columns: minmax(0, 1fr); } }
+.result-cards .card { display: grid; gap: 4px; align-content: start; }
+.top-row, .answer-row { min-height: 40px; padding: 8px 0; gap: var(--space-md); }
+.answers-card .list { max-height: 420px; overflow-y: auto; }
+.answer-name { width: 34%; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.answer-row .grow { overflow-wrap: anywhere; }
+.hidden-answer .grow { color: var(--muted); text-decoration: line-through; }
+.hidden-answer .chip { text-decoration: none; display: inline-flex; min-height: 22px; padding: 0 8px; margin-left: 4px; font-size: 12px; }
+.pdf-card { display: grid; gap: var(--space-sm); }
+.pdf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--space-sm); }
+.pdf-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.pdf-tile { flex: none; width: 96px; height: 54px; border-radius: 6px; border: 1px solid var(--line); background: var(--card-off); object-fit: cover; }
+.pdf-tile.live, .pdf-tile.appendix {
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 2px 6px;
+  font: inherit; font-size: 11px; font-weight: 600; line-height: 1.25; color: var(--ink); overflow: hidden;
+}
+.pdf-tile.live { border: 2px solid var(--accent); background: var(--card); cursor: pointer; }
+.pdf-tile.live:hover { background: var(--accent-soft); }
+.pdf-tile.appendix { color: var(--muted); border-style: dashed; }
+.pdf-note { margin: 0; }
+.export-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.export-actions .button-primary, .export-actions .button-surface { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; }
+
 /* ---- Settings ----------------------------------------------------------- */
 .settings-card { display: grid; gap: var(--space-sm); }
 .settings-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-left: 0; padding-right: 0; }

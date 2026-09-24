@@ -84,10 +84,23 @@ def slide_png(request: Request, sid: str, name: str) -> FileResponse:
 
 
 class PickRequest(BaseModel):
-    kind: str = Field(pattern="^(pptx|xlsx|folder)$")
+    kind: str = Field(pattern="^(pptx|xlsx|folder|zoom_chat)$")
 
 
 _pick_lock = threading.Lock()
+
+
+def zoom_folder() -> Path:
+    """Where Zoom saves meeting chats: ``Documents/Zoom`` (the real Documents, even when OneDrive moved it)."""
+    docs = Path.home() / "Documents"
+    try:
+        from win32com.shell import shell, shellcon  # type: ignore[import-not-found]
+
+        docs = Path(shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents))
+    except Exception as exc:  # noqa: BLE001 — not Windows, or no pywin32: the plain default
+        logger.info("ℹ️ Documents folder from the default path (%s)", exc)
+    zoom = docs / "Zoom"
+    return zoom if zoom.is_dir() else docs
 
 
 def native_pick(kind: str) -> str:
@@ -101,6 +114,9 @@ def native_pick(kind: str) -> str:
     try:
         if kind == "folder":
             return filedialog.askdirectory(parent=root, title="Choose the session folder") or ""
+        if kind == "zoom_chat":
+            return filedialog.askopenfilename(parent=root, title="Choose the chat Zoom saved", initialdir=str(zoom_folder()),
+                                              filetypes=[("Zoom saved chat", "*.txt"), ("All files", "*.*")]) or ""
         types = {"pptx": [("PowerPoint", "*.pptx *.pptm *.ppt")], "xlsx": [("Excel", "*.xlsx")]}[kind]
         return filedialog.askopenfilename(parent=root, title="Choose a file", filetypes=types) or ""
     finally:
