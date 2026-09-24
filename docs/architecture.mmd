@@ -11,7 +11,19 @@ flowchart LR
     sessr["routers/sessions.py<br/>/api/sessions…"]
     slidesr["routers/slides.py<br/>import jobs · slides · native picker"]
     actr["routers/activities.py<br/>/api/activities"]
+    liver["routers/live.py<br/>WS /ws · /api/live…"]
   end
+  liver --> hub["src/live/hub.py<br/>LiveHub — the one live state<br/>position · clocks · item timers"]
+  liver --> acts["src/live/actions.py<br/>intent registry"]
+  acts --> hub
+  hub --> run["src/live/plan.py<br/>run order"]
+  hub --> store
+  hub --> livefiles[("live/state.json · live/events.jsonl")]
+  sessr -->|plan saved| hub
+  presenter <-->|WS snapshots / intents| liver
+  stage <-->|WS snapshots / intents| liver
+  presenter --> themes[("themes/*.css + session theme.css")]
+  stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg
   reg --> plug[("app/activities/&lt;type&gt;/editor.json")]

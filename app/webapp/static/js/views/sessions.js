@@ -285,11 +285,14 @@ async function editMeta(sid, s) {
       { name: 'title', label: 'Title', value: s.title, required: true },
       { name: 'date', label: 'Date and time', type: 'datetime-local', value: local },
       { name: 'duration', label: 'Duration (min)', type: 'number', value: s.duration_minutes },
+      { name: 'chat_hint', label: 'Stage hint under activities', value: s.chat_hint || '',
+        hint: 'Shown on the stage in the language of the session, e.g. "Escribe tu respuesta en el chat de Zoom".' },
     ],
   });
   if (!v) return;
   const next = Object.assign({}, s, {
     title: v.title.trim(),
+    chat_hint: v.chat_hint.trim() || 'Write your answer in the Zoom chat',
     date: v.date ? new Date(v.date).toISOString() : null,
     duration_minutes: Math.max(1, parseInt(v.duration, 10) || s.duration_minutes),
   });

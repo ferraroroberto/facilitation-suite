@@ -62,6 +62,23 @@ The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to re
 
 Activity types are plug-ins: one folder per type under `app/activities/<type>/` with an `editor.json` (label, icon, options). Edits are staged; **Save to session.yaml** is the only write.
 
+## Presenting live
+
+**Open presenter** (Sessions tab) makes the session live and opens `/presenter` on the second monitor; **Open stage window** opens `/stage` — drag it to the display OBS captures and double-click it for full screen. Both follow one state owned by the server and pushed over the `/ws` WebSocket: every view only sends *intents* (next, blackout, timer…), so the stage and the presenter can never disagree.
+
+| Key (stage or presenter window) | Action |
+|---|---|
+| → · PageDown · ↓ · N | next item (a presentation clicker works) |
+| ← · PageUp · ↑ · P | previous item |
+| B · . | blackout |
+| T | the item's timer: start / pause |
+| M · + | the item's timer: +1 min |
+| Space | capture start / stop (activities) |
+
+The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there.
+
+The live position, clocks and timers are mirrored to `live/state.json` (a restarted server resumes where it was) and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; the hint under activities ("Write your answer in the Zoom chat") is set per session in **Session details**.
+
 ## Configuration
 
 `config/config.json` (gitignored; `config/config.sample.json` documents every key):
@@ -97,9 +114,11 @@ The Sessions tab creates, duplicates (plan, slides, roster, theme — never live
 ```
 app/
   webapp/            FastAPI server (server.py), routers/, static/ (app, presenter, stage)
+  activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, logger, build identity, certs (non-UI Python)
+src/                 config, logger, build identity, certs, sessions/, importer/, live/ (hub, actions)
+themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)

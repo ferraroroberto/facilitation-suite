@@ -1,0 +1,109 @@
+/* The default stage theme — what Zoom sees (epic §11).
+ *
+ * The stage does not follow the fleet design system: it matches the house
+ * slides (light grey #F2F2F2 canvas, hand-lettered Patrick Hand, a grey area
+ * left empty for the camera). Every rule is scoped under .stage-canvas so the
+ * presenter can load a theme next to its own fleet UI without either leaking.
+ *
+ * A session can override any of these in its own theme.css (served after
+ * this file). The canvas is always 1920×1080 logical px, scaled to its window.
+ */
+
+.stage-canvas {
+  --st-bg: #f2f2f2;
+  --st-ink: #1f1f1f;
+  --st-muted: #5e5e5e;
+  --st-font: "Patrick Hand", system-ui, sans-serif;
+  --st-ui-font: system-ui, "Segoe UI", Roboto, sans-serif;
+  --st-pill-bg: #1f1f1f;
+  --st-pill-ink: #ffffff;
+  --st-chip-bg: #ffffff;
+  --st-chip-line: #d6d6d6;
+  --st-c1: #c62828;
+  --st-c2: #2e7d32;
+  --st-c3: #1565c0;
+  --st-c4: #d35400;
+  --st-c5: #6a1b9a;
+  --st-c6: #1f1f1f;
+  --st-question-transform: uppercase;
+  background: var(--st-bg);
+  color: var(--st-ink);
+  font-family: var(--st-ui-font);
+}
+
+.stage-canvas .st-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+/* The content rectangle avoids the camera zone of the item's profile. */
+.stage-canvas .st-content {
+  position: absolute;
+  left: 110px;
+  top: 80px;
+  right: 110px;
+  bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.stage-canvas [data-profile="camera_strip"] .st-content { right: 860px; }
+.stage-canvas [data-profile="camera_pip"] .st-head { max-width: 1220px; min-height: 250px; }
+
+.stage-canvas .st-question {
+  margin: 0;
+  font-family: var(--st-font);
+  font-weight: 400;
+  line-height: 1.12;
+  text-transform: var(--st-question-transform);
+  overflow-wrap: anywhere;
+}
+.stage-canvas .st-body { position: relative; flex: 1; min-height: 0; }
+.stage-canvas .st-foot { display: flex; align-items: center; gap: 24px; min-height: 64px; }
+.stage-canvas .st-foot .st-spacer { flex: 1; }
+
+.stage-canvas .st-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-radius: 9999px;
+  background: var(--st-chip-bg);
+  border: 2px solid var(--st-chip-line);
+  font-size: 26px;
+  font-weight: 600;
+}
+.stage-canvas .st-hint svg, .stage-canvas .st-pill svg { width: 28px; height: 28px; }
+.stage-canvas .st-count { font-size: 26px; color: var(--st-muted); }
+.stage-canvas .st-count b { color: var(--st-ink); }
+.stage-canvas .st-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 26px;
+  border-radius: 9999px;
+  background: var(--st-pill-bg);
+  color: var(--st-pill-ink);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 40px;
+  font-weight: 700;
+}
+.stage-canvas .st-pill.done { background: var(--st-c1); }
+
+/* Break: the title and a big clock, centred in the content area. */
+.stage-canvas .st-break {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  text-align: center;
+}
+.stage-canvas .st-break-title { margin: 0; font-family: var(--st-font); font-size: 120px; line-height: 1; }
+.stage-canvas .st-break-clock {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 200px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.stage-canvas .st-break-clock.done { color: var(--st-c1); }
+
+.stage-canvas .st-blackout { position: absolute; inset: 0; background: #000000; }
