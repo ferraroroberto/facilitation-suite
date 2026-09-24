@@ -22,6 +22,7 @@ from src.importer.service import (
     classify_placeholder,
     first_plan,
 )
+from tests.conftest import paired_remote
 
 BG = (242, 242, 242)
 BOX = (217, 217, 217)
@@ -209,8 +210,10 @@ def test_pick_is_local_only(isolated_env) -> None:
 
     from app.webapp.server import create_app
 
-    with TestClient(create_app(), client=("100.64.0.9", 5000)) as remote:
-        assert remote.post("/api/pick", json={"kind": "pptx"}).status_code == 403
+    with TestClient(create_app(), client=("100.64.0.9", 5000)) as stranger:
+        assert stranger.post("/api/pick", json={"kind": "pptx"}).status_code == 401
+    with paired_remote(create_app()) as phone:  # a paired phone still cannot open a dialog on the PC
+        assert phone.post("/api/pick", json={"kind": "pptx"}).status_code == 403
 
 
 @pytest.mark.skipif(os.environ.get("FS_TEST_POWERPOINT") != "1", reason="drives the real PowerPoint; set FS_TEST_POWERPOINT=1")

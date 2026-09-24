@@ -33,7 +33,7 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             # Settings: give Camera PiP another scene
             page.goto(f"{inst.base_url}/")
             page.locator("[data-open-settings]").first.click()
-            expect(page.locator(".settings-card .chip")).to_contain_text("OBS connected")
+            expect(page.locator(".settings-card .chip", has_text="OBS")).to_contain_text("OBS connected")
             page.locator("[data-profile=camera_pip]").click()
             page.locator("dialog select[name=scene]").select_option("Camera big")
             page.locator("dialog .detail-save-btn").click()

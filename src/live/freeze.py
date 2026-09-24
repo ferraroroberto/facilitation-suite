@@ -26,7 +26,8 @@ def render(url: str, out: Path, timeout_ms: int = 20000) -> bool:
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            page = browser.new_page(viewport={"width": 1920, "height": 1080})
+            # Our own server on loopback: under HTTPS its cert names the tailnet host, not 127.0.0.1.
+            page = browser.new_page(viewport={"width": 1920, "height": 1080}, ignore_https_errors=True)
             page.goto(url, wait_until="networkidle", timeout=timeout_ms)
             page.wait_for_selector("body[data-ready='1']", timeout=timeout_ms)
             page.screenshot(path=str(tmp), type="png", animations="disabled")

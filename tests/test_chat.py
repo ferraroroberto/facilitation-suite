@@ -16,6 +16,7 @@ from src.chat.reader import Reader, message_names
 from src.config import load_config
 from src.live.hub import LiveHub, now_ms
 from src.sessions.store import SessionStore
+from tests.conftest import paired_remote
 from tests.fixtures.demo import build_demo_session
 
 # ------------------------------------------------------------------- parsing
@@ -129,7 +130,7 @@ def test_chat_api_is_loopback_only_for_the_reader(isolated_env: Path) -> None:
     from app.webapp.server import create_app
 
     body = {"batch": "x-1", "messages": [{"sender": "Sam", "text": "hi", "time": "18:41"}]}
-    with TestClient(create_app(), client=("10.0.0.5", 5000)) as remote:
+    with paired_remote(create_app(), "10.0.0.5") as remote:  # even a paired phone cannot post as the reader
         assert remote.post("/api/chat/messages", json=body).json()["error"]["code"] == "local_only"
         assert remote.post("/api/chat/heartbeat", json={"state": "reading"}).status_code == 403
     with TestClient(create_app(), client=("127.0.0.1", 5000)) as local:
