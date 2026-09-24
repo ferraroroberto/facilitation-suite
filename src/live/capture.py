@@ -48,6 +48,8 @@ class CaptureService:
         self.live, self.chat = live, chat
         self.windows: dict[str, list[list[Optional[int]]]] = {}
         self.hidden: set[int] = set()
+        # Places fixed by hand on the presenter (map): message id → GeoNames id.
+        self.places: dict[int, str] = {}
         self._push_pending = False
         self._session: Optional[str] = None
         self.freeze_url: Optional[str] = None  # the server's own base URL, for the PNG
@@ -82,7 +84,7 @@ class CaptureService:
             t = m["received_at"]
             inside = any(s is not None and t >= s and (e is None or t < e) for s, e in wins)  # [start, stop)
             if inside and (include_hidden or m["id"] not in self.hidden):
-                out.append(m)
+                out.append(dict(m, place_id=self.places[m["id"]]) if m["id"] in self.places else m)
         return out
 
     def result(self, item: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -164,6 +166,18 @@ class CaptureService:
                     self._freeze(item)
         self.live._commit()
 
+    def place(self, message_id: int, geonameid: str) -> None:
+        """Fix an unplaced map answer by hand (the presenter's one-click fix)."""
+        self.places[message_id] = geonameid
+        self.live._event("place", message_id=message_id, geonameid=geonameid)
+        self._save()
+        for item_id in list(self.windows):
+            if self.status(item_id) == "stopped" and any(m["id"] == message_id for m in self.messages_for(item_id, include_hidden=True)):
+                item = self.live.item_by_id(item_id)
+                if item is not None:
+                    self._freeze(item)
+        self.live._commit()
+
     # ------------------------------------------------------------- hooks
 
     def _on_item(self, prev: Optional[dict[str, Any]], cur: dict[str, Any]) -> None:
@@ -201,7 +215,7 @@ class CaptureService:
         if self.live.session_id == self._session:
             return
         self._session = self.live.session_id
-        self.windows, self.hidden = {}, set()
+        self.windows, self.hidden, self.places = {}, set(), {}
         d = self._dir()
         if d is None or not (d / STATE_FILE).is_file():
             return
@@ -209,6 +223,7 @@ class CaptureService:
             data = json.loads((d / STATE_FILE).read_text(encoding="utf-8"))
             self.windows = {k: [list(w) for w in v] for k, v in (data.get("windows") or {}).items()}
             self.hidden = {int(x) for x in data.get("hidden") or []}
+            self.places = {int(k): str(v) for k, v in (data.get("places") or {}).items()}
         except (OSError, ValueError, TypeError) as exc:
             logger.warning("⚠️ %s unreadable (%s) — captures start empty", STATE_FILE, exc)
 
@@ -217,7 +232,8 @@ class CaptureService:
         if d is None:
             return
         try:
-            atomic_write_text(d / STATE_FILE, json.dumps({"windows": self.windows, "hidden": sorted(self.hidden)}, indent=1))
+            atomic_write_text(d / STATE_FILE, json.dumps({"windows": self.windows, "hidden": sorted(self.hidden),
+                                                          "places": {str(k): v for k, v in self.places.items()}}, indent=1))
         except OSError as exc:
             self.live._write_failed(STATE_FILE, exc)
 

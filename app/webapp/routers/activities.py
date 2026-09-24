@@ -23,6 +23,16 @@ def activity_types() -> dict[str, Any]:
     return {"types": list(editors().values())}
 
 
+@router.get("/api/geo/suggest")
+def geo_suggest(q: str = "") -> dict[str, Any]:
+    """Places close to what someone typed (the map's unplaced fix)."""
+    from src.geo.gazetteer import gazetteer
+
+    if not q.strip():
+        return {"places": []}
+    return {"places": [p.as_dict() for p in gazetteer().suggest(q[:120])]}
+
+
 @router.post("/api/activities/{activity_type}/preview")
 def activity_preview(activity_type: str, body: PreviewBody) -> dict[str, Any]:
     """The type's result for its sample answers — the Plan tab's stage preview."""

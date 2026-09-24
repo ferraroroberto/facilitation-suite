@@ -1,0 +1,92 @@
+/* The magic map: land on the left, the headcount and top cities on the right. */
+.stage-canvas .mp { position: absolute; inset: 0; display: flex; gap: 32px; }
+.stage-canvas .mp-area { position: relative; flex: 1; min-width: 0; overflow: hidden; border-radius: 18px; }
+.stage-canvas .mp-land { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage-canvas .mp-land path { fill: #d9d9d9; stroke: #f2f2f2; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.stage-canvas .mp-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.stage-canvas .mp-links rect { fill: none; stroke: var(--st-ink); stroke-width: 3; stroke-dasharray: 8 6; }
+.stage-canvas .mp-links line { stroke: var(--st-ink); stroke-width: 2.5; stroke-dasharray: 6 6; }
+.stage-canvas .mp-pins { position: absolute; inset: 0; }
+
+.stage-canvas .mp-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -14px 0 0 -14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--st-ink);
+  cursor: pointer;
+  transition: transform 220ms linear, opacity 300ms;
+}
+.stage-canvas .mp-dot {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--st-c1);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--st-c1) 22%, transparent), 0 0 0 3px #ffffff inset;
+}
+.stage-canvas .mp-pin.many .mp-dot { width: 40px; height: 40px; margin: -6px; }
+.stage-canvas .mp-dot b { color: #ffffff; font-size: 18px; }
+.stage-canvas .mp-label {
+  padding: 3px 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stage-canvas .mp-label:empty { display: none; }
+.stage-canvas .mp-pin.flip { flex-direction: row-reverse; transform-origin: right; }
+.stage-canvas .mp-pin.flip .mp-label { position: absolute; right: 36px; }
+.stage-canvas .mp-enter { opacity: 0; }
+.stage-canvas .mp-enter .mp-dot { transform: scale(2.4); }
+.stage-canvas .mp-dot { transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+.stage-canvas .mp-inset {
+  position: absolute;
+  z-index: 2;
+  border: 3px solid var(--st-ink);
+  border-radius: 18px;
+  background: var(--st-bg);
+  overflow: hidden;
+}
+.stage-canvas .mp-inset-title { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 22px; background: #ffffff; border-bottom: 2px solid var(--st-chip-line); }
+.stage-canvas .mp-inset-title svg { width: 22px; height: 22px; }
+.stage-canvas .mp-inset-map { position: relative; }
+.stage-canvas .mp-inset .mp-label { font-size: 20px; }
+
+.stage-canvas .mp-pop {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 6px;
+  max-width: 520px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 2px solid var(--st-chip-line);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  font-size: 24px;
+}
+
+.stage-canvas .mp-side { width: 380px; flex: none; display: flex; flex-direction: column; gap: 20px; }
+.stage-canvas .mp-big { display: flex; align-items: flex-end; gap: 14px; font-family: var(--st-font); font-size: 150px; line-height: 0.9; color: var(--st-c1); }
+.stage-canvas .mp-big svg { width: 54px; height: 54px; margin-bottom: 14px; color: var(--st-muted); }
+.stage-canvas .mp-sub { display: flex; align-items: center; gap: 10px; font-size: 40px; color: var(--st-muted); }
+.stage-canvas .mp-sub svg { width: 38px; height: 38px; }
+.stage-canvas .mp-sub b { color: var(--st-ink); }
+.stage-canvas .mp-top { display: grid; gap: 0; background: #ffffff; border-radius: 20px; border: 2px solid var(--st-chip-line); }
+.stage-canvas .mp-top:empty { display: none; }
+.stage-canvas .mp-city { padding: 16px 20px; }
+.stage-canvas .mp-city + .mp-city { border-top: 2px solid var(--st-chip-line); }
+.stage-canvas .mp-city-head { display: flex; justify-content: space-between; font-size: 30px; }
+.stage-canvas .mp-city-names { font-size: 22px; color: var(--st-muted); }

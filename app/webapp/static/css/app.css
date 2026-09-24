@@ -398,3 +398,6 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
   .ed-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .preview-card { grid-template-columns: minmax(0, 1fr); }
 }
+
+.credit-list { margin: var(--space-sm) 0 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: var(--font-body-sm); }
+.credit-list a { color: var(--accent-text); font-weight: 600; }

@@ -320,6 +320,7 @@ function drawCapture(body, c) {
   }
   body.querySelector('[data-capdot]').className = `p-cap-dot ${status}`;
   body.querySelector('[data-capstate]').textContent = { idle: 'Not started — answers are not counted yet', live: 'Capturing answers', stopped: 'Stopped — the result is frozen' }[status];
+  drawUnplaced(body, c);
   body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden)
     ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}`
     : status === 'idle' ? 'Press Space when the question is on stage.' : 'No answers yet.';
@@ -466,6 +467,54 @@ async function loadChat() {
     list.innerHTML = '';
     addChat(data.messages);
   } catch (e) { /* the WS reconnect retries */ }
+}
+
+// Map answers the gazetteer could not place: suggestions, one click to fix.
+const suggestions = new Map();
+function drawUnplaced(body, c) {
+  const list = (c && c.result && c.result.unplaced) || [];
+  let box = body.querySelector('[data-unplaced]');
+  if (!list.length) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'p-unplaced';
+    box.dataset.unplaced = '';
+    body.querySelector('[data-captoggle]').after(box);
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-place]');
+      if (!b) return;
+      try {
+        await api('/api/live/place', { method: 'POST', body: { message_id: Number(b.dataset.msg), geonameid: b.dataset.place } });
+      } catch (err) { toast(err.message, 'error'); }
+    });
+    box.addEventListener('keydown', (e) => {
+      const input = e.target.closest('input[data-msg]');
+      if (!input || e.key !== 'Enter') return;
+      e.preventDefault();
+      loadSuggestions(Number(input.dataset.msg), input.value, box, true);
+    });
+  }
+  const sig = JSON.stringify(list.map((u) => u.id));
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = `<p class="overline">${icon('map-pin')} Not on the map · ${list.length}</p>` + list.map((u) =>
+    `<div class="p-unplaced-row"><div><b>${esc(u.sender)}</b> <span class="muted">“${esc(u.text)}”</span></div>` +
+    `<div class="row-actions" data-sugg="${u.id}"></div>` +
+    `<input class="input" data-msg="${u.id}" placeholder="Type the place, Enter" aria-label="Place for ${esc(u.sender)}"></div>`).join('');
+  list.forEach((u) => loadSuggestions(u.id, u.text, box, false));
+}
+
+async function loadSuggestions(id, text, box, fresh) {
+  const key = `${id}|${text}`;
+  if (!suggestions.has(key) || fresh) {
+    try { suggestions.set(key, (await api(`/api/geo/suggest?q=${encodeURIComponent(text)}`)).places); } catch (e) { suggestions.set(key, []); }
+  }
+  const row = box.querySelector(`[data-sugg="${id}"]`);
+  if (!row) return;
+  const places = suggestions.get(key).slice(0, 3);
+  row.innerHTML = places.length
+    ? places.map((p) => `<button type="button" class="button-surface" data-msg="${id}" data-place="${esc(p.geonameid)}">${esc(p.name)}, ${esc(p.country)}</button>`).join('')
+    : '<span class="small muted">No close match — type the place below.</span>';
 }
 
 /** Mark each chat row: counted in the current capture, or hidden. Click toggles hidden. */
