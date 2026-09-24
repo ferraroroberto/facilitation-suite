@@ -47,7 +47,7 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 
 - **OBS profile per slide** comes from where the slide reserves the camera: a flat grey box (or empty area) on the right → *Camera strip*; a small box top-right → *Camera PiP*; nothing reserved → *Screen only*. A notes line `[obs: pip|strip|screen]` overrides it; an unsure slide stays unset and is flagged.
 - **First import builds the plan:** PowerPoint sections when the deck has them, otherwise a new section at every title-only divider slide. Placeholder slides become plan items: a slide titled `activity – <question>` (or the older `streamalive N – <question>`) becomes an activity (map / scale / word cloud guessed from the words), `breakout – <title>` a break, `mentimeter …` a skipped slide.
-- **Re-import** matches slides by SlideID: your plan order, activities and timers stay; removed slides drop out; new slides are inserted after the slide that precedes them in the deck.
+- **Re-import changes nothing until you review it.** The export waits in `slides/incoming/` and the Plan tab opens the review: slides are matched by SlideID first, then — for a slide PowerPoint re-created with a new id — by image and text fingerprints, and each one is *identical*, *modified* (image, title or notes — it says which, "Notes changed · 2 lines added"), *new*, *removed* or *moved* (the fewest moves that explain the new order), with the old and new picture side by side. Every change has its own switch; **Apply** does only those. An activity stays anchored to the slide before it: a moved slide takes its activities along, and when a slide is removed its activities follow the previous surviving slide (the review says which). A declined change keeps the old picture/title (modified), keeps the slide (removed), keeps the plan order (moved) or leaves the slide out (new — the next re-import offers it again). **Back** leaves the review waiting (a banner in the Plan tab); **Cancel** throws the export away.
 
 `FS_TEST_POWERPOINT=1` runs the one test that drives the real PowerPoint (on a synthetic deck it builds itself).
 
@@ -93,9 +93,17 @@ At every stop the result is **frozen** in the session folder: `live/captures/<it
 | Cards | each answer with its name | the latest cards in a grid |
 | Feed | each answer with its name | bubbles, the newest at the bottom and largest |
 
-Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the Plan tab's fields and sample answers), `parse.py` (`parse(message, options)` → contribution, `aggregate(contributions, options)` → result; pure and unit-tested) and `stage.js` + `stage.css` (draws a result). The Plan tab's stage preview is drawn by the same renderer with the sample answers, and the presenter's *Simulate answers* on an activity uses them too.
+Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the Plan tab's fields and sample answers), `parse.py` (`parse(message, options)` → contribution, `aggregate(contributions, options)` → result; pure and unit-tested; optionally `report(result)` — the Results tab's summary line, top list and PDF tile — and `value(parsed)` — one answer in the Excel report) and `stage.js` + `stage.css` (draws a result). The Plan tab's stage preview is drawn by the same renderer with the sample answers, and the presenter's *Simulate answers* on an activity uses them too.
 
 **Map answers that land nowhere** are listed on the presenter under *Not on the map* with the closest places as one-click buttons, or type the place and press Enter. Common chat spellings live in `app/activities/map/aliases.yaml` (add a line when an answer keeps landing there). The map's data is built once by `scripts/build_geo.py` (needs the network and `babel`) and committed; the app never downloads anything.
+
+## Results and exports
+
+The **Results** tab reads the session folder, so it works on any session once it has run (live or not): every captured activity in the order it happened, and for the selected one the visual exactly as the stage showed it at the stop, its top items (words, votes, countries) and every answer with the person's name and chat time — hidden ones struck through.
+
+- **Export session PDF** — `exports/session.pdf`: every slide at its first showing and each live result at its (last) stop, in the order of `live/events.jsonl`, one widescreen page each, then an appendix with every counted answer. Printed by headless Chromium in its own process. A capture whose image never rendered still gets a page saying so.
+- **Excel report** — `exports/report.xlsx`: a summary, one sheet per activity (name, time, answer, parsed value, hidden) and *Participation* (per person: answers per activity, total, chat messages — most active first).
+- **Check against Zoom's saved chat** — pick the `meeting_saved_chat.txt` Zoom saved when the meeting ended (the picker opens in `Documents\Zoom`). The banner says how many of Zoom's messages the app has ("412 of 412 matched") and lists any missing, plus any only in the app. Reactions and simulated messages are not counted; emoji the reader cannot see and your own "You" messages still match. The report is kept in `exports/zoom-reconciliation.json`.
 
 ## Breakout groups
 
@@ -159,7 +167,7 @@ roster.xlsx       participants (optional)
 groups.yaml       breakout groups (optional)
 theme.css         per-session stage theme override (optional)
 live/             chat.jsonl, events.jsonl, captures/ — append-only during the session
-exports/          session PDF, Excel report, Zoom rooms CSV
+exports/          session.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 ```
 
 The Sessions tab creates, duplicates (plan, slides, roster, theme — never live data) and adds existing folders, and shows a readiness checklist. **Files offline** checks OneDrive's file attributes without downloading anything and can pin the folder ("Always keep on this device"). Unknown keys in `session.yaml` survive a load → save round-trip. No database ever lives in the session folder.
@@ -172,7 +180,7 @@ app/
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, logger, build identity, certs, sessions/, importer/, live/ (hub, actions)
+src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
