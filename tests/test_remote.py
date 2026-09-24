@@ -112,3 +112,5 @@ def test_the_request_log_never_shows_the_token() -> None:
                             ("100.64.0.9:5000", "GET", "/remote?token=s3cret-Value_1&x=1", "1.1", 200), None)
     RedactTokens().filter(rec)
     assert "s3cret" not in rec.getMessage() and "/remote?token=<redacted>&x=1" in rec.getMessage()
+    assert isinstance(rec.args, tuple) and len(rec.args) == 5  # uvicorn's access formatter unpacks all five
+    assert rec.args[2] == "/remote?token=<redacted>&x=1"

@@ -39,9 +39,16 @@ class RedactTokens(logging.Filter):
     """Keep the pairing link's ``?token=`` out of the server's request log."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        msg = record.getMessage()
-        if "token=" in msg:
-            record.msg, record.args = TOKEN_IN_URL.sub(r"\1<redacted>", msg), None
+        # Redact inside the arguments and keep their shape: uvicorn's access
+        # formatter unpacks them (client, method, path, version, status).
+        def clean(v: Any) -> Any:
+            return TOKEN_IN_URL.sub(r"\1<redacted>", v) if isinstance(v, str) and "token=" in v else v
+
+        record.msg = clean(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(clean(a) for a in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {k: clean(v) for k, v in record.args.items()}
         return True
 
 
