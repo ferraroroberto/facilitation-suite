@@ -247,3 +247,13 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .state-unknown .ready-icon { color: var(--muted); }
 .go-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--gap); }
 .go-row a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; min-height: 56px; }
+
+/* ---- import dialog ------------------------------------------------------- */
+.pick-row { display: flex; gap: var(--space-sm); min-width: 55%; flex: 1; }
+.pick-row .input-native { flex: 1; min-width: 0; }
+.pick-row .button-surface { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.import-progress { margin: var(--space-sm) 0 var(--space-md); }
+.import-progress .bar { height: 8px; border-radius: var(--radius-pill); background: var(--neutral-soft); overflow: hidden; }
+.import-progress .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+.import-progress.failed .bar span { background: var(--danger); }
+.import-progress.failed [data-msg] { color: var(--danger-text); font-weight: 600; }

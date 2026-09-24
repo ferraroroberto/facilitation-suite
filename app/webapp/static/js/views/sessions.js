@@ -5,6 +5,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
+import { importDialog } from '/static/js/importer.js';
 
 let root;
 let ctx;
@@ -203,8 +204,10 @@ async function renderDetail() {
     `slides/ · ${f.slides ? f.slides + ' images, titles, notes' : 'not imported yet'}<br>live/ · chat log, captured visuals<br>exports/ · PDF, Excel</div>` +
     offLine +
     `<div class="row-actions"><button type="button" class="button-surface" data-open="folder">${icon('folder-open')} Open folder</button>` +
-    `<button type="button" class="button-surface" data-open="yaml">${icon('file-text')} Open session.yaml</button></div>`;
+    `<button type="button" class="button-surface" data-open="yaml">${icon('file-text')} Open session.yaml</button>` +
+    `<button type="button" class="button-surface" data-import>${icon('upload')} ${f.slides ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button></div>`;
   folder.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => openTarget(sid, b.dataset.open)));
+  folder.querySelector('[data-import]').addEventListener('click', () => runImport(sid, s, f.slides > 0));
   const pinBtn = folder.querySelector('[data-pin]');
   if (pinBtn) pinBtn.addEventListener('click', () => pin(sid));
   top.appendChild(folder);
@@ -252,12 +255,17 @@ function readyRow(c) {
 
 async function readinessAction(sid, s, action) {
   if (action === 'pin') return pin(sid);
-  if (action === 'import') return ctx.goTo('plan');
+  if (action === 'import') return runImport(sid, s, false);
   if (action === 'test_reader') { toast('The chat reader test arrives with the reader (step 6).'); return; }
   if (action === 'confirm_zoom_update') {
     const next = Object.assign({}, s, { checklist: Object.assign({}, s.checklist, { zoom_autoupdate_off: true }) });
     await save(sid, next);
   }
+}
+
+async function runImport(sid, s, reimport) {
+  const done = await importDialog(sid, { lastPath: (s.source && s.source.pptx) || '', reimport });
+  if (done) await refresh();
 }
 
 async function save(sid, session) {

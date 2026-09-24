@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import unicodedata
 from datetime import datetime
 from typing import Any, Literal, Optional
 
@@ -99,7 +100,8 @@ def new_id(prefix: str) -> str:
 
 
 def _slug(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:24] or "x"
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")[:24] or "x"
 
 
 def ensure_ids(session: Session) -> Session:
@@ -157,4 +159,6 @@ def dump_session(session: Session) -> dict[str, Any]:
             for key in _EMPTY_ITEM_KEYS:
                 if it.get(key) in ("", {}):
                     it.pop(key)
+            if it.get("include") is True:
+                it.pop("include")
     return data
