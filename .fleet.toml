@@ -17,7 +17,7 @@ card            = { src = "app/webapp/static/_vendored/card", sha = "10b2f9424b6
 button          = { src = "app/webapp/static/_vendored/button", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/button" }
 modal           = { src = "app/webapp/static/_vendored/modal", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/modal" }
 disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/disclosure" }
-empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/empty-state" }
+empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "bede95f00aee0b17d5007246a29fa881a71f24f4", dest = "app/webapp/static/_vendored/empty-state" }
 switch          = { src = "app/webapp/static/_vendored/switch", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/switch" }
 select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/select-native" }
 home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/home-head" }
@@ -26,7 +26,7 @@ text-size       = { src = "app/webapp/static/_vendored/text-size", sha = "10b2f9
 page-foot       = { src = "app/webapp/static/_vendored/page-foot", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/page-foot" }
 single_instance = { src = "app/tray/single_instance.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/tray/single_instance.py" }
 tray_watchdog   = { src = "app/tray/watchdog.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/tray/watchdog.py" }
-classify_e2e    = { src = "scripts/classify_e2e.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "scripts/classify_e2e.py" }
+classify_e2e    = { src = "scripts/classify_e2e.py", sha = "bede95f00aee0b17d5007246a29fa881a71f24f4", dest = "scripts/classify_e2e.py" }
 no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/build_info.py" }
 # Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's
