@@ -41,7 +41,7 @@ let reviewNote;
 let split;
 let reviewHost;
 // selected = the focused item (the editor's); picked = every selected item (it included); anchor = where Shift ranges start.
-const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
+const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, rounds: null, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
 
 // ---------------------------------------------------------------- helpers
 
@@ -66,6 +66,14 @@ function titleOf(it) {
 
 /** The title on one line, for the list and the editor ("\n" breaks it only on the stage). */
 function labelOf(it) { return oneLine(titleOf(it)); }
+
+/** The breakout round an item shows, as the editor names it ("Pairs"). */
+function roundLabel(it) {
+  const opt = ((st.types[it.type] || {}).options || []).find((o) => o.key === 'round');
+  const round = (it.options || {}).round || (opt && opt.default);
+  const choice = opt && (opt.choices || []).find(([v]) => v === round);
+  return choice ? choice[1] : round || '';
+}
 
 function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8)}`; }
 
@@ -101,6 +109,8 @@ function thumbHtml(it) {
 function chipHtml(it) {
   const chips = [];
   if (it.kind === 'activity') chips.push(`<span class="chip accent">${esc((st.types[it.type] || {}).label || it.type)}</span>`);
+  const round = it.type === 'groups_reveal' ? roundLabel(it) : '';
+  if (round) chips.push(`<span class="chip">${esc(round)}</span>`);
   if (it.kind === 'break') chips.push('<span class="chip">Break</span>');
   if (it.timer && it.timer.enabled) chips.push(`<span class="chip">${icon('timer')}${fmtTimer(it.timer.seconds)}</span>`);
   if (!it.profile && it.kind === 'slide') chips.push('<span class="chip warn">Pick profile</span>');
@@ -135,7 +145,41 @@ export async function mount(el, context) {
   listCard.className = 'card list-card plan-list';
   left.appendChild(listCard);
   ctx.onSession(() => { if (!st.dirty) load(); });
+  ctx.onGroups(async () => {
+    await loadRounds();
+    const found = st.selected && findItem(st.selected);
+    if (found) updatePreview(found.it);
+  });
   await load();
+}
+
+/**
+ * Add `item` (from another tab — the Groups tab's reveal) to the unsaved
+ * edits: after the selected item, else at the end of the first section.
+ * Returns the section's name.
+ */
+export async function stageItem(item) {
+  if (st.loadedFor !== ctx.sessionId && !st.dirty) await load();
+  if (!st.session || !(st.session.sections || []).length) throw new Error('The plan has no sections yet — import the slides first');
+  const at = st.selected ? findItem(st.selected) : null;
+  const sec = at ? at.sec : st.session.sections[0];
+  const added = Object.assign({ id: newId(item.kind === 'activity' ? 'act' : item.kind === 'break' ? 'brk' : 'item') }, item);
+  sec.items.splice(at ? at.ii + 1 : sec.items.length, 0, added);
+  st.selected = st.anchor = added.id;
+  st.picked = new Set([added.id]);
+  st.collapsed.delete(sec.id);
+  markDirty();
+  render();
+  return { section: sec.name, id: added.id };
+}
+
+/** The breakout rounds of groups.yaml — the reveal previews show the real rooms. */
+async function loadRounds() {
+  try {
+    st.rounds = st.sid ? (await api(`/api/sessions/${st.sid}/groups`)).rounds : null;
+  } catch (e) {
+    st.rounds = null;
+  }
 }
 
 export function show() {
@@ -197,6 +241,7 @@ async function load() {
     st.types = Object.fromEntries(acts.types.map((t) => [t.type, t]));
     // Camera zones as set in Settings (the preview's dashed box); defaults if unreachable.
     st.zones = await api('/api/settings').then((x) => Object.fromEntries(Object.entries(x.profiles).map(([k, v]) => [k, v.zone]))).catch(() => null);
+    await loadRounds();
   } catch (e) {
     listCard.innerHTML = '';
     listCard.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
@@ -808,7 +853,7 @@ function renderEditor() {
           sel.className = 'select-native';
           sel.setAttribute('aria-label', o.label);
           o.choices.forEach(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; op.selected = v === cur; sel.appendChild(op); });
-          sel.addEventListener('change', () => setOpt(sel.value));
+          sel.addEventListener('change', () => { setOpt(sel.value); renderList(); }); // the round shows as a chip
           const line = document.createElement('label');
           line.className = 'opt-line';
           line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), sel);
@@ -973,7 +1018,9 @@ function previewCard(it) {
     `<div class="preview-frame stage-host" data-preview></div>` +
     `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'
       ? 'The slide as imported. The dashed box is where the camera goes for the chosen profile.'
-      : it.kind === 'activity'
+      : it.type === 'groups_reveal'
+        ? 'Drawn by the real stage with the rooms from the Groups tab — a new shuffle redraws it.'
+        : it.kind === 'activity'
         ? 'Drawn by the real stage with sample answers, at the size Zoom will see it. The dashed box is the camera.'
         : 'The break as the stage shows it.'}</p></div>`;
   setTimeout(() => updatePreview(it), 0);
@@ -1002,6 +1049,7 @@ function runItem(it) {
     font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
+    ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
   };
 }
 

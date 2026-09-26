@@ -1,4 +1,7 @@
-"""Groups: the roster, presence, the three breakout rounds, Zoom exports."""
+"""Groups: the roster, presence, the three breakout rounds, Zoom exports.
+
+The "who are you with?" reveal is added to the plan by the Plan tab itself
+(unsaved, like any other edit), so it needs no route here."""
 
 from __future__ import annotations
 
@@ -13,7 +16,6 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.groups import roster as rs
-from src.sessions.model import Item, new_id
 from src.sessions.store import SessionError, SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -33,10 +35,6 @@ class PresenceBody(BaseModel):
 
 class ShuffleBody(BaseModel):
     seed: Optional[int] = None
-
-
-class RevealBody(BaseModel):
-    round: Round = "pairs"
 
 
 def _store(request: Request) -> SessionStore:
@@ -109,23 +107,3 @@ def zoom_csv(request: Request, sid: str, round: Round = "pairs") -> Response:  #
         logger.warning("⚠️ could not keep a copy of the Zoom CSV in exports/: %s", exc)
     return Response(text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="zoom-rooms-{round}.csv"'})
 
-
-@router.post("/groups/reveal")
-def add_reveal(request: Request, sid: str, body: RevealBody) -> dict[str, Any]:
-    """Add a "who are you with?" item for a round at the end of the first section."""
-    st = _store(request)
-    try:
-        session = st.load(sid)
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
-    if not session.sections:
-        raise AppError(409, "no_sections", "The plan has no sections yet — import the slides first")
-    item = Item(kind="activity", id=new_id("act"), type="groups_reveal", title="Who are you with?",
-                profile="screen_only", options={"round": body.round})
-    session.sections[0].items.append(item)
-    try:
-        st.save(sid, session)
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
-    _changed(request, sid)
-    return {"item_id": item.id, "section": session.sections[0].name}

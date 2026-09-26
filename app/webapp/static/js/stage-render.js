@@ -12,8 +12,9 @@ export const H = 1080;
 
 const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
-// Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx);
-// an optional stage.css is linked once. Loaded on first use, then cached.
+// Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx)
+// and optionally subtitle(item) — a line under the title; an optional
+// stage.css is linked once. Loaded on first use, then cached.
 const plugins = {};
 export function loadPlugin(type) {
   if (!plugins[type]) {
@@ -114,7 +115,8 @@ export function createStage(host, opts = {}) {
       // "theme" (and the older "Patrick Hand") = the session's stage font.
       const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
       html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${lines(text)}</h1></div>` +
+        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${lines(text)}</h1>` +
+        `<p class="st-sub" data-sub hidden></p></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
@@ -165,6 +167,11 @@ export function createStage(host, opts = {}) {
         ? `${ICON('message-square')} <b>${result.answers}</b> · ${ICON('users')} <b>${result.people}</b>` : '';
     }
     if (!plugin || !body) return;
+    const sub = canvas.querySelector('[data-sub]');
+    if (sub && plugin.subtitle) {
+      sub.textContent = plugin.subtitle(item);
+      sub.hidden = !sub.textContent;
+    }
     const sig = JSON.stringify([result, names]);
     if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
     lastResult = sig;

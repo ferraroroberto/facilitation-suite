@@ -61,6 +61,15 @@
   text-transform: var(--st-question-transform);
   overflow-wrap: anywhere;
 }
+.stage-canvas .st-sub {
+  margin: 14px 0 0;
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-size: 44px;
+  line-height: 1.1;
+  color: var(--st-muted);
+}
 .stage-canvas .st-body { position: relative; flex: 1; min-height: 0; }
 .stage-canvas .st-foot { display: flex; align-items: center; gap: 24px; min-height: 64px; }
 .stage-canvas .st-foot .st-spacer { flex: 1; }
