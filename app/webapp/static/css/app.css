@@ -325,6 +325,10 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .item-row.excluded .item-title { text-decoration: line-through; color: var(--muted); }
 .item-row.excluded .thumb { opacity: 0.5; }
 .item-row.dragging { opacity: 0.4; }
+/* Several selected: the last clicked keeps an inset edge. */
+.item-row.focused { box-shadow: inset 3px 0 0 var(--accent); }
+.bulk-list { display: grid; gap: 4px; max-height: 280px; overflow-y: auto; }
+.bulk-row { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
 .item-row .num { width: 24px; text-align: right; font-size: var(--font-body-sm); color: var(--muted); flex: none; }
 .thumb {
   width: 60px;

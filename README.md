@@ -62,6 +62,8 @@ The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to re
 - **In this session** (off = skipped live, kept in the plan),
 - for activities: type, question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options.
 
+Select several items as in a file manager — **Ctrl+click** adds or removes one, **Shift+click** selects a range (Ctrl+Shift+click adds it), **Shift+↑/↓** extends, **Ctrl+A** selects all, **Esc** keeps one — and the editor becomes a bulk panel: one OBS profile or **In this session** for all of them, or **Delete**. Dragging any selected item moves the whole selection; **Delete** on the keyboard deletes it. Deleting an imported slide only takes it out of the plan: it stays in the deck, and **Add slide or activity → Slide from the deck** brings it back.
+
 **Stage font** (Sessions tab): **Choose font…** picks an `.otf`, `.ttf` or `.woff` file on this PC (your own handwriting font, say) for every question, answer and title on the stage, and **Line thickness** thickens its lines, in stage pixels (a stroke under the letters, so they keep their shape). Both go into `session.yaml`:
 
 ```yaml
