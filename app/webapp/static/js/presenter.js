@@ -233,15 +233,11 @@ function drawNotes(cur) {
   const card = root.querySelector('.p-notes');
   const body = card.querySelector('[data-body]');
   if (!cur) { body.innerHTML = ''; return; }
-  card.querySelector('.p-meta').textContent = cur.kind === 'slide' ? 'from your PowerPoint' : cur.kind === 'activity' ? 'this activity' : '';
-  let html = '';
-  if (cur.kind === 'slide') {
-    html = cur.notes ? `<div class="p-notes-text">${esc(cur.notes)}</div>` : '<p class="muted">No speaker notes on this slide.</p>';
-  } else if (cur.kind === 'activity') {
-    html = cur.question ? `<div class="p-notes-text">${esc(cur.question)}</div>` : '';
-  } else {
-    html = `<div class="p-notes-text">${esc(oneLine(cur.title))}</div>`;
-  }
+  card.querySelector('.p-meta').textContent = cur.notes_own ? 'from the plan' : cur.kind === 'slide' ? 'from your PowerPoint' : cur.kind === 'activity' ? 'this activity' : '';
+  // Notes written in the plan first; else a slide's PowerPoint notes, an activity's question, the title.
+  const text = cur.notes || (cur.kind === 'activity' ? oneLine(cur.question) : cur.kind === 'slide' ? '' : oneLine(cur.title));
+  let html = text ? `<div class="p-notes-text">${esc(text)}</div>`
+    : `<p class="muted">${cur.kind === 'slide' ? 'No speaker notes on this slide.' : 'No notes — add them in the Plan tab.'}</p>`;
   if (cur.kind === 'activity' && cur.chat_prompt) {
     html += `<div class="p-prompt"><span class="muted">Prompt to paste in chat:</span> <span class="p-prompt-text">“${esc(cur.chat_prompt)}”</span>` +
       `<button type="button" class="button-surface" data-copy>${icon('copy')} Copy prompt</button></div>`;

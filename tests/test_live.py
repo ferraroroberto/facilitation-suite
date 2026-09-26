@@ -204,3 +204,15 @@ def test_one_line_joins_the_stage_line_breaks() -> None:
     assert one_line("What switches\nthis group off?") == "What switches this group off?"
     assert one_line("Two\nlines ") == "Two lines"
     assert one_line("") == ""
+
+
+def test_notes_from_the_plan_replace_the_slide_notes() -> None:
+    meta = {"slides": [{"slide_id": 7, "title": "Hello", "notes": "From the deck", "file": "slide-7.png"}]}
+    s = parse_session({"title": "x", "sections": [{"name": "S", "items": [
+        {"kind": "slide", "slide_id": 7}, {"kind": "slide", "slide_id": 7, "notes": "Mine"},
+        {"kind": "break", "notes": "Stretch"}, {"kind": "activity", "type": "feed", "title": "Ideas"}]}]})
+    notes = [(it["notes"], it["notes_own"]) for it in build_run(s, meta)["items"]]
+    assert notes == [("From the deck", False), ("Mine", True), ("Stretch", True), ("", False)]
+    from src.sessions.model import dump_session
+    dumped = [i for sec in dump_session(s)["sections"] for i in sec["items"]]
+    assert "notes" not in dumped[0] and dumped[1]["notes"] == "Mine"

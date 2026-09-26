@@ -728,6 +728,10 @@ function renderEditor() {
       renderEditor();
     }, 'Activity type')));
     const spec = st.types[it.type] || {};
+    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : spec.label }), 'with-hint'));
+    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
+      ? '<p class="ed-hint">The name in the plan and on the presenter. Empty = the question.</p>'
+      : '<p class="ed-hint">Shown on the stage — type \\n for a line break there.</p>');
     if (spec.capture !== false) {
       form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
       form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
@@ -744,8 +748,6 @@ function renderEditor() {
       fontRow.append(fam, size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
       form.appendChild(field('Question font', fontRow));
       form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
-    } else {
-      form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.label })));
     }
   } else {
     const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : 'Break';
@@ -807,6 +809,8 @@ function renderEditor() {
       form.appendChild(field('Answers', box));
     }
   }
+
+  form.appendChild(notesField(it));
 
   const tools = document.createElement('div');
   tools.className = 'ed-tools';
@@ -883,6 +887,19 @@ function renderBulk() {
   save.disabled = !st.dirty;
   save.addEventListener('click', saveSession);
   form.appendChild(save);
+}
+
+/** The presenter's notes. A slide starts from its PowerPoint notes; editing them keeps the deck as it is. */
+function notesField(it) {
+  const deck = it.kind === 'slide' ? ((slideOf(it) || {}).notes || '') : '';
+  const box = input(it.notes || deck, (v) => { it.notes = v === deck ? '' : v; markDirty(); }, { textarea: true, rows: '4', 'aria-label': 'Notes',
+    placeholder: it.kind === 'slide' ? 'No speaker notes in the deck — write yours here' : 'What to say or do on this item' });
+  box.classList.add('notes-input');
+  const row = field('Notes', box, 'with-hint');
+  row.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">${it.kind === 'slide'
+    ? (it.notes ? 'Edited here — the PowerPoint notes stay in the deck. Clear the box to get them back.' : 'From your PowerPoint. Editing them here leaves the deck as it is.')
+    : 'Shown on the presenter while this item is on stage.'}</p>`);
+  return row;
 }
 
 function timerField(it) {
