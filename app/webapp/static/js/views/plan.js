@@ -30,7 +30,7 @@ const FONTS = [
   ['Segoe Print', 'Segoe Print (handwriting)'],
 ];
 const TIMER_START = { manual: 'When I start it', on_enter: 'When the item opens', with_capture: 'With the capture' };
-const TIMER_END = { keep: 'Keep showing 00:00', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
+const TIMER_END = { keep: 'Keep showing 00:00', hide: 'Remove the timer', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
 const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
 const ROUNDS = [['pairs', 'Pairs'], ['g4a', 'Groups of 4 · A'], ['g4b', 'Groups of 4 · B'], ['', 'No rooms shown']];
 

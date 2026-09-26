@@ -170,6 +170,27 @@ def test_timer_end_stops_the_capture_and_state_survives_a_restart(svc) -> None:
     assert cap2.status("act-kryptonite") == "stopped"
 
 
+def test_a_running_timer_always_captures_and_a_reset_stops_it(svc) -> None:
+    live, chat, cap, _ = svc
+    _goto(live, "act-kryptonite")  # timer with the capture, stop_capture at 00:00
+    run_action(live, "timer_toggle")  # starting the timer opens the capture
+    assert cap.status("act-kryptonite") == "live"
+    live.timers["act-kryptonite"].running_since = now_ms() - 181_000
+    live._timer_end("act-kryptonite")
+    assert cap.status("act-kryptonite") == "stopped"
+    run_action(live, "timer_add_minute")  # one more minute after 00:00: the capture goes on
+    assert cap.status("act-kryptonite") == "live" and live.timers["act-kryptonite"].running_since is not None
+    _say(chat, ("Ana", "late answer"))
+    assert "late answer" in [m["text"] for m in cap.messages_for("act-kryptonite")]
+    run_action(live, "timer_toggle")  # paused: answers still count
+    assert cap.status("act-kryptonite") == "live" and live.timers["act-kryptonite"].running_since is None
+    run_action(live, "timer_reset")  # a reset stops the capture instead of leaving it stuck
+    assert cap.status("act-kryptonite") == "stopped" and "act-kryptonite" not in live.timers
+    # a break's timer has nothing to capture
+    _goto(live, "brk-coffee")
+    assert cap.status("brk-coffee") == "idle"
+
+
 def test_one_capture_at_a_time(svc) -> None:
     live, _, cap, _ = svc
     _goto(live, "act-enemy")

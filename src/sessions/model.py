@@ -38,7 +38,8 @@ class Timer(_Open):
     seconds: int = Field(180, ge=5, le=6 * 3600)
     start: Literal["manual", "on_enter", "with_capture"] = "manual"
     show_on: Literal["stage", "presenter", "both"] = "both"
-    end: Literal["keep", "stop_capture", "advance", "chime"] = "keep"
+    # At 00:00: keep showing it, stop the capture, go to the next item, chime, or take it off the stage.
+    end: Literal["keep", "stop_capture", "advance", "chime", "hide"] = "keep"
 
 
 THEME_FONT = "theme"

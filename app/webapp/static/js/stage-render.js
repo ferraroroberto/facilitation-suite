@@ -207,18 +207,24 @@ export function createStage(host, opts = {}) {
     if (blk) blk.hidden = !(opts.blackout !== false && state.blackout);
     if (!item) return;
     const t = stageTimer(item, state);
+    const paused = !!(t && t.running_since == null && !t.done);
+    // "Remove the timer" at 00:00: it leaves the stage once done.
+    const gone = !!(t && t.done && item.timer && item.timer.end === 'hide');
     const clockEl = canvas.querySelector('[data-clock]');
     if (clockEl) {
       const left = t ? remaining(t, ctx.now) : item.timer.seconds;
       clockEl.textContent = clock(left);
       clockEl.classList.toggle('done', !!(t && t.done));
+      clockEl.classList.toggle('paused', paused);
+      clockEl.hidden = gone;
     }
     const pill = canvas.querySelector('[data-pill]');
     if (pill) {
-      pill.hidden = !t || !!opts.noTimers;
+      pill.hidden = !t || !!opts.noTimers || gone;
       if (t) {
         pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
         pill.classList.toggle('done', !!t.done);
+        pill.classList.toggle('paused', paused);
       }
     }
     if (item.kind === 'activity') drawResult(ctx);

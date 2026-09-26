@@ -20,6 +20,7 @@ body.offline .remote { opacity: 0.6; }
 .r-timer.running { color: var(--danger-text); }
 .r-timer.running::before { content: "● "; }
 .r-timer.done { color: var(--danger-text); }
+.r-timer.paused { color: var(--attention-text); }
 
 .r-next { display: flex; align-items: center; gap: var(--space-md); }
 .r-next .grow { flex: 1; min-width: 0; }

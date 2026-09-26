@@ -13,7 +13,10 @@ a headless browser from ``/stage?freeze=<item>`` in the background.
 
 Timers: an item timer that starts ``with_capture`` starts with it (and
 pauses when the capture stops by hand); a timer that ends with
-``stop_capture`` stops it.
+``stop_capture`` stops it. The other way round, on an activity that
+captures, a running timer always means capturing: a timer started, resumed
+or given one more minute after 00:00 (re)opens the capture, and resetting
+the timer stops it.
 
 State (windows + hidden ids) lives in ``live/captures.json`` so a restarted
 server resumes mid-capture.
@@ -56,6 +59,7 @@ class CaptureService:
         live.extra_state.append(self.state_fields)
         live.item_listeners.append(self._on_item)
         live.timer_end_listeners.append(self._on_timer_end)
+        live.timer_listeners.append(self._on_timer)
         live.session_listeners.append(lambda sid: self._load())
         chat.listeners.append(self._on_messages)
         register(Action("capture_toggle", "Capture start/stop", lambda h, a: self.toggle()))
@@ -185,6 +189,14 @@ class CaptureService:
         if cur.get("kind") == "activity" and cur.get("type"):
             opts = options_with_defaults(cur["type"], cur.get("options") or {})
             self.live.names = bool(opts.get("show_names", False))
+
+    def _on_timer(self, event: str, item: dict[str, Any]) -> None:
+        if not item.get("capture"):
+            return
+        if event == "start" and self.status(item["id"]) != "live":
+            self.start(item["id"])
+        elif event == "reset" and self.status(item["id"]) == "live":
+            self.stop(item["id"], by_hand=False)
 
     def _on_timer_end(self, item: dict[str, Any], end: str) -> None:
         if end == "stop_capture" and self.status(item["id"]) == "live":

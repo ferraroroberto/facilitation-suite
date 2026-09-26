@@ -174,6 +174,7 @@ function tick() {
     tEl.textContent = clock(ts ? remaining(ts, now) : cur.timer.seconds);
     tEl.classList.toggle('running', !!running);
     tEl.classList.toggle('done', !!(ts && ts.done));
+    tEl.classList.toggle('paused', !!(ts && !running && !ts.done));
     const btn = livePane.querySelector('[data-r-ttoggle]');
     const html = running ? `${icon('pause')} Pause` : `${icon('play')} ${ts && !ts.done ? 'Resume' : 'Timer'}`;
     if (btn.dataset.html !== html) { btn.dataset.html = html; btn.innerHTML = html; }

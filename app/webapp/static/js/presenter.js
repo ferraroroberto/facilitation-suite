@@ -332,6 +332,7 @@ function tickItemTimer(cur, s) {
   tc.textContent = clock(left);
   tc.classList.toggle('done', !!(ts && ts.done));
   const running = ts && ts.running_since != null;
+  tc.classList.toggle('paused', !!(ts && !running && !ts.done));
   card.querySelector('[data-tstate]').textContent = !ts ? 'not started' : ts.done ? 'time is up' : running ? 'running' : 'paused';
   const btn = card.querySelector('[data-ttoggle]');
   const label = running ? `${icon('pause')} Pause` : ts && !ts.done ? `${icon('play')} Resume` : `${icon('play')} Start timer`;
