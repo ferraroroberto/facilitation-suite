@@ -42,12 +42,15 @@ THEME_FONT = "theme"
 
 
 class Font(_Open):
-    """An activity question's lettering. ``family`` is ``"theme"`` (the session's
-    stage font) or a font installed on this PC; ``size_px`` is in stage pixels:
-    the stage is a 1920×1080 canvas scaled to its window."""
+    """One item's lettering, an exception to the session's (``StageFont``).
+    ``family`` is ``"theme"`` (the session's stage font) or a font installed on
+    this PC; ``size_px`` is in stage pixels (the stage is a 1920×1080 canvas
+    scaled to its window); ``caps`` — capitals or as typed — is ``None`` to
+    follow the session."""
 
     family: str = THEME_FONT
     size_px: int = Field(72, ge=12, le=240)
+    caps: Optional[bool] = None
 
     @field_validator("family")
     @classmethod
@@ -58,12 +61,18 @@ class Font(_Open):
 
 
 class StageFont(_Open):
-    """The stage's lettering for the whole session: a font file on this PC
-    (``.otf``/``.ttf``/``.woff``/``.woff2``; empty = the theme's Patrick Hand) and
-    extra line thickness in stage px, for thin handwriting fonts."""
+    """The stage's lettering for the whole session — every item follows it unless
+    it sets its own (``Item.font``): a font file on this PC
+    (``.otf``/``.ttf``/``.woff``/``.woff2``), else a font installed on this PC
+    (``family``; both empty = the theme's Patrick Hand); the weight; extra line
+    thickness in stage px, for thin handwriting fonts; and whether questions
+    and titles are in capitals."""
 
     file: str = ""
+    family: str = ""
+    weight: Literal[400, 700] = 400
     stroke_px: float = Field(0, ge=0, le=8)
+    caps: bool = True
 
 
 class Item(_Open):

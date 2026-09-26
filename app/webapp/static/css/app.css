@@ -263,7 +263,10 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .stage-canvas.font-sample { position: relative; padding: 18px 24px; }
 .font-sample .st-question { font-size: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .font-path { margin: 0 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.font-stroke { display: flex; align-items: center; gap: var(--space-sm); margin: 4px 0 12px; }
+.font-rows { display: grid; gap: var(--space-sm); margin: var(--space-sm) 0; }
+.font-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: var(--space-sm); }
+.font-row .inline-controls .button-surface { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.font-row.font-stroke { grid-template-columns: 120px 1fr 56px; }
 .font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .font-stroke output { width: 56px; text-align: right; }
 .go-row a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; min-height: 56px; }
@@ -395,6 +398,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .ed-tabs .range-tab { flex: 1 1 auto; }
 .inline-controls { display: flex; align-items: center; gap: var(--space-sm); }
 .inline-controls .select-native { flex: 1; min-width: 0; }
+.font-controls { flex-wrap: wrap; }
+.font-controls .select-native { flex: 1 1 200px; }
 .size-input { width: 80px; }
 .switch-line { display: flex; align-items: center; gap: 10px; min-height: 36px; }
 .opt-list { display: grid; gap: 8px; }

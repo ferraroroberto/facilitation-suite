@@ -795,19 +795,10 @@ function renderEditor() {
     if (spec.capture !== false) {
       form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
       form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
-      const font = it.font || { family: 'theme', size_px: 72 };
-      const fam = document.createElement('select');
-      fam.className = 'select-native';
-      fam.setAttribute('aria-label', 'Question font');
-      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
-      fam.addEventListener('change', () => { it.font = Object.assign({}, it.font || font, { family: fam.value }); markDirty(); updatePreview(it); });
-      const size = input(font.size_px, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) { it.font = Object.assign({}, it.font || font, { size_px: n }); markDirty(); updatePreview(it); } }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
-      size.classList.add('size-input');
-      const fontRow = document.createElement('div');
-      fontRow.className = 'inline-controls';
-      fontRow.append(fam, size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
-      form.appendChild(field('Question font', fontRow));
+      form.appendChild(fontField(it, 'Question font', 72));
       form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
+    } else {
+      form.appendChild(fontField(it, 'Title font', 72));
     }
   } else {
     const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : 'Break';
@@ -816,6 +807,7 @@ function renderEditor() {
     hint.className = 'ed-hint';
     hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
+    if (it.kind === 'break') form.appendChild(fontField(it, 'Title font', 120));
   }
 
   form.appendChild(field('OBS profile', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'OBS profile')));
@@ -951,6 +943,48 @@ function renderBulk() {
   save.disabled = !st.dirty;
   save.addEventListener('click', saveSession);
   form.appendChild(save);
+}
+
+/**
+ * An item's own lettering — font, size (stage px on the 1920-wide canvas; none
+ * for a slide's text, which keeps its PowerPoint sizes) and capitals. Each
+ * starts as the session's (Sessions → Stage font): setting one here is the
+ * exception for this item only.
+ */
+function fontField(it, label, defaultSize) {
+  const font = it.font || { family: 'theme', size_px: defaultSize || 72 };
+  const set = (change) => {
+    it.font = Object.assign({ family: 'theme', size_px: defaultSize || 72 }, it.font, change);
+    markDirty();
+    updatePreview(it);
+  };
+  const row = document.createElement('div');
+  row.className = 'inline-controls font-controls';
+  const fam = document.createElement('select');
+  fam.className = 'select-native';
+  fam.setAttribute('aria-label', label);
+  FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
+  fam.addEventListener('change', () => set({ family: fam.value }));
+  row.appendChild(fam);
+  if (defaultSize) {
+    const size = input(font.size_px || defaultSize, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
+    size.classList.add('size-input');
+    row.append(size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
+  }
+  const sessionCaps = !(st.session.font && st.session.font.caps === false);
+  const caps = document.createElement('select');
+  caps.className = 'select-native';
+  caps.setAttribute('aria-label', 'Capitals');
+  [['', `Capitals as the session (${sessionCaps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']].forEach(([v, l]) => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = l;
+    o.selected = v === (font.caps === true ? 'caps' : font.caps === false ? 'typed' : '');
+    caps.appendChild(o);
+  });
+  caps.addEventListener('change', () => set({ caps: caps.value === 'caps' ? true : caps.value === 'typed' ? false : null }));
+  row.appendChild(caps);
+  return field(label, row);
 }
 
 /** The presenter's notes. A slide starts from its PowerPoint notes; editing them keeps the deck as it is. */

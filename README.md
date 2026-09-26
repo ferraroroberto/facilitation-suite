@@ -67,13 +67,17 @@ Type `\n` in a question or title where the line should break on the stage; lists
 
 Select several items as in a file manager — **Ctrl+click** adds or removes one, **Shift+click** selects a range (Ctrl+Shift+click adds it), **Shift+↑/↓** extends, **Ctrl+A** selects all, **Esc** keeps one — and the editor becomes a bulk panel: one OBS profile or **In this session** for all of them, **Duplicate** or **Delete**. Dragging any selected item moves the whole selection; **Delete** on the keyboard deletes it. Deleting an imported slide only takes it out of the plan: it stays in the deck, and **Add slide or activity → Slide from the deck** brings it back.
 
-**Stage font** (Sessions tab): **Choose font…** picks an `.otf`, `.ttf` or `.woff` file on this PC (your own handwriting font, say) for every question, answer and title on the stage, and **Line thickness** thickens its lines, in stage pixels (a stroke under the letters, so they keep their shape). Both go into `session.yaml`:
+**Stage font** (Sessions tab) — the lettering of every question, answer, title and slide text on the stage: the **font** (Patrick Hand, a font installed on this PC, or **Font file…** — an `.otf`, `.ttf` or `.woff` on this PC, your own handwriting font, say), its **weight** (regular / bold), **line thickness** in stage pixels (a stroke under the letters, so they keep their shape) and **capitals** (ALL CAPS or as typed, for questions and titles). They go into `session.yaml`:
 
 ```yaml
 font:
-  file: C:/Users/you/Fonts/MyHand-Regular.otf
+  file: C:/Users/you/Fonts/MyHand-Regular.otf   # else family: Georgia
+  weight: 400
   stroke_px: 1.5
+  caps: true
 ```
+
+Every item follows it; an item's own **font** row in the Plan tab (font, size, capitals — "as the session" by default) is the exception for that item only.
 
 The file stays where it is (keep it on this PC — the readiness list warns if it goes missing, and the stage then falls back to Patrick Hand); it is served to the stage, the presenter's previews, the phone remote and the frozen captures from `/api/sessions/<id>/font`.
 

@@ -106,3 +106,24 @@ def test_picker_accepts_fonts(client, monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(slides, "native_pick", lambda kind: f"C:/picked.{kind}")
     assert client.post("/api/pick", json={"kind": "font"}).json() == {"path": "C:/picked.font"}
+
+
+def test_installed_family_weight_and_capitals() -> None:
+    css = font_css(parse_session({"title": "x", "font": {"family": "Georgia", "weight": 700, "caps": False}}), "/f")
+    assert '--st-font: "Georgia", "Patrick Hand"' in css and "--st-font-weight: 700;" in css
+    assert "--st-question-transform: none;" in css and "@font-face" not in css
+    # the defaults write nothing; a hostile family name cannot break out of the rule
+    assert font_css(parse_session({"title": "x", "font": {}}), "/f") == ""
+    evil = font_css(parse_session({"title": "x", "font": {"family": 'x"; } body { color: red'}}), "/f")
+    assert evil.count("{") == 1 and '"x  body  color: red"' in evil
+    with pytest.raises(ValidationError):
+        parse_session({"title": "x", "font": {"weight": 500}})
+
+
+def test_a_font_file_wins_over_the_family(font: Path) -> None:
+    css = font_css(parse_session({"title": "x", "font": {"file": str(font), "family": "Georgia"}}), "/f")
+    assert f'--st-font: "{FAMILY}"' in css and "Georgia" not in css
+
+
+def test_item_capitals_follow_the_session_by_default() -> None:
+    assert Font().caps is None and Font(caps=False).caps is False

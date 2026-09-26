@@ -40,6 +40,18 @@ function resultFor(item, ctx) {
   return cap && cap.item_id === item.id ? cap.result : null;
 }
 
+/**
+ * An item's own lettering as inline style — its font, size and capitals —
+ * where it sets them; the rest follows the session (theme variables).
+ */
+function lettering(f, defaultSize) {
+  f = f || {};
+  // "theme" (and the older "Patrick Hand") = the session's stage font.
+  const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
+  const size = Number(f.size_px) || defaultSize;
+  return family + (f.caps === true ? 'text-transform:uppercase;' : f.caps === false ? 'text-transform:none;' : '') + (size ? `font-size:${size}px;` : '');
+}
+
 /** "mm:ss" for the stage clocks. */
 export function clock(sec) {
   const s = Math.max(0, Math.ceil(sec));
@@ -107,16 +119,14 @@ export function createStage(host, opts = {}) {
         ? `<img class="st-slide" alt="" src="/api/sessions/${encodeURIComponent(sid)}/slides/${esc(it.slide_file)}">`
         : `<div class="st-content"><h1 class="st-question" style="font-size:72px">${lines(it.title)}</h1></div>`;
     } else if (it.kind === 'break') {
-      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title">${lines(it.title)}</h1>` +
+      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
         (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
     } else {
-      const f = it.font || {};
       const text = it.capture ? (it.question || it.title) : it.title;
-      // "theme" (and the older "Patrick Hand") = the session's stage font.
-      const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
+      const caps = lettering({ caps: (it.font || {}).caps });
       html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${lines(text)}</h1>` +
-        `<p class="st-sub" data-sub hidden></p></div>` +
+        `<div class="st-head"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(text)}</h1>` +
+        `<p class="st-sub" data-sub hidden style="${caps}"></p></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
