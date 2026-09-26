@@ -58,6 +58,16 @@
 .stage-canvas .mp-pin[data-side="down"] .mp-label,
 .stage-canvas .mp-pin.many[data-side="down"] .mp-label { top: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
 .stage-canvas .mp-pin.many[data-side="down"] .mp-label { top: calc(100% + 14px); }
+.stage-canvas .mp-pin[data-side^="up-"] .mp-label,
+.stage-canvas .mp-pin[data-side^="down-"] .mp-label { transform: none; }
+.stage-canvas .mp-pin[data-side^="up-"] .mp-label { top: auto; bottom: calc(50% + 12px); }
+.stage-canvas .mp-pin[data-side^="down-"] .mp-label { top: calc(50% + 12px); }
+.stage-canvas .mp-pin[data-side$="-right"] .mp-label { left: calc(50% + 12px); right: auto; }
+.stage-canvas .mp-pin[data-side$="-left"] .mp-label { left: auto; right: calc(50% + 12px); }
+.stage-canvas .mp-pin.many[data-side^="up-"] .mp-label { bottom: calc(50% + 16px); }
+.stage-canvas .mp-pin.many[data-side^="down-"] .mp-label { top: calc(50% + 16px); }
+.stage-canvas .mp-pin.many[data-side$="-right"] .mp-label { left: calc(50% + 16px); }
+.stage-canvas .mp-pin.many[data-side$="-left"] .mp-label { right: calc(50% + 16px); }
 .stage-canvas .mp-pin[data-side="none"] .mp-label { display: none; }
 .stage-canvas .mp-enter { opacity: 0; }
 .stage-canvas .mp-enter .mp-dot { transform: scale(2.4); }

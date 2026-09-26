@@ -9,9 +9,10 @@
 // - clusters: pins closer than a few pixels merge into one, the count in its
 //   dot; a cluster keeps its element (keyed by its first answer) as people
 //   join, so it never blinks out and back in;
-// - labels: each goes right, left, above or below its dot — the first side
-//   that overlaps no other dot or label — or is left off (the names are in
-//   the side list); decided once per re-aim, not on every animation frame;
+// - labels: each goes right, left, above, below or off a corner of its dot —
+//   the first place that overlaps no other dot or label — or is left off (a
+//   click on the pin still says who); decided once per re-aim, not on every
+//   animation frame;
 // - inset: when a small region holds many people while the view spans far
 //   more, that region gets its own zoomed box in the emptiest corner, joined
 //   to a dashed frame on the main map; once shown it stays (same region, same
@@ -27,7 +28,7 @@ const MIN_SPAN = 14 * S; // never zoom closer than ~14° of longitude
 const CLUSTER_PX = 34;
 const EASE_MS = 900;
 const DOT = 16; // a dot's half size, plus a little air, for label placement
-const SIDES = ['right', 'left', 'up', 'down'];
+const SIDES = ['right', 'left', 'up', 'down', 'up-right', 'up-left', 'down-right', 'down-left'];
 
 let worldPaths = null;
 function loadWorld() {
@@ -104,9 +105,11 @@ function findInset(pins, vb, prev) {
     const inside = pins.filter((p) => p.xy[0] >= prev.box.x && p.xy[0] <= prev.box.x + prev.box.w && p.xy[1] >= prev.box.y && p.xy[1] <= prev.box.y + prev.box.h);
     // the same region, as long as it keeps a crowd and the view stays much wider (looser than to open it)
     if (inside.length >= 4 && inside.length >= pins.length * 0.2 && vb.w > prev.box.w * 2.4) {
-      const grown = inside.length > prev.pins.length ? fitBox(inside.map((p) => p.xy), 1.5, 0.25) : prev.box;
-      const box = grown.w > prev.box.w * 1.25 ? grown : prev.box; // re-frame only when it clearly outgrew it
-      return { pins: inside, box, corner: prev.corner };
+      // keep the frame while its pins sit comfortably inside it; re-frame when one reaches its edge
+      const fit = fitBox(inside.map((p) => p.xy), 1.5, 0.25);
+      const b = prev.box;
+      const holds = fit.x >= b.x && fit.y >= b.y && fit.x + fit.w <= b.x + b.w && fit.y + fit.h <= b.y + b.h;
+      return { pins: inside, box: holds ? b : fit, corner: prev.corner };
     }
   }
   if (pins.length < 6) return null;
@@ -178,11 +181,16 @@ function placeLabels(layer, groups, vb, width, height, avoid = []) {
     const h = lab.offsetHeight;
     const [x, y] = at.get(g.key);
     const r = (g.members.length > 1 ? DOT + 6 : DOT) + 4;
+    const d = r * 0.7; // the diagonals sit off the dot's corner
     const rect = {
       right: [x + r, y - h / 2, x + r + w, y + h / 2],
       left: [x - r - w, y - h / 2, x - r, y + h / 2],
       up: [x - w / 2, y - r - h, x + w / 2, y - r],
       down: [x - w / 2, y + r, x + w / 2, y + r + h],
+      'up-right': [x + d, y - d - h, x + d + w, y - d],
+      'up-left': [x - d - w, y - d - h, x - d, y - d],
+      'down-right': [x + d, y + d, x + d + w, y + d + h],
+      'down-left': [x - d - w, y + d, x - d, y + d + h],
     };
     const side = !w ? 'none' : SIDES.find((s) => !hit(rect[s])) || 'none';
     el.dataset.side = side;
