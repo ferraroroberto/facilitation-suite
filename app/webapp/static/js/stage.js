@@ -1,13 +1,14 @@
 // /stage — the window OBS captures. It only renders what the server says is on
-// stage; keys (a presentation clicker sends PageDown/PageUp) become intents.
-// Double-click toggles full screen.
+// stage; keys (a presentation clicker sends PageDown/PageUp, Home/End jump to
+// the first and last item) and a click (next) become intents. Double-click
+// toggles full screen.
 //
 // /stage?freeze=<item> renders a stopped capture exactly once, from its frozen
 // JSON, and marks <body data-ready="1"> — the headless browser that writes
 // live/captures/<item>.png waits for that (src/live/freeze.py).
 
 import { api } from '/static/js/ui.js';
-import { connectLive, bindKeys } from '/static/js/live.js';
+import { connectLive, bindKeys, clickToAdvance } from '/static/js/live.js';
 import { createStage, applyTheme } from '/static/js/stage-render.js';
 
 const host = document.getElementById('stage');
@@ -79,6 +80,7 @@ function runLive() {
   sayHello();
 
   bindKeys(live);
+  clickToAdvance(document, live, { wait: 280, cancelOn: 'dblclick' }); // a double-click is full screen, not two steps
 
   document.addEventListener('dblclick', () => {
     if (document.fullscreenElement) document.exitFullscreen();

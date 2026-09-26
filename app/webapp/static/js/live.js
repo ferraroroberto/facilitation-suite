@@ -103,6 +103,22 @@ export function driftText(minutes) {
   return minutes >= 1 ? `+${minutes} min` : minutes <= -1 ? `−${-minutes} min` : 'on time';
 }
 
+/**
+ * A click on the stage (the window, or the presenter's "on stage now") goes on
+ * to the next item, as in a slideshow — not on a button or a map pin (they
+ * have their own click), and `wait` ms later so a double-click can cancel it.
+ */
+export function clickToAdvance(el, live, { wait = 0, cancelOn = null } = {}) {
+  let pending = null;
+  el.addEventListener('click', (e) => {
+    if (e.button !== 0 || e.target.closest('button, a, input, select, textarea, .mp-pop')) return;
+    if (el.querySelector && el.querySelector('.mp-pop')) return; // this click only closes the map's popover
+    clearTimeout(pending);
+    pending = setTimeout(() => live.send('next'), wait);
+  });
+  if (cancelOn) el.addEventListener(cancelOn, () => clearTimeout(pending));
+}
+
 /** The keyboard map shared by the stage and the presenter (PowerPoint-like). */
 export const KEYS = {
   ArrowRight: 'next', PageDown: 'next', ArrowDown: 'next', n: 'next', N: 'next',
@@ -113,6 +129,12 @@ export const KEYS = {
   '+': 'timer_add_minute', m: 'timer_add_minute', M: 'timer_add_minute',
 };
 
+/** Home / End: the first and the last item (they take an argument, so they are not in KEYS). */
+const JUMPS = {
+  Home: (live) => live.send('goto', '1'),
+  End: (live) => { if (live.state && live.state.count) live.send('goto', String(live.state.count)); },
+};
+
 /** Wire the keyboard map to live.send, ignoring keys typed into fields. */
 export function bindKeys(live, extra = {}) {
   document.addEventListener('keydown', (e) => {
@@ -121,6 +143,7 @@ export function bindKeys(live, extra = {}) {
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     if (t && t.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) return;
     if (extra[e.key]) { e.preventDefault(); extra[e.key](); return; }
+    if (JUMPS[e.key]) { e.preventDefault(); JUMPS[e.key](live); return; }
     const action = KEYS[e.key];
     if (!action) return;
     e.preventDefault();
