@@ -54,6 +54,34 @@ function lettering(f, defaultSize) {
   return family + (f.caps === true ? 'text-transform:uppercase;' : f.caps === false ? 'text-transform:none;' : '') + (size ? `font-size:${size}px;` : '');
 }
 
+const ANCHOR = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+
+/** A slide's text boxes (from the import), drawn over its text-free picture in the stage font. */
+function slideText(it) {
+  const own = lettering(Object.assign({}, it.font, { size_px: null }));
+  return `<div class="st-slide-text">` + it.text_boxes.map((b) =>
+    `<div class="st-tbox" data-size="${Number(b.size) || 40}" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;` +
+    `padding:${(b.pad || []).map((p) => `${Number(p) || 0}px`).join(' ')};color:${esc(b.color)};text-align:${esc(b.align)};` +
+    `justify-content:${ANCHOR[b.anchor] || 'flex-start'};font-size:${Number(b.size) || 40}px;${own}"><span>${esc(b.text)}</span></div>`).join('') +
+    '</div>';
+}
+
+/**
+ * Shrink each slide text box until its text fits (a handwriting font can run
+ * wider or taller than PowerPoint's), down to 60 % of its size.
+ */
+function fitSlideText(root) {
+  root.querySelectorAll('.st-tbox').forEach((b) => {
+    const base = Number(b.dataset.size) || 40;
+    let size = base;
+    b.style.fontSize = `${size}px`;
+    while ((b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1) && size > base * 0.6) {
+      size *= 0.94;
+      b.style.fontSize = `${size}px`;
+    }
+  });
+}
+
 /** "mm:ss" for the stage clocks. */
 export function clock(sec) {
   const s = Math.max(0, Math.ceil(sec));
@@ -119,9 +147,12 @@ export function createStage(host, opts = {}) {
     const hint = ctx.plan.run.chat_hint || words(lang).chat_hint;
     let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}">`;
     if (it.kind === 'slide') {
-      html += it.slide_file
-        ? `<img class="st-slide" alt="" src="/api/sessions/${encodeURIComponent(sid)}/slides/${esc(it.slide_file)}">`
-        : `<div class="st-content"><h1 class="st-question" style="font-size:72px">${lines(it.title)}</h1></div>`;
+      const slides = `/api/sessions/${encodeURIComponent(sid)}/slides/`;
+      html += it.slide_bg && it.text_boxes
+        ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_bg)}">${slideText(it)}`
+        : it.slide_file
+          ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
+          : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(it.title)}</h1></div>`;
     } else if (it.kind === 'break') {
       html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
         (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
@@ -144,6 +175,10 @@ export function createStage(host, opts = {}) {
     }
     html += `</div><div class="st-blackout" data-blackout hidden></div>`;
     canvas.innerHTML = html;
+    if (it.text_boxes) {
+      fitSlideText(canvas);
+      document.fonts.ready.then(() => { if (item === it) fitSlideText(canvas); });
+    }
   }
 
   let lastCtx = null;

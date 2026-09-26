@@ -237,3 +237,14 @@ def test_default_titles_match_the_stage_words() -> None:
     for lang, titles in DEFAULT_TITLES.items():
         block = js.split(f"  {lang}: {{", 1)[1].split("\n  },", 1)[0]
         assert f"break: '{titles['break']}'" in block and f"reveal: '{titles['groups_reveal']}'" in block, lang
+
+
+def test_a_slide_with_text_boxes_is_drawn_by_the_stage_unless_kept_as_a_picture() -> None:
+    box = {"x": 96, "y": 54, "w": 960, "h": 108, "text": "Hello", "size": 80, "color": "#1f1f1f", "align": "left", "anchor": "top", "pad": [0, 0, 0, 0]}
+    meta = {"slides": [{"slide_id": 7, "title": "Hello", "file": "slide-7.png", "bg_file": "slide-7-bg.png", "boxes": [box]},
+                       {"slide_id": 8, "title": "Picture", "file": "slide-8.png"}]}
+    s = parse_session({"title": "x", "sections": [{"name": "S", "items": [
+        {"kind": "slide", "slide_id": 7}, {"kind": "slide", "slide_id": 7, "live_text": False}, {"kind": "slide", "slide_id": 8}]}]})
+    run = build_run(s, meta)["items"]
+    assert run[0]["slide_bg"] == "slide-7-bg.png" and run[0]["text_boxes"] == [box] and run[0]["slide_file"] == "slide-7.png"
+    assert "text_boxes" not in run[1] and "text_boxes" not in run[2]

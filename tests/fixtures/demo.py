@@ -46,14 +46,16 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(FONT), size)
 
 
-def draw_slide(spec: dict[str, Any], path: Path) -> None:
+def draw_slide(spec: dict[str, Any], path: Path, *, text: bool = True) -> None:
+    """One slide as PowerPoint would export it; ``text=False`` = its text-free picture."""
     im = Image.new("RGB", (1920, 1080), BG)
     d = ImageDraw.Draw(im)
     wide = spec.get("wide", False)
     if not wide:
         d.rectangle((1120, 248, 1888, 832), fill=BOX)
     if spec.get("divider"):
-        d.text((110, 470), spec["title"], font=_font(96), fill=(94, 94, 94))
+        if text:
+            d.text((110, 470), spec["title"], font=_font(96), fill=(94, 94, 94))
     else:
         d.text((110, 80), spec["title"].upper(), font=_font(64), fill=INK)
     cx, cy = (960, 600) if wide else (520, 620)
@@ -322,9 +324,16 @@ def build_demo_session(folder: Path, ledger: Path | None = None) -> tuple[str, P
     for i, spec in enumerate(SLIDES, start=1):
         file = f"slide-{spec['id']}.png"
         draw_slide(spec, slides_dir / file)
-        export_slides.append({"slide_id": spec["id"], "index": i, "title": spec["title"], "notes": "",
-                              "texts": [spec["title"]], "pictures": 0 if spec.get("divider") else 1,
-                              "background": "#f2f2f2", "hidden": False, "file": file})
+        entry = {"slide_id": spec["id"], "index": i, "title": spec["title"], "notes": "",
+                 "texts": [spec["title"]], "pictures": 0 if spec.get("divider") else 1,
+                 "background": "#f2f2f2", "hidden": False, "file": file}
+        if spec.get("divider"):
+            # a title-only divider: its text box (in points, as the exporter writes it) and text-free picture
+            draw_slide(spec, slides_dir / f"slide-{spec['id']}-bg.png", text=False)
+            entry.update(bg_file=f"slide-{spec['id']}-bg.png", boxes=[{
+                "x": 55.0, "y": 228.0, "w": 480.0, "h": 80.0, "text": spec["title"], "size": 48.0, "bold": False,
+                "italic": False, "color": "#5e5e5e", "align": "left", "anchor": "middle", "pad": [0, 0, 0, 0]}])
+        export_slides.append(entry)
     meta = build_slides_meta({"sections": [], "slides": export_slides}, slides_dir, Path("demo.pptx"))
     (slides_dir / "slides.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     write_demo_roster(folder / "roster.xlsx")

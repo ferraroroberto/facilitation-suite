@@ -23,7 +23,7 @@ from src.sessions.store import SessionError, SessionStore, atomic_write_text
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-SLIDE_FILE = re.compile(r"^slide-\d+\.png$")
+SLIDE_FILE = re.compile(r"^slide-\d+(?:-bg)?\.png$")  # a slide, or its text-free picture
 
 
 def _store(request: Request) -> SessionStore:

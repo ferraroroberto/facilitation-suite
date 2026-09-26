@@ -55,9 +55,10 @@ function runLive() {
     // The next two slides are fetched ahead so a click never shows a blank frame.
     const i = live.state ? live.state.index : 0;
     plan.run.items.slice(i + 1, i + 3).forEach((it) => {
-      if (!it.slide_file || preloaded.has(it.slide_file)) return;
-      preloaded.add(it.slide_file);
-      new Image().src = `/api/sessions/${encodeURIComponent(plan.session.id)}/slides/${it.slide_file}`;
+      const file = it.slide_bg || it.slide_file; // the picture the stage will draw
+      if (!file || preloaded.has(file)) return;
+      preloaded.add(file);
+      new Image().src = `/api/sessions/${encodeURIComponent(plan.session.id)}/slides/${file}`;
     });
   }
 

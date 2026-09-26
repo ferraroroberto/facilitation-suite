@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.importer.analyze import hamming
-from src.importer.service import INCOMING, placeholder_item, slide_item
+from src.importer.service import INCOMING, files_of, placeholder_item, slide_item
 from src.sessions.model import Item, Section, Session
 
 logger = logging.getLogger(__name__)
@@ -336,20 +336,20 @@ def apply(folder: Path, session: Session, accepted: set[str]) -> dict[str, Any]:
         if nid not in pairs:
             if ok(f"new-{nid}"):
                 final.append(s)
-                copy_in.append(s["file"])
+                copy_in.extend(files_of(s))
             continue
         o = old_by[pairs[nid]]
         if f"mod-{nid}" in known and not ok(f"mod-{nid}"):
             final.append({**o, "slide_id": nid, "index": s["index"]})  # keep the old look, under the deck's id
         else:
             final.append(s)
-            copy_in.append(s["file"])
+            copy_in.extend(files_of(s))
     for o in old_meta["slides"]:
         if o["slide_id"] not in pairs.values() and not ok(f"rem-{o['slide_id']}"):
             final.append({**o, "in_deck": False})
     for name in copy_in:
         shutil.copy2(inc / name, slides_dir / name)
-    keep = {s["file"] for s in final}
+    keep = {f for s in final for f in files_of(s)}
     for png in slides_dir.glob("slide-*.png"):
         if png.name not in keep:
             png.unlink()

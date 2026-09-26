@@ -91,6 +91,9 @@ class Item(_Open):
     notes: str = ""
     # slides
     slide_id: Optional[int] = None
+    # A slide's text drawn by the stage in the session's font (None = yes, when
+    # the import found plain text on it); False keeps PowerPoint's picture.
+    live_text: Optional[bool] = None
     # activities
     type: Optional[str] = None
     question: str = ""

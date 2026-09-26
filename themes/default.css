@@ -40,6 +40,25 @@
 
 .stage-canvas .st-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 
+/* A slide's own text, drawn over its text-free picture in the session's
+   lettering (position, size, colour and alignment from PowerPoint). */
+.stage-canvas .st-slide-text { position: absolute; inset: 0; pointer-events: none; }
+.stage-canvas .st-tbox {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  text-transform: var(--st-question-transform);
+  line-height: 1.15;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.stage-canvas .st-tbox span { display: block; }
+
 /* The content rectangle avoids the camera zone of the item's profile. */
 .stage-canvas .st-content {
   position: absolute;

@@ -811,6 +811,7 @@ function renderEditor() {
     hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
     if (it.kind === 'break') form.appendChild(fontField(it, 'Title font', 120));
+    if (it.kind === 'slide') slideTextFields(form, it);
   }
 
   form.appendChild(field('OBS profile', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'OBS profile')));
@@ -990,6 +991,28 @@ function fontField(it, label, defaultSize) {
   return field(label, row);
 }
 
+/** A slide's text: drawn by the stage in the session's lettering (the default), or PowerPoint's picture. */
+function slideTextFields(form, it) {
+  const s = slideOf(it);
+  if (!s) return;
+  if (!s.boxes || !s.bg_file) {
+    if ((s.texts || []).length) {
+      form.appendChild(field('Slide text', '<p class="ed-hint">Shown as PowerPoint drew it. Re-import the PowerPoint to draw this slide\'s text in the stage font.</p>'));
+    }
+    return;
+  }
+  const live = it.live_text !== false;
+  form.appendChild(field('Slide text', rangeTabs([['live', 'In the stage font'], ['image', 'As in PowerPoint']], live ? 'live' : 'image', (v) => {
+    it.live_text = v === 'image' ? false : null;
+    markDirty();
+    renderEditor();
+  }, 'Slide text'), 'with-hint'));
+  form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">${live
+    ? `${s.boxes.length} text box${s.boxes.length === 1 ? '' : 'es'} drawn in the session's lettering, where PowerPoint had them.`
+    : 'The slide exactly as PowerPoint drew it.'}</p>`);
+  if (live) form.appendChild(fontField(it, 'Text font', null));
+}
+
 /** The presenter's notes. A slide starts from its PowerPoint notes; editing them keeps the deck as it is. */
 function notesField(it) {
   const deck = it.kind === 'slide' ? ((slideOf(it) || {}).notes || '') : '';
@@ -1087,6 +1110,7 @@ function runItem(it) {
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
     ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
+    ...(s && s.bg_file && s.boxes && it.live_text !== false ? { slide_bg: s.bg_file, text_boxes: s.boxes } : {}),
   };
 }
 

@@ -54,6 +54,13 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
     return words.get(item.type or "") or (types.get(item.type or "") or {}).get("label") or "Activity"
 
 
+def _slide_text(item: Any, slide: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """A slide whose text the stage draws itself: its text-free picture and text boxes."""
+    if item.kind != "slide" or item.live_text is False or not slide or not slide.get("bg_file") or not slide.get("boxes"):
+        return {}
+    return {"slide_bg": slide["bg_file"], "text_boxes": slide["boxes"]}
+
+
 def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional[dict[str, Any]] = None,
               zones: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """``{"items": [...], "sections": [...]}`` in live order (included items only).
@@ -92,6 +99,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "notes": it.notes or ((slide or {}).get("notes", "") if it.kind == "slide" else ""),
                 "notes_own": bool(it.notes),
                 "slide_file": (slide or {}).get("file") if slide else None,
+                **_slide_text(it, slide),
                 "slide_missing": it.kind == "slide" and slide is None,
                 "profile": profile,
                 "zone": zones.get(profile),
