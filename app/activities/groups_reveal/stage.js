@@ -3,14 +3,14 @@
 // The rooms come with the item (groups.yaml, via the live run) — no capture.
 
 import { esc } from '/static/js/ui.js';
-
-const ROUND = { pairs: 'Pairs', g4a: 'Groups of 4 · A', g4b: 'Groups of 4 · B' };
+import { words } from '/static/js/stage-words.js';
 
 /** Under the title: the round and how many rooms — it follows the round picked in the plan. */
-export function subtitle(item) {
+export function subtitle(item, lang) {
+  const w = words(lang);
   const round = (item.options || {}).round || 'pairs';
   const n = (item.rooms || []).length;
-  return `${ROUND[round] || round}${n ? ` · ${n} rooms` : ''}`;
+  return `${w.rounds[round] || round}${n ? ` · ${w.rooms(n)}` : ''}`;
 }
 
 /** The largest type (30px down to 14px) at which the whole grid fits the body. */
@@ -28,7 +28,7 @@ function fit(body) {
 export function render(body, result, ctx) {
   const rooms = (ctx.item && ctx.item.rooms) || [];
   if (!rooms.length) {
-    body.innerHTML = '<div class="gr-empty">Shuffle the groups in the Groups tab first.</div>';
+    body.innerHTML = `<div class="gr-empty">${esc(words(ctx.lang).no_rooms)}</div>`;
     return;
   }
   const cols = rooms.length > 12 ? 4 : rooms.length > 6 ? 3 : 2;

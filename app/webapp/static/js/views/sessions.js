@@ -7,6 +7,7 @@ import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
+import { words, LANGUAGES } from '/static/js/stage-words.js';
 
 let root;
 let ctx;
@@ -180,7 +181,8 @@ async function renderDetail() {
   const title = document.createElement('div');
   title.className = 'detail-title';
   const when = s.date ? `${fmtDate(s.date)} · ${timeRange(s.date, s.duration_minutes)}` : 'No date yet';
-  title.innerHTML = `<h1>${esc(s.title)}</h1><p class="muted">${esc(when)} · ${fmtMinutes(s.duration_minutes)} planned</p>` +
+  const language = (LANGUAGES.find(([k]) => k === s.language) || LANGUAGES[0])[1];
+  title.innerHTML = `<h1>${esc(s.title)}</h1><p class="muted">${esc(when)} · ${fmtMinutes(s.duration_minutes)} planned · ${esc(language)} on stage</p>` +
     `<button type="button" class="button-surface" data-edit-meta>${icon('pencil')} Edit</button>`;
   title.querySelector('[data-edit-meta]').addEventListener('click', () => editMeta(sid, s));
   detailEl.appendChild(title);
@@ -383,14 +385,18 @@ async function editMeta(sid, s) {
       { name: 'title', label: 'Title', value: s.title, required: true },
       { name: 'date', label: 'Date and time', type: 'datetime-local', value: local },
       { name: 'duration', label: 'Duration (min)', type: 'number', value: s.duration_minutes },
+      { name: 'language', label: 'Language on the stage', type: 'select', value: s.language || 'en', options: LANGUAGES.map(([value, label]) => ({ value, label })),
+        hint: 'The words the stage says by itself: the chat hint, default titles, breakout rooms.' },
       { name: 'chat_hint', label: 'Stage hint under activities', value: s.chat_hint || '',
-        hint: 'Shown on the stage in the language of the session, e.g. "Escribe tu respuesta en el chat de Zoom".' },
+        placeholder: words(s.language).chat_hint,
+        hint: `Empty = the language's own: "${words('en').chat_hint}" · "${words('es').chat_hint}".` },
     ],
   });
   if (!v) return;
   const next = Object.assign({}, s, {
     title: v.title.trim(),
-    chat_hint: v.chat_hint.trim() || 'Write your answer in the Zoom chat',
+    language: v.language,
+    chat_hint: v.chat_hint.trim(),
     date: v.date ? new Date(v.date).toISOString() : null,
     duration_minutes: Math.max(1, parseInt(v.duration, 10) || s.duration_minutes),
   });

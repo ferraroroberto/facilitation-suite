@@ -33,16 +33,25 @@ def one_line(text: str) -> str:
     return _BREAKS.sub(" ", text or "").strip()
 
 
-def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, Any]) -> str:
+# The stage's default titles in each session language (app/webapp/static/js/stage-words.js
+# says the same words on the stage; tests/test_live.py keeps them in step).
+DEFAULT_TITLES: dict[str, dict[str, str]] = {
+    "en": {"break": "Break", "groups_reveal": "Who are you with?"},
+    "es": {"break": "Descanso", "groups_reveal": "¿Con quién estás?"},
+}
+
+
+def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, Any], lang: str = "en") -> str:
+    words = DEFAULT_TITLES.get(lang, DEFAULT_TITLES["en"])
     if item.title.strip():
         return item.title.strip()
     if item.kind == "slide":
         return (slide or {}).get("title") or f"Slide {item.slide_id}"
     if item.kind == "break":
-        return "Break"
+        return words["break"]
     if item.question.strip():
         return item.question.strip()
-    return (types.get(item.type or "") or {}).get("label") or "Activity"
+    return words.get(item.type or "") or (types.get(item.type or "") or {}).get("label") or "Activity"
 
 
 def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional[dict[str, Any]] = None,
@@ -75,7 +84,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "type": it.type,
                 "type_label": spec.get("label"),
                 "capture": bool(spec.get("capture", False)) if it.kind == "activity" else False,
-                "title": display_title(it, slide, types),
+                "title": display_title(it, slide, types, session.language),
                 "question": it.question,
                 "chat_prompt": it.chat_prompt,
                 "font": (it.font.model_dump() if it.font else {"family": THEME_FONT, "size_px": 72}),
@@ -94,4 +103,4 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
             })
         start += sec.minutes
     return {"items": items, "sections": sections, "planned_minutes": start,
-            "chat_hint": session.chat_hint, "theme": session.theme}
+            "chat_hint": session.chat_hint, "language": session.language, "theme": session.theme}

@@ -23,6 +23,9 @@ from src.activities.registry import editors
 SCHEMA_VERSION = 1
 
 Profile = Literal["camera_strip", "camera_pip", "screen_only"]
+Language = Literal["en", "es"]
+# The stage hint's old stored default: it now comes from the session's language.
+LEGACY_CHAT_HINT = "Write your answer in the Zoom chat"
 PROFILES: tuple[str, ...] = ("camera_strip", "camera_pip", "screen_only")
 
 
@@ -122,13 +125,20 @@ class Session(_Open):
     date: Optional[datetime] = None
     duration_minutes: int = Field(120, ge=1, le=24 * 60)
     theme: str = "default"
-    # The chip on the stage under every activity, in the session's language.
-    chat_hint: str = "Write your answer in the Zoom chat"
+    # The words the stage says by itself (the chat hint, default titles).
+    language: Language = "en"
+    # The chip on the stage under every activity; empty = the language's own.
+    chat_hint: str = ""
     font: Optional[StageFont] = None
     source: Optional[Source] = None
     # Manual readiness confirmations (e.g. zoom_autoupdate_off) the app cannot detect itself.
     checklist: dict[str, bool] = Field(default_factory=dict)
     sections: list[Section] = Field(default_factory=list)
+
+    @field_validator("chat_hint")
+    @classmethod
+    def _hint_default(cls, v: str) -> str:
+        return "" if v.strip() == LEGACY_CHAT_HINT else v
 
     def all_items(self) -> list[Item]:
         return [it for s in self.sections for it in s.items]

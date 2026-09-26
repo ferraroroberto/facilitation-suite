@@ -16,6 +16,7 @@ import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
 import { createStage, applySessionTheme } from '/static/js/stage-render.js';
+import { words } from '/static/js/stage-words.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -60,8 +61,10 @@ function slideOf(it) { return it.kind === 'slide' ? st.slides.get(it.slide_id) :
 function titleOf(it) {
   if (it.title) return it.title;
   if (it.kind === 'slide') { const s = slideOf(it); return s ? s.title : `Slide ${it.slide_id}`; }
-  if (it.kind === 'activity') return it.question || (st.types[it.type] || {}).label || 'Activity';
-  return 'Break';
+  // Default titles are the stage's words, in the session's language (as src/live/plan.py).
+  const w = words(st.session && st.session.language);
+  if (it.kind === 'activity') return it.question || (it.type === 'groups_reveal' ? w.reveal : (st.types[it.type] || {}).label) || 'Activity';
+  return w.break;
 }
 
 /** The title on one line, for the list and the editor ("\n" breaks it only on the stage). */
@@ -595,7 +598,7 @@ function addItem(si, kind) {
   const sec = st.session.sections[si];
   const item = kind === 'activity'
     ? { kind: 'activity', id: newId('act'), type: 'word_cloud', question: '', chat_prompt: '', profile: 'camera_pip', options: {} }
-    : { kind: 'break', id: newId('brk'), title: 'Break', profile: 'camera_strip' };
+    : { kind: 'break', id: newId('brk'), title: '', profile: 'camera_strip' };
   const selectedPos = sec.items.findIndex((x) => x.id === st.selected);
   sec.items.splice(selectedPos >= 0 ? selectedPos + 1 : sec.items.length, 0, item);
   st.selected = st.anchor = item.id;
@@ -801,7 +804,7 @@ function renderEditor() {
       form.appendChild(fontField(it, 'Title font', 72));
     }
   } else {
-    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : 'Break';
+    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language).break;
     form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
     const hint = document.createElement('p');
     hint.className = 'ed-hint';
@@ -1079,7 +1082,7 @@ function runItem(it) {
   return {
     id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
     capture: it.kind === 'activity' && spec.capture !== false,
-    title: titleOf(it), question: it.question || (it.kind === 'activity' ? 'Your question here' : ''),
+    title: titleOf(it), question: it.question || (it.kind === 'activity' ? words(st.session.language).question : ''),
     font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
@@ -1092,7 +1095,7 @@ function updatePreview(it) {
   if (!frame) return;
   if (!pv || pv.frame !== frame) pv = { frame, stage: createStage(frame, { guides: true, slideGuides: true }) };
   const item = runItem(it);
-  const plan = { rev: 0, active: true, session: { id: st.sid }, run: { chat_hint: st.session.chat_hint, theme: st.session.theme } };
+  const plan = { rev: 0, active: true, session: { id: st.sid }, run: { chat_hint: st.session.chat_hint, language: st.session.language, theme: st.session.theme } };
   const opts = Object.assign({}, ...((st.types[item.type] || {}).options || []).map((o) => ({ [o.key]: o.default })), item.options);
   const key = JSON.stringify([item.type, item.options]);
   const draw = () => pv.stage.render(item, {

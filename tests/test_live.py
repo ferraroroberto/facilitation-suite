@@ -10,7 +10,7 @@ import pytest
 from src.config import load_config
 from src.live.actions import run_action
 from src.live.hub import LiveError, LiveHub, now_ms
-from src.live.plan import build_run, one_line
+from src.live.plan import DEFAULT_TITLES, build_run, one_line
 from src.sessions.model import parse_session
 from src.sessions.store import SessionStore
 from tests.fixtures.demo import PLAN, build_demo_session
@@ -216,3 +216,24 @@ def test_notes_from_the_plan_replace_the_slide_notes() -> None:
     from src.sessions.model import dump_session
     dumped = [i for sec in dump_session(s)["sections"] for i in sec["items"]]
     assert "notes" not in dumped[0] and dumped[1]["notes"] == "Mine"
+
+
+def test_the_session_language_names_default_titles_and_the_hint() -> None:
+    raw = {"title": "x", "language": "es", "chat_hint": "Write your answer in the Zoom chat", "sections": [{"name": "S", "items": [
+        {"kind": "break"}, {"kind": "activity", "type": "groups_reveal"}, {"kind": "break", "title": "Café"}]}]}
+    s = parse_session(raw)
+    assert s.chat_hint == ""  # the old stored English default now follows the language
+    run = build_run(s, None)
+    assert run["language"] == "es" and run["chat_hint"] == ""
+    assert [it["title"] for it in run["items"]] == ["Descanso", "¿Con quién estás?", "Café"]
+    assert parse_session({"title": "x", "chat_hint": "Escribe en el chat"}).chat_hint == "Escribe en el chat"
+    with pytest.raises(ValueError):
+        parse_session({"title": "x", "language": "fr"})
+
+
+def test_default_titles_match_the_stage_words() -> None:
+    # src/live/plan.py and stage-words.js say the same default titles in each language.
+    js = (Path(__file__).resolve().parents[1] / "app" / "webapp" / "static" / "js" / "stage-words.js").read_text(encoding="utf-8")
+    for lang, titles in DEFAULT_TITLES.items():
+        block = js.split(f"  {lang}: {{", 1)[1].split("\n  },", 1)[0]
+        assert f"break: '{titles['break']}'" in block and f"reveal: '{titles['groups_reveal']}'" in block, lang

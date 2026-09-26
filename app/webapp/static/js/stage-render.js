@@ -6,6 +6,7 @@
 
 import { esc, lines } from '/static/js/ui.js';
 import { remaining } from '/static/js/live.js';
+import { words } from '/static/js/stage-words.js';
 
 export const W = 1920;
 export const H = 1080;
@@ -13,8 +14,9 @@ export const H = 1080;
 const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
 // Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx)
-// and optionally subtitle(item) — a line under the title; an optional
-// stage.css is linked once. Loaded on first use, then cached.
+// (ctx.lang: the session's language) and optionally subtitle(item, lang) — a
+// line under the title; an optional stage.css is linked once. Loaded on first
+// use, then cached.
 const plugins = {};
 export function loadPlugin(type) {
   if (!plugins[type]) {
@@ -79,6 +81,7 @@ export function createStage(host, opts = {}) {
   let plugin = null;
   let pluginFor = null;
   let lastResult;
+  let lang = 'en';
 
   function fit() {
     const w = host.clientWidth;
@@ -112,7 +115,8 @@ export function createStage(host, opts = {}) {
       return;
     }
     const sid = ctx.plan.session.id;
-    const hint = ctx.plan.run.chat_hint || 'Write your answer in the Zoom chat';
+    lang = ctx.plan.run.language || 'en';
+    const hint = ctx.plan.run.chat_hint || words(lang).chat_hint;
     let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}">`;
     if (it.kind === 'slide') {
       html += it.slide_file
@@ -179,14 +183,14 @@ export function createStage(host, opts = {}) {
     if (!plugin || !body) return;
     const sub = canvas.querySelector('[data-sub]');
     if (sub && plugin.subtitle) {
-      sub.textContent = plugin.subtitle(item);
+      sub.textContent = plugin.subtitle(item, lang);
       sub.hidden = !sub.textContent;
     }
     const sig = JSON.stringify([result, names]);
     if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
     lastResult = sig;
     try {
-      plugin.render(body, result, { item, names, options: item.options || {} });
+      plugin.render(body, result, { item, names, options: item.options || {}, lang });
     } catch (e) {
       console.error('stage plug-in failed', item.type, e);
     }
