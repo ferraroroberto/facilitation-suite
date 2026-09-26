@@ -113,7 +113,7 @@ At every stop the result is **frozen** in the session folder: `live/captures/<it
 |---|---|---|
 | Word cloud | answers of up to three words stay one phrase; longer ones become words minus filler words (Spanish/English lists); laughter dropped; case, accents and simple plurals merged | the cloud grows, most frequent biggest |
 | Scale | the first number in range, or a keyword from the list (lowest → highest); one vote per person | bars with counts, the leader highlighted, the average |
-| Map | a place, geocoded offline: `Milan, italy`, `Sevilla, España`, `CDMX`, `desde Bogotá`, a country alone (→ its capital); an ambiguous city follows the room ("Valencia" goes to Spain when the others are there); one pin per person, their latest answer | people pop in with their names, the view fits everyone, a crowded region gets its own inset, click a pin for who is there; the headcount, countries and top cities alongside |
+| Map | a place, geocoded offline: `Milan, italy`, `Sevilla, España`, `CDMX`, `desde Bogotá`, a country alone (→ its capital); an ambiguous city follows the room ("Valencia" goes to Spain when the others are there); one pin per person, their latest answer | people pop in with their names, the view fits everyone, nearby pins merge into one with the count in its dot, each label takes a free side of its dot (or waits in the side list), a crowded region gets its own inset that stays put, click a pin for who is there; the headcount, countries and top cities alongside |
 | Cards | each answer with its name | the latest cards in a grid |
 | Feed | each answer with its name | bubbles, the newest at the bottom and largest |
 
