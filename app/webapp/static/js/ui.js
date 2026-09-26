@@ -32,6 +32,16 @@ export function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/** A stage title as typed, as HTML: "\n" (typed as backslash-n) or a real newline breaks the line. */
+export function lines(s) {
+  return esc(s).replace(/\\n|\r?\n/g, '<br>');
+}
+
+/** The same title on one line — lists, captions, the presenter's "next". */
+export function oneLine(s) {
+  return String(s == null ? '' : s).replace(/\s*(?:\\n|\r?\n)\s*/g, ' ').trim();
+}
+
 let toastTimer = null;
 /** Global toast — reserved for user-initiated command results (design.md). */
 export function toast(message, kind = 'info') {

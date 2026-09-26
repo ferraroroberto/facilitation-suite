@@ -28,6 +28,12 @@ const ctx = {
   },
   onSession(fn) { this.listeners.add(fn); },
   goTo(tab) { showView(tab); },
+  /** Add an item to the Plan tab's unsaved edits (it loads the plan first when needed). */
+  async addToPlan(item) { return (await ensureView('plan')).stageItem(item); },
+  /** The rounds changed (shuffle, presence, roster): views showing rooms refresh. */
+  groupListeners: new Set(),
+  onGroups(fn) { this.groupListeners.add(fn); },
+  groupsChanged() { this.groupListeners.forEach((fn) => fn()); },
 };
 try { ctx.sessionId = localStorage.getItem(APP + '.session') || null; } catch (e) { ctx.sessionId = null; }
 

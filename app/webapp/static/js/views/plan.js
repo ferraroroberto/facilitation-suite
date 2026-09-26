@@ -4,14 +4,14 @@
 //
 // Selection works as in a file manager: click selects one item, Ctrl/Cmd+click
 // adds or removes one, Shift+click selects the range from the last clicked
-// (Ctrl+Shift adds it); Shift+Up/Down extend, Ctrl+A selects all, Delete
-// deletes, Esc keeps only the focused item. With several selected, the editor
+// (Ctrl+Shift adds it); Shift+Up/Down extend, Ctrl+A selects all, Ctrl+D
+// duplicates, Delete deletes, Esc keeps only the focused item. With several selected, the editor
 // becomes the bulk panel and dragging any of them moves them all.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { switchEl } from '/static/_vendored/switch/switch.js';
-import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
+import { api, esc, oneLine, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
@@ -41,7 +41,7 @@ let reviewNote;
 let split;
 let reviewHost;
 // selected = the focused item (the editor's); picked = every selected item (it included); anchor = where Shift ranges start.
-const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
+const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, rounds: null, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
 
 // ---------------------------------------------------------------- helpers
 
@@ -62,6 +62,17 @@ function titleOf(it) {
   if (it.kind === 'slide') { const s = slideOf(it); return s ? s.title : `Slide ${it.slide_id}`; }
   if (it.kind === 'activity') return it.question || (st.types[it.type] || {}).label || 'Activity';
   return 'Break';
+}
+
+/** The title on one line, for the list and the editor ("\n" breaks it only on the stage). */
+function labelOf(it) { return oneLine(titleOf(it)); }
+
+/** The breakout round an item shows, as the editor names it ("Pairs"). */
+function roundLabel(it) {
+  const opt = ((st.types[it.type] || {}).options || []).find((o) => o.key === 'round');
+  const round = (it.options || {}).round || (opt && opt.default);
+  const choice = opt && (opt.choices || []).find(([v]) => v === round);
+  return choice ? choice[1] : round || '';
 }
 
 function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8)}`; }
@@ -98,6 +109,8 @@ function thumbHtml(it) {
 function chipHtml(it) {
   const chips = [];
   if (it.kind === 'activity') chips.push(`<span class="chip accent">${esc((st.types[it.type] || {}).label || it.type)}</span>`);
+  const round = it.type === 'groups_reveal' ? roundLabel(it) : '';
+  if (round) chips.push(`<span class="chip">${esc(round)}</span>`);
   if (it.kind === 'break') chips.push('<span class="chip">Break</span>');
   if (it.timer && it.timer.enabled) chips.push(`<span class="chip">${icon('timer')}${fmtTimer(it.timer.seconds)}</span>`);
   if (!it.profile && it.kind === 'slide') chips.push('<span class="chip warn">Pick profile</span>');
@@ -132,7 +145,41 @@ export async function mount(el, context) {
   listCard.className = 'card list-card plan-list';
   left.appendChild(listCard);
   ctx.onSession(() => { if (!st.dirty) load(); });
+  ctx.onGroups(async () => {
+    await loadRounds();
+    const found = st.selected && findItem(st.selected);
+    if (found) updatePreview(found.it);
+  });
   await load();
+}
+
+/**
+ * Add `item` (from another tab — the Groups tab's reveal) to the unsaved
+ * edits: after the selected item, else at the end of the first section.
+ * Returns the section's name.
+ */
+export async function stageItem(item) {
+  if (st.loadedFor !== ctx.sessionId && !st.dirty) await load();
+  if (!st.session || !(st.session.sections || []).length) throw new Error('The plan has no sections yet — import the slides first');
+  const at = st.selected ? findItem(st.selected) : null;
+  const sec = at ? at.sec : st.session.sections[0];
+  const added = Object.assign({ id: newId(item.kind === 'activity' ? 'act' : item.kind === 'break' ? 'brk' : 'item') }, item);
+  sec.items.splice(at ? at.ii + 1 : sec.items.length, 0, added);
+  st.selected = st.anchor = added.id;
+  st.picked = new Set([added.id]);
+  st.collapsed.delete(sec.id);
+  markDirty();
+  render();
+  return { section: sec.name, id: added.id };
+}
+
+/** The breakout rounds of groups.yaml — the reveal previews show the real rooms. */
+async function loadRounds() {
+  try {
+    st.rounds = st.sid ? (await api(`/api/sessions/${st.sid}/groups`)).rounds : null;
+  } catch (e) {
+    st.rounds = null;
+  }
 }
 
 export function show() {
@@ -169,6 +216,7 @@ async function load() {
   st.sid = ctx.sessionId;
   st.loadedFor = st.sid;
   st.dirty = false;
+  st.collapsed.clear(); // every section opens expanded
   if (!st.sid) {
     setStatus(head, 'no session');
     toolbar.innerHTML = '';
@@ -193,6 +241,7 @@ async function load() {
     st.types = Object.fromEntries(acts.types.map((t) => [t.type, t]));
     // Camera zones as set in Settings (the preview's dashed box); defaults if unreachable.
     st.zones = await api('/api/settings').then((x) => Object.fromEntries(Object.entries(x.profiles).map(([k, v]) => [k, v.zone]))).catch(() => null);
+    await loadRounds();
   } catch (e) {
     listCard.innerHTML = '';
     listCard.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
@@ -230,13 +279,19 @@ function renderToolbar() {
   toolbar.innerHTML =
     `<button type="button" class="button-surface" data-reimport>${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
     `<button type="button" class="button-surface" data-add-section>${icon('plus')} Add section</button>` +
+    `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
+    `<button type="button" class="button-ghost" data-fold="expand" title="Expand all sections">${icon('chevrons-up-down')} Expand all</button></span>` +
     `<span class="plan-totals ${over ? 'over' : ''}">Planned ${fmtMinutes(total)} of ${fmtMinutes(st.session ? st.session.duration_minutes : 0)}` +
     `${timers ? ` · ${Math.round(timers / 60)} min on timers` : ''}</span>` +
     (st.dirty ? `<span class="dirty-bar"><span class="chip warn">Unsaved changes</span>` +
       `<button type="button" class="button-ghost" data-discard>Discard</button>` +
       `<button type="button" class="button-primary save-small" data-save>Save</button></span>` : '');
   toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
-  toolbar.querySelector('[data-add-section]').addEventListener('click', addSection);
+  toolbar.querySelector('[data-add-section]').addEventListener('click', () => addSection());
+  toolbar.querySelectorAll('[data-fold]').forEach((b) => b.addEventListener('click', () => {
+    st.collapsed = new Set(b.dataset.fold === 'collapse' ? secs.map((x) => x.id) : []);
+    renderList();
+  }));
   const save = toolbar.querySelector('[data-save]');
   if (save) save.addEventListener('click', saveSession);
   const discard = toolbar.querySelector('[data-discard]');
@@ -302,7 +357,7 @@ function renderList() {
       row.setAttribute('aria-selected', String(st.picked.has(it.id)));
       row.innerHTML =
         `<span class="num">${n}</span>${thumbHtml(it)}` +
-        `<span class="item-title">${esc(titleOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
+        `<span class="item-title">${esc(labelOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
       row.addEventListener('mousedown', (e) => { if (e.shiftKey) e.preventDefault(); }); // no text selection on Shift+click
       row.addEventListener('click', (e) => clickItem(it.id, e));
       row.addEventListener('keydown', (e) => rowKey(it.id, e));
@@ -327,6 +382,7 @@ function renderList() {
           { label: 'Activity', icon: 'message-square', onClick: () => addItem(si, 'activity') },
           { label: 'Break', icon: 'coffee', onClick: () => addItem(si, 'break') },
           { label: 'Slide from the deck', icon: 'image', onClick: () => addSlide(si) },
+          { label: 'Section after this one', icon: 'list-plus', onClick: () => addSection(si + 1) },
         ]);
       });
       wireDrop(add, { sec: si, index: sec.items.length });
@@ -486,6 +542,7 @@ function rowKey(id, e) {
     paintSelection();
     return;
   }
+  if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateItems([...st.picked]); return; }
   if (e.key === 'Escape' && st.picked.size > 1) { e.preventDefault(); select(st.selected); focusRow(st.selected); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteItems([...st.picked]); }
 }
@@ -500,7 +557,8 @@ async function renameSection(sec) {
   render();
 }
 
-async function addSection() {
+/** A new empty section at `at` (default: the end of the plan). */
+async function addSection(at) {
   const v = await formDialog({
     title: 'Add section',
     fields: [
@@ -509,7 +567,8 @@ async function addSection() {
     ],
   });
   if (!v) return;
-  st.session.sections.push({ id: newId('sec'), name: v.name.trim(), minutes: Math.max(0, parseInt(v.minutes, 10) || 0), items: [] });
+  const secs = st.session.sections;
+  secs.splice(at == null ? secs.length : at, 0, { id: newId('sec'), name: v.name.trim(), minutes: Math.max(0, parseInt(v.minutes, 10) || 0), items: [] });
   markDirty();
   render();
 }
@@ -565,6 +624,20 @@ async function addSlide(si) {
   render();
 }
 
+/** Copies of `ids` (in plan order), right after the last of them; the copies become the selection. */
+function duplicateItems(ids) {
+  const flat = allItems().filter((x) => ids.includes(x.it.id));
+  if (!flat.length) return;
+  const last = flat[flat.length - 1];
+  const copies = flat.map((x) => Object.assign(clone(x.it), { id: newId({ slide: 'slide', activity: 'act', break: 'brk' }[x.it.kind] || 'item') }));
+  last.sec.items.splice(last.sec.items.indexOf(last.it) + 1, 0, ...copies);
+  st.picked = new Set(copies.map((c) => c.id));
+  st.selected = st.anchor = copies[copies.length - 1].id;
+  markDirty();
+  render();
+  toast(copies.length === 1 ? 'Duplicated — the copy is selected' : `${copies.length} items duplicated — the copies are selected`);
+}
+
 async function deleteItems(ids) {
   const flat = allItems();
   const gone = flat.filter((x) => ids.includes(x.it.id));
@@ -574,7 +647,7 @@ async function deleteItems(ids) {
   const kept = !slides ? '' : one
     ? ' It stays in the deck: "Add slide or activity → Slide from the deck" brings it back.'
     : ' Slides stay in the deck and can be added back.';
-  const names = gone.slice(0, 4).map((x) => `"${titleOf(x.it)}"`).join(', ') + (gone.length > 4 ? ` and ${gone.length - 4} more` : '');
+  const names = gone.slice(0, 4).map((x) => `"${labelOf(x.it)}"`).join(', ') + (gone.length > 4 ? ` and ${gone.length - 4} more` : '');
   const ok = await confirmDialog({
     title: one ? `Delete this ${gone[0].it.kind}?` : `Delete ${gone.length} items?`,
     message: `${names} ${one ? 'leaves' : 'leave'} the plan when you save.${kept}`,
@@ -684,11 +757,11 @@ function renderEditor() {
   const { it, sec } = found;
   const flat = allItems();
   const pos = flat.findIndex((x) => x.it.id === it.id);
-  const prev = pos > 0 ? titleOf(flat[pos - 1].it) : null;
+  const prev = pos > 0 ? labelOf(flat[pos - 1].it) : null;
 
   const title = document.createElement('div');
   title.className = 'detail-title';
-  title.innerHTML = `<h1>${esc(titleOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
+  title.innerHTML = `<h1>${esc(labelOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
   editor.appendChild(title);
 
   editor.appendChild(previewCard(it));
@@ -696,7 +769,7 @@ function renderEditor() {
   const form = document.createElement('div');
   form.className = 'card ed-card';
   editor.appendChild(form);
-  const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = titleOf(it); };
+  const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = labelOf(it); };
 
   if (it.kind === 'activity') {
     const types = Object.values(st.types).map((t) => [t.type, t.label]);
@@ -715,8 +788,13 @@ function renderEditor() {
       renderEditor();
     }, 'Activity type')));
     const spec = st.types[it.type] || {};
+    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : spec.label }), 'with-hint'));
+    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
+      ? '<p class="ed-hint">The name in the plan and on the presenter. Empty = the question.</p>'
+      : '<p class="ed-hint">Shown on the stage — type \\n for a line break there.</p>');
     if (spec.capture !== false) {
-      form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' })));
+      form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
+      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
       const font = it.font || { family: 'theme', size_px: 72 };
       const fam = document.createElement('select');
       fam.className = 'select-native';
@@ -730,15 +808,13 @@ function renderEditor() {
       fontRow.append(fam, size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
       form.appendChild(field('Question font', fontRow));
       form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
-    } else {
-      form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.label })));
     }
   } else {
     const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : 'Break';
     form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
     const hint = document.createElement('p');
     hint.className = 'ed-hint';
-    hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage.';
+    hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
   }
 
@@ -777,7 +853,7 @@ function renderEditor() {
           sel.className = 'select-native';
           sel.setAttribute('aria-label', o.label);
           o.choices.forEach(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; op.selected = v === cur; sel.appendChild(op); });
-          sel.addEventListener('change', () => setOpt(sel.value));
+          sel.addEventListener('change', () => { setOpt(sel.value); renderList(); }); // the round shows as a chip
           const line = document.createElement('label');
           line.className = 'opt-line';
           line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), sel);
@@ -794,12 +870,16 @@ function renderEditor() {
     }
   }
 
+  form.appendChild(notesField(it));
+
   const tools = document.createElement('div');
   tools.className = 'ed-tools';
   tools.innerHTML =
     `<button type="button" class="button-surface" data-up>${icon('chevron-up')} Move up</button>` +
     `<button type="button" class="button-surface" data-down>${icon('chevron-down')} Move down</button>` +
+    `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate</button>` +
     `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>`;
+  tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems([it.id]));
   tools.querySelector('[data-up]').addEventListener('click', () => moveItem(it.id, -1));
   tools.querySelector('[data-down]').addEventListener('click', () => moveItem(it.id, 1));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems([it.id]));
@@ -833,7 +913,7 @@ function renderBulk() {
   editor.appendChild(form);
   const strip = document.createElement('div');
   strip.className = 'bulk-list';
-  strip.innerHTML = items.map((it) => `<div class="bulk-row">${thumbHtml(it)}<span class="item-title">${esc(titleOf(it))}</span></div>`).join('');
+  strip.innerHTML = items.map((it) => `<div class="bulk-row">${thumbHtml(it)}<span class="item-title">${esc(labelOf(it))}</span></div>`).join('');
   form.appendChild(field('Selected', strip));
 
   const profiles = new Set(items.map((it) => it.profile || null));
@@ -857,8 +937,10 @@ function renderBulk() {
   tools.className = 'ed-tools';
   tools.innerHTML =
     `<button type="button" class="button-surface" data-clear>${icon('x')} Keep one selected</button>` +
+    `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate ${items.length} items</button>` +
     `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete ${items.length} items</button>`;
   tools.querySelector('[data-clear]').addEventListener('click', () => select(st.selected));
+  tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems(items.map((it) => it.id)));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems(items.map((it) => it.id)));
   form.appendChild(tools);
 
@@ -869,6 +951,19 @@ function renderBulk() {
   save.disabled = !st.dirty;
   save.addEventListener('click', saveSession);
   form.appendChild(save);
+}
+
+/** The presenter's notes. A slide starts from its PowerPoint notes; editing them keeps the deck as it is. */
+function notesField(it) {
+  const deck = it.kind === 'slide' ? ((slideOf(it) || {}).notes || '') : '';
+  const box = input(it.notes || deck, (v) => { it.notes = v === deck ? '' : v; markDirty(); }, { textarea: true, rows: '4', 'aria-label': 'Notes',
+    placeholder: it.kind === 'slide' ? 'No speaker notes in the deck — write yours here' : 'What to say or do on this item' });
+  box.classList.add('notes-input');
+  const row = field('Notes', box, 'with-hint');
+  row.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">${it.kind === 'slide'
+    ? (it.notes ? 'Edited here — the PowerPoint notes stay in the deck. Clear the box to get them back.' : 'From your PowerPoint. Editing them here leaves the deck as it is.')
+    : 'Shown on the presenter while this item is on stage.'}</p>`);
+  return row;
 }
 
 function timerField(it) {
@@ -923,7 +1018,9 @@ function previewCard(it) {
     `<div class="preview-frame stage-host" data-preview></div>` +
     `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'
       ? 'The slide as imported. The dashed box is where the camera goes for the chosen profile.'
-      : it.kind === 'activity'
+      : it.type === 'groups_reveal'
+        ? 'Drawn by the real stage with the rooms from the Groups tab — a new shuffle redraws it.'
+        : it.kind === 'activity'
         ? 'Drawn by the real stage with sample answers, at the size Zoom will see it. The dashed box is the camera.'
         : 'The break as the stage shows it.'}</p></div>`;
   setTimeout(() => updatePreview(it), 0);
@@ -952,6 +1049,7 @@ function runItem(it) {
     font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
+    ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
   };
 }
 

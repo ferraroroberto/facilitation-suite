@@ -102,6 +102,7 @@ function renderList() {
         try {
           data = await api(`/api/sessions/${ctx.sessionId}/groups/presence`, { method: 'PUT', body: { name: p.name, present: next } });
           render();
+          ctx.groupsChanged();
         } catch (e) { setSwitch(btn, !next); toast(e.message, 'error'); }
       },
     });
@@ -204,6 +205,7 @@ async function importRoster() {
     data = await api(`/api/sessions/${ctx.sessionId}/roster`, { method: 'POST', body: { path: picked.path } });
     toast(`Roster imported: ${data.total} people`);
     render();
+    ctx.groupsChanged();
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -213,6 +215,7 @@ async function shuffle() {
   try {
     data = await api(`/api/sessions/${ctx.sessionId}/groups/shuffle`, { method: 'POST', body: {} });
     render();
+    ctx.groupsChanged();
   } catch (e) {
     toast(e.message, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = `${icon('shuffle')} Shuffle again`; }
@@ -228,7 +231,7 @@ async function copy(text) {
 
 async function addReveal() {
   try {
-    const r = await api(`/api/sessions/${ctx.sessionId}/groups/reveal`, { method: 'POST', body: { round: tab } });
-    toast(`"Who are you with?" added at the end of ${r.section} — move it in the Plan tab`);
+    const r = await ctx.addToPlan({ kind: 'activity', type: 'groups_reveal', profile: 'screen_only', options: { round: tab } });
+    toast(`"Who are you with?" added to ${r.section} — not saved yet: Save in the Plan tab`);
   } catch (e) { toast(e.message, 'error'); }
 }

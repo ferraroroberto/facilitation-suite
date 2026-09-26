@@ -75,6 +75,8 @@ class Item(_Open):
     profile: Optional[Profile] = None
     include: bool = True
     timer: Optional[Timer] = None
+    # The presenter's notes for this item; on a slide they replace its PowerPoint notes.
+    notes: str = ""
     # slides
     slide_id: Optional[int] = None
     # activities
@@ -174,7 +176,7 @@ def parse_session(raw: Any) -> Session:
     return ensure_ids(Session.model_validate(migrate(dict(raw))))
 
 
-_EMPTY_ITEM_KEYS = ("question", "chat_prompt", "options", "title")
+_EMPTY_ITEM_KEYS = ("question", "chat_prompt", "options", "title", "notes")
 
 
 def dump_session(session: Session) -> dict[str, Any]:

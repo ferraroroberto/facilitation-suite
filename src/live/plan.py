@@ -9,6 +9,7 @@ start (minutes from the session start), and the per-item timer.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from src.activities.registry import editors
@@ -22,6 +23,14 @@ ZONES: dict[str, Optional[list[float]]] = {k: v["zone"] for k, v in DEFAULT_PROF
 
 def _slide_index(meta: Optional[dict[str, Any]]) -> dict[int, dict[str, Any]]:
     return {int(s["slide_id"]): s for s in (meta or {}).get("slides") or [] if "slide_id" in s}
+
+
+_BREAKS = re.compile(r"\s*(?:\\n|\r?\n)\s*")
+
+
+def one_line(text: str) -> str:
+    """A title on one line: ``\\n`` (typed as backslash-n) breaks it only on the stage."""
+    return _BREAKS.sub(" ", text or "").strip()
 
 
 def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, Any]) -> str:
@@ -71,7 +80,8 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "chat_prompt": it.chat_prompt,
                 "font": (it.font.model_dump() if it.font else {"family": THEME_FONT, "size_px": 72}),
                 "options": it.options,
-                "notes": (slide or {}).get("notes", "") if it.kind == "slide" else "",
+                "notes": it.notes or ((slide or {}).get("notes", "") if it.kind == "slide" else ""),
+                "notes_own": bool(it.notes),
                 "slide_file": (slide or {}).get("file") if slide else None,
                 "slide_missing": it.kind == "slide" and slide is None,
                 "profile": profile,

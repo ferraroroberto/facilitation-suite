@@ -8,7 +8,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc, toast, currentTheme, setTheme, APP } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, setTheme, APP } from '/static/js/ui.js';
 import { connectLive, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 
@@ -138,10 +138,10 @@ function drawLive() {
   preview.render(cur, { plan, state: s, now: live.now() });
   const where = cur ? `${cur.kind === 'slide' ? 'Slide' : 'Item'} ${s.index + 1} of ${s.count}` : '';
   sub.textContent = [where, cap && cap.status === 'live' ? 'capturing' : '', s.blackout ? 'blackout' : ''].filter(Boolean).join(' · ');
-  livePane.querySelector('[data-r-title]').textContent = cur ? cur.title : '';
+  livePane.querySelector('[data-r-title]').textContent = cur ? oneLine(cur.title) : '';
   livePane.querySelector('[data-r-count]').textContent = cap ? `· ${cap.answers} answer${cap.answers === 1 ? '' : 's'}` : '';
   livePane.querySelector('[data-r-nextlabel]').textContent = nxt ? `Next · ${s.index + 2}` : 'Next';
-  livePane.querySelector('[data-r-next]').textContent = nxt ? nxt.title : 'End of the session';
+  livePane.querySelector('[data-r-next]').textContent = nxt ? oneLine(nxt.title) : 'End of the session';
 
   const capBtn = livePane.querySelector('[data-r-capture]');
   capBtn.hidden = !(cur && cur.capture);
