@@ -92,3 +92,15 @@ def test_geo_api(client, isolated_env: Path) -> None:
     r = client.post("/api/live/place", json={"message_id": 1, "geonameid": "123"})
     assert r.status_code == 409  # nothing is live
     assert client.post("/api/live/place", json={"message_id": 1, "geonameid": "bad id"}).status_code == 422
+
+
+def test_the_world_outline_never_jumps_across_the_map() -> None:
+    # A ring crossing the 180° meridian must go on past the edge: a jump back
+    # across drew a filled band over the North Atlantic.
+    import re
+
+    svg = (Path(__file__).resolve().parents[1] / "app" / "activities" / "map" / "world.svg").read_text(encoding="utf-8")
+    width = int(re.search(r'viewBox="\S+ \S+ (\d+)', svg).group(1))
+    for ring in re.findall(r"M([^Z]+)Z", svg):
+        xs = [int(p.split()[0]) for p in ring.split("L")]
+        assert max(abs(b - a) for a, b in zip(xs, xs[1:], strict=False)) < width / 2

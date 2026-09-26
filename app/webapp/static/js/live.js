@@ -110,12 +110,13 @@ export function driftText(minutes) {
  */
 export function clickToAdvance(el, live, { wait = 0, cancelOn = null } = {}) {
   let pending = null;
+  // Capture phase: decide before the map's own handler closes its popover.
   el.addEventListener('click', (e) => {
     if (e.button !== 0 || e.target.closest('button, a, input, select, textarea, .mp-pop')) return;
     if (el.querySelector && el.querySelector('.mp-pop')) return; // this click only closes the map's popover
     clearTimeout(pending);
     pending = setTimeout(() => live.send('next'), wait);
-  });
+  }, true);
   if (cancelOn) el.addEventListener(cancelOn, () => clearTimeout(pending));
 }
 

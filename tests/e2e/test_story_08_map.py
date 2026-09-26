@@ -44,7 +44,21 @@ def test_people_land_on_the_map(page: Page, browser: Browser, webapp, shots) -> 
     # click a pin on the stage: who, city, country
     stage.locator(".mp-area > .mp-pins .mp-pin", has_text="Morgan").first.click()
     expect(stage.locator(".mp-pop")).to_contain_text("Mexico City")
-    stage.mouse.click(5, 5)
+    area = stage.locator(".mp-area").bounding_box()
+    stage.mouse.click(area["x"] + 8, area["y"] + 8)  # closes the popover — a click that only closes it does not go on
+    expect(stage.locator(".mp-pop")).to_have_count(0)
+    expect(page.locator(".p-sub")).to_contain_text("2 of 17")
+
+    # every cluster shows its count, and no two labels cover each other
+    counts = stage.locator(".mp-pin.many b").all_inner_texts()
+    assert counts and all(c.isdigit() and int(c) > 1 for c in counts), counts
+    overlaps = stage.evaluate("""() => {
+      const r = [...document.querySelectorAll('.mp-pin:not([hidden]) .mp-label')].filter((l) => l.offsetParent && l.textContent).map((l) => l.getBoundingClientRect());
+      let n = 0;
+      r.forEach((a, i) => r.slice(i + 1).forEach((b) => { if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) n += 1; }));
+      return n;
+    }""")
+    assert overlaps == 0
     shot(page, shots / "story-08-map-1-presenter.png")
     shot(stage, shots / "story-08-map-2-stage.png")
     stage_ctx.close()
