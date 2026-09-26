@@ -59,7 +59,7 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to reorder, rename, collapse — or **Collapse all / Expand all**; every load opens them all), and inside each section the slides, activities and breaks in order (drag, or Alt+↑/↓, or Move up/down). **Add slide or activity** at the end of a section also adds a **section after this one**. Each item has:
 
 - an **OBS profile** (Camera strip / Camera PiP / Screen only; slides start with the detected one),
-- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); a paused timer shows yellow on the stage, the presenter and the phone,
+- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); a paused timer shows yellow on the stage, the presenter and the phone; on a slide it sits in a bottom corner over the slide (the left one when the camera takes the right),
 - **In this session** (off = skipped live, kept in the plan),
 - for a **breakout** (Add slide or activity → Breakout): its title, the round in the rooms (Pairs, Groups of 4 · A or B — the stage says it with the room count from the Groups tab) and its clock, ten minutes by default,
 - for activities: type, title (the name in the plan and on the presenter; the question when empty), question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options,
@@ -96,7 +96,7 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 | B · . | blackout |
 | T | the item's timer: start / pause |
 | M · + | the item's timer: +1 min |
-| Space | capture start / stop (activities) |
+| Space | capture start / stop (activities); on any other item with a timer, timer start / pause |
 | Home · End | the first · the last item |
 
 The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there. **Start the session over** (the ↺ next to ×) goes back to the first item with no clocks, timers, captures or chat — after a rehearsal, say; nothing is deleted: the run so far stays in the session folder as `live-<date>-<time>/`.

@@ -125,7 +125,7 @@ export const KEYS = {
   ArrowRight: 'next', PageDown: 'next', ArrowDown: 'next', n: 'next', N: 'next',
   ArrowLeft: 'prev', PageUp: 'prev', ArrowUp: 'prev', p: 'prev', P: 'prev',
   b: 'blackout', B: 'blackout', '.': 'blackout',
-  ' ': 'capture_toggle',
+  ' ': 'space', // the capture on an activity, else the item's timer
   t: 'timer_toggle', T: 'timer_toggle',
   '+': 'timer_add_minute', m: 'timer_add_minute', M: 'timer_add_minute',
 };

@@ -228,3 +228,22 @@ def test_an_activity_opens_with_its_own_show_names(svc) -> None:
     assert live.names is True
     _goto(live, "act-kryptonite")  # word cloud: show_names off in the plan
     assert live.names is False
+
+
+def test_space_captures_else_runs_the_timer(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-kryptonite")
+    run_action(live, "space")  # an activity that takes answers: the capture
+    assert cap.status("act-kryptonite") == "live"
+    run_action(live, "space")
+    assert cap.status("act-kryptonite") == "stopped"
+    readme = next(it for it in live.items if it["title"] == "Personal readme instructions")
+    live.goto(readme["index"])  # a slide with a timer: Space starts and pauses it
+    run_action(live, "space")
+    assert live.timers[readme["id"]].running_since is not None
+    run_action(live, "space")
+    assert live.timers[readme["id"]].running_since is None
+    live.goto(0)  # neither a capture nor a timer
+    with pytest.raises(LiveError) as err:
+        run_action(live, "space")
+    assert err.value.code == "nothing_to_start"

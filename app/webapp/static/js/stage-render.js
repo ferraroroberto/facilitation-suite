@@ -56,6 +56,11 @@ function lettering(f, defaultSize) {
 
 const ANCHOR = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
 
+/** A slide's timer goes bottom-left when the camera zone takes the bottom-right corner. */
+function pillLeft(zone) {
+  return !!(zone && zone[2] > 0.8 && zone[3] > 0.85);
+}
+
 /** A slide's text boxes (from the import), drawn over its text-free picture in the stage font. */
 function slideText(it) {
   const own = lettering(Object.assign({}, it.font, { size_px: null }));
@@ -168,6 +173,8 @@ export function createStage(host, opts = {}) {
         : it.slide_file
           ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
           : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(it.title)}</h1></div>`;
+      // a slide's timer sits in a bottom corner, away from the camera
+      if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>`;
     } else if (it.kind === 'break' || it.kind === 'breakout') {
       // a breakout says which round is in the rooms, under its title
       const sub = it.kind === 'breakout' ? roundLine(lang, (it.options || {}).round, it.rooms) : '';

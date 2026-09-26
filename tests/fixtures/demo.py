@@ -109,7 +109,8 @@ PLAN: dict[str, Any] = {
         ]},
         {"id": "sec-readme", "name": "Personal readme", "minutes": 40, "items": [
             {"kind": "slide", "slide_id": 104, "profile": "camera_strip"},
-            {"kind": "slide", "slide_id": 105, "profile": "camera_strip", "title": "Personal readme instructions"},
+            {"kind": "slide", "slide_id": 105, "profile": "camera_strip", "title": "Personal readme instructions",
+             "timer": {"enabled": True, "seconds": 300, "start": "manual", "show_on": "stage", "end": "keep"}},
             {"kind": "activity", "id": "act-pairs", "type": "groups_reveal", "title": "Who are you with?", "profile": "screen_only",
              "include": False, "options": {"round": "pairs"}},
             {"kind": "activity", "id": "act-kryptonite", "type": "word_cloud",
