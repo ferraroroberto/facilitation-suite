@@ -10,7 +10,9 @@
   never carry a personal path.
 
 Writes are atomic (temp file + replace) because the folder is synced by
-OneDrive while the app runs.
+OneDrive while the app runs. OneDrive holds a file open for a moment while it
+uploads it, and Windows refuses to replace an open file ("Access is denied"),
+so the replace is retried a few times, briefly, before it gives up.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -61,13 +64,31 @@ def session_id(path: Path) -> str:
     return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:10]
 
 
+# Waits between tries when the target is held open (≈0.4 s in all).
+REPLACE_WAITS = (0.02, 0.05, 0.1, 0.25)
+
+
+def _replace(tmp: str, path: Path) -> None:
+    """``os.replace``, tried again while another process (OneDrive) holds ``path`` open."""
+    for attempt, wait in enumerate(REPLACE_WAITS, start=1):
+        try:
+            os.replace(tmp, path)
+        except PermissionError:
+            time.sleep(wait)
+            continue
+        if attempt > 1:
+            logger.info("ℹ️ %s was held open by another program — written on try %d", path.name, attempt)
+        return
+    os.replace(tmp, path)  # the last try raises what Windows says
+
+
 def atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
-        os.replace(tmp, path)
+        _replace(tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)

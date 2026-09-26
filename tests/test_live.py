@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -140,6 +142,22 @@ def test_state_and_events_survive_a_restart(hub: LiveHub, demo: tuple[str, Path]
     fresh = LiveHub(SessionStore(load_config()))
     fresh.activate(sid)
     assert fresh.index == 5 and fresh.blackout is True and fresh.clock_started_at == hub.clock_started_at
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows refuses to replace a file another program holds open")
+def test_state_written_while_onedrive_holds_it_open(hub: LiveHub, demo: tuple[str, Path]) -> None:
+    state = demo[1] / "live" / "state.json"
+    # held for a moment (OneDrive uploading it): the write waits and goes through
+    held = open(state, encoding="utf-8")
+    threading.Timer(0.1, held.close).start()
+    hub.goto(3)
+    assert hub.write_error is None and json.loads(state.read_text(encoding="utf-8"))["item_id"] == hub.current()["id"]
+    # held for longer: kept in memory with a warning, which goes with the next good write
+    with open(state, encoding="utf-8"):
+        hub.goto(4)
+        assert hub.write_error == "Could not write state.json in the session folder — kept in memory"
+    hub.goto(5)
+    assert hub.write_error is None and json.loads(state.read_text(encoding="utf-8"))["item_id"] == hub.current()["id"]
 
 
 def test_plan_save_reloads_and_keeps_the_current_item(hub: LiveHub, demo: tuple[str, Path]) -> None:
