@@ -4,7 +4,7 @@
 // scaled to fit its host; the look comes from the session theme
 // (/themes/<name>.css + the session's own theme.css), never the fleet UI.
 
-import { esc } from '/static/js/ui.js';
+import { esc, lines } from '/static/js/ui.js';
 import { remaining } from '/static/js/live.js';
 
 export const W = 1920;
@@ -104,9 +104,9 @@ export function createStage(host, opts = {}) {
     if (it.kind === 'slide') {
       html += it.slide_file
         ? `<img class="st-slide" alt="" src="/api/sessions/${encodeURIComponent(sid)}/slides/${esc(it.slide_file)}">`
-        : `<div class="st-content"><h1 class="st-question" style="font-size:72px">${esc(it.title)}</h1></div>`;
+        : `<div class="st-content"><h1 class="st-question" style="font-size:72px">${lines(it.title)}</h1></div>`;
     } else if (it.kind === 'break') {
-      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title">${esc(it.title)}</h1>` +
+      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title">${lines(it.title)}</h1>` +
         (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
     } else {
       const f = it.font || {};
@@ -114,7 +114,7 @@ export function createStage(host, opts = {}) {
       // "theme" (and the older "Patrick Hand") = the session's stage font.
       const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
       html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${esc(text)}</h1></div>` +
+        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${lines(text)}</h1></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +

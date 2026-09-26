@@ -9,6 +9,7 @@ start (minutes from the session start), and the per-item timer.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from src.activities.registry import editors
@@ -22,6 +23,14 @@ ZONES: dict[str, Optional[list[float]]] = {k: v["zone"] for k, v in DEFAULT_PROF
 
 def _slide_index(meta: Optional[dict[str, Any]]) -> dict[int, dict[str, Any]]:
     return {int(s["slide_id"]): s for s in (meta or {}).get("slides") or [] if "slide_id" in s}
+
+
+_BREAKS = re.compile(r"\s*(?:\\n|\r?\n)\s*")
+
+
+def one_line(text: str) -> str:
+    """A title on one line: ``\\n`` (typed as backslash-n) breaks it only on the stage."""
+    return _BREAKS.sub(" ", text or "").strip()
 
 
 def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, Any]) -> str:

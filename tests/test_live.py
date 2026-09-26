@@ -10,7 +10,7 @@ import pytest
 from src.config import load_config
 from src.live.actions import run_action
 from src.live.hub import LiveError, LiveHub, now_ms
-from src.live.plan import build_run
+from src.live.plan import build_run, one_line
 from src.sessions.model import parse_session
 from src.sessions.store import SessionStore
 from tests.fixtures.demo import PLAN, build_demo_session
@@ -197,3 +197,10 @@ def test_rest_actions_and_errors(client, demo: tuple[str, Path]) -> None:
     assert {"next", "prev", "blackout", "timer_toggle", "goto_section"} <= ids
     assert client.post("/api/live/deactivate").json() == {"active": False}
     assert client.get("/api/live").json()["plan"]["active"] is False
+
+
+def test_one_line_joins_the_stage_line_breaks() -> None:
+    # A title typed with "\n" breaks on the stage; lists and the results show it on one line.
+    assert one_line("What switches\nthis group off?") == "What switches this group off?"
+    assert one_line("Two\nlines ") == "Two lines"
+    assert one_line("") == ""

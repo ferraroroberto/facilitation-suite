@@ -11,7 +11,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { switchEl } from '/static/_vendored/switch/switch.js';
-import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
+import { api, esc, oneLine, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
@@ -63,6 +63,9 @@ function titleOf(it) {
   if (it.kind === 'activity') return it.question || (st.types[it.type] || {}).label || 'Activity';
   return 'Break';
 }
+
+/** The title on one line, for the list and the editor ("\n" breaks it only on the stage). */
+function labelOf(it) { return oneLine(titleOf(it)); }
 
 function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8)}`; }
 
@@ -309,7 +312,7 @@ function renderList() {
       row.setAttribute('aria-selected', String(st.picked.has(it.id)));
       row.innerHTML =
         `<span class="num">${n}</span>${thumbHtml(it)}` +
-        `<span class="item-title">${esc(titleOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
+        `<span class="item-title">${esc(labelOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
       row.addEventListener('mousedown', (e) => { if (e.shiftKey) e.preventDefault(); }); // no text selection on Shift+click
       row.addEventListener('click', (e) => clickItem(it.id, e));
       row.addEventListener('keydown', (e) => rowKey(it.id, e));
@@ -584,7 +587,7 @@ async function deleteItems(ids) {
   const kept = !slides ? '' : one
     ? ' It stays in the deck: "Add slide or activity → Slide from the deck" brings it back.'
     : ' Slides stay in the deck and can be added back.';
-  const names = gone.slice(0, 4).map((x) => `"${titleOf(x.it)}"`).join(', ') + (gone.length > 4 ? ` and ${gone.length - 4} more` : '');
+  const names = gone.slice(0, 4).map((x) => `"${labelOf(x.it)}"`).join(', ') + (gone.length > 4 ? ` and ${gone.length - 4} more` : '');
   const ok = await confirmDialog({
     title: one ? `Delete this ${gone[0].it.kind}?` : `Delete ${gone.length} items?`,
     message: `${names} ${one ? 'leaves' : 'leave'} the plan when you save.${kept}`,
@@ -694,11 +697,11 @@ function renderEditor() {
   const { it, sec } = found;
   const flat = allItems();
   const pos = flat.findIndex((x) => x.it.id === it.id);
-  const prev = pos > 0 ? titleOf(flat[pos - 1].it) : null;
+  const prev = pos > 0 ? labelOf(flat[pos - 1].it) : null;
 
   const title = document.createElement('div');
   title.className = 'detail-title';
-  title.innerHTML = `<h1>${esc(titleOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
+  title.innerHTML = `<h1>${esc(labelOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
   editor.appendChild(title);
 
   editor.appendChild(previewCard(it));
@@ -706,7 +709,7 @@ function renderEditor() {
   const form = document.createElement('div');
   form.className = 'card ed-card';
   editor.appendChild(form);
-  const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = titleOf(it); };
+  const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = labelOf(it); };
 
   if (it.kind === 'activity') {
     const types = Object.values(st.types).map((t) => [t.type, t.label]);
@@ -726,7 +729,8 @@ function renderEditor() {
     }, 'Activity type')));
     const spec = st.types[it.type] || {};
     if (spec.capture !== false) {
-      form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' })));
+      form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
+      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
       const font = it.font || { family: 'theme', size_px: 72 };
       const fam = document.createElement('select');
       fam.className = 'select-native';
@@ -748,7 +752,7 @@ function renderEditor() {
     form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
     const hint = document.createElement('p');
     hint.className = 'ed-hint';
-    hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage.';
+    hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
   }
 
@@ -843,7 +847,7 @@ function renderBulk() {
   editor.appendChild(form);
   const strip = document.createElement('div');
   strip.className = 'bulk-list';
-  strip.innerHTML = items.map((it) => `<div class="bulk-row">${thumbHtml(it)}<span class="item-title">${esc(titleOf(it))}</span></div>`).join('');
+  strip.innerHTML = items.map((it) => `<div class="bulk-row">${thumbHtml(it)}<span class="item-title">${esc(labelOf(it))}</span></div>`).join('');
   form.appendChild(field('Selected', strip));
 
   const profiles = new Set(items.map((it) => it.profile || null));

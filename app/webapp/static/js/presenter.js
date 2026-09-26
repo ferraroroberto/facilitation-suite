@@ -5,7 +5,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
-import { api, esc, toast, currentTheme, setTheme } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, setTheme } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
 import { connectLive, bindKeys, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
@@ -163,8 +163,8 @@ function buildThumbs() {
   box.innerHTML = plan.run.items.map((it, i) => {
     const inner = it.slide_file
       ? `<img alt="" loading="lazy" src="/api/sessions/${encodeURIComponent(plan.session.id)}/slides/${esc(it.slide_file)}">`
-      : `<span class="p-thumb-text">${it.kind === 'break' ? icon('coffee') : ''}${esc(it.title)}</span>`;
-    return `<button type="button" class="p-thumb" data-goto="${i + 1}" title="${esc(it.title)}"><span class="p-thumb-img">${inner}</span><span class="p-thumb-n">${i + 1}</span></button>`;
+      : `<span class="p-thumb-text">${it.kind === 'break' ? icon('coffee') : ''}${esc(oneLine(it.title))}</span>`;
+    return `<button type="button" class="p-thumb" data-goto="${i + 1}" title="${esc(oneLine(it.title))}"><span class="p-thumb-img">${inner}</span><span class="p-thumb-n">${i + 1}</span></button>`;
   }).join('');
   box.addEventListener('click', (e) => {
     const b = e.target.closest('[data-goto]');
@@ -193,7 +193,7 @@ function draw() {
   nextStage.render(nxt, Object.assign({}, ctx, { state: Object.assign({}, s, { blackout: false }) }));
 
   root.querySelector('[data-sub]').textContent = cur
-    ? `Presenter · ${cur.kind === 'slide' ? 'Slide' : 'Item'} ${s.index + 1} of ${s.count} · ${cur.title}` : 'Presenter';
+    ? `Presenter · ${cur.kind === 'slide' ? 'Slide' : 'Item'} ${s.index + 1} of ${s.count} · ${oneLine(cur.title)}` : 'Presenter';
   const flag = root.querySelector('[data-flag]');
   flag.hidden = !s.blackout;
   flag.textContent = s.blackout ? 'Blackout — the stage is black' : '';
@@ -219,13 +219,13 @@ function draw() {
 
 function drawNext(s, nxt) {
   const card = root.querySelector('.p-next');
-  card.querySelector('.p-meta').textContent = nxt ? `${s.index + 2} · ${nxt.title}` : 'end of the session';
+  card.querySelector('.p-meta').textContent = nxt ? `${s.index + 2} · ${oneLine(nxt.title)}` : 'end of the session';
   card.querySelector('[data-caption]').textContent = nxt
     ? (nxt.kind === 'activity' ? `${nxt.type_label || 'Activity'}${nxt.capture ? ' · starts when you press Space' : ''}` : kindLabel(nxt))
     : '';
   const then = items().slice(s.index + 2, s.index + 5);
   card.querySelector('[data-then]').innerHTML = then.map((it) =>
-    `<li><span class="p-then-n">${it.index + 1}</span><span class="p-then-t">${esc(it.title)}</span><span class="p-then-k">${esc(kindLabel(it))}</span></li>`).join('') ||
+    `<li><span class="p-then-n">${it.index + 1}</span><span class="p-then-t">${esc(oneLine(it.title))}</span><span class="p-then-k">${esc(kindLabel(it))}</span></li>`).join('') ||
     '<li class="muted small">Nothing after this.</li>';
 }
 
@@ -240,7 +240,7 @@ function drawNotes(cur) {
   } else if (cur.kind === 'activity') {
     html = cur.question ? `<div class="p-notes-text">${esc(cur.question)}</div>` : '';
   } else {
-    html = `<div class="p-notes-text">${esc(cur.title)}</div>`;
+    html = `<div class="p-notes-text">${esc(oneLine(cur.title))}</div>`;
   }
   if (cur.kind === 'activity' && cur.chat_prompt) {
     html += `<div class="p-prompt"><span class="muted">Prompt to paste in chat:</span> <span class="p-prompt-text">“${esc(cur.chat_prompt)}”</span>` +
@@ -266,7 +266,7 @@ function drawItemCard(cur, s) {
   const t = cur && cur.timer;
   const cap = !!(cur && cur.capture);
   card.querySelector('.p-label').textContent = cap ? 'Capture' : 'Timer';
-  card.querySelector('.p-meta').textContent = cur ? cur.title : '';
+  card.querySelector('.p-meta').textContent = cur ? oneLine(cur.title) : '';
   const key = `${cur ? cur.id : ''}|${t ? 1 : 0}|${cur && cur.kind === 'activity' ? 1 : 0}`;
   if (body.dataset.key !== key) {
     body.dataset.key = key;
