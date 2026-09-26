@@ -4,8 +4,8 @@
 //
 // Selection works as in a file manager: click selects one item, Ctrl/Cmd+click
 // adds or removes one, Shift+click selects the range from the last clicked
-// (Ctrl+Shift adds it); Shift+Up/Down extend, Ctrl+A selects all, Delete
-// deletes, Esc keeps only the focused item. With several selected, the editor
+// (Ctrl+Shift adds it); Shift+Up/Down extend, Ctrl+A selects all, Ctrl+D
+// duplicates, Delete deletes, Esc keeps only the focused item. With several selected, the editor
 // becomes the bulk panel and dragging any of them moves them all.
 
 import { icon } from '/static/_vendored/icons/icons.js';
@@ -497,6 +497,7 @@ function rowKey(id, e) {
     paintSelection();
     return;
   }
+  if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateItems([...st.picked]); return; }
   if (e.key === 'Escape' && st.picked.size > 1) { e.preventDefault(); select(st.selected); focusRow(st.selected); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteItems([...st.picked]); }
 }
@@ -576,6 +577,20 @@ async function addSlide(si) {
   st.picked = new Set([id]);
   markDirty();
   render();
+}
+
+/** Copies of `ids` (in plan order), right after the last of them; the copies become the selection. */
+function duplicateItems(ids) {
+  const flat = allItems().filter((x) => ids.includes(x.it.id));
+  if (!flat.length) return;
+  const last = flat[flat.length - 1];
+  const copies = flat.map((x) => Object.assign(clone(x.it), { id: newId({ slide: 'slide', activity: 'act', break: 'brk' }[x.it.kind] || 'item') }));
+  last.sec.items.splice(last.sec.items.indexOf(last.it) + 1, 0, ...copies);
+  st.picked = new Set(copies.map((c) => c.id));
+  st.selected = st.anchor = copies[copies.length - 1].id;
+  markDirty();
+  render();
+  toast(copies.length === 1 ? 'Duplicated — the copy is selected' : `${copies.length} items duplicated — the copies are selected`);
 }
 
 async function deleteItems(ids) {
@@ -817,7 +832,9 @@ function renderEditor() {
   tools.innerHTML =
     `<button type="button" class="button-surface" data-up>${icon('chevron-up')} Move up</button>` +
     `<button type="button" class="button-surface" data-down>${icon('chevron-down')} Move down</button>` +
+    `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate</button>` +
     `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>`;
+  tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems([it.id]));
   tools.querySelector('[data-up]').addEventListener('click', () => moveItem(it.id, -1));
   tools.querySelector('[data-down]').addEventListener('click', () => moveItem(it.id, 1));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems([it.id]));
@@ -875,8 +892,10 @@ function renderBulk() {
   tools.className = 'ed-tools';
   tools.innerHTML =
     `<button type="button" class="button-surface" data-clear>${icon('x')} Keep one selected</button>` +
+    `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate ${items.length} items</button>` +
     `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete ${items.length} items</button>`;
   tools.querySelector('[data-clear]').addEventListener('click', () => select(st.selected));
+  tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems(items.map((it) => it.id)));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems(items.map((it) => it.id)));
   form.appendChild(tools);
 
