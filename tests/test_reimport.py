@@ -234,7 +234,8 @@ def test_a_reimport_brings_the_slide_text_layer(tmp_path: Path) -> None:
     new = build_slides_meta({"sections": [], "slides": slides, "slide_width": 960, "slide_height": 540}, inc, Path("deck.pptx"))
     (inc / "slides.json").write_text(json.dumps(new), encoding="utf-8")
     assert new["slides"][0]["boxes"][0] == {"x": 96.0, "y": 54.0, "w": 960.0, "h": 108.0, "text": "Slide 1", "size": 80.0,
-                                            "color": "#1f1f1f", "align": "left", "anchor": "top", "pad": [7.2, 14.4, 7.2, 14.4]}
+                                            "color": "#1f1f1f", "align": "left", "anchor": "top", "pad": [7.2, 14.4, 7.2, 14.4],
+                                            "title": False}
     session = Session(title="x")
     session.sections = first_plan(old, 60)
     report = diff(old, new, session)

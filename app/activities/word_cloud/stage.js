@@ -12,10 +12,11 @@ function hash(s) {
 }
 
 let measureCtx = null;
-function measure(text, px, family) {
+/** A word's width in the answers' lettering (font: its weight and family; caps: in capitals). */
+function measure(text, px, font) {
   measureCtx = measureCtx || document.createElement('canvas').getContext('2d');
-  measureCtx.font = `${px}px ${family}`;
-  return measureCtx.measureText(text).width;
+  measureCtx.font = `${font.weight} ${px}px ${font.family}`;
+  return measureCtx.measureText(font.caps ? text.toUpperCase() : text).width;
 }
 
 function overlaps(r, placed) {
@@ -23,7 +24,7 @@ function overlaps(r, placed) {
 }
 
 /** Positions for the words (largest first) inside w×h; unplaceable words are dropped. */
-function layout(words, w, h, family, names) {
+function layout(words, w, h, font, names) {
   if (!words.length) return [];
   const maxCount = Math.max(...words.map((x) => x.count));
   const maxPx = Math.min(150, h / (words.length < 4 ? 3 : 4.2));
@@ -33,7 +34,7 @@ function layout(words, w, h, family, names) {
     let px = MIN_PX + (maxPx - MIN_PX) * Math.sqrt(word.count / maxCount);
     let spot = null;
     for (let attempt = 0; attempt < 3 && !spot; attempt += 1) {
-      const tw = measure(word.text, px, family) + px * 0.35;
+      const tw = measure(word.text, px, font) + px * 0.35;
       const th = px * (names && word.names.length ? 1.5 : 1.12);
       for (let t = 0; t < 900; t += 1) {
         const a = t * 0.19;
@@ -62,8 +63,13 @@ export function render(body, result, ctx) {
     body.innerHTML = '<div class="wc"></div>';
     host = body.querySelector('.wc');
   }
-  const family = getComputedStyle(body).getPropertyValue('--st-font') || '"Patrick Hand", sans-serif';
-  const spots = layout(words, body.clientWidth, body.clientHeight, family, ctx.names);
+  const css = getComputedStyle(body);
+  const font = {
+    family: css.getPropertyValue('--st-font').trim() || 'system-ui, sans-serif',
+    weight: css.getPropertyValue('--st-font-weight').trim() || 400,
+    caps: css.textTransform === 'uppercase',
+  };
+  const spots = layout(words, body.clientWidth, body.clientHeight, font, ctx.names);
   const keep = new Set();
   for (const s of spots) {
     const key = s.word.key;

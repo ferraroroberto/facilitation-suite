@@ -22,6 +22,34 @@
      questions and titles (font.caps false → none). */
   --st-font-weight: 400;
   --st-ui-font: system-ui, "Segoe UI", Roboto, sans-serif;
+  /* The text font — every text but titles — and its weight (session.yaml →
+     font.text_family / text_weight); by default the chat hint's plain sans. */
+  --st-text-font: var(--st-ui-font);
+  --st-text-weight: 400;
+  /* Each kind of text: font, weight, line thickness and capitals. Titles and
+     questions take the title font (--st-font); subtitles, the chat hint, the
+     answers and a slide's other text take the text font, as typed. The
+     session (font.roles) and an item (its font.roles) can move any of them. */
+  --st-title-font: var(--st-font);
+  --st-title-weight: var(--st-font-weight);
+  --st-title-stroke: var(--st-font-stroke);
+  --st-title-case: var(--st-question-transform);
+  --st-sub-font: var(--st-text-font);
+  --st-sub-weight: var(--st-text-weight);
+  --st-sub-stroke: 0px;
+  --st-sub-case: none;
+  --st-hint-font: var(--st-text-font);
+  --st-hint-weight: max(600, var(--st-text-weight));
+  --st-hint-stroke: 0px;
+  --st-hint-case: none;
+  --st-answers-font: var(--st-text-font);
+  --st-answers-weight: var(--st-text-weight);
+  --st-answers-stroke: 0px;
+  --st-answers-case: none;
+  --st-slide-font: var(--st-text-font);
+  --st-slide-weight: var(--st-text-weight);
+  --st-slide-stroke: 0px;
+  --st-slide-case: none;
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
   /* A paused timer: the pill turns yellow, a break clock amber. */
@@ -44,21 +72,28 @@
 .stage-canvas .st-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 
 /* A slide's own text, drawn over its text-free picture in the session's
-   lettering (position, size, colour and alignment from PowerPoint). */
+   lettering (position, size, colour and alignment from PowerPoint): its
+   title in the title lettering, the rest as slide text. */
 .stage-canvas .st-slide-text { position: absolute; inset: 0; pointer-events: none; }
 .stage-canvas .st-tbox {
   position: absolute;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  font-family: var(--st-font);
-  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  font-family: var(--st-slide-font);
+  -webkit-text-stroke: var(--st-slide-stroke) currentColor;
   paint-order: stroke fill;
-  font-weight: var(--st-font-weight);
-  text-transform: var(--st-question-transform);
+  font-weight: var(--st-slide-weight);
+  text-transform: var(--st-slide-case);
   line-height: 1.15;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.stage-canvas .st-tbox.title {
+  font-family: var(--st-title-font);
+  -webkit-text-stroke: var(--st-title-stroke) currentColor;
+  font-weight: var(--st-title-weight);
+  text-transform: var(--st-title-case);
 }
 .stage-canvas .st-tbox span { display: block; }
 
@@ -79,26 +114,36 @@
 
 .stage-canvas .st-question {
   margin: 0;
-  font-family: var(--st-font);
-  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  font-family: var(--st-title-font);
+  -webkit-text-stroke: var(--st-title-stroke) currentColor;
   paint-order: stroke fill;
-  font-weight: var(--st-font-weight);
+  font-weight: var(--st-title-weight);
   line-height: 1.12;
-  text-transform: var(--st-question-transform);
+  text-transform: var(--st-title-case);
   overflow-wrap: anywhere;
 }
 .stage-canvas .st-sub {
   margin: 14px 0 0;
-  font-family: var(--st-font);
-  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  font-family: var(--st-sub-font);
+  -webkit-text-stroke: var(--st-sub-stroke) currentColor;
   paint-order: stroke fill;
-  font-weight: var(--st-font-weight);
-  text-transform: var(--st-question-transform);
+  font-weight: var(--st-sub-weight);
+  text-transform: var(--st-sub-case);
   font-size: 44px;
   line-height: 1.1;
   color: var(--st-muted);
 }
-.stage-canvas .st-body { position: relative; flex: 1; min-height: 0; }
+/* The answers: the activity's visual keeps using --st-font & co., which
+   inside the body are the answers' lettering. */
+.stage-canvas .st-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  --st-font: var(--st-answers-font);
+  --st-font-weight: var(--st-answers-weight);
+  --st-font-stroke: var(--st-answers-stroke);
+  text-transform: var(--st-answers-case);
+}
 .stage-canvas .st-foot { display: flex; align-items: center; gap: 24px; min-height: 64px; }
 .stage-canvas .st-foot .st-spacer { flex: 1; }
 
@@ -110,8 +155,12 @@
   border-radius: 9999px;
   background: var(--st-chip-bg);
   border: 2px solid var(--st-chip-line);
+  font-family: var(--st-hint-font);
+  -webkit-text-stroke: var(--st-hint-stroke) currentColor;
+  paint-order: stroke fill;
   font-size: 26px;
-  font-weight: 600;
+  font-weight: var(--st-hint-weight);
+  text-transform: var(--st-hint-case);
 }
 .stage-canvas .st-hint svg, .stage-canvas .st-pill svg { width: 28px; height: 28px; }
 .stage-canvas .st-count { display: inline-flex; align-items: center; gap: 8px; font-size: 30px; color: var(--st-muted); }
@@ -147,11 +196,11 @@
 }
 .stage-canvas .st-break-title {
   margin: 0;
-  font-family: var(--st-font);
-  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  font-family: var(--st-title-font);
+  -webkit-text-stroke: var(--st-title-stroke) currentColor;
   paint-order: stroke fill;
-  font-weight: var(--st-font-weight);
-  text-transform: var(--st-question-transform);
+  font-weight: var(--st-title-weight);
+  text-transform: var(--st-title-case);
   font-size: 120px;
   line-height: 1;
 }

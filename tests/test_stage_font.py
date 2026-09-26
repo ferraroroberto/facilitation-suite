@@ -127,3 +127,36 @@ def test_a_font_file_wins_over_the_family(font: Path) -> None:
 
 def test_item_capitals_follow_the_session_by_default() -> None:
     assert Font().caps is None and Font(caps=False).caps is False
+
+
+def test_text_font_and_each_kind_of_text() -> None:
+    css = font_css(parse_session({"title": "x", "font": {
+        "text_family": "Georgia", "text_weight": 700,
+        "roles": {"answers": {"caps": True}, "hint": {"font": "title", "caps": True},
+                  "slide_text": {"font": "Segoe Print"}, "title": {"font": "text", "caps": False}, "typo": {"caps": True}},
+    }}), "/f")
+    assert '--st-text-font: "Georgia", var(--st-ui-font);' in css and "--st-text-weight: 700;" in css
+    # the word cloud in capitals, still in the text font
+    assert "--st-answers-case: uppercase;" in css and "--st-answers-font" not in css
+    # the chat hint in the title font, in capitals
+    assert "--st-hint-font: var(--st-font);" in css and "--st-hint-stroke: var(--st-font-stroke);" in css
+    assert "--st-hint-case: uppercase;" in css
+    # a family of its own for the slide text, on top of the text font
+    assert '--st-slide-font: "Segoe Print", var(--st-text-font);' in css and "--st-slide-stroke: 0px;" in css
+    # titles in the text font; their capitals stay font.caps (true here), never the role's
+    assert "--st-title-font: var(--st-text-font);" in css and "--st-title-case" not in css
+    assert "typo" not in css
+
+
+def test_item_lettering_keeps_only_known_kinds_and_saves_quietly() -> None:
+    from src.sessions.model import dump_session
+
+    s = parse_session({"title": "x", "sections": [{"items": [
+        {"kind": "activity", "type": "word_cloud", "font": {"roles": {"answers": {"caps": True}, "nope": {"caps": True}}}},
+        {"kind": "slide", "font": {"family": "Georgia"}},
+    ]}]})
+    first, second = s.sections[0].items
+    assert list(first.font.roles) == ["answers"] and first.font.roles["answers"].caps is True
+    fonts = [it.get("font") for it in dump_session(s)["sections"][0]["items"]]
+    assert fonts[0]["roles"] == {"answers": {"caps": True}}
+    assert "roles" not in fonts[1]  # no exceptions: nothing extra in session.yaml

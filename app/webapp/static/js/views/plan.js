@@ -17,6 +17,7 @@ import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
 import { createStage, applySessionTheme } from '/static/js/stage-render.js';
 import { words } from '/static/js/stage-words.js';
+import { ROLES, TEXT_FONTS, sessionRole, fontName } from '/static/js/lettering.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -809,9 +810,11 @@ function renderEditor() {
       form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
       form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
       form.appendChild(fontField(it, 'Question font', 72));
+      form.appendChild(rolesField(it, ['hint', 'answers'], 72));
       form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
     } else {
       form.appendChild(fontField(it, 'Title font', 72));
+      form.appendChild(rolesField(it, ['answers'], 72));
     }
   } else {
     const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language)[it.kind];
@@ -821,6 +824,7 @@ function renderEditor() {
     hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
     if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 120));
+    if (it.kind === 'breakout') form.appendChild(rolesField(it, ['sub'], 120));
     if (it.kind === 'breakout') {
       form.appendChild(field('Rooms', rangeTabs(ROUNDS, (it.options || {}).round || '', (v) => {
         it.options = Object.assign({}, it.options, { round: v });
@@ -1010,6 +1014,55 @@ function fontField(it, label, defaultSize) {
   return field(label, row);
 }
 
+/**
+ * An item's other text — the chat hint, the answers, a subtitle, a slide's
+ * text — in the session's lettering, or its own font and capitals (it.font.roles).
+ */
+function rolesField(it, keys, defaultSize) {
+  const wrap = document.createElement('div');
+  wrap.className = 'role-rows';
+  const own = (it.font || {}).roles || {};
+  const setRole = (key, change) => {
+    const f = Object.assign({ family: 'theme', size_px: defaultSize || 72 }, it.font);
+    const roles = Object.assign({}, f.roles);
+    const mine = Object.assign({}, roles[key], change);
+    if (!mine.font) delete mine.font;
+    if (mine.caps !== true && mine.caps !== false) delete mine.caps;
+    if (Object.keys(mine).length) roles[key] = mine; else delete roles[key];
+    if (Object.keys(roles).length) f.roles = roles; else delete f.roles;
+    it.font = f;
+    markDirty();
+    updatePreview(it);
+  };
+  const select = (label, options, value, onChange) => {
+    const sel = document.createElement('select');
+    sel.className = 'select-native';
+    sel.setAttribute('aria-label', label);
+    options.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === value; sel.appendChild(o); });
+    sel.addEventListener('change', () => onChange(sel.value));
+    return sel;
+  };
+  keys.forEach((key) => {
+    const role = ROLES.find((r) => r.key === key);
+    const session = sessionRole(st.session.font, key);
+    const mine = own[key] || {};
+    const row = document.createElement('div');
+    row.className = 'role-row';
+    row.dataset.role = key;
+    row.appendChild(Object.assign(document.createElement('span'), { className: 'small', textContent: role.label }));
+    const fonts = [['', `As the session (${fontName(session.font)})`], ['title', 'Title font'], ['text', 'Text font'],
+      ...TEXT_FONTS.filter(([v]) => v)];
+    if (mine.font && !fonts.some(([v]) => v === mine.font)) fonts.push([mine.font, mine.font]);
+    row.appendChild(select(`${role.label}: font`, fonts, mine.font || '', (v) => setRole(key, { font: v })));
+    row.appendChild(select(`${role.label}: capitals`,
+      [['', `As the session (${session.caps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
+      mine.caps === true ? 'caps' : mine.caps === false ? 'typed' : '',
+      (v) => setRole(key, { caps: v === 'caps' ? true : v === 'typed' ? false : null })));
+    wrap.appendChild(row);
+  });
+  return field('Other text', wrap);
+}
+
 /** A slide's text: drawn by the stage in the session's lettering (the default), or PowerPoint's picture. */
 function slideTextFields(form, it) {
   const s = slideOf(it);
@@ -1021,7 +1074,7 @@ function slideTextFields(form, it) {
     return;
   }
   const live = it.live_text !== false;
-  form.appendChild(field('Slide text', rangeTabs([['live', 'In the stage font'], ['image', 'As in PowerPoint']], live ? 'live' : 'image', (v) => {
+  form.appendChild(field('Slide text', rangeTabs([['live', 'In the stage lettering'], ['image', 'As in PowerPoint']], live ? 'live' : 'image', (v) => {
     it.live_text = v === 'image' ? false : null;
     markDirty();
     renderEditor();
@@ -1029,7 +1082,10 @@ function slideTextFields(form, it) {
   form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">${live
     ? `${s.boxes.length} text box${s.boxes.length === 1 ? '' : 'es'} drawn in the session's lettering, where PowerPoint had them.`
     : 'The slide exactly as PowerPoint drew it.'}</p>`);
-  if (live) form.appendChild(fontField(it, 'Text font', null));
+  if (live) {
+    form.appendChild(fontField(it, 'Title font', null));
+    form.appendChild(rolesField(it, ['slide_text'], null));
+  }
 }
 
 /** The presenter's notes. A slide starts from its PowerPoint notes; editing them keeps the deck as it is. */

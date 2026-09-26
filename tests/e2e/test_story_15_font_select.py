@@ -1,5 +1,6 @@
 """Story 15: the session's stage font and line thickness (picked on the
-Sessions tab, used by the stage previews), then the plan list's multi-select —
+Sessions tab, used by the stage previews), the word cloud's own capitals
+(the session's, then one item's exception), then the plan list's multi-select —
 Shift/Ctrl+click, the bulk panel, dragging the selection, deleting slides."""
 
 from __future__ import annotations
@@ -58,6 +59,11 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     shot(page, shots / "story-15-font-1-sessions.png")
     ready = page.locator(".ready-row", has_text="Stage font")
     expect(ready).to_have_class("list-row ready-row state-ok")
+    # the title font letters titles only; the word cloud goes to capitals on its own
+    expect(card.locator(".st-hint")).not_to_have_css("font-family", "\"Session Font\", \"Patrick Hand\", system-ui, sans-serif")
+    card.locator(".role-row[data-role=answers] [data-role-caps=true]").click()
+    _until(lambda: _saved(folder)["font"].get("roles") == {"answers": {"caps": True}})
+    expect(page.locator(".font-card .font-sample-words")).to_have_css("text-transform", "uppercase")
 
     # -- Plan: the stage preview draws the question in the session font, lines thickened
     page.click("#tabPlan")
@@ -67,6 +73,11 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     assert "Session Font" in q.evaluate("el => getComputedStyle(el).fontFamily")
     expect(q).to_have_css("-webkit-text-stroke-width", "2px")
     expect(page.locator("#panePlan select[aria-label=\"Question font\"]")).to_have_value("theme")
+    # this item's word cloud as typed after all: its own exception, on its preview only
+    body = page.locator(".preview-frame .st-body")
+    expect(body).to_have_css("text-transform", "uppercase")
+    page.locator("#panePlan select[aria-label=\"Answers (word cloud, cards, feed…): capitals\"]").select_option("typed")
+    expect(body).to_have_css("text-transform", "none")
 
     # -- multi-select: click, Shift+click a range, Ctrl+click one out
     rows = page.locator(".item-row")
