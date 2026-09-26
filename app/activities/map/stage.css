@@ -12,9 +12,9 @@
   position: absolute;
   left: 0;
   top: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
+  width: 28px;
+  height: 28px;
   margin: -14px 0 0 -14px;
   padding: 0;
   border: 0;
@@ -45,8 +45,20 @@
   white-space: nowrap;
 }
 .stage-canvas .mp-label:empty { display: none; }
-.stage-canvas .mp-pin.flip { flex-direction: row-reverse; transform-origin: right; }
-.stage-canvas .mp-pin.flip .mp-label { position: absolute; right: 36px; }
+/* The label sits on the side of its dot the stage picked (data-side): the
+   first that covers no other dot or label; "none" leaves it off. */
+.stage-canvas .mp-pin.many { z-index: 1; }
+.stage-canvas .mp-pin .mp-label { position: absolute; top: 50%; left: calc(100% + 8px); transform: translateY(-50%); }
+.stage-canvas .mp-pin.many .mp-label { left: calc(100% + 14px); }
+.stage-canvas .mp-pin[data-side="left"] .mp-label { left: auto; right: calc(100% + 8px); }
+.stage-canvas .mp-pin.many[data-side="left"] .mp-label { right: calc(100% + 14px); }
+.stage-canvas .mp-pin[data-side="up"] .mp-label,
+.stage-canvas .mp-pin.many[data-side="up"] .mp-label { top: auto; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
+.stage-canvas .mp-pin.many[data-side="up"] .mp-label { bottom: calc(100% + 14px); }
+.stage-canvas .mp-pin[data-side="down"] .mp-label,
+.stage-canvas .mp-pin.many[data-side="down"] .mp-label { top: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
+.stage-canvas .mp-pin.many[data-side="down"] .mp-label { top: calc(100% + 14px); }
+.stage-canvas .mp-pin[data-side="none"] .mp-label { display: none; }
 .stage-canvas .mp-enter { opacity: 0; }
 .stage-canvas .mp-enter .mp-dot { transform: scale(2.4); }
 .stage-canvas .mp-dot { transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1); }
