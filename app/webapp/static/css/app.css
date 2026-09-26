@@ -282,6 +282,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 
 .plan-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
 .plan-toolbar .button-surface { display: inline-flex; align-items: center; gap: 6px; }
+.plan-fold { display: inline-flex; gap: 2px; }
+.plan-fold .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
 .plan-totals { font-size: var(--font-body-sm); color: var(--muted); margin-left: auto; }
 .plan-totals.over { color: var(--attention-text); font-weight: 600; }
 .dirty-bar { display: inline-flex; align-items: center; gap: var(--space-sm); width: 100%; justify-content: flex-end; }

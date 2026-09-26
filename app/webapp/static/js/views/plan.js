@@ -169,6 +169,7 @@ async function load() {
   st.sid = ctx.sessionId;
   st.loadedFor = st.sid;
   st.dirty = false;
+  st.collapsed.clear(); // every section opens expanded
   if (!st.sid) {
     setStatus(head, 'no session');
     toolbar.innerHTML = '';
@@ -230,13 +231,19 @@ function renderToolbar() {
   toolbar.innerHTML =
     `<button type="button" class="button-surface" data-reimport>${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
     `<button type="button" class="button-surface" data-add-section>${icon('plus')} Add section</button>` +
+    `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
+    `<button type="button" class="button-ghost" data-fold="expand" title="Expand all sections">${icon('chevrons-up-down')} Expand all</button></span>` +
     `<span class="plan-totals ${over ? 'over' : ''}">Planned ${fmtMinutes(total)} of ${fmtMinutes(st.session ? st.session.duration_minutes : 0)}` +
     `${timers ? ` · ${Math.round(timers / 60)} min on timers` : ''}</span>` +
     (st.dirty ? `<span class="dirty-bar"><span class="chip warn">Unsaved changes</span>` +
       `<button type="button" class="button-ghost" data-discard>Discard</button>` +
       `<button type="button" class="button-primary save-small" data-save>Save</button></span>` : '');
   toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
-  toolbar.querySelector('[data-add-section]').addEventListener('click', addSection);
+  toolbar.querySelector('[data-add-section]').addEventListener('click', () => addSection());
+  toolbar.querySelectorAll('[data-fold]').forEach((b) => b.addEventListener('click', () => {
+    st.collapsed = new Set(b.dataset.fold === 'collapse' ? secs.map((x) => x.id) : []);
+    renderList();
+  }));
   const save = toolbar.querySelector('[data-save]');
   if (save) save.addEventListener('click', saveSession);
   const discard = toolbar.querySelector('[data-discard]');
@@ -327,6 +334,7 @@ function renderList() {
           { label: 'Activity', icon: 'message-square', onClick: () => addItem(si, 'activity') },
           { label: 'Break', icon: 'coffee', onClick: () => addItem(si, 'break') },
           { label: 'Slide from the deck', icon: 'image', onClick: () => addSlide(si) },
+          { label: 'Section after this one', icon: 'list-plus', onClick: () => addSection(si + 1) },
         ]);
       });
       wireDrop(add, { sec: si, index: sec.items.length });
@@ -500,7 +508,8 @@ async function renameSection(sec) {
   render();
 }
 
-async function addSection() {
+/** A new empty section at `at` (default: the end of the plan). */
+async function addSection(at) {
   const v = await formDialog({
     title: 'Add section',
     fields: [
@@ -509,7 +518,8 @@ async function addSection() {
     ],
   });
   if (!v) return;
-  st.session.sections.push({ id: newId('sec'), name: v.name.trim(), minutes: Math.max(0, parseInt(v.minutes, 10) || 0), items: [] });
+  const secs = st.session.sections;
+  secs.splice(at == null ? secs.length : at, 0, { id: newId('sec'), name: v.name.trim(), minutes: Math.max(0, parseInt(v.minutes, 10) || 0), items: [] });
   markDirty();
   render();
 }
