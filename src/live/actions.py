@@ -43,6 +43,7 @@ ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("goto", "Go to item", lambda h, a: h.goto(_int(a, "item") - 1), arg="n", stream_deck=False),
     Action("clock_start", "Start the session clock", lambda h, a: h.clock_start(), stream_deck=False),
     Action("clock_reset", "Reset the session clock", lambda h, a: h.clock_reset(), stream_deck=False),
+    Action("session_reset", "Start the session over", lambda h, a: h.reset(), stream_deck=False),
 )}
 
 

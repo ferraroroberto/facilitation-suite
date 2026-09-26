@@ -26,6 +26,10 @@ Durability (epic §5.4): the position, clocks and timers are mirrored to
 item change, clock and timer event is appended to ``live/events.jsonl``
 (which drives the session PDF order in step 12). A failed write is logged,
 kept in memory and surfaced on the presenter as ``write_error``.
+
+Reset (the presenter, after a rehearsal): the whole ``live/`` folder is set
+aside as ``live-<date>-<time>/`` — nothing is deleted — and the session
+starts over at its first item with no clocks, timers, captures or chat.
 """
 
 from __future__ import annotations
@@ -130,6 +134,8 @@ class LiveHub:
         self.timer_listeners: list[Callable[[str, dict[str, Any]], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
+        # The live session was reset: services drop what they hold of the old run.
+        self.reset_listeners: list[Callable[[], None]] = []
         # The camera zone of each OBS profile (Settings); the defaults until the server wires it.
         self.zones: Callable[[], dict[str, Any]] = lambda: {}
 
@@ -269,6 +275,36 @@ class LiveHub:
         self.broadcast(self.plan_message())
         self.rev += 1
         self._broadcast_state()
+
+    def reset(self) -> None:
+        """Start the live session over — the run so far is kept as ``live-<stamp>/``."""
+        if self.session_id is None or self.folder is None:
+            raise LiveError(409, "not_live", "No session is live")
+        live = self._live_dir()
+        kept = self.folder / f"live-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        if live is not None and live.is_dir():
+            try:
+                live.rename(kept)
+            except OSError as exc:
+                logger.error("❌ live: reset failed, %s could not be set aside (%s)", live, exc)
+                raise LiveError(500, "reset_failed", f"The run so far could not be set aside ({exc}) — nothing was reset") from exc
+        prev = self.current()
+        self._cancel_timer_handles()
+        self.index, self.blackout, self.names = 0, False, False
+        self.clock_started_at, self.section_entered, self.timers = None, {}, {}
+        self.write_error = None
+        for fn in self.reset_listeners:
+            fn()
+        self.plan_rev += 1  # every view rebuilds (the presenter reloads its chat)
+        logger.info("✅ live: session %s reset — the run so far is in %s", self.session_id, kept.name)
+        cur = self.current()
+        self._event("session_live", items=len(self.items), index=0, item_id=cur["id"] if cur else None,
+                    kind=cur["kind"] if cur else None, reset=kept.name)
+        if cur:
+            for fn in self.item_listeners:
+                fn(prev, cur)
+        self.broadcast(self.plan_message())
+        self._commit()
 
     def session_saved(self, sid: str) -> None:
         """Called from the Plan tab's save (a worker thread): reload if it is live."""

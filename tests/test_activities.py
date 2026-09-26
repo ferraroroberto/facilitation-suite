@@ -191,6 +191,28 @@ def test_a_running_timer_always_captures_and_a_reset_stops_it(svc) -> None:
     assert cap.status("brk-coffee") == "idle"
 
 
+def test_a_reset_starts_over_and_keeps_the_run_aside(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-kryptonite")
+    run_action(live, "clock_start")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Ana", "meetings"))
+    run_action(live, "capture_toggle")
+    rev = live.plan_rev
+    run_action(live, "session_reset")
+    assert (live.index, live.clock_started_at, live.timers, live.plan_rev) == (0, None, {}, rev + 1)
+    assert cap.status("act-kryptonite") == "idle" and chat.messages == []
+    kept = [d for d in folder.iterdir() if d.name.startswith("live-")]
+    assert len(kept) == 1 and (kept[0] / "captures" / "act-kryptonite.json").is_file() and (kept[0] / "chat.jsonl").is_file()
+    events = [json.loads(line) for line in (folder / "live" / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert events[0]["event"] == "session_live" and events[0]["reset"] == kept[0].name
+    # the new run captures from scratch
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Sam", "focus"))
+    assert [m["text"] for m in cap.messages_for("act-kryptonite")] == ["focus"]
+
+
 def test_one_capture_at_a_time(svc) -> None:
     live, _, cap, _ = svc
     _goto(live, "act-enemy")

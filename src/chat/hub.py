@@ -48,6 +48,7 @@ class ChatHub:
         self.process_running: Callable[[], bool] = lambda: False
         self.listeners: list[Callable[[list[dict[str, Any]]], None]] = []
         live.extra_state.append(self.state_fields)
+        live.reset_listeners.append(self.forget)
 
     # ------------------------------------------------------------- session
 
@@ -71,6 +72,11 @@ class ChatHub:
         except (OSError, json.JSONDecodeError) as exc:
             logger.error("❌ chat: %s unreadable (%s) — starting with what could be read", CHAT_FILE, exc)
         logger.info("ℹ️ chat: %d messages loaded for session %s", len(self.messages), sid)
+
+    def forget(self) -> None:
+        """After a reset: the chat log starts empty (the old one is set aside with the run)."""
+        self._session = None
+        self.sync_session()
 
     def _append_file(self, records: list[dict[str, Any]]) -> None:
         path = self._file()
