@@ -1,5 +1,7 @@
 """Story 7: capture an activity — Space starts it, simulated answers grow the
-word cloud on the stage, a message is hidden, Space stops it and freezes it."""
+word cloud on the stage, a message is hidden, Space stops it and freezes it;
+then the timer drives it: resuming reopens it, paused shows yellow, a reset
+stops it."""
 
 from __future__ import annotations
 
@@ -56,4 +58,16 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     while not png.is_file() and time.time() < deadline:
         time.sleep(0.5)
     assert png.is_file() and png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+    # the stop paused the timer; resuming it reopens the capture (a running timer always captures)
+    expect(page.locator("[data-tstate]")).to_have_text("paused")
+    expect(page.locator("[data-tclock]")).to_have_class("p-timer-clock paused")
+    expect(stage.locator("[data-pill]")).to_have_class("st-pill paused")
+    page.keyboard.press("t")
+    expect(page.locator("[data-captoggle]")).to_contain_text("Stop capture")
+    expect(stage.locator("[data-pill]")).to_have_class("st-pill")
+    # a timer reset stops the capture instead of leaving it open
+    page.locator("[data-treset]").click()
+    expect(page.locator("[data-captoggle]")).to_contain_text("Reopen capture")
+    expect(page.locator("[data-tstate]")).to_have_text("not started")
     stage_ctx.close()
