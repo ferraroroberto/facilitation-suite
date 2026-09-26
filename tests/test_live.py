@@ -236,7 +236,8 @@ def test_default_titles_match_the_stage_words() -> None:
     js = (Path(__file__).resolve().parents[1] / "app" / "webapp" / "static" / "js" / "stage-words.js").read_text(encoding="utf-8")
     for lang, titles in DEFAULT_TITLES.items():
         block = js.split(f"  {lang}: {{", 1)[1].split("\n  },", 1)[0]
-        assert f"break: '{titles['break']}'" in block and f"reveal: '{titles['groups_reveal']}'" in block, lang
+        for key, js_key in (("break", "break"), ("breakout", "breakout"), ("groups_reveal", "reveal")):
+            assert f"{js_key}: '{titles[key]}'" in block, (lang, key)
 
 
 def test_a_slide_with_text_boxes_is_drawn_by_the_stage_unless_kept_as_a_picture() -> None:
@@ -248,3 +249,17 @@ def test_a_slide_with_text_boxes_is_drawn_by_the_stage_unless_kept_as_a_picture(
     run = build_run(s, meta)["items"]
     assert run[0]["slide_bg"] == "slide-7-bg.png" and run[0]["text_boxes"] == [box] and run[0]["slide_file"] == "slide-7.png"
     assert "text_boxes" not in run[1] and "text_boxes" not in run[2]
+
+
+def test_a_breakout_says_its_round_and_carries_the_rooms() -> None:
+    rounds = {"pairs": [["A", "B"], ["C", "D"]], "g4a": [["A", "B", "C", "D"]]}
+    s = parse_session({"title": "x", "sections": [{"name": "S", "items": [
+        {"kind": "breakout", "options": {"round": "pairs"}, "timer": {"seconds": 600}},
+        {"kind": "breakout", "title": "Share in fours", "options": {"round": "g4a"}}, {"kind": "breakout"}]}]})
+    assert [it.id[:4] for it in s.all_items()] == ["bko-"] * 3
+    run = build_run(s, None, rounds)["items"]
+    assert [(it["title"], it["rooms"]) for it in run] == [
+        ("Breakout rooms", rounds["pairs"]), ("Share in fours", rounds["g4a"]), ("Breakout rooms", [])]
+    assert run[0]["timer"]["seconds"] == 600
+    assert build_run(parse_session({"title": "x", "language": "es", "sections": [{"name": "S", "items": [{"kind": "breakout"}]}]}),
+                     None)["items"][0]["title"] == "Salas de grupos"

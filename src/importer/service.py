@@ -13,8 +13,8 @@ process with a timeout, reports progress, then:
      when the deck has them, else a new section at every title-only divider
      slide — and turns *placeholder slides* into plan items: a slide titled
      ``activity – <question>`` (or the old ``streamalive N – <question>``)
-     becomes an activity, ``breakout – <title>`` a break, ``mentimeter …`` a
-     skipped slide;
+     becomes an activity, ``breakout – <title>`` a breakout card, ``mentimeter …``
+     a skipped slide;
    - **re-import**: nothing changes yet — the export is staged in
      ``slides/incoming/`` and the review screen (``review.py``) says what
      changed; each change is accepted one by one before it applies.
@@ -86,7 +86,7 @@ def classify_placeholder(title: str) -> Optional[dict[str, Any]]:
         return {"kind": "activity", "type": kind, "question": q, "title": q}
     m = BREAKOUT_RE.match(title or "")
     if m:
-        return {"kind": "break", "title": "Breakout · " + " ".join(m.group(1).split())}
+        return {"kind": "breakout", "title": " ".join(m.group(1).split())}
     if SKIP_RE.match(title or ""):
         return {"kind": "skip"}
     return None
@@ -194,7 +194,7 @@ def placeholder_item(s: dict[str, Any], ph: dict[str, Any]) -> Optional[Item]:
     if ph["kind"] == "activity":
         return Item(kind="activity", type=ph["type"], question=ph["question"], title=ph["title"],
                     chat_prompt="", profile="camera_pip")
-    return Item(kind="break", title=ph["title"])
+    return Item(kind=ph["kind"], title=ph["title"])  # a breakout (or an older export's break)
 
 
 def first_plan(meta: dict[str, Any], duration_minutes: int) -> list[Section]:

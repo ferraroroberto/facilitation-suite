@@ -31,7 +31,8 @@ const FONTS = [
 ];
 const TIMER_START = { manual: 'When I start it', on_enter: 'When the item opens', with_capture: 'With the capture' };
 const TIMER_END = { keep: 'Keep showing 00:00', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
-const KIND_ICON = { break: 'coffee' };
+const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
+const ROUNDS = [['pairs', 'Pairs'], ['g4a', 'Groups of 4 · A'], ['g4b', 'Groups of 4 · B'], ['', 'No rooms shown']];
 
 let ctx;
 let head;
@@ -64,7 +65,7 @@ function titleOf(it) {
   // Default titles are the stage's words, in the session's language (as src/live/plan.py).
   const w = words(st.session && st.session.language);
   if (it.kind === 'activity') return it.question || (it.type === 'groups_reveal' ? w.reveal : (st.types[it.type] || {}).label) || 'Activity';
-  return w.break;
+  return it.kind === 'breakout' ? w.breakout : w.break;
 }
 
 /** The title on one line, for the list and the editor ("\n" breaks it only on the stage). */
@@ -72,6 +73,10 @@ function labelOf(it) { return oneLine(titleOf(it)); }
 
 /** The breakout round an item shows, as the editor names it ("Pairs"). */
 function roundLabel(it) {
+  if (it.kind === 'breakout') {
+    const r = (it.options || {}).round || '';
+    return r ? (ROUNDS.find(([v]) => v === r) || [r, r])[1] : '';
+  }
   const opt = ((st.types[it.type] || {}).options || []).find((o) => o.key === 'round');
   const round = (it.options || {}).round || (opt && opt.default);
   const choice = opt && (opt.choices || []).find(([v]) => v === round);
@@ -112,9 +117,10 @@ function thumbHtml(it) {
 function chipHtml(it) {
   const chips = [];
   if (it.kind === 'activity') chips.push(`<span class="chip accent">${esc((st.types[it.type] || {}).label || it.type)}</span>`);
-  const round = it.type === 'groups_reveal' ? roundLabel(it) : '';
-  if (round) chips.push(`<span class="chip">${esc(round)}</span>`);
   if (it.kind === 'break') chips.push('<span class="chip">Break</span>');
+  if (it.kind === 'breakout') chips.push('<span class="chip accent">Breakout</span>');
+  const round = it.type === 'groups_reveal' || it.kind === 'breakout' ? roundLabel(it) : '';
+  if (round) chips.push(`<span class="chip">${esc(round)}</span>`);
   if (it.timer && it.timer.enabled) chips.push(`<span class="chip">${icon('timer')}${fmtTimer(it.timer.seconds)}</span>`);
   if (!it.profile && it.kind === 'slide') chips.push('<span class="chip warn">Pick profile</span>');
   return chips.join('');
@@ -384,6 +390,7 @@ function renderList() {
         rowMenu(e.currentTarget, [
           { label: 'Activity', icon: 'message-square', onClick: () => addItem(si, 'activity') },
           { label: 'Break', icon: 'coffee', onClick: () => addItem(si, 'break') },
+          { label: 'Breakout', icon: 'door-open', onClick: () => addItem(si, 'breakout') },
           { label: 'Slide from the deck', icon: 'image', onClick: () => addSlide(si) },
           { label: 'Section after this one', icon: 'list-plus', onClick: () => addSection(si + 1) },
         ]);
@@ -598,7 +605,10 @@ function addItem(si, kind) {
   const sec = st.session.sections[si];
   const item = kind === 'activity'
     ? { kind: 'activity', id: newId('act'), type: 'word_cloud', question: '', chat_prompt: '', profile: 'camera_pip', options: {} }
-    : { kind: 'break', id: newId('brk'), title: '', profile: 'camera_strip' };
+    : kind === 'breakout'
+      ? { kind: 'breakout', id: newId('bko'), title: '', profile: 'screen_only', options: { round: 'pairs' },
+        timer: { enabled: true, seconds: 600, start: 'manual', show_on: 'stage', end: 'keep' } }
+      : { kind: 'break', id: newId('brk'), title: '', profile: 'camera_strip' };
   const selectedPos = sec.items.findIndex((x) => x.id === st.selected);
   sec.items.splice(selectedPos >= 0 ? selectedPos + 1 : sec.items.length, 0, item);
   st.selected = st.anchor = item.id;
@@ -632,7 +642,7 @@ function duplicateItems(ids) {
   const flat = allItems().filter((x) => ids.includes(x.it.id));
   if (!flat.length) return;
   const last = flat[flat.length - 1];
-  const copies = flat.map((x) => Object.assign(clone(x.it), { id: newId({ slide: 'slide', activity: 'act', break: 'brk' }[x.it.kind] || 'item') }));
+  const copies = flat.map((x) => Object.assign(clone(x.it), { id: newId({ slide: 'slide', activity: 'act', break: 'brk', breakout: 'bko' }[x.it.kind] || 'item') }));
   last.sec.items.splice(last.sec.items.indexOf(last.it) + 1, 0, ...copies);
   st.picked = new Set(copies.map((c) => c.id));
   st.selected = st.anchor = copies[copies.length - 1].id;
@@ -804,13 +814,22 @@ function renderEditor() {
       form.appendChild(fontField(it, 'Title font', 72));
     }
   } else {
-    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language).break;
+    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language)[it.kind];
     form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
     const hint = document.createElement('p');
     hint.className = 'ed-hint';
     hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
-    if (it.kind === 'break') form.appendChild(fontField(it, 'Title font', 120));
+    if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 120));
+    if (it.kind === 'breakout') {
+      form.appendChild(field('Rooms', rangeTabs(ROUNDS, (it.options || {}).round || '', (v) => {
+        it.options = Object.assign({}, it.options, { round: v });
+        markDirty();
+        renderList();
+        renderEditor();
+      }, 'Breakout round'), 'with-hint'));
+      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Under the title the stage says which round is in the rooms, and how many (Groups tab).</p>');
+    }
     if (it.kind === 'slide') slideTextFields(form, it);
   }
 
@@ -900,7 +919,7 @@ function renderBulk() {
   const title = document.createElement('div');
   title.className = 'detail-title';
   title.innerHTML = `<h1>${items.length} items selected</h1><p class="muted">` +
-    [count('slide', 'slide', 'slides'), count('activity', 'activity', 'activities'), count('break', 'break', 'breaks')].filter(Boolean).join(' · ') +
+    [count('slide', 'slide', 'slides'), count('activity', 'activity', 'activities'), count('break', 'break', 'breaks'), count('breakout', 'breakout', 'breakouts')].filter(Boolean).join(' · ') +
     ' · Ctrl+click adds or removes one, Shift+click a range, Esc keeps one</p>';
   editor.appendChild(title);
 
@@ -1033,7 +1052,8 @@ function timerField(it) {
   const isAct = it.kind === 'activity';
   wrap.appendChild(switchRow(on, on ? '' : 'No timer on this item', (next) => {
     if (next) {
-      it.timer = Object.assign({ seconds: isAct ? 180 : it.kind === 'break' ? 600 : 120, start: isAct ? 'with_capture' : 'manual', show_on: isAct || it.kind === 'break' ? 'stage' : 'presenter', end: isAct ? 'stop_capture' : 'keep' }, it.timer || {}, { enabled: true });
+      const long = it.kind === 'break' || it.kind === 'breakout';
+      it.timer = Object.assign({ seconds: isAct ? 180 : long ? 600 : 120, start: isAct ? 'with_capture' : 'manual', show_on: isAct || long ? 'stage' : 'presenter', end: isAct ? 'stop_capture' : 'keep' }, it.timer || {}, { enabled: true });
     } else if (it.timer) {
       it.timer.enabled = false;
     }
@@ -1082,7 +1102,9 @@ function previewCard(it) {
         ? 'Drawn by the real stage with the rooms from the Groups tab — a new shuffle redraws it.'
         : it.kind === 'activity'
         ? 'Drawn by the real stage with sample answers, at the size Zoom will see it. The dashed box is the camera.'
-        : 'The break as the stage shows it.'}</p></div>`;
+        : it.kind === 'breakout'
+          ? 'The breakout as the stage shows it: the round and its rooms from the Groups tab, and the clock.'
+          : 'The break as the stage shows it.'}</p></div>`;
   setTimeout(() => updatePreview(it), 0);
   return card;
 }
@@ -1110,6 +1132,7 @@ function runItem(it) {
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
     ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
+    ...(it.kind === 'breakout' ? { rooms: (st.rounds || {})[(it.options || {}).round || ''] || [] } : {}),
     ...(s && s.bg_file && s.boxes && it.live_text !== false ? { slide_bg: s.bg_file, text_boxes: s.boxes } : {}),
   };
 }

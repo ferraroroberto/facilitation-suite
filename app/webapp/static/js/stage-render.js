@@ -6,7 +6,7 @@
 
 import { esc, lines } from '/static/js/ui.js';
 import { remaining } from '/static/js/live.js';
-import { words } from '/static/js/stage-words.js';
+import { words, roundLine } from '/static/js/stage-words.js';
 
 export const W = 1920;
 export const H = 1080;
@@ -168,8 +168,11 @@ export function createStage(host, opts = {}) {
         : it.slide_file
           ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
           : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(it.title)}</h1></div>`;
-    } else if (it.kind === 'break') {
+    } else if (it.kind === 'break' || it.kind === 'breakout') {
+      // a breakout says which round is in the rooms, under its title
+      const sub = it.kind === 'breakout' ? roundLine(lang, (it.options || {}).round, it.rooms) : '';
       html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
+        (sub ? `<p class="st-sub" style="${lettering({ caps: (it.font || {}).caps })}">${esc(sub)}</p>` : '') +
         (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
     } else {
       const text = it.capture ? (it.question || it.title) : it.title;

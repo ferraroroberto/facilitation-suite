@@ -36,8 +36,8 @@ def one_line(text: str) -> str:
 # The stage's default titles in each session language (app/webapp/static/js/stage-words.js
 # says the same words on the stage; tests/test_live.py keeps them in step).
 DEFAULT_TITLES: dict[str, dict[str, str]] = {
-    "en": {"break": "Break", "groups_reveal": "Who are you with?"},
-    "es": {"break": "Descanso", "groups_reveal": "¿Con quién estás?"},
+    "en": {"break": "Break", "breakout": "Breakout rooms", "groups_reveal": "Who are you with?"},
+    "es": {"break": "Descanso", "breakout": "Salas de grupos", "groups_reveal": "¿Con quién estás?"},
 }
 
 
@@ -47,8 +47,8 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
         return item.title.strip()
     if item.kind == "slide":
         return (slide or {}).get("title") or f"Slide {item.slide_id}"
-    if item.kind == "break":
-        return words["break"]
+    if item.kind in ("break", "breakout"):
+        return words[item.kind]
     if item.question.strip():
         return item.question.strip()
     return words.get(item.type or "") or (types.get(item.type or "") or {}).get("label") or "Activity"
@@ -108,6 +108,8 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "section_name": sec.name,
                 **({"rooms": (rounds or {}).get((it.options or {}).get("round", "pairs")) or []}
                    if it.type == "groups_reveal" else {}),
+                **({"rooms": (rounds or {}).get((it.options or {}).get("round") or "") or []}
+                   if it.kind == "breakout" else {}),
             })
         start += sec.minutes
     return {"items": items, "sections": sections, "planned_minutes": start,
