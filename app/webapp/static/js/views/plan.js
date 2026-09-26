@@ -1,6 +1,12 @@
 // Plan tab: sections with planned minutes, and slides / activities / breaks in
 // order (left), the selected item's editor (right). Edits are staged in memory;
 // "Save to session.yaml" is the one persistence boundary.
+//
+// Selection works as in a file manager: click selects one item, Ctrl/Cmd+click
+// adds or removes one, Shift+click selects the range from the last clicked
+// (Ctrl+Shift adds it); Shift+Up/Down extend, Ctrl+A selects all, Delete
+// deletes, Esc keeps only the focused item. With several selected, the editor
+// becomes the bulk panel and dragging any of them moves them all.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
@@ -9,7 +15,7 @@ import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
-import { createStage } from '/static/js/stage-render.js';
+import { createStage, applySessionTheme } from '/static/js/stage-render.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -17,7 +23,7 @@ const PROFILES = [
   ['screen_only', 'Screen only'],
 ];
 const FONTS = [
-  ['Patrick Hand', 'Patrick Hand · session theme'],
+  ['theme', 'Session font (Sessions → Stage font)'],
   ['system-ui', 'System sans'],
   ['Georgia', 'Georgia (serif)'],
   ['Segoe Print', 'Segoe Print (handwriting)'],
@@ -34,7 +40,8 @@ let toolbar;
 let reviewNote;
 let split;
 let reviewHost;
-const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
+// selected = the focused item (the editor's); picked = every selected item (it included); anchor = where Shift ranges start.
+const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
 
 // ---------------------------------------------------------------- helpers
 
@@ -191,10 +198,13 @@ async function load() {
     listCard.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
     return;
   }
+  applySessionTheme(st.sid, st.session.theme, Date.now()); // the stage font, for the previews
   if (!st.selected || !findItem(st.selected)) {
     const first = allItems()[0];
     st.selected = first ? first.it.id : null;
   }
+  st.picked = new Set([...st.picked].filter((id) => findItem(id)));
+  if (!st.picked.size && st.selected) st.picked.add(st.selected);
   render();
   if (st.pending && ctx.reviewFor === st.sid) {
     ctx.reviewFor = null;
@@ -284,21 +294,26 @@ function renderList() {
       n += 1;
       if (collapsed) return;
       const row = document.createElement('div');
-      row.className = 'item-row' + (it.id === st.selected ? ' selected' : '') + (it.include === false ? ' excluded' : '');
+      row.className = 'item-row' + (st.picked.has(it.id) ? ' selected' : '') + (it.id === st.selected && st.picked.size > 1 ? ' focused' : '') + (it.include === false ? ' excluded' : '');
       row.dataset.item = it.id;
       row.tabIndex = 0;
       row.draggable = true;
-      row.setAttribute('role', 'button');
+      row.setAttribute('role', 'option');
+      row.setAttribute('aria-selected', String(st.picked.has(it.id)));
       row.innerHTML =
         `<span class="num">${n}</span>${thumbHtml(it)}` +
         `<span class="item-title">${esc(titleOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
-      row.addEventListener('click', () => select(it.id));
-      row.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(it.id); }
-        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveItem(it.id, e.key === 'ArrowUp' ? -1 : 1, true); }
+      row.addEventListener('mousedown', (e) => { if (e.shiftKey) e.preventDefault(); }); // no text selection on Shift+click
+      row.addEventListener('click', (e) => clickItem(it.id, e));
+      row.addEventListener('keydown', (e) => rowKey(it.id, e));
+      row.addEventListener('dragstart', (e) => {
+        // Dragging a selected row carries the whole selection; any other row goes alone.
+        if (!st.picked.has(it.id)) select(it.id);
+        e.dataTransfer.setData('text/fs-item', it.id);
+        e.dataTransfer.effectAllowed = 'move';
+        listCard.querySelectorAll('.item-row.selected').forEach((r) => r.classList.add('dragging'));
       });
-      row.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/fs-item', it.id); e.dataTransfer.effectAllowed = 'move'; row.classList.add('dragging'); });
-      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragend', () => listCard.querySelectorAll('.item-row.dragging').forEach((r) => r.classList.remove('dragging')));
       wireDrop(row, { sec: si, index: ii });
       listCard.appendChild(row);
     });
@@ -349,15 +364,17 @@ function wireDrop(el, target) {
 }
 
 function dropItem(id, secIdx, index, toEnd) {
-  const found = findItem(id);
-  if (!found) return;
-  const [it] = found.sec.items.splice(found.ii, 1);
+  if (!findItem(id)) return;
+  const ids = st.picked.has(id) ? allItems().filter((x) => st.picked.has(x.it.id)).map((x) => x.it.id) : [id];
   const dest = st.session.sections[secIdx];
-  let at = toEnd ? dest.items.length : index;
-  if (found.si === secIdx && found.ii < at) at -= 1;
-  dest.items.splice(Math.max(0, Math.min(at, dest.items.length)), 0, it);
+  // Insert before the first unmoved item at or after the drop point (none = the section's end).
+  const before = toEnd ? null : dest.items.slice(index).find((x) => !ids.includes(x.id)) || null;
+  const moving = ids.map((x) => { const f = findItem(x); return f.sec.items.splice(f.ii, 1)[0]; });
+  const at = before ? dest.items.indexOf(before) : dest.items.length;
+  dest.items.splice(at, 0, ...moving);
   markDirty();
   renderList();
+  renderEditor();
 }
 
 function moveItem(id, dir, keepFocus = false) {
@@ -397,10 +414,80 @@ function moveSection(si, dir) {
   renderList();
 }
 
+/** Rows in list order (collapsed sections hide theirs, as in a file manager). */
+function visibleIds() { return [...listCard.querySelectorAll('.item-row')].map((r) => r.dataset.item); }
+
+function paintSelection() {
+  listCard.querySelectorAll('.item-row').forEach((r) => {
+    const on = st.picked.has(r.dataset.item);
+    r.classList.toggle('selected', on);
+    r.classList.toggle('focused', st.picked.size > 1 && r.dataset.item === st.selected);
+    r.setAttribute('aria-selected', String(on));
+  });
+  renderEditor();
+}
+
 function select(id) {
   st.selected = id;
-  listCard.querySelectorAll('.item-row').forEach((r) => r.classList.toggle('selected', r.dataset.item === id));
-  renderEditor();
+  st.anchor = id;
+  st.picked = new Set(id ? [id] : []);
+  paintSelection();
+}
+
+function selectRange(id, add) {
+  const ids = visibleIds();
+  const from = ids.indexOf(st.anchor && ids.includes(st.anchor) ? st.anchor : st.selected);
+  const to = ids.indexOf(id);
+  if (from < 0 || to < 0) { select(id); return; }
+  const range = ids.slice(Math.min(from, to), Math.max(from, to) + 1);
+  st.picked = new Set(add ? [...st.picked, ...range] : range);
+  st.selected = id;
+  paintSelection();
+}
+
+function clickItem(id, e) {
+  if (e.shiftKey) { selectRange(id, e.ctrlKey || e.metaKey); return; }
+  if (e.ctrlKey || e.metaKey) {
+    if (st.picked.has(id) && st.picked.size > 1) {
+      st.picked.delete(id);
+      if (st.selected === id) st.selected = [...st.picked].pop();
+    } else {
+      st.picked.add(id);
+      st.selected = id;
+    }
+    st.anchor = id;
+    paintSelection();
+    return;
+  }
+  select(id);
+}
+
+function focusRow(id) {
+  const row = listCard.querySelector(`[data-item="${CSS.escape(id)}"]`);
+  if (row) row.focus();
+}
+
+function rowKey(id, e) {
+  const mod = e.ctrlKey || e.metaKey;
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveItem(id, e.key === 'ArrowUp' ? -1 : 1, true); return; }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clickItem(id, e); return; }
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    const ids = visibleIds();
+    const next = ids[ids.indexOf(id) + (e.key === 'ArrowUp' ? -1 : 1)];
+    if (!next) return;
+    e.preventDefault();
+    if (e.shiftKey) selectRange(next, false); else select(next);
+    focusRow(next);
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    st.picked = new Set(visibleIds());
+    paintSelection();
+    return;
+  }
+  if (e.key === 'Escape' && st.picked.size > 1) { e.preventDefault(); select(st.selected); focusRow(st.selected); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteItems([...st.picked]); }
 }
 
 // ---------------------------------------------------------------- sections + items
@@ -452,7 +539,8 @@ function addItem(si, kind) {
     : { kind: 'break', id: newId('brk'), title: 'Break', profile: 'camera_strip' };
   const selectedPos = sec.items.findIndex((x) => x.id === st.selected);
   sec.items.splice(selectedPos >= 0 ? selectedPos + 1 : sec.items.length, 0, item);
-  st.selected = item.id;
+  st.selected = st.anchor = item.id;
+  st.picked = new Set([item.id]);
   markDirty();
   render();
 }
@@ -471,23 +559,34 @@ async function addSlide(si) {
   const s = st.slides.get(parseInt(v.slide, 10));
   const id = used.has(s.slide_id) ? newId('slide') : `slide-${s.slide_id}`;
   st.session.sections[si].items.push({ kind: 'slide', id, slide_id: s.slide_id, profile: s.profile });
-  st.selected = id;
+  st.selected = st.anchor = id;
+  st.picked = new Set([id]);
   markDirty();
   render();
 }
 
-async function deleteItem(id) {
-  const found = findItem(id);
-  if (!found) return;
+async function deleteItems(ids) {
+  const flat = allItems();
+  const gone = flat.filter((x) => ids.includes(x.it.id));
+  if (!gone.length) return;
+  const one = gone.length === 1;
+  const slides = gone.filter((x) => x.it.kind === 'slide').length;
+  const kept = !slides ? '' : one
+    ? ' It stays in the deck: "Add slide or activity → Slide from the deck" brings it back.'
+    : ' Slides stay in the deck and can be added back.';
+  const names = gone.slice(0, 4).map((x) => `"${titleOf(x.it)}"`).join(', ') + (gone.length > 4 ? ` and ${gone.length - 4} more` : '');
   const ok = await confirmDialog({
-    title: `Delete this ${found.it.kind}?`,
-    message: `"${titleOf(found.it)}" leaves the plan when you save.`,
-    actionLabel: 'Delete', danger: true,
+    title: one ? `Delete this ${gone[0].it.kind}?` : `Delete ${gone.length} items?`,
+    message: `${names} ${one ? 'leaves' : 'leave'} the plan when you save.${kept}`,
+    actionLabel: one ? 'Delete' : `Delete ${gone.length} items`, danger: true,
   });
   if (!ok) return;
-  found.sec.items.splice(found.ii, 1);
-  const next = found.sec.items[found.ii] || found.sec.items[found.ii - 1];
-  st.selected = next ? next.id : null;
+  // Focus what follows the last deleted item (else what precedes the first).
+  const last = flat.indexOf(gone[gone.length - 1]);
+  const next = flat.slice(last + 1).find((x) => !ids.includes(x.it.id)) || flat.slice(0, flat.indexOf(gone[0])).reverse()[0];
+  gone.forEach((x) => x.sec.items.splice(x.sec.items.indexOf(x.it), 1));
+  st.selected = st.anchor = next ? next.it.id : null;
+  st.picked = new Set(st.selected ? [st.selected] : []);
   markDirty();
   render();
 }
@@ -573,6 +672,7 @@ function switchRow(on, text, onToggle, labelText) {
 function renderEditor() {
   editor.innerHTML = '';
   if (!st.session) return;
+  if (st.picked.size > 1) { renderBulk(); return; }
   const found = st.selected ? findItem(st.selected) : null;
   if (!found) {
     const c = document.createElement('div');
@@ -617,11 +717,11 @@ function renderEditor() {
     const spec = st.types[it.type] || {};
     if (spec.capture !== false) {
       form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' })));
-      const font = it.font || { family: 'Patrick Hand', size_px: 72 };
+      const font = it.font || { family: 'theme', size_px: 72 };
       const fam = document.createElement('select');
       fam.className = 'select-native';
       fam.setAttribute('aria-label', 'Question font');
-      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === font.family; fam.appendChild(o); });
+      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
       fam.addEventListener('change', () => { it.font = Object.assign({}, it.font || font, { family: fam.value }); markDirty(); updatePreview(it); });
       const size = input(font.size_px, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) { it.font = Object.assign({}, it.font || font, { size_px: n }); markDirty(); updatePreview(it); } }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
       size.classList.add('size-input');
@@ -699,11 +799,10 @@ function renderEditor() {
   tools.innerHTML =
     `<button type="button" class="button-surface" data-up>${icon('chevron-up')} Move up</button>` +
     `<button type="button" class="button-surface" data-down>${icon('chevron-down')} Move down</button>` +
-    (it.kind !== 'slide' ? `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>` : '');
+    `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>`;
   tools.querySelector('[data-up]').addEventListener('click', () => moveItem(it.id, -1));
   tools.querySelector('[data-down]').addEventListener('click', () => moveItem(it.id, 1));
-  const del = tools.querySelector('[data-delete]');
-  if (del) del.addEventListener('click', () => deleteItem(it.id));
+  tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems([it.id]));
   form.appendChild(tools);
 
   const save = document.createElement('button');
@@ -716,6 +815,60 @@ function renderEditor() {
   const observer = () => { save.disabled = !st.dirty; save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved'; };
   form.addEventListener('input', observer);
   form.addEventListener('click', () => setTimeout(observer, 0));
+}
+
+/** Several items selected: what they are, and what can be set on all of them at once. */
+function renderBulk() {
+  const items = allItems().filter((x) => st.picked.has(x.it.id)).map((x) => x.it);
+  const count = (kind, one, many) => { const n = items.filter((it) => it.kind === kind).length; return n ? `${n} ${n === 1 ? one : many}` : ''; };
+  const title = document.createElement('div');
+  title.className = 'detail-title';
+  title.innerHTML = `<h1>${items.length} items selected</h1><p class="muted">` +
+    [count('slide', 'slide', 'slides'), count('activity', 'activity', 'activities'), count('break', 'break', 'breaks')].filter(Boolean).join(' · ') +
+    ' · Ctrl+click adds or removes one, Shift+click a range, Esc keeps one</p>';
+  editor.appendChild(title);
+
+  const form = document.createElement('div');
+  form.className = 'card ed-card bulk-card';
+  editor.appendChild(form);
+  const strip = document.createElement('div');
+  strip.className = 'bulk-list';
+  strip.innerHTML = items.map((it) => `<div class="bulk-row">${thumbHtml(it)}<span class="item-title">${esc(titleOf(it))}</span></div>`).join('');
+  form.appendChild(field('Selected', strip));
+
+  const profiles = new Set(items.map((it) => it.profile || null));
+  form.appendChild(field('OBS profile', rangeTabs(PROFILES, profiles.size === 1 ? [...profiles][0] : null, (v) => {
+    items.forEach((it) => { it.profile = v; });
+    markDirty();
+    renderList();
+    renderEditor();
+  }, 'OBS profile for the selected items')));
+  if (profiles.size > 1) form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">They differ now — a pick sets all of them.</p>');
+
+  const allIn = items.every((it) => it.include !== false);
+  form.appendChild(field('In this session', switchRow(allIn, allIn ? 'All in · off = skip them live' : 'Some are skipped · on = all in', (next) => {
+    items.forEach((it) => { it.include = next; });
+    markDirty();
+    renderList();
+    renderEditor();
+  }, 'In this session, for the selected items')));
+
+  const tools = document.createElement('div');
+  tools.className = 'ed-tools';
+  tools.innerHTML =
+    `<button type="button" class="button-surface" data-clear>${icon('x')} Keep one selected</button>` +
+    `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete ${items.length} items</button>`;
+  tools.querySelector('[data-clear]').addEventListener('click', () => select(st.selected));
+  tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems(items.map((it) => it.id)));
+  form.appendChild(tools);
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'button-primary ed-save';
+  save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved';
+  save.disabled = !st.dirty;
+  save.addEventListener('click', saveSession);
+  form.appendChild(save);
 }
 
 function timerField(it) {
@@ -796,7 +949,7 @@ function runItem(it) {
     id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
     capture: it.kind === 'activity' && spec.capture !== false,
     title: titleOf(it), question: it.question || (it.kind === 'activity' ? 'Your question here' : ''),
-    font: it.font || { family: 'Patrick Hand', size_px: 72 }, options: it.options || {},
+    font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
   };

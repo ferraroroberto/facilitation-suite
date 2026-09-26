@@ -8,7 +8,7 @@
   background: #ffffff; border: 2px solid var(--st-chip-line); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
   transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 450ms;
 }
-.stage-canvas .cd-text { margin: 0; font-family: var(--st-font); font-size: 40px; line-height: 1.12; overflow-wrap: anywhere; }
+.stage-canvas .cd-text { margin: 0; font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: 40px; line-height: 1.12; overflow-wrap: anywhere; }
 .stage-canvas .cd-name { font-size: 22px; font-weight: 600; color: var(--st-muted); }
 .stage-canvas .cd-name:empty { display: none; }
 .stage-canvas .cd-enter { transform: scale(0.6); opacity: 0; }
