@@ -82,6 +82,21 @@ function fitSlideText(root) {
   });
 }
 
+/**
+ * Where an item's content goes, from its camera zone (Settings → profiles, in
+ * fractions of the canvas): a tall zone at a side keeps the content beside it;
+ * a corner box keeps the title clear of it and starts the body under it. So
+ * changing the OBS profile (or moving a zone) re-flows the stage by itself.
+ */
+function zoneStyle(zone) {
+  if (!zone) return '';
+  const [x0, y0, x1, y1] = [zone[0] * W, zone[1] * H, zone[2] * W, zone[3] * H];
+  if (y1 - y0 >= H * 0.4) {
+    return x0 >= W / 2 ? `--st-right:${Math.round(W - x0 + 60)}px;` : `--st-left:${Math.round(x1 + 60)}px;`;
+  }
+  return `--st-head-right:${Math.max(0, Math.round(W - x0 - 110 + 40))}px;--st-head-min:${Math.max(0, Math.round(y1 - 80 + 24))}px;`;
+}
+
 /** "mm:ss" for the stage clocks. */
 export function clock(sec) {
   const s = Math.max(0, Math.ceil(sec));
@@ -145,7 +160,7 @@ export function createStage(host, opts = {}) {
     const sid = ctx.plan.session.id;
     lang = ctx.plan.run.language || 'en';
     const hint = ctx.plan.run.chat_hint || words(lang).chat_hint;
-    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}">`;
+    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}" style="${it.kind === 'slide' ? '' : zoneStyle(it.zone)}">`;
     if (it.kind === 'slide') {
       const slides = `/api/sessions/${encodeURIComponent(sid)}/slides/`;
       html += it.slide_bg && it.text_boxes

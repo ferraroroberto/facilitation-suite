@@ -59,19 +59,20 @@
 }
 .stage-canvas .st-tbox span { display: block; }
 
-/* The content rectangle avoids the camera zone of the item's profile. */
+/* The content rectangle avoids the camera zone of the item's profile: the
+   stage sets these from the zone (Settings → profiles) — --st-right/--st-left
+   beside a tall zone, --st-head-right/--st-head-min around a corner box. */
 .stage-canvas .st-content {
   position: absolute;
-  left: 110px;
+  left: var(--st-left, 110px);
   top: 80px;
-  right: 110px;
+  right: var(--st-right, 110px);
   bottom: 60px;
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
-.stage-canvas [data-profile="camera_strip"] .st-content { right: 860px; }
-.stage-canvas [data-profile="camera_pip"] .st-head { max-width: 1220px; min-height: 250px; }
+.stage-canvas .st-head { margin-right: var(--st-head-right, 0px); min-height: var(--st-head-min, 0px); }
 
 .stage-canvas .st-question {
   margin: 0;
