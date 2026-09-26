@@ -87,7 +87,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 
 /**
  * A floating row menu anchored to `anchor`: items = [{label, icon, onClick, danger}].
- * A destructive item goes last, after a divider (design.md action-row).
+ * A destructive item goes last, after a divider (design.md action-row). It
+ * opens upwards when the anchor is too close to the bottom of the window.
  */
 export function rowMenu(anchor, items) {
   closeMenu();
@@ -111,8 +112,14 @@ export function rowMenu(anchor, items) {
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
   const w = 220;
+  const h = menu.offsetHeight;
   menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
-  menu.style.top = (r.bottom + 4 + window.scrollY) + 'px';
+  // Below the anchor when it fits; else above it (a row near the bottom of the
+  // window); else wherever keeps the whole menu on screen.
+  const top = r.bottom + 4 + h <= window.innerHeight - 8 ? r.bottom + 4
+    : r.top - 4 - h >= 8 ? r.top - 4 - h
+      : Math.max(8, window.innerHeight - 8 - h);
+  menu.style.top = (top + window.scrollY) + 'px';
   openMenu = menu;
   const first = menu.querySelector('button');
   if (first) first.focus();
