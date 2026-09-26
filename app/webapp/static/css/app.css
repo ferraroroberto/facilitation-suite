@@ -255,6 +255,15 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .state-todo .ready-icon { color: var(--muted); }
 .state-unknown .ready-icon { color: var(--muted); }
 .go-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--gap); }
+
+/* Stage font card: a line of stage lettering at stage size, in the session's font. */
+.font-sample-host { margin: 10px 0; border-radius: var(--radius-md); border: 1px solid var(--line-muted); overflow: hidden; }
+.stage-canvas.font-sample { position: relative; padding: 18px 24px; }
+.font-sample .st-question { font-size: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.font-path { margin: 0 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.font-stroke { display: flex; align-items: center; gap: var(--space-sm); margin: 4px 0 12px; }
+.font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.font-stroke output { width: 56px; text-align: right; }
 .go-row a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; min-height: 56px; }
 
 /* ---- import dialog ------------------------------------------------------- */

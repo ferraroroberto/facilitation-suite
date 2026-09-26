@@ -21,10 +21,11 @@ async function renderFrozen(id) {
   document.body.classList.add('freeze');
   const stage = createStage(host);
   const [data, frozen] = await Promise.all([api('/api/live'), api(`/api/live/captures/${encodeURIComponent(id)}`)]);
-  applyTheme(data.plan);
+  await applyTheme(data.plan); // the session font must be declared before the fonts are awaited
   const ctx = { plan: data.plan, state: { timers: {}, blackout: false }, now: Date.now(), result: frozen.result, names: !!frozen.names };
   stage.render(frozen.item, ctx);
   await stage.ready();
+  void host.offsetHeight; // lay out first, so the fonts the item uses start loading
   await document.fonts.ready;
   stage.update(ctx);
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

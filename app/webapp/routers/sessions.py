@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, Request
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import AppError
@@ -17,6 +18,7 @@ from src.sessions import readiness
 from src.sessions.model import dump_session, parse_session
 from src.sessions.offline import check_folder, pin_folder
 from src.sessions.store import SessionError, SessionStore
+from src.sessions.theme import FONT_TYPES, font_file, theme_css
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions")
@@ -159,6 +161,29 @@ def put_session(request: Request, sid: str, body: dict[str, Any]) -> dict[str, A
     if hub is not None:
         hub.session_saved(sid)
     return {"session": dump_session(session)}
+
+
+@router.get("/{sid}/theme.css", include_in_schema=False)
+def session_theme(request: Request, sid: str) -> Response:
+    """The session's stage font and its own ``theme.css``, for the plan's stage previews."""
+    try:
+        css = theme_css(store(request).load(sid), store(request).folder(sid), f"/api/sessions/{sid}/font")
+    except SessionError as exc:
+        raise _err(exc) from exc
+    return Response(css, media_type="text/css", headers={"Cache-Control": "no-cache"})
+
+
+@router.get("/{sid}/font", include_in_schema=False)
+def session_font(request: Request, sid: str) -> FileResponse:
+    """The font file session.yaml names (``font.file``) — only a font, only when it exists."""
+    try:
+        path = font_file(store(request).load(sid))
+    except SessionError as exc:
+        raise _err(exc) from exc
+    if path is None:
+        raise AppError(404, "font_not_found", "This session has no stage font on this PC")
+    # Versioned by the theme's URL (?v=<mtime>), so it can be cached for good.
+    return FileResponse(path, media_type=FONT_TYPES[path.suffix.lower()], headers={"Cache-Control": "max-age=31536000, immutable"})
 
 
 @router.get("/{sid}/offline")

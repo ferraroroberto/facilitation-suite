@@ -148,7 +148,7 @@ def reimport_discard(request: Request, sid: str) -> dict[str, bool]:
 
 
 class PickRequest(BaseModel):
-    kind: str = Field(pattern="^(pptx|xlsx|folder|zoom_chat)$")
+    kind: str = Field(pattern="^(pptx|xlsx|folder|zoom_chat|font)$")
 
 
 _pick_lock = threading.Lock()
@@ -181,7 +181,8 @@ def native_pick(kind: str) -> str:
         if kind == "zoom_chat":
             return filedialog.askopenfilename(parent=root, title="Choose the chat Zoom saved", initialdir=str(zoom_folder()),
                                               filetypes=[("Zoom saved chat", "*.txt"), ("All files", "*.*")]) or ""
-        types = {"pptx": [("PowerPoint", "*.pptx *.pptm *.ppt")], "xlsx": [("Excel", "*.xlsx")]}[kind]
+        types = {"pptx": [("PowerPoint", "*.pptx *.pptm *.ppt")], "xlsx": [("Excel", "*.xlsx")],
+                 "font": [("Fonts", "*.otf *.ttf *.woff *.woff2")]}[kind]
         return filedialog.askopenfilename(parent=root, title="Choose a file", filetypes=types) or ""
     finally:
         root.destroy()

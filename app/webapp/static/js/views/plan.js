@@ -9,7 +9,7 @@ import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
-import { createStage } from '/static/js/stage-render.js';
+import { createStage, applySessionTheme } from '/static/js/stage-render.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -17,7 +17,7 @@ const PROFILES = [
   ['screen_only', 'Screen only'],
 ];
 const FONTS = [
-  ['Patrick Hand', 'Patrick Hand · session theme'],
+  ['theme', 'Session font (Sessions → Stage font)'],
   ['system-ui', 'System sans'],
   ['Georgia', 'Georgia (serif)'],
   ['Segoe Print', 'Segoe Print (handwriting)'],
@@ -191,6 +191,7 @@ async function load() {
     listCard.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
     return;
   }
+  applySessionTheme(st.sid, st.session.theme, Date.now()); // the stage font, for the previews
   if (!st.selected || !findItem(st.selected)) {
     const first = allItems()[0];
     st.selected = first ? first.it.id : null;
@@ -617,11 +618,11 @@ function renderEditor() {
     const spec = st.types[it.type] || {};
     if (spec.capture !== false) {
       form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' })));
-      const font = it.font || { family: 'Patrick Hand', size_px: 72 };
+      const font = it.font || { family: 'theme', size_px: 72 };
       const fam = document.createElement('select');
       fam.className = 'select-native';
       fam.setAttribute('aria-label', 'Question font');
-      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === font.family; fam.appendChild(o); });
+      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
       fam.addEventListener('change', () => { it.font = Object.assign({}, it.font || font, { family: fam.value }); markDirty(); updatePreview(it); });
       const size = input(font.size_px, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) { it.font = Object.assign({}, it.font || font, { size_px: n }); markDirty(); updatePreview(it); } }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
       size.classList.add('size-input');
@@ -796,7 +797,7 @@ function runItem(it) {
     id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
     capture: it.kind === 'activity' && spec.capture !== false,
     title: titleOf(it), question: it.question || (it.kind === 'activity' ? 'Your question here' : ''),
-    font: it.font || { family: 'Patrick Hand', size_px: 72 }, options: it.options || {},
+    font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
   };

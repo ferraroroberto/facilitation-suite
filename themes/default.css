@@ -14,6 +14,10 @@
   --st-ink: #1f1f1f;
   --st-muted: #5e5e5e;
   --st-font: "Patrick Hand", system-ui, sans-serif;
+  /* Extra line thickness for text in --st-font: a stroke painted under the
+     fill, so each line grows by half of it on either side. session.yaml →
+     font sets both (/api/sessions/<id>/theme.css). */
+  --st-font-stroke: 0px;
   --st-ui-font: system-ui, "Segoe UI", Roboto, sans-serif;
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
@@ -50,6 +54,8 @@
 .stage-canvas .st-question {
   margin: 0;
   font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
   font-weight: 400;
   line-height: 1.12;
   text-transform: var(--st-question-transform);
@@ -98,7 +104,7 @@
   gap: 24px;
   text-align: center;
 }
-.stage-canvas .st-break-title { margin: 0; font-family: var(--st-font); font-size: 120px; line-height: 1; }
+.stage-canvas .st-break-title { margin: 0; font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: 120px; line-height: 1; }
 .stage-canvas .st-break-clock {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 200px;

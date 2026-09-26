@@ -60,7 +60,17 @@ The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to re
 - an **OBS profile** (Camera strip / Camera PiP / Screen only; slides start with the detected one),
 - its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep, stop the capture, next item, chime),
 - **In this session** (off = skipped live, kept in the plan),
-- for activities: type, question, question font and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options.
+- for activities: type, question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options.
+
+**Stage font** (Sessions tab): **Choose font…** picks an `.otf`, `.ttf` or `.woff` file on this PC (your own handwriting font, say) for every question, answer and title on the stage, and **Line thickness** thickens its lines, in stage pixels (a stroke under the letters, so they keep their shape). Both go into `session.yaml`:
+
+```yaml
+font:
+  file: C:/Users/you/Fonts/MyHand-Regular.otf
+  stroke_px: 1.5
+```
+
+The file stays where it is (keep it on this PC — the readiness list warns if it goes missing, and the stage then falls back to Patrick Hand); it is served to the stage, the presenter's previews, the phone remote and the frozen captures from `/api/sessions/<id>/font`.
 
 Activity types are plug-ins: one folder per type under `app/activities/<type>/` with an `editor.json` (label, icon, options). Edits are staged; **Save to session.yaml** is the only write.
 
@@ -178,7 +188,7 @@ session.yaml      the plan (schema v1) — human-readable, safe to edit by hand
 slides/           slide PNGs + slides.json (titles, notes, fingerprints, detected OBS profile)
 roster.xlsx       participants (optional)
 groups.yaml       breakout groups (optional)
-theme.css         per-session stage theme override (optional)
+theme.css         per-session stage theme override (optional; applied after the stage font)
 live/             chat.jsonl, events.jsonl, captures/ — append-only during the session
 exports/          session.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 ```
