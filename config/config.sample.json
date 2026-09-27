@@ -4,5 +4,10 @@
   "session_root": "",
   "stage_display": 2,
   "obs": { "enabled": true, "host": "127.0.0.1", "port": 4455, "password": "" },
-  "reader": { "enabled": true, "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat" }
+  "reader": { "enabled": true, "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat" },
+  "profiles": {
+    "camera_strip": {"label": "Camera strip", "scene": "", "zone": [0.583, 0.23, 0.983, 0.77]},
+    "camera_pip": {"label": "Camera PiP", "scene": "", "zone": [0.72, 0.04, 0.98, 0.3]},
+    "screen_only": {"label": "Screen only", "scene": "", "zone": null}
+  }
 }

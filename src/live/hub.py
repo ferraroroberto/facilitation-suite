@@ -126,6 +126,8 @@ class LiveHub:
         self.timer_end_listeners: list[Callable[[dict[str, Any], str], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
+        # The camera zone of each OBS profile (Settings); the defaults until the server wires it.
+        self.zones: Callable[[], dict[str, Any]] = lambda: {}
 
     # ------------------------------------------------------------------ setup
 
@@ -207,6 +209,11 @@ class LiveHub:
     def _broadcast_state(self) -> None:
         self.broadcast(self.snapshot())
 
+    def push_state(self) -> None:
+        """Another service's state changed (OBS, the reader): push a fresh snapshot."""
+        self.rev += 1
+        self._broadcast_state()
+
     def _commit(self) -> None:
         """After every mutation: bump the revision, persist, push to everyone."""
         self.rev += 1
@@ -226,7 +233,7 @@ class LiveHub:
         self._cancel_timer_handles()
         self.session_id, self.folder = sid, folder
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
-        self.run = build_run(session, slides_meta(folder), _rounds(folder))
+        self.run = build_run(session, slides_meta(folder), _rounds(folder), self.zones())
         self.plan_rev += 1
         self.index, self.blackout, self.names = 0, False, False
         self.clock_started_at, self.section_entered, self.timers = None, {}, {}
@@ -272,7 +279,7 @@ class LiveHub:
             return
         cur = self.current()
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
-        self.run = build_run(session, slides_meta(self.folder), _rounds(self.folder))
+        self.run = build_run(session, slides_meta(self.folder), _rounds(self.folder), self.zones())
         self.plan_rev += 1
         found = self.item_by_id(cur["id"]) if cur else None
         self.index = found["index"] if found else min(self.index, max(0, len(self.items) - 1))

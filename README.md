@@ -109,6 +109,18 @@ The **Groups** tab makes the 1-2-4-all breakout rooms (the algorithm ported from
 
 If presence changes after a shuffle, the tab and the readiness checklist say so until you shuffle again.
 
+## OBS
+
+Each item in the plan has an **OBS profile** — *Camera strip*, *Camera PiP* or *Screen only*. When an item goes on stage the app switches OBS to that profile's scene over **obs-websocket v5** (built into OBS 28+; OBS → Tools → WebSocket Server Settings, default port 4455), and the stage keeps the profile's camera zone empty. **Settings → OBS profiles** picks each profile's scene from the scenes OBS has (or type one while OBS is closed), moves the camera zones, and holds the connection (host, port, password — the password is written to `config/config.json` and never shown again). The `obs_profile/<name>` action switches by hand (Stream Deck).
+
+OBS is never in the critical path: it runs on its own thread, reconnects by itself, and the presenter's **OBS** chip says *profile …*, *not reachable* (click to retry), *connecting* or *off*. A profile without a scene, or a scene OBS doesn't have, leaves OBS as it is and the chip says so. The deck keeps working with OBS closed.
+
+## Stream Deck
+
+Every live control is one URL: `POST /api/actions/{action_id}` (or `/{action_id}/{arg}`), the same contract as home-automation's action alias, backed by the one intent list the keyboard and the presenter use (`src/live/actions.py`). **Settings → Stream Deck buttons** lists each button's URL with a Copy button: `next`, `prev`, `capture_toggle`, `timer_toggle`, `timer_add_minute`, `timer_reset`, `blackout`, `names_toggle`, `goto_section/<n>`, `obs_profile/<name>`. Calls from this PC need no token; any other device is refused (the phone remote brings a token later). A caller can name itself in `X-Automation-Source`; the presenter shows the last press as a chip.
+
+The physical keys come from the fleet Stream Deck plugin (`fleet-config/stream-deck`, its `Call Action` key with `"app": "facilitation-suite"` — fleet-config#1006).
+
 ## The Zoom chat reader
 
 Participants answer in the Zoom chat; a separate local process reads it — no bot, no Zoom app. In Zoom, **pop out the meeting chat** (Chat → … → Pop out): the reader finds that window (`Meeting chat`) and reads every message through Windows accessibility (MSAA) twice a second, then posts the new ones to the server, which appends them to the session's `live/chat.jsonl` and shows them on the presenter.
@@ -130,7 +142,8 @@ Log: `data/logs/chat-reader.log`.
 | `port` | server port (8449) |
 | `session_root` | default parent folder for new sessions (`<root>\<workshop>\<session>\`) |
 | `stage_display` | which display the stage window goes on (informational) |
-| `obs` | obs-websocket host / port / password (the password stays in this file only) |
+| `obs` | obs-websocket host / port / password (the password stays in this file only), `enabled` = scene switching on/off |
+| `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 
 The **ledger** `sessions.local.yaml` (gitignored; example in `sessions.example.yaml`) lists session names and folders only. Each session lives in its own folder with its own `session.yaml`.
