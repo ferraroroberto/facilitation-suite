@@ -19,3 +19,14 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
         keep = 16
     senders = {c["sender"] for c in contributions if c["sender"]}
     return {"items": list(reversed(contributions[-keep:])), "answers": len(contributions), "people": len(senders)}
+
+
+def report(result: dict[str, Any]) -> dict[str, Any]:
+    """The Results tab's summary line, its top list and the PDF strip's tile label."""
+    n = result.get("answers", 0)
+    return {"summary": f"{n} idea{'' if n == 1 else 's'}", "top_label": "", "top": [], "tile": str(n)}
+
+
+def value(parsed: dict[str, Any]) -> str:
+    """One answer's parsed value for the Excel report."""
+    return parsed.get("text", "")

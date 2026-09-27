@@ -94,3 +94,19 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
     words.sort(key=lambda w: (-w["count"], w["first"]))
     senders = {c["sender"] for c in contributions if c["sender"]}
     return {"words": words[:MAX_WORDS], "answers": len(contributions), "people": len(senders)}
+
+
+def report(result: dict[str, Any]) -> dict[str, Any]:
+    """The Results tab's summary line, its top list and the PDF strip's tile label."""
+    words = result.get("words") or []
+    return {
+        "summary": f"{result.get('answers', 0)} answers · word cloud",
+        "top_label": "Top words",
+        "top": [{"label": w["text"], "count": w["count"]} for w in words[:6]],
+        "tile": words[0]["text"] if words else "",
+    }
+
+
+def value(parsed: dict[str, Any]) -> str:
+    """One answer's parsed value for the Excel report."""
+    return ", ".join(parsed.get("terms") or [])

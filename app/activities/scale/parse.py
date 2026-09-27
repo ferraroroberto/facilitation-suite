@@ -68,3 +68,21 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
                      "names": [n for n, x in latest.items() if x == v]})
     average = round(sum(votes) / len(votes), 2) if votes else None
     return {"bins": bins, "average": average, "votes": len(votes), "answers": len(contributions), "people": len(latest)}
+
+
+def report(result: dict[str, Any]) -> dict[str, Any]:
+    """The Results tab's summary line, its top list and the PDF strip's tile label."""
+    avg = result.get("average")
+    shown = f"{avg:.1f}" if isinstance(avg, (int, float)) else "–"
+    return {
+        "summary": f"{result.get('answers', 0)} answers · average {shown}",
+        "top_label": "Votes",
+        "top": [{"label": f"{b['value']} · {b['label']}" if b["label"] != str(b["value"]) else str(b["value"]), "count": b["count"]}
+                for b in reversed(result.get("bins") or [])],
+        "tile": shown,
+    }
+
+
+def value(parsed: dict[str, Any]) -> str:
+    """One answer's parsed value for the Excel report."""
+    return str(parsed.get("value", ""))

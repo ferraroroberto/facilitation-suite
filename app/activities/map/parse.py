@@ -75,3 +75,25 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
         "answers": len(contributions),
         "people": len(senders),
     }
+
+
+def report(result: dict[str, Any]) -> dict[str, Any]:
+    """The Results tab's summary line, its top list and the PDF strip's tile label."""
+    by_country = Counter(p.get("country_name") or p.get("country") for p in result.get("pins") or [])
+    people, countries = result.get("placed", 0), result.get("countries", 0)
+    unplaced = len(result.get("unplaced") or [])
+    return {
+        "summary": f"{people} people · {countries} countr{'y' if countries == 1 else 'ies'}"
+                   + (f" · {unplaced} unplaced" if unplaced else ""),
+        "top_label": "Countries",
+        "top": [{"label": c, "count": n} for c, n in by_country.most_common(6)],
+        "tile": str(people),
+    }
+
+
+def value(parsed: dict[str, Any]) -> str:
+    """One answer's parsed value for the Excel report: the place it resolved to."""
+    place = parsed.get("place")
+    if not place:
+        return "unplaced"
+    return place["name"] if place.get("precision") == "country" else f"{place['name']}, {place['country_name']}"

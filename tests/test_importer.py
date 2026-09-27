@@ -1,4 +1,4 @@
-"""PowerPoint import: image analysis, placeholder slides, plan building, re-import, the job API.
+"""PowerPoint import: image analysis, placeholder slides, plan building, the job API.
 
 The real COM exporter runs only under ``FS_TEST_POWERPOINT=1`` (it drives the
 PowerPoint installed on this PC, on a synthetic deck it builds itself); every
@@ -21,9 +21,7 @@ from src.importer.service import (
     build_slides_meta,
     classify_placeholder,
     first_plan,
-    merge_reimport,
 )
-from src.sessions.model import Session, ensure_ids
 
 BG = (242, 242, 242)
 BOX = (217, 217, 217)
@@ -133,28 +131,6 @@ def test_first_plan_prefers_powerpoint_sections(tmp_path: Path) -> None:
     assert [s.name for s in first_plan(meta, 60)] == ["Part A", "Part B"]
 
 
-def test_reimport_keeps_order_and_anchors(tmp_path: Path) -> None:
-    session = Session(title="x")
-    session.sections = first_plan(_meta(tmp_path, DECK), 120)
-    ensure_ids(session)
-    # the user moved slide 13 to the top and added a timer
-    first = session.sections[0]
-    moved = first.items.pop(3)
-    first.items.insert(0, moved)
-    act = first.items[3]
-    assert act.kind == "activity"
-
-    new_deck = [d for d in DECK if d["id"] != 11] + [{"id": 20}]
-    new_deck.insert(3, {"id": 30})  # after slide 12's placeholder, before 13
-    summary = merge_reimport(session, _meta(tmp_path, new_deck))
-    ids = [it.slide_id if it.kind == "slide" else it.kind for it in session.sections[0].items]
-    assert 11 not in ids
-    assert ids[:2] == [13, 30]  # the user's order survives; 30 lands after its deck predecessor
-    second = [it.slide_id if it.kind == "slide" else it.kind for it in session.sections[1].items]
-    assert second == [14, 15, 20, "break"]
-    assert summary["added"] == 2 and summary["removed"] == 1
-
-
 class FakeExporter:
     def __init__(self, deck: list[dict[str, Any]]) -> None:
         self.deck = deck
@@ -197,12 +173,13 @@ def test_import_api_end_to_end(client, tmp_path: Path) -> None:
     assert detail["readiness"][0]["state"] == "ok"
     assert detail["session"]["source"]["pptx"] == str(deck)
 
-    # re-import with one slide gone: the plan keeps everything else
+    # a re-import waits for the review (tests/test_reimport.py): nothing changes yet
     client.app.state.importer._exporter = FakeExporter([d for d in DECK if d["id"] != 13])
     job = _wait(client, client.post(f"/api/sessions/{sid}/import", json={"pptx": str(deck)}).json()["id"])
-    assert job["result"]["removed"] == 1 and job["result"]["first_import"] is False
+    assert job["result"]["review"] is True and job["result"]["first_import"] is False
     folder = Path(detail["folder"]["path"])
-    assert not (folder / "slides" / "slide-13.png").exists()
+    assert (folder / "slides" / "slide-13.png").exists()
+    assert (folder / "slides" / "incoming" / "slides.json").is_file()
 
 
 def test_import_rejects_non_decks(client, tmp_path: Path) -> None:

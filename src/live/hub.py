@@ -240,7 +240,10 @@ class LiveHub:
         self.write_error = None
         self._restore_state()
         logger.info("✅ live: session %s is live (%d items, resumed at %d)", sid, len(self.items), self.index + 1)
-        self._event("session_live", items=len(self.items))
+        cur = self.current()
+        # The item on stage when it goes live (the PDF order starts here; later moves are "item" events).
+        self._event("session_live", items=len(self.items), index=self.index, item_id=cur["id"] if cur else None,
+                    kind=cur["kind"] if cur else None)
         for fn in self.session_listeners:
             fn(sid)
         self.broadcast(self.plan_message())

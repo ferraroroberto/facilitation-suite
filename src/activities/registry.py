@@ -3,8 +3,11 @@
 A plug-in folder holds ``editor.json`` (label, icon, the options the Plan
 editor shows, their defaults), and from step 7 ``parse.py`` (chat message →
 contribution, contributions → result) and ``stage.js`` / ``stage.css`` (render
-the result on the stage). Adding a type = adding a folder; nothing else
-enumerates types.
+the result on the stage). From step 12 ``parse.py`` may also say how its result
+reads after the session: ``report(result)`` (the Results tab's summary line,
+top list and PDF tile) and ``value(parsed)`` (one answer's parsed value in the
+Excel report); both fall back to something generic. Adding a type = adding a
+folder; nothing else enumerates types.
 """
 
 from __future__ import annotations
@@ -97,3 +100,31 @@ def preview(activity_type: str, options: dict[str, Any], answers: Optional[list[
     texts = answers if answers is not None else (editors().get(activity_type) or {}).get("samples", [])
     msgs = [{"id": i + 1, "sender": people[i % len(people)], "text": t, "time": "18:41", "received_at": 0} for i, t in enumerate(texts)]
     return result_for(activity_type, options, msgs)
+
+
+def report_for(activity_type: str, result: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """``{"summary", "top_label", "top": [{"label", "count"}], "tile"}`` for a frozen result."""
+    label = (editors().get(activity_type) or {}).get("label") or activity_type
+    answers = (result or {}).get("answers", 0)
+    fallback = {"summary": f"{answers} answers · {label.lower()}", "top_label": "", "top": [], "tile": str(answers)}
+    mod = parser(activity_type)
+    if mod is None or result is None or not hasattr(mod, "report"):
+        return fallback
+    try:
+        return {**fallback, **mod.report(result)}
+    except Exception:  # noqa: BLE001 — a broken report must not hide the answers
+        logger.exception("❌ activity %s: report failed", activity_type)
+        return fallback
+
+
+def value_for(activity_type: str, parsed: Optional[dict[str, Any]]) -> str:
+    """One answer's parsed value as text ("" when it did not parse)."""
+    if not parsed:
+        return ""
+    mod = parser(activity_type)
+    if mod is not None and hasattr(mod, "value"):
+        try:
+            return str(mod.value(parsed))
+        except Exception:  # noqa: BLE001
+            logger.exception("❌ activity %s: value failed", activity_type)
+    return str(parsed.get("text", ""))

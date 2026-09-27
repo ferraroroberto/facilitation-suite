@@ -4,7 +4,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { api, esc, toast } from '/static/js/ui.js';
 
-/** Resolves true when an import finished (the caller refreshes), else false. */
+/** Resolves the job's result when an import finished (`result.review`: a re-import waits for review), else null. */
 export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
@@ -17,7 +17,7 @@ export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
       `<input class="input-native" name="pptx" type="text" placeholder="C:\\…\\deck.pptx" value="${esc(lastPath)}">` +
       `<button type="button" class="button-surface" data-browse>${icon('folder-open')} Browse</button></span></label>` +
       `<p class="dialog-hint">${reimport
-        ? 'Slides are matched by PowerPoint\'s own slide id: your plan order, activities and timers stay; removed slides drop out, new slides are inserted after the slide before them.'
+        ? 'Nothing changes until you review it: the next screen shows every new, removed, moved or edited slide, and you apply the changes you want.'
         : 'Every slide becomes an image with its title and notes, and gets an OBS profile from where the grey camera box sits. Slides titled "activity – question" become activities.'}</p>` +
       `<div class="import-progress" hidden><div class="bar"><span></span></div><p class="small muted" data-msg></p></div>` +
       `<div class="detail-actions"><button type="button" class="detail-save-btn" data-go>${reimport ? 'Re-import' : 'Import'}</button></div>` +
@@ -28,7 +28,7 @@ export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
     const prog = dlg.querySelector('.import-progress');
     const bar = dlg.querySelector('.bar span');
     const msg = dlg.querySelector('[data-msg]');
-    let finished = false;
+    let finished = null;
     let running = false;
     const sync = () => { go.disabled = running || !input.value.trim(); };
     input.addEventListener('input', sync);
@@ -66,10 +66,10 @@ export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
       if (job.state === 'done') {
         bar.style.width = '100%';
         const r = job.result;
-        finished = true;
+        finished = r;
         toast(r.first_import
           ? `Imported ${r.slides} slides into ${r.sections} sections`
-          : `Re-imported ${r.slides} slides · ${r.added} new · ${r.removed} removed`);
+          : `Exported ${r.slides} slides — review what changed before it applies`);
         dlg.close();
       } else {
         prog.classList.add('failed');

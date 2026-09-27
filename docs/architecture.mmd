@@ -9,7 +9,7 @@ flowchart LR
   subgraph server[FastAPI :8449 — app/webapp/server.py]
     pages["routers/pages.py<br/>pages · /healthz · /api/version"]
     sessr["routers/sessions.py<br/>/api/sessions…"]
-    slidesr["routers/slides.py<br/>import jobs · slides · native picker"]
+    slidesr["routers/slides.py<br/>import jobs · re-import review · slides · native picker"]
     actr["routers/activities.py<br/>/api/activities"]
     liver["routers/live.py<br/>WS /ws · /api/live…"]
   end
@@ -51,6 +51,16 @@ flowchart LR
   settingsr --> obs
   deck["Stream Deck · fleet plugin (fleet-config#1006)"] -->|POST /api/actions/id| actionsr["routers/actions.py<br/>home-automation's action contract"]
   actionsr --> acts
+  appv --> resultsr["routers/results.py<br/>results · session PDF · Excel · Zoom check"]
+  resultsr --> collect["src/results/collect.py<br/>captures + events.jsonl → PDF order"]
+  collect --> capfiles
+  collect --> livefiles
+  collect --> reg
+  resultsr --> excel["src/results/excel.py<br/>openpyxl report"]
+  resultsr --> reconcile["src/results/reconcile.py<br/>Zoom saved chat ↔ chat.jsonl"]
+  reconcile --> chatfile
+  resultsr -.->|spawns| pdf["src/results/pdf.py<br/>headless Chromium print"]
+  resultsr --> exportfiles[("exports/session.pdf · report.xlsx · zoom-reconciliation.json")]
   stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg
@@ -58,6 +68,10 @@ flowchart LR
   slidesr --> importer["src/importer/service.py<br/>ImportJob · plan build · re-import"]
   importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
   importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]
+  importer -->|re-import| staged[("slides/incoming/<br/>staged export")]
+  slidesr --> review["src/importer/review.py<br/>diff · per-change apply · anchors"]
+  review --> staged
+  review --> folder
   importer --> folder
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]

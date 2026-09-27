@@ -155,12 +155,161 @@ def write_demo_roster(path: Path, n: int = 40) -> list[str]:
     ws.append(["name", "role", "company", "country", "present", "email"])
     names = []
     for i in range(n):
-        name = f"{FIRST[i % len(FIRST)]} {LAST[(i // len(FIRST) + i) % len(LAST)]}."
+        name = demo_person(i)
         names.append(name)
         email = "" if i in (5, 17) else f"{name.split()[0].lower()}.{i}@example.com"
         ws.append([name, ROLES[i % len(ROLES)], "Demo Co", PLACES[i % len(PLACES)], 0 if i in (8, 23) else 1, email])
     wb.save(path)
     return names
+
+
+# What the room "answered" in the demo run (synthetic), per activity in chat order.
+RUN_ANSWERS: dict[str, list[str]] = {
+    "act-map": ["Madrid, Spain", "Sevilla, España", "Lisboa", "Milan, italy", "CDMX", "desde Bogotá", "Barcelona", "Grnada"],
+    "act-weather": ["4", "3", "sunny spells", "5", "2", "4", "3 cloudy", "4"],
+    "act-kryptonite": ["meetings", "perfectionism", "meetings without agenda", "procrastination", "perfectionism",
+                       "notifications", "hello", "tiredness", "meetings"],
+    "act-enemy": ["Endless meetings", "Not saying no", "Context switching", "Unclear goals"],
+    "act-ideas": ["Focus blocks every morning", "A shared agenda", "Say no kindly", "Fewer tools"],
+    "act-takeaway": ["trust", "focus", "trust", "energy", "clarity", "focus", "trust"],
+}
+RUN_HIDDEN = {("act-kryptonite", "hello")}
+RUN_START_MS = 1_793_120_400_000  # 2026-10-27 17:00 UTC (18:00 in Madrid)
+
+
+def demo_person(i: int) -> str:
+    return f"{FIRST[i % len(FIRST)]} {LAST[(i // len(FIRST) + i) % len(LAST)]}."
+
+
+def write_demo_run(folder: Path, *, pngs: bool = True) -> dict[str, list[dict[str, Any]]]:
+    """A finished live run of the demo session, written the way the live services write it.
+
+    ``live/chat.jsonl`` (source "zoom"), ``live/events.jsonl`` (every item
+    shown, each capture's start and stop), ``live/captures/<item>.json`` frozen
+    through the real plug-in parsers, and (``pngs``) a stand-in PNG per capture.
+    Returns the chat messages and events written.
+    """
+    from datetime import UTC, datetime
+
+    from src.activities.registry import options_with_defaults, parser, result_for
+    from src.live.plan import build_run
+    from src.sessions.readiness import slides_meta
+
+    session = parse_session(PLAN)
+    run = build_run(session, slides_meta(folder))
+    live = folder / "live"
+    (live / "captures").mkdir(parents=True, exist_ok=True)
+    t = RUN_START_MS
+    chat: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+
+    def at(ms: int) -> str:
+        return datetime.fromtimestamp(ms / 1000, UTC).isoformat(timespec="milliseconds")
+
+    def clock(ms: int) -> str:
+        return datetime.fromtimestamp(ms / 1000).strftime("%H:%M")
+
+    events.append({"at": at(t), "event": "session_live", "items": len(run["items"]), "index": 0,
+                   "item_id": run["items"][0]["id"], "kind": run["items"][0]["kind"]})
+    person = 0
+    for item in run["items"]:
+        if item["index"]:
+            t += 60_000
+            events.append({"at": at(t), "event": "item", "item_id": item["id"], "index": item["index"], "kind": item["kind"]})
+        answers = RUN_ANSWERS.get(item["id"])
+        if not answers:
+            continue
+        start = t + 5_000
+        events.append({"at": at(start), "event": "capture_start", "item_id": item["id"]})
+        mine = []
+        for k, text in enumerate(answers):
+            ms = start + 4_000 + k * 7_000
+            msg = {"id": len(chat) + 1, "sender": demo_person(person % 14), "text": text, "time": clock(ms),
+                   "received_at": ms, "at": at(ms), "source": "zoom", "own": False}
+            person += 1
+            chat.append(msg)
+            mine.append(msg)
+        stop = start + 4_000 + len(answers) * 7_000
+        t = stop
+        hidden = {m["id"] for m in mine if (item["id"], m["text"]) in RUN_HIDDEN}
+        events.append({"at": at(stop), "event": "capture_stop", "item_id": item["id"], "answers": len(mine) - len(hidden)})
+        mod = parser(item["type"])
+        opts = options_with_defaults(item["type"], item["options"] or {})
+        frozen = {
+            "item": item, "frozen_at": at(stop), "windows": [[start, stop]], "names": False,
+            "answers": [{"id": m["id"], "sender": m["sender"], "text": m["text"], "time": m["time"], "received_at": m["received_at"],
+                         "hidden": m["id"] in hidden, "parsed": None if m["id"] in hidden else mod.parse(m, opts)} for m in mine],
+            "result": result_for(item["type"], item["options"] or {}, [m for m in mine if m["id"] not in hidden]),
+        }
+        (live / "captures" / f"{item['id']}.json").write_text(json.dumps(frozen, ensure_ascii=False, indent=1), encoding="utf-8")
+        if pngs:
+            im = Image.new("RGB", (1920, 1080), (250, 250, 250))
+            ImageDraw.Draw(im).text((110, 470), f"Live result · {item['title']}", font=_font(72), fill=INK)
+            im.save(live / "captures" / f"{item['id']}.png")
+    # the facilitator's own line ("You") is chat, never an answer
+    chat.append({"id": len(chat) + 1, "sender": "You", "text": "Thanks everyone!", "time": clock(t + 30_000),
+                 "received_at": t + 30_000, "at": at(t + 30_000), "source": "zoom", "own": True})
+    events.append({"at": at(t + 60_000), "event": "session_closed"})
+    (live / "chat.jsonl").write_text("".join(json.dumps(m, ensure_ascii=False) + "\n" for m in chat), encoding="utf-8")
+    (live / "events.jsonl").write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events), encoding="utf-8")
+    return {"chat": chat, "events": events}
+
+
+def zoom_saved_chat(chat: list[dict[str, Any]], *, host: str = "Demo Host", layout: str = "to") -> str:
+    """The chat as Zoom would save it (synthetic): ``to`` (text on its own line) or ``old`` (same line)."""
+    from datetime import datetime
+
+    lines = []
+    for m in chat:
+        hms = datetime.fromtimestamp(m["received_at"] / 1000).strftime("%H:%M:%S")
+        who = host if m.get("own") else m["sender"]
+        if layout == "to":
+            lines += [f"{hms} From {who} to Everyone:", f"\t{m['text']}"]
+        else:
+            lines.append(f"{hms}\t From  {who} : {m['text']}")
+    return "\n".join(lines) + "\n"
+
+
+# The deck, edited after the first import (synthetic): what a re-import review shows.
+REIMPORT_EDITS: dict[str, Any] = {
+    "redrawn": 103,  # "What we want from today": a new drawing
+    "renamed": (108, "Our common enemy"),
+    "notes": (105, "Ask for one example each.\nKeep it to two minutes."),
+    "new": {"id": 111, "title": "How do we want to be remembered?", "shape": "sun", "after": 106},
+    "removed": 109,  # "What do we need to win?" — the ideas feed after it now follows slide 108
+    "moved": (102, 104),  # "Today's menu" now comes after "Getting to know each other"
+}
+
+
+def stage_demo_reimport(folder: Path) -> Path:
+    """Stage a re-import of the edited demo deck in ``slides/incoming/``, as the importer does."""
+    from src.importer.service import INCOMING
+
+    inc = folder / "slides" / INCOMING
+    inc.mkdir(parents=True, exist_ok=True)
+    e = REIMPORT_EDITS
+    specs = [dict(sp) for sp in SLIDES if sp["id"] != e["removed"]]
+    for sp in specs:
+        if sp["id"] == e["redrawn"]:
+            sp["shape"] = "badges"
+        if sp["id"] == e["renamed"][0]:
+            sp["title"] = e["renamed"][1]
+    at = next(i for i, sp in enumerate(specs) if sp["id"] == e["new"]["after"])
+    specs.insert(at + 1, {k: v for k, v in e["new"].items() if k != "after"})
+    mover = next(sp for sp in specs if sp["id"] == e["moved"][0])
+    specs.remove(mover)
+    specs.insert(next(i for i, sp in enumerate(specs) if sp["id"] == e["moved"][1]) + 1, mover)
+    export_slides = []
+    for i, sp in enumerate(specs, start=1):
+        file = f"slide-{sp['id']}.png"
+        draw_slide(sp, inc / file)
+        notes = e["notes"][1] if sp["id"] == e["notes"][0] else ""
+        export_slides.append({"slide_id": sp["id"], "index": i, "title": sp["title"], "notes": notes,
+                              "texts": [sp["title"]], "pictures": 0 if sp.get("divider") else 1,
+                              "background": "#f2f2f2", "hidden": False, "file": file})
+    meta = build_slides_meta({"sections": [], "slides": export_slides}, inc, Path("demo-v2.pptx"))
+    (inc / "slides.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    return inc
 
 
 def build_demo_session(folder: Path, ledger: Path | None = None) -> tuple[str, Path]:
