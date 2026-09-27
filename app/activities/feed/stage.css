@@ -16,5 +16,5 @@
 .stage-canvas .fd-newest { font-size: 60px; border: 4px solid var(--st-ink); }
 .stage-canvas .fd-name { display: block; font-family: var(--st-ui-font); font-size: max(18px, 0.42em); font-weight: 700; opacity: 0.75; }
 .stage-canvas .fd-name:empty { display: none; }
-.stage-canvas .fd-text { margin: 0; font-family: var(--st-font); line-height: 1.1; overflow-wrap: anywhere; }
+.stage-canvas .fd-text { margin: 0; font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; line-height: 1.1; overflow-wrap: anywhere; }
 .stage-canvas .fd-enter { transform: translateY(40px) scale(0.85); opacity: 0; }

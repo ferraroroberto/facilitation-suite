@@ -52,6 +52,15 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
         detail = f"{len(acts) - len(skipped)} configured" + (f" · {len(skipped)} skipped" if skipped else "")
         checks.append(_check("activities", "Activities", "ok", detail))
 
+    if session.font and session.font.file.strip():
+        from src.sessions.theme import font_file
+
+        name = Path(session.font.file).name
+        if font_file(session) is not None:
+            checks.append(_check("font", "Stage font", "ok", name))
+        else:
+            checks.append(_check("font", "Stage font", "warn", f"{name} is not on this PC — the stage falls back to Patrick Hand"))
+
     from src.groups.roster import RosterError, roster_state
 
     try:

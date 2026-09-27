@@ -38,11 +38,32 @@ class Timer(_Open):
     end: Literal["keep", "stop_capture", "advance", "chime"] = "keep"
 
 
-class Font(_Open):
-    """``size_px`` is in stage pixels: the stage is a 1920×1080 canvas scaled to its window."""
+THEME_FONT = "theme"
 
-    family: str = "Patrick Hand"
+
+class Font(_Open):
+    """An activity question's lettering. ``family`` is ``"theme"`` (the session's
+    stage font) or a font installed on this PC; ``size_px`` is in stage pixels:
+    the stage is a 1920×1080 canvas scaled to its window."""
+
+    family: str = THEME_FONT
     size_px: int = Field(72, ge=12, le=240)
+
+    @field_validator("family")
+    @classmethod
+    def _theme_alias(cls, v: str) -> str:
+        # Before the session font existed the editor offered "Patrick Hand" as
+        # "the session theme": it meant the theme's font, so it still does.
+        return THEME_FONT if v.strip() in ("", "Patrick Hand") else v
+
+
+class StageFont(_Open):
+    """The stage's lettering for the whole session: a font file on this PC
+    (``.otf``/``.ttf``/``.woff``/``.woff2``; empty = the theme's Patrick Hand) and
+    extra line thickness in stage px, for thin handwriting fonts."""
+
+    file: str = ""
+    stroke_px: float = Field(0, ge=0, le=8)
 
 
 class Item(_Open):
@@ -92,6 +113,7 @@ class Session(_Open):
     theme: str = "default"
     # The chip on the stage under every activity, in the session's language.
     chat_hint: str = "Write your answer in the Zoom chat"
+    font: Optional[StageFont] = None
     source: Optional[Source] = None
     # Manual readiness confirmations (e.g. zoom_autoupdate_off) the app cannot detect itself.
     checklist: dict[str, bool] = Field(default_factory=dict)

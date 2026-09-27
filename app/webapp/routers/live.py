@@ -15,6 +15,8 @@ from app.webapp.errors import AppError
 from src.activities.registry import ACTIVITIES_DIR, editors
 from src.live.actions import catalog, run_action
 from src.live.hub import LiveError, LiveHub
+from src.sessions.store import SessionError
+from src.sessions.theme import theme_css
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -131,14 +133,15 @@ def plugin_asset(activity_type: str, name: str) -> Response:
 
 @router.get("/api/live/theme.css", include_in_schema=False)
 def session_theme(request: Request) -> Response:
-    """The live session's own ``theme.css`` (empty when it has none)."""
-    folder = _hub(request).folder
+    """The live session's stage font and its own ``theme.css`` (empty when it has neither)."""
+    hub = _hub(request)
+    sid, folder = hub.session_id, hub.folder
     css = ""
-    if folder is not None and (folder / "theme.css").is_file():
+    if sid is not None and folder is not None:
         try:
-            css = (folder / "theme.css").read_text(encoding="utf-8")
-        except OSError as exc:
-            logger.warning("⚠️ session theme.css unreadable: %s", exc)
+            css = theme_css(request.app.state.store.load(sid), folder, f"/api/sessions/{sid}/font")
+        except SessionError as exc:
+            logger.warning("⚠️ live theme without the session's font: %s", exc)
     return Response(css, media_type="text/css", headers={"Cache-Control": "no-cache"})
 
 

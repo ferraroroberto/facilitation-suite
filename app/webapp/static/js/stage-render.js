@@ -111,8 +111,10 @@ export function createStage(host, opts = {}) {
     } else {
       const f = it.font || {};
       const text = it.capture ? (it.question || it.title) : it.title;
+      // "theme" (and the older "Patrick Hand") = the session's stage font.
+      const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
       html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="font-family:'${esc(f.family || 'Patrick Hand')}',var(--st-font);font-size:${Number(f.size_px) || 72}px">${esc(text)}</h1></div>` +
+        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${esc(text)}</h1></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
@@ -193,20 +195,32 @@ export function createStage(host, opts = {}) {
 
 /**
  * Load the session's theme on top of /themes/default.css (linked by the page):
- * a named repo theme when the plan names one, then the session's own theme.css
- * (re-fetched whenever the plan changes).
+ * a named repo theme when the plan names one, then the session's font and own
+ * theme.css (re-fetched whenever the plan changes). Resolves once they have
+ * loaded (or failed), so a caller can wait for the fonts after it.
  */
 export function applyTheme(plan) {
-  const name = (plan && plan.run && plan.run.theme) || 'default';
+  return linkTheme((plan && plan.run && plan.run.theme) || 'default', plan && plan.active ? `/api/live/theme.css?rev=${plan.rev}` : null);
+}
+
+/** The same for a session that is not live — the plan editor's stage previews. */
+export function applySessionTheme(sid, theme, version) {
+  return linkTheme(theme || 'default', sid ? `/api/sessions/${encodeURIComponent(sid)}/theme.css?v=${encodeURIComponent(version || '')}` : null);
+}
+
+function linkTheme(name, sessionCss) {
   const want = [];
   if (name !== 'default' && /^[a-z0-9-]+$/.test(name)) want.push(`/themes/${name}.css`);
-  if (plan && plan.active) want.push(`/api/live/theme.css?rev=${plan.rev}`);
-  document.querySelectorAll('link[data-stage-theme]').forEach((l) => l.remove());
-  want.forEach((href) => {
+  if (sessionCss) want.push(sessionCss);
+  const have = [...document.querySelectorAll('link[data-stage-theme]')];
+  if (have.length === want.length && have.every((l, i) => l.getAttribute('href') === want[i])) return Promise.resolve();
+  have.forEach((l) => l.remove());
+  return Promise.all(want.map((href) => new Promise((resolve) => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
     link.dataset.stageTheme = '';
+    link.onload = link.onerror = resolve;
     document.head.appendChild(link);
-  });
+  })));
 }

@@ -7,7 +7,7 @@
 }
 .stage-canvas .gr-n {
   flex: none; width: calc(var(--size) * 2); height: calc(var(--size) * 2); border-radius: 12px;
-  display: grid; place-items: center; color: #ffffff; font-family: var(--st-font); font-size: calc(var(--size) * 1.25);
+  display: grid; place-items: center; color: #ffffff; font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: calc(var(--size) * 1.25);
 }
 .stage-canvas .gr-n.c0 { background: var(--st-c2); }
 .stage-canvas .gr-n.c1 { background: var(--st-c1); }

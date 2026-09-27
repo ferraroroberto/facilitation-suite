@@ -79,7 +79,7 @@
 }
 
 .stage-canvas .mp-side { width: 380px; flex: none; display: flex; flex-direction: column; gap: 20px; }
-.stage-canvas .mp-big { display: flex; align-items: flex-end; gap: 14px; font-family: var(--st-font); font-size: 150px; line-height: 0.9; color: var(--st-c1); }
+.stage-canvas .mp-big { display: flex; align-items: flex-end; gap: 14px; font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: 150px; line-height: 0.9; color: var(--st-c1); }
 .stage-canvas .mp-big svg { width: 54px; height: 54px; margin-bottom: 14px; color: var(--st-muted); }
 .stage-canvas .mp-sub { display: flex; align-items: center; gap: 10px; font-size: 40px; color: var(--st-muted); }
 .stage-canvas .mp-sub svg { width: 38px; height: 38px; }

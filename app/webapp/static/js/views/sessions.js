@@ -6,6 +6,7 @@ import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
+import { applySessionTheme } from '/static/js/stage-render.js';
 
 let root;
 let ctx;
@@ -225,6 +226,8 @@ async function renderDetail() {
   plan.querySelector('[data-edit-plan]').addEventListener('click', () => ctx.goTo('plan'));
   top.appendChild(plan);
 
+  detailEl.appendChild(fontCard(sid, s));
+
   // -- readiness
   const ready = document.createElement('div');
   ready.className = 'card ready-card';
@@ -242,6 +245,58 @@ async function renderDetail() {
     `<a class="button-primary go-primary" href="/presenter?session=${encodeURIComponent(sid)}" target="fs-presenter">${icon('monitor')} Open presenter</a>` +
     `<a class="button-tint go-secondary" href="/stage" target="fs-stage">${icon('presentation')} Open stage window</a>`;
   detailEl.appendChild(go);
+}
+
+// -- stage font: a font file on this PC and how thick its lines are drawn
+function fontCard(sid, s) {
+  const font = s.font || { file: '', stroke_px: 0 };
+  const file = (font.file || '').trim();
+  const name = file ? file.split(/[\\/]/).pop() : '';
+  const stroke = Number(font.stroke_px) || 0;
+  applySessionTheme(sid, s.theme, JSON.stringify(font));
+  const card = document.createElement('div');
+  card.className = 'card font-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('type')} Stage font</h3>` +
+    `<span class="card-head-meta">${file ? esc(name) : 'Patrick Hand (theme)'}</span></div>` +
+    `<div class="font-sample-host"><div class="stage-canvas font-sample" style="--st-font-stroke:${stroke}px">` +
+    `<h1 class="st-question">Hello, group!</h1></div></div>` +
+    (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '<p class="muted small">Questions, answers and titles on the stage use this font. Pick an .otf, .ttf or .woff file on this PC.</p>') +
+    `<label class="font-stroke"><span class="small">Line thickness</span>` +
+    `<input type="range" min="0" max="6" step="0.25" value="${stroke}" aria-label="Line thickness in stage px">` +
+    `<output class="mono small">${stroke} px</output></label>` +
+    `<div class="row-actions"><button type="button" class="button-surface" data-font-pick>${icon('folder-open')} ${file ? 'Change font…' : 'Choose font…'}</button>` +
+    (file ? `<button type="button" class="button-ghost" data-font-clear>Use Patrick Hand</button>` : '') + `</div>`;
+  const sample = card.querySelector('.font-sample');
+  const range = card.querySelector('input[type=range]');
+  const out = card.querySelector('output');
+  const saveFont = async (next) => {
+    const session = Object.assign({}, s, { font: next });
+    if (!next.file && !next.stroke_px) delete session.font;
+    try {
+      await api(`/api/sessions/${sid}`, { method: 'PUT', body: { session } });
+      s.font = session.font;
+      return true;
+    } catch (e) { toast(e.message, 'error'); return false; }
+  };
+  range.addEventListener('input', () => {
+    out.textContent = `${range.value} px`;
+    sample.style.setProperty('--st-font-stroke', `${range.value}px`);
+  });
+  range.addEventListener('change', async () => {
+    if (await saveFont({ file, stroke_px: Number(range.value) })) toast(`Line thickness ${range.value} px saved`);
+  });
+  card.querySelector('[data-font-pick]').addEventListener('click', async () => {
+    let picked;
+    try { picked = await api('/api/pick', { method: 'POST', body: { kind: 'font' } }); } catch (e) { toast(e.message, 'error'); return; }
+    if (!picked.path) return;
+    if (await saveFont({ file: picked.path, stroke_px: Number(range.value) })) { toast('Stage font saved'); renderDetail(); }
+  });
+  const clear = card.querySelector('[data-font-clear]');
+  if (clear) clear.addEventListener('click', async () => {
+    if (await saveFont({ file: '', stroke_px: Number(range.value) })) renderDetail();
+  });
+  return card;
 }
 
 function readyRow(c) {

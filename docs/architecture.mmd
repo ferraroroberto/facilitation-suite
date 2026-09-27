@@ -81,6 +81,8 @@ flowchart LR
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
   sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]
   sessr --> ready["src/sessions/readiness.py"]
+  sessr --> stheme["src/sessions/theme.py<br/>stage font → theme.css · /font"]
+  stheme --> themes
   store --> ledger[("sessions.local.yaml")]
   store --> folder[("session folder<br/>session.yaml · slides/ · live/ · exports/")]
   appv --> pages

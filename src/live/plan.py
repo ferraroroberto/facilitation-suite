@@ -13,7 +13,7 @@ from typing import Any, Optional
 
 from src.activities.registry import editors
 from src.config import DEFAULT_PROFILES
-from src.sessions.model import Session
+from src.sessions.model import THEME_FONT, Session
 
 # Camera zones as fractions of the 1920×1080 canvas (x0, y0, x1, y1): the
 # defaults; Settings can move them (config "profiles", passed in as ``zones``).
@@ -69,7 +69,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "title": display_title(it, slide, types),
                 "question": it.question,
                 "chat_prompt": it.chat_prompt,
-                "font": (it.font.model_dump() if it.font else {"family": "Patrick Hand", "size_px": 72}),
+                "font": (it.font.model_dump() if it.font else {"family": THEME_FONT, "size_px": 72}),
                 "options": it.options,
                 "notes": (slide or {}).get("notes", "") if it.kind == "slide" else "",
                 "slide_file": (slide or {}).get("file") if slide else None,
