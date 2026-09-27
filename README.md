@@ -47,6 +47,7 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 
 Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the Windows file dialog on this PC). PowerPoint desktop exports every slide to a 1920×1080 PNG through COM, from a read-only copy of the deck, in its own process with a 5-minute timeout. Each slide keeps PowerPoint's own SlideID, title, notes and fingerprints (image dHash + title/notes hashes) in `slides/slides.json`.
 
+- **Slide text in the stage font.** A slide's plain text shapes (not grouped, not rotated, not in a table) are also recorded — position, size, colour, alignment — and the slide is exported a second time without them (`slide-<id>-bg.png`). The stage draws that picture and the text on top in the session's lettering (font, weight, thickness, capitals), shrinking a box if the font runs wider than PowerPoint's. Per slide, the Plan tab can keep **As in PowerPoint** (the original picture) or set the text's own font and capitals. Decks imported before this need one re-import (nothing to review; **Apply** adds the text layer).
 - **OBS profile per slide** comes from where the slide reserves the camera: a flat grey box (or empty area) on the right → *Camera strip*; a small box top-right → *Camera PiP*; nothing reserved → *Screen only*. A notes line `[obs: pip|strip|screen]` overrides it; an unsure slide stays unset and is flagged.
 - **First import builds the plan:** PowerPoint sections when the deck has them, otherwise a new section at every title-only divider slide. Placeholder slides become plan items: a slide titled `activity – <question>` (or the older `streamalive N – <question>`) becomes an activity (map / scale / word cloud guessed from the words), `breakout – <title>` a break, `mentimeter …` a skipped slide.
 - **Re-import changes nothing until you review it.** The export waits in `slides/incoming/` and the Plan tab opens the review: slides are matched by SlideID first, then — for a slide PowerPoint re-created with a new id — by image and text fingerprints, and each one is *identical*, *modified* (image, title or notes — it says which, "Notes changed · 2 lines added"), *new*, *removed* or *moved* (the fewest moves that explain the new order), with the old and new picture side by side. Every change has its own switch; **Apply** does only those. An activity stays anchored to the slide before it: a moved slide takes its activities along, and when a slide is removed its activities follow the previous surviving slide (the review says which). A declined change keeps the old picture/title (modified), keeps the slide (removed), keeps the plan order (moved) or leaves the slide out (new — the next re-import offers it again). **Back** leaves the review waiting (a banner in the Plan tab); **Cancel** throws the export away.
@@ -67,13 +68,17 @@ Type `\n` in a question or title where the line should break on the stage; lists
 
 Select several items as in a file manager — **Ctrl+click** adds or removes one, **Shift+click** selects a range (Ctrl+Shift+click adds it), **Shift+↑/↓** extends, **Ctrl+A** selects all, **Esc** keeps one — and the editor becomes a bulk panel: one OBS profile or **In this session** for all of them, **Duplicate** or **Delete**. Dragging any selected item moves the whole selection; **Delete** on the keyboard deletes it. Deleting an imported slide only takes it out of the plan: it stays in the deck, and **Add slide or activity → Slide from the deck** brings it back.
 
-**Stage font** (Sessions tab): **Choose font…** picks an `.otf`, `.ttf` or `.woff` file on this PC (your own handwriting font, say) for every question, answer and title on the stage, and **Line thickness** thickens its lines, in stage pixels (a stroke under the letters, so they keep their shape). Both go into `session.yaml`:
+**Stage font** (Sessions tab) — the lettering of every question, answer, title and slide text on the stage: the **font** (Patrick Hand, a font installed on this PC, or **Font file…** — an `.otf`, `.ttf` or `.woff` on this PC, your own handwriting font, say), its **weight** (regular / bold), **line thickness** in stage pixels (a stroke under the letters, so they keep their shape) and **capitals** (ALL CAPS or as typed, for questions and titles). They go into `session.yaml`:
 
 ```yaml
 font:
-  file: C:/Users/you/Fonts/MyHand-Regular.otf
+  file: C:/Users/you/Fonts/MyHand-Regular.otf   # else family: Georgia
+  weight: 400
   stroke_px: 1.5
+  caps: true
 ```
+
+Every item follows it; an item's own **font** row in the Plan tab (font, size, capitals — "as the session" by default) is the exception for that item only.
 
 The file stays where it is (keep it on this PC — the readiness list warns if it goes missing, and the stage then falls back to Patrick Hand); it is served to the stage, the presenter's previews, the phone remote and the frozen captures from `/api/sessions/<id>/font`.
 
@@ -94,7 +99,7 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 
 The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there.
 
-The live position, clocks and timers are mirrored to `live/state.json` (a restarted server resumes where it was) and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; the hint under activities ("Write your answer in the Zoom chat") is set per session in **Session details**.
+The live position, clocks and timers are mirrored to `live/state.json` (a restarted server resumes where it was) and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; **Session details** sets the session's **language on the stage** (English or Español: the words the stage says by itself — the hint under activities, "Write your answer in the chat" / "Escribe tu respuesta en el chat", default titles such as "Break" / "Descanso", the breakout rounds and room counts) and, optionally, a hint of your own instead of the language's.
 
 ## Activities and captures
 

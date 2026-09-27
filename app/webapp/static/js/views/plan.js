@@ -16,6 +16,7 @@ import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
 import { createStage, applySessionTheme } from '/static/js/stage-render.js';
+import { words } from '/static/js/stage-words.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -60,8 +61,10 @@ function slideOf(it) { return it.kind === 'slide' ? st.slides.get(it.slide_id) :
 function titleOf(it) {
   if (it.title) return it.title;
   if (it.kind === 'slide') { const s = slideOf(it); return s ? s.title : `Slide ${it.slide_id}`; }
-  if (it.kind === 'activity') return it.question || (st.types[it.type] || {}).label || 'Activity';
-  return 'Break';
+  // Default titles are the stage's words, in the session's language (as src/live/plan.py).
+  const w = words(st.session && st.session.language);
+  if (it.kind === 'activity') return it.question || (it.type === 'groups_reveal' ? w.reveal : (st.types[it.type] || {}).label) || 'Activity';
+  return w.break;
 }
 
 /** The title on one line, for the list and the editor ("\n" breaks it only on the stage). */
@@ -595,7 +598,7 @@ function addItem(si, kind) {
   const sec = st.session.sections[si];
   const item = kind === 'activity'
     ? { kind: 'activity', id: newId('act'), type: 'word_cloud', question: '', chat_prompt: '', profile: 'camera_pip', options: {} }
-    : { kind: 'break', id: newId('brk'), title: 'Break', profile: 'camera_strip' };
+    : { kind: 'break', id: newId('brk'), title: '', profile: 'camera_strip' };
   const selectedPos = sec.items.findIndex((x) => x.id === st.selected);
   sec.items.splice(selectedPos >= 0 ? selectedPos + 1 : sec.items.length, 0, item);
   st.selected = st.anchor = item.id;
@@ -795,27 +798,20 @@ function renderEditor() {
     if (spec.capture !== false) {
       form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
       form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
-      const font = it.font || { family: 'theme', size_px: 72 };
-      const fam = document.createElement('select');
-      fam.className = 'select-native';
-      fam.setAttribute('aria-label', 'Question font');
-      FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
-      fam.addEventListener('change', () => { it.font = Object.assign({}, it.font || font, { family: fam.value }); markDirty(); updatePreview(it); });
-      const size = input(font.size_px, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) { it.font = Object.assign({}, it.font || font, { size_px: n }); markDirty(); updatePreview(it); } }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
-      size.classList.add('size-input');
-      const fontRow = document.createElement('div');
-      fontRow.className = 'inline-controls';
-      fontRow.append(fam, size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
-      form.appendChild(field('Question font', fontRow));
+      form.appendChild(fontField(it, 'Question font', 72));
       form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
+    } else {
+      form.appendChild(fontField(it, 'Title font', 72));
     }
   } else {
-    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : 'Break';
+    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language).break;
     form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
     const hint = document.createElement('p');
     hint.className = 'ed-hint';
     hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
     form.lastChild.querySelector('.ed-control').appendChild(hint);
+    if (it.kind === 'break') form.appendChild(fontField(it, 'Title font', 120));
+    if (it.kind === 'slide') slideTextFields(form, it);
   }
 
   form.appendChild(field('OBS profile', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'OBS profile')));
@@ -953,6 +949,70 @@ function renderBulk() {
   form.appendChild(save);
 }
 
+/**
+ * An item's own lettering — font, size (stage px on the 1920-wide canvas; none
+ * for a slide's text, which keeps its PowerPoint sizes) and capitals. Each
+ * starts as the session's (Sessions → Stage font): setting one here is the
+ * exception for this item only.
+ */
+function fontField(it, label, defaultSize) {
+  const font = it.font || { family: 'theme', size_px: defaultSize || 72 };
+  const set = (change) => {
+    it.font = Object.assign({ family: 'theme', size_px: defaultSize || 72 }, it.font, change);
+    markDirty();
+    updatePreview(it);
+  };
+  const row = document.createElement('div');
+  row.className = 'inline-controls font-controls';
+  const fam = document.createElement('select');
+  fam.className = 'select-native';
+  fam.setAttribute('aria-label', label);
+  FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
+  fam.addEventListener('change', () => set({ family: fam.value }));
+  row.appendChild(fam);
+  if (defaultSize) {
+    const size = input(font.size_px || defaultSize, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
+    size.classList.add('size-input');
+    row.append(size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
+  }
+  const sessionCaps = !(st.session.font && st.session.font.caps === false);
+  const caps = document.createElement('select');
+  caps.className = 'select-native';
+  caps.setAttribute('aria-label', 'Capitals');
+  [['', `Capitals as the session (${sessionCaps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']].forEach(([v, l]) => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = l;
+    o.selected = v === (font.caps === true ? 'caps' : font.caps === false ? 'typed' : '');
+    caps.appendChild(o);
+  });
+  caps.addEventListener('change', () => set({ caps: caps.value === 'caps' ? true : caps.value === 'typed' ? false : null }));
+  row.appendChild(caps);
+  return field(label, row);
+}
+
+/** A slide's text: drawn by the stage in the session's lettering (the default), or PowerPoint's picture. */
+function slideTextFields(form, it) {
+  const s = slideOf(it);
+  if (!s) return;
+  if (!s.boxes || !s.bg_file) {
+    if ((s.texts || []).length) {
+      form.appendChild(field('Slide text', '<p class="ed-hint">Shown as PowerPoint drew it. Re-import the PowerPoint to draw this slide\'s text in the stage font.</p>'));
+    }
+    return;
+  }
+  const live = it.live_text !== false;
+  form.appendChild(field('Slide text', rangeTabs([['live', 'In the stage font'], ['image', 'As in PowerPoint']], live ? 'live' : 'image', (v) => {
+    it.live_text = v === 'image' ? false : null;
+    markDirty();
+    renderEditor();
+  }, 'Slide text'), 'with-hint'));
+  form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">${live
+    ? `${s.boxes.length} text box${s.boxes.length === 1 ? '' : 'es'} drawn in the session's lettering, where PowerPoint had them.`
+    : 'The slide exactly as PowerPoint drew it.'}</p>`);
+  if (live) form.appendChild(fontField(it, 'Text font', null));
+}
+
 /** The presenter's notes. A slide starts from its PowerPoint notes; editing them keeps the deck as it is. */
 function notesField(it) {
   const deck = it.kind === 'slide' ? ((slideOf(it) || {}).notes || '') : '';
@@ -1045,11 +1105,12 @@ function runItem(it) {
   return {
     id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
     capture: it.kind === 'activity' && spec.capture !== false,
-    title: titleOf(it), question: it.question || (it.kind === 'activity' ? 'Your question here' : ''),
+    title: titleOf(it), question: it.question || (it.kind === 'activity' ? words(st.session.language).question : ''),
     font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
     ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
+    ...(s && s.bg_file && s.boxes && it.live_text !== false ? { slide_bg: s.bg_file, text_boxes: s.boxes } : {}),
   };
 }
 
@@ -1058,7 +1119,7 @@ function updatePreview(it) {
   if (!frame) return;
   if (!pv || pv.frame !== frame) pv = { frame, stage: createStage(frame, { guides: true, slideGuides: true }) };
   const item = runItem(it);
-  const plan = { rev: 0, active: true, session: { id: st.sid }, run: { chat_hint: st.session.chat_hint, theme: st.session.theme } };
+  const plan = { rev: 0, active: true, session: { id: st.sid }, run: { chat_hint: st.session.chat_hint, language: st.session.language, theme: st.session.theme } };
   const opts = Object.assign({}, ...((st.types[item.type] || {}).options || []).map((o) => ({ [o.key]: o.default })), item.options);
   const key = JSON.stringify([item.type, item.options]);
   const draw = () => pv.stage.render(item, {

@@ -7,6 +7,12 @@ be open for editing, and a read-only open of a locked file can raise a modal
 prompt that would hang the automation), then for every slide writes
 ``slide-<SlideID>.png`` at 1920×1080 and one ``export.json`` with the slide's
 SlideID, index, title, notes, texts, picture count and background colour.
+
+A slide with plain text shapes also gets ``slide-<SlideID>-bg.png`` — the
+same slide with those shapes hidden — and their ``boxes`` (position and size
+in points, text, size, colour, alignment), so the stage can draw that text
+itself in the session's font. Text inside groups, tables or rotated shapes
+stays in the picture.
 Progress lines ``PROGRESS <i> <n>`` go to stdout. PowerPoint is quit only when
 this process started it (no other presentation open).
 
@@ -32,6 +38,41 @@ def _text(shape: Any) -> str:
     except Exception:  # noqa: BLE001 — COM raises on shapes without the property
         pass
     return ""
+
+
+TEXT_SHAPES = (1, 14, 17)  # msoAutoShape, msoPlaceholder, msoTextBox
+_ALIGN = {1: "left", 2: "center", 3: "right", 4: "justify", 5: "justify"}
+_ANCHOR = {1: "top", 2: "top", 3: "middle", 4: "bottom", 5: "bottom"}
+
+
+def _rgb(bgr: int) -> str:
+    return f"#{bgr & 0xFF:02x}{(bgr >> 8) & 0xFF:02x}{(bgr >> 16) & 0xFF:02x}"
+
+
+def _box(shape: Any) -> dict[str, Any] | None:
+    """A plain, unrotated text shape as a box the stage can redraw; else None."""
+    try:
+        if int(shape.Type) not in TEXT_SHAPES or float(shape.Rotation) != 0 or not _text(shape):
+            return None
+        tf = shape.TextFrame
+        tr = tf.TextRange
+        lines = []
+        for i in range(1, int(tr.Paragraphs().Count) + 1):
+            p = tr.Paragraphs(i)
+            text = str(p.Text).replace("\r", "").replace("\x0b", "\n")
+            bullet = text.strip() and int(p.ParagraphFormat.Bullet.Visible) == -1
+            lines.append(("• " if bullet else "") + text)
+        run = tr.Runs(1).Font
+        return {
+            "x": float(shape.Left), "y": float(shape.Top), "w": float(shape.Width), "h": float(shape.Height),
+            "text": "\n".join(lines).strip("\n"), "size": float(run.Size), "bold": int(run.Bold) == -1,
+            "italic": int(run.Italic) == -1, "color": _rgb(int(run.Color.RGB)),
+            "align": _ALIGN.get(int(tr.Paragraphs(1).ParagraphFormat.Alignment), "left"),
+            "anchor": _ANCHOR.get(int(tf.VerticalAnchor), "top"),
+            "pad": [float(tf.MarginTop), float(tf.MarginRight), float(tf.MarginBottom), float(tf.MarginLeft)],
+        }
+    except Exception:  # noqa: BLE001 — COM raises on shapes without these properties: leave it in the picture
+        return None
 
 
 def _notes(slide: Any) -> str:
@@ -100,11 +141,15 @@ def export(deck: Path, out_dir: Path) -> int:
                     title = _text(slide.Shapes.Title)
             except Exception:  # noqa: BLE001
                 pass
-            texts, pictures = [], 0
+            texts, pictures, boxes, boxed = [], 0, [], []
             for sh in slide.Shapes:
                 t = _text(sh)
                 if t:
                     texts.append(t)
+                box = _box(sh)
+                if box:
+                    boxes.append(box)
+                    boxed.append(sh)
                 try:
                     if int(sh.Type) in (13, 11):  # msoPicture, msoLinkedPicture
                         pictures += 1
@@ -125,9 +170,21 @@ def export(deck: Path, out_dir: Path) -> int:
             except Exception as exc:  # noqa: BLE001
                 print(f"ERROR export of slide {idx} failed: {exc}", flush=True)
                 return 4
+            bg_file = None
+            if boxes:
+                # the same slide without its text boxes (the copy is never saved)
+                try:
+                    for sh in boxed:
+                        sh.Visible = 0
+                    bg_file = f"slide-{sid}-bg.png"
+                    slide.Export(str(out_dir / bg_file), "PNG", 1920, 1080)
+                except Exception as exc:  # noqa: BLE001 — the slide keeps its text in the picture
+                    print(f"WARN no text-free picture for slide {idx}: {exc}", flush=True)
+                    bg_file, boxes = None, []
             slides.append({
                 "slide_id": sid, "index": idx, "title": title, "notes": _notes(slide), "texts": texts,
                 "pictures": pictures, "background": background, "hidden": hidden, "file": file,
+                **({"bg_file": bg_file, "boxes": boxes} if bg_file else {}),
             })
             print(f"PROGRESS {idx} {n}", flush=True)
         meta = {

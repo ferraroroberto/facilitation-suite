@@ -23,7 +23,10 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     stage = stage_ctx.new_page()
     stage.on("pageerror", lambda e: errors.append(str(e)))
     stage.goto(f"{webapp.base_url}/stage")
-    expect(stage.locator(".st-slide")).to_have_attribute("src", f"/api/sessions/{sid}/slides/slide-101.png")
+    # the opening divider: its text-free picture, and its title drawn in the stage font
+    expect(stage.locator(".st-slide")).to_have_attribute("src", f"/api/sessions/{sid}/slides/slide-101-bg.png")
+    expect(stage.locator(".st-tbox")).to_have_text("Welcome to the workshop")
+    assert "Patrick Hand" in stage.locator(".st-tbox").evaluate("e => getComputedStyle(e).fontFamily")
     expect(page.locator(".p-chips")).to_contain_text("Stage · 1280×720")
 
     # → on the presenter moves the stage to the map activity (camera PiP, question on stage)

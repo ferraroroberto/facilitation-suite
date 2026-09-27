@@ -18,6 +18,9 @@
      fill, so each line grows by half of it on either side. session.yaml →
      font sets both (/api/sessions/<id>/theme.css). */
   --st-font-stroke: 0px;
+  /* The session's weight (session.yaml → font.weight) and capitals for
+     questions and titles (font.caps false → none). */
+  --st-font-weight: 400;
   --st-ui-font: system-ui, "Segoe UI", Roboto, sans-serif;
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
@@ -37,26 +40,46 @@
 
 .stage-canvas .st-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 
-/* The content rectangle avoids the camera zone of the item's profile. */
+/* A slide's own text, drawn over its text-free picture in the session's
+   lettering (position, size, colour and alignment from PowerPoint). */
+.stage-canvas .st-slide-text { position: absolute; inset: 0; pointer-events: none; }
+.stage-canvas .st-tbox {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  text-transform: var(--st-question-transform);
+  line-height: 1.15;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.stage-canvas .st-tbox span { display: block; }
+
+/* The content rectangle avoids the camera zone of the item's profile: the
+   stage sets these from the zone (Settings → profiles) — --st-right/--st-left
+   beside a tall zone, --st-head-right/--st-head-min around a corner box. */
 .stage-canvas .st-content {
   position: absolute;
-  left: 110px;
+  left: var(--st-left, 110px);
   top: 80px;
-  right: 110px;
+  right: var(--st-right, 110px);
   bottom: 60px;
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
-.stage-canvas [data-profile="camera_strip"] .st-content { right: 860px; }
-.stage-canvas [data-profile="camera_pip"] .st-head { max-width: 1220px; min-height: 250px; }
+.stage-canvas .st-head { margin-right: var(--st-head-right, 0px); min-height: var(--st-head-min, 0px); }
 
 .stage-canvas .st-question {
   margin: 0;
   font-family: var(--st-font);
   -webkit-text-stroke: var(--st-font-stroke) currentColor;
   paint-order: stroke fill;
-  font-weight: 400;
+  font-weight: var(--st-font-weight);
   line-height: 1.12;
   text-transform: var(--st-question-transform);
   overflow-wrap: anywhere;
@@ -66,6 +89,8 @@
   font-family: var(--st-font);
   -webkit-text-stroke: var(--st-font-stroke) currentColor;
   paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  text-transform: var(--st-question-transform);
   font-size: 44px;
   line-height: 1.1;
   color: var(--st-muted);
@@ -113,7 +138,16 @@
   gap: 24px;
   text-align: center;
 }
-.stage-canvas .st-break-title { margin: 0; font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: 120px; line-height: 1; }
+.stage-canvas .st-break-title {
+  margin: 0;
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  text-transform: var(--st-question-transform);
+  font-size: 120px;
+  line-height: 1;
+}
 .stage-canvas .st-break-clock {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 200px;

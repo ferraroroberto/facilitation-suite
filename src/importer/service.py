@@ -5,7 +5,9 @@ process with a timeout, reports progress, then:
 
 1. moves the PNGs into ``slides/`` and writes ``slides/slides.json`` — per
    slide: SlideID, index, title, notes, fingerprints and the detected OBS
-   profile;
+   profile; a slide with plain text also keeps its text-free picture
+   (``slide-<id>-bg.png``) and its text boxes in stage pixels, so the stage
+   can draw that text in the session's font;
 2. updates ``session.yaml``:
    - **first import** (empty plan): builds sections — PowerPoint sections
      when the deck has them, else a new section at every title-only divider
@@ -140,6 +142,26 @@ def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None]
     return json.loads((out_dir / "export.json").read_text(encoding="utf-8"))
 
 
+def stage_boxes(boxes: list[dict[str, Any]], width_pt: float, height_pt: float) -> list[dict[str, Any]]:
+    """PowerPoint text boxes (points) → the stage's 1920×1080 pixels."""
+    kx, ky = 1920 / (width_pt or 960), 1080 / (height_pt or 540)
+    out = []
+    for b in boxes:
+        top, right, bottom, left = (b.get("pad") or [3.6, 7.2, 3.6, 7.2])[:4]
+        out.append({
+            "x": round(b["x"] * kx, 1), "y": round(b["y"] * ky, 1), "w": round(b["w"] * kx, 1), "h": round(b["h"] * ky, 1),
+            "text": b["text"], "size": round(b["size"] * kx, 1), "color": b.get("color") or "#1f1f1f",
+            "align": b.get("align") or "left", "anchor": b.get("anchor") or "top",
+            "pad": [round(top * ky, 1), round(right * kx, 1), round(bottom * ky, 1), round(left * kx, 1)],
+        })
+    return out
+
+
+def files_of(s: dict[str, Any]) -> list[str]:
+    """A slide's picture files: the slide, and its text-free picture when it has one."""
+    return [s["file"]] + ([s["bg_file"]] if s.get("bg_file") else [])
+
+
 def build_slides_meta(export: dict[str, Any], slides_dir: Path, deck: Path) -> dict[str, Any]:
     slides = []
     for s in export["slides"]:
@@ -153,6 +175,8 @@ def build_slides_meta(export: dict[str, Any], slides_dir: Path, deck: Path) -> d
             "fp": {"image": dhash(png), "title": text_hash(s.get("title", "")), "notes": text_hash(s.get("notes", ""))},
             "profile": guess.profile, "profile_source": guess.source, "zone": guess.zone,
             "placeholder": classify_placeholder(s.get("title", "")),
+            **({"bg_file": s["bg_file"], "boxes": stage_boxes(s["boxes"], export.get("slide_width", 960), export.get("slide_height", 540))}
+               if s.get("bg_file") and s.get("boxes") and (slides_dir / s["bg_file"]).is_file() else {}),
         })
     return {
         "source": str(deck), "imported_at": datetime.now().replace(microsecond=0).isoformat(),
@@ -264,12 +288,13 @@ class Importer:
                 job.message = "Analysing slides…"
                 target.mkdir(parents=True, exist_ok=True)
                 if first:
-                    keep = {s["file"] for s in export["slides"]}
+                    keep = {f for s in export["slides"] for f in files_of(s)}
                     for old in slides_dir.glob("slide-*.png"):
                         if old.name not in keep:
                             old.unlink()
                 for s in export["slides"]:
-                    shutil.copy2(out / s["file"], target / s["file"])
+                    for name in files_of(s):
+                        shutil.copy2(out / name, target / name)
             meta = build_slides_meta(export, target, Path(job.deck))
             (target / "slides.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
             unsure = sum(1 for s in meta["slides"] if s["profile"] is None and not s.get("placeholder"))

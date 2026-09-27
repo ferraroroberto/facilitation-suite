@@ -3,36 +3,57 @@
 // The rooms come with the item (groups.yaml, via the live run) — no capture.
 
 import { esc } from '/static/js/ui.js';
-
-const ROUND = { pairs: 'Pairs', g4a: 'Groups of 4 · A', g4b: 'Groups of 4 · B' };
+import { words } from '/static/js/stage-words.js';
 
 /** Under the title: the round and how many rooms — it follows the round picked in the plan. */
-export function subtitle(item) {
+export function subtitle(item, lang) {
+  const w = words(lang);
   const round = (item.options || {}).round || 'pairs';
   const n = (item.rooms || []).length;
-  return `${ROUND[round] || round}${n ? ` · ${n} rooms` : ''}`;
+  return `${w.rounds[round] || round}${n ? ` · ${w.rooms(n)}` : ''}`;
 }
 
-/** The largest type (30px down to 14px) at which the whole grid fits the body. */
-function fit(body) {
-  const grid = body.querySelector('.gr');
-  if (!grid || !body.clientHeight) return; // not laid out yet: the observer calls again
+/** Does the grid spill out of the body, or cut a name short? */
+function overflows(grid, body) {
+  return grid.scrollHeight > body.clientHeight + 1 ||
+    [...grid.querySelectorAll('.gr-names span')].some((s) => s.scrollWidth > s.clientWidth + 1);
+}
+
+/** The largest type (30px down to 14px) at which the grid fits with `cols` columns. */
+function largest(grid, body, cols) {
+  grid.style.setProperty('--cols', cols);
   let size = 30;
   grid.style.setProperty('--size', `${size}px`);
-  while (grid.scrollHeight > body.clientHeight + 1 && size > 14) {
+  while (overflows(grid, body) && size > 14) {
     size -= 2;
     grid.style.setProperty('--size', `${size}px`);
   }
+  return size;
+}
+
+/**
+ * The column count giving the largest type: the room the camera zone leaves
+ * (full width, or beside the strip) decides it, not only the number of rooms.
+ */
+function fit(body) {
+  const grid = body.querySelector('.gr');
+  if (!grid || !body.clientHeight) return; // not laid out yet: the observer calls again
+  const most = Math.max(1, Math.min(4, Math.floor(body.clientWidth / 280), grid.children.length));
+  let best = { size: 0, cols: 1 };
+  for (let cols = 1; cols <= most; cols += 1) {
+    const size = largest(grid, body, cols);
+    if (size >= best.size) best = { size, cols }; // a tie takes more columns: shorter lists read faster
+  }
+  largest(grid, body, best.cols);
 }
 
 export function render(body, result, ctx) {
   const rooms = (ctx.item && ctx.item.rooms) || [];
   if (!rooms.length) {
-    body.innerHTML = '<div class="gr-empty">Shuffle the groups in the Groups tab first.</div>';
+    body.innerHTML = `<div class="gr-empty">${esc(words(ctx.lang).no_rooms)}</div>`;
     return;
   }
-  const cols = rooms.length > 12 ? 4 : rooms.length > 6 ? 3 : 2;
-  body.innerHTML = `<div class="gr" style="--cols:${cols}">` + rooms.map((names, i) =>
+  body.innerHTML = '<div class="gr">' + rooms.map((names, i) =>
     `<div class="gr-room"><span class="gr-n c${i % 4}">${i + 1}</span>` +
     `<div class="gr-names">${names.map((n) => `<span>${esc(n)}</span>`).join('')}</div></div>`).join('') + '</div>';
   if (!body._grObserver) {

@@ -241,3 +241,8 @@ def test_real_powerpoint_export(tmp_path: Path) -> None:
     with Image.open(tmp_path / "out" / export["slides"][0]["file"]) as im:
         assert im.size == (1920, 1080)
     assert json.loads((tmp_path / "out" / "export.json").read_text(encoding="utf-8"))["slides"]
+    # the title is plain text: a text-free picture and its box, for the stage font
+    first = export["slides"][0]
+    assert first["bg_file"] == first["file"].replace(".png", "-bg.png") and (tmp_path / "out" / first["bg_file"]).is_file()
+    assert [b["text"] for b in first["boxes"]] == ["Opening"] and first["boxes"][0]["size"] > 0
+    assert dhash(tmp_path / "out" / first["file"]) != dhash(tmp_path / "out" / first["bg_file"])  # the text is gone from it

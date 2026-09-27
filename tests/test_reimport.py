@@ -211,3 +211,34 @@ def test_reimport_waits_for_review_then_applies(client, tmp_path: Path) -> None:
     assert client.get(f"/api/sessions/{sid}/reimport").json()["pending"] is True
     assert client.delete(f"/api/sessions/{sid}/reimport").json() == {"pending": False}
     assert [s["slide_id"] for s in client.get(f"/api/sessions/{sid}/slides").json()["slides"]] == [1, 2, 3, 9, 4, 70, 8, 6, 10]
+
+
+def test_a_reimport_brings_the_slide_text_layer(tmp_path: Path) -> None:
+    # A deck imported before the text layer existed: re-importing it unchanged adds
+    # each slide's text-free picture and text boxes, and never deletes them.
+    folder = tmp_path / "session"
+    deck = [{"id": 1, "art": "a", "title": "Slide 1"}, {"id": 2, "art": "b", "title": "Slide 2"}]
+    old = _meta(folder / "slides", deck)
+    (folder / "slides" / "slides.json").write_text(json.dumps(old), encoding="utf-8")
+    inc = folder / "slides" / INCOMING
+    inc.mkdir(parents=True)
+    slides = []
+    for i, s in enumerate(deck, start=1):
+        _draw(inc / f"slide-{s['id']}.png", s["art"])
+        _draw(inc / f"slide-{s['id']}-bg.png", s["art"])
+        slides.append({"slide_id": s["id"], "index": i, "title": s["title"], "notes": "", "texts": [s["title"]],
+                       "pictures": 1, "background": "#f2f2f2", "hidden": False, "file": f"slide-{s['id']}.png",
+                       "bg_file": f"slide-{s['id']}-bg.png",
+                       "boxes": [{"x": 48, "y": 27, "w": 480, "h": 54, "text": s["title"], "size": 40, "color": "#1f1f1f",
+                                  "align": "left", "anchor": "top", "pad": [3.6, 7.2, 3.6, 7.2]}]})
+    new = build_slides_meta({"sections": [], "slides": slides, "slide_width": 960, "slide_height": 540}, inc, Path("deck.pptx"))
+    (inc / "slides.json").write_text(json.dumps(new), encoding="utf-8")
+    assert new["slides"][0]["boxes"][0] == {"x": 96.0, "y": 54.0, "w": 960.0, "h": 108.0, "text": "Slide 1", "size": 80.0,
+                                            "color": "#1f1f1f", "align": "left", "anchor": "top", "pad": [7.2, 14.4, 7.2, 14.4]}
+    session = Session(title="x")
+    session.sections = first_plan(old, 60)
+    report = diff(old, new, session)
+    assert report["changes"] == []  # the same deck: nothing to review
+    result = apply(folder, session, set())
+    assert all(s["bg_file"] == f"slide-{s['slide_id']}-bg.png" for s in result["meta"]["slides"])
+    assert (folder / "slides" / "slide-1-bg.png").is_file() and (folder / "slides" / "slide-2-bg.png").is_file()

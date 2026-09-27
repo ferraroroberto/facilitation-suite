@@ -6,6 +6,7 @@
 
 import { esc, lines } from '/static/js/ui.js';
 import { remaining } from '/static/js/live.js';
+import { words } from '/static/js/stage-words.js';
 
 export const W = 1920;
 export const H = 1080;
@@ -13,8 +14,9 @@ export const H = 1080;
 const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
 // Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx)
-// and optionally subtitle(item) — a line under the title; an optional
-// stage.css is linked once. Loaded on first use, then cached.
+// (ctx.lang: the session's language) and optionally subtitle(item, lang) — a
+// line under the title; an optional stage.css is linked once. Loaded on first
+// use, then cached.
 const plugins = {};
 export function loadPlugin(type) {
   if (!plugins[type]) {
@@ -38,6 +40,61 @@ function resultFor(item, ctx) {
   if ('result' in ctx) return ctx.result;
   const cap = ctx.state && ctx.state.capture;
   return cap && cap.item_id === item.id ? cap.result : null;
+}
+
+/**
+ * An item's own lettering as inline style — its font, size and capitals —
+ * where it sets them; the rest follows the session (theme variables).
+ */
+function lettering(f, defaultSize) {
+  f = f || {};
+  // "theme" (and the older "Patrick Hand") = the session's stage font.
+  const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
+  const size = Number(f.size_px) || defaultSize;
+  return family + (f.caps === true ? 'text-transform:uppercase;' : f.caps === false ? 'text-transform:none;' : '') + (size ? `font-size:${size}px;` : '');
+}
+
+const ANCHOR = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+
+/** A slide's text boxes (from the import), drawn over its text-free picture in the stage font. */
+function slideText(it) {
+  const own = lettering(Object.assign({}, it.font, { size_px: null }));
+  return `<div class="st-slide-text">` + it.text_boxes.map((b) =>
+    `<div class="st-tbox" data-size="${Number(b.size) || 40}" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;` +
+    `padding:${(b.pad || []).map((p) => `${Number(p) || 0}px`).join(' ')};color:${esc(b.color)};text-align:${esc(b.align)};` +
+    `justify-content:${ANCHOR[b.anchor] || 'flex-start'};font-size:${Number(b.size) || 40}px;${own}"><span>${esc(b.text)}</span></div>`).join('') +
+    '</div>';
+}
+
+/**
+ * Shrink each slide text box until its text fits (a handwriting font can run
+ * wider or taller than PowerPoint's), down to 60 % of its size.
+ */
+function fitSlideText(root) {
+  root.querySelectorAll('.st-tbox').forEach((b) => {
+    const base = Number(b.dataset.size) || 40;
+    let size = base;
+    b.style.fontSize = `${size}px`;
+    while ((b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1) && size > base * 0.6) {
+      size *= 0.94;
+      b.style.fontSize = `${size}px`;
+    }
+  });
+}
+
+/**
+ * Where an item's content goes, from its camera zone (Settings → profiles, in
+ * fractions of the canvas): a tall zone at a side keeps the content beside it;
+ * a corner box keeps the title clear of it and starts the body under it. So
+ * changing the OBS profile (or moving a zone) re-flows the stage by itself.
+ */
+function zoneStyle(zone) {
+  if (!zone) return '';
+  const [x0, y0, x1, y1] = [zone[0] * W, zone[1] * H, zone[2] * W, zone[3] * H];
+  if (y1 - y0 >= H * 0.4) {
+    return x0 >= W / 2 ? `--st-right:${Math.round(W - x0 + 60)}px;` : `--st-left:${Math.round(x1 + 60)}px;`;
+  }
+  return `--st-head-right:${Math.max(0, Math.round(W - x0 - 110 + 40))}px;--st-head-min:${Math.max(0, Math.round(y1 - 80 + 24))}px;`;
 }
 
 /** "mm:ss" for the stage clocks. */
@@ -67,6 +124,7 @@ export function createStage(host, opts = {}) {
   let plugin = null;
   let pluginFor = null;
   let lastResult;
+  let lang = 'en';
 
   function fit() {
     const w = host.clientWidth;
@@ -100,23 +158,25 @@ export function createStage(host, opts = {}) {
       return;
     }
     const sid = ctx.plan.session.id;
-    const hint = ctx.plan.run.chat_hint || 'Write your answer in the Zoom chat';
-    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}">`;
+    lang = ctx.plan.run.language || 'en';
+    const hint = ctx.plan.run.chat_hint || words(lang).chat_hint;
+    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}" style="${it.kind === 'slide' ? '' : zoneStyle(it.zone)}">`;
     if (it.kind === 'slide') {
-      html += it.slide_file
-        ? `<img class="st-slide" alt="" src="/api/sessions/${encodeURIComponent(sid)}/slides/${esc(it.slide_file)}">`
-        : `<div class="st-content"><h1 class="st-question" style="font-size:72px">${lines(it.title)}</h1></div>`;
+      const slides = `/api/sessions/${encodeURIComponent(sid)}/slides/`;
+      html += it.slide_bg && it.text_boxes
+        ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_bg)}">${slideText(it)}`
+        : it.slide_file
+          ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
+          : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(it.title)}</h1></div>`;
     } else if (it.kind === 'break') {
-      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title">${lines(it.title)}</h1>` +
+      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
         (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
     } else {
-      const f = it.font || {};
       const text = it.capture ? (it.question || it.title) : it.title;
-      // "theme" (and the older "Patrick Hand") = the session's stage font.
-      const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
+      const caps = lettering({ caps: (it.font || {}).caps });
       html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="${family}font-size:${Number(f.size_px) || 72}px">${lines(text)}</h1>` +
-        `<p class="st-sub" data-sub hidden></p></div>` +
+        `<div class="st-head"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(text)}</h1>` +
+        `<p class="st-sub" data-sub hidden style="${caps}"></p></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
@@ -130,6 +190,10 @@ export function createStage(host, opts = {}) {
     }
     html += `</div><div class="st-blackout" data-blackout hidden></div>`;
     canvas.innerHTML = html;
+    if (it.text_boxes) {
+      fitSlideText(canvas);
+      document.fonts.ready.then(() => { if (item === it) fitSlideText(canvas); });
+    }
   }
 
   let lastCtx = null;
@@ -169,14 +233,14 @@ export function createStage(host, opts = {}) {
     if (!plugin || !body) return;
     const sub = canvas.querySelector('[data-sub]');
     if (sub && plugin.subtitle) {
-      sub.textContent = plugin.subtitle(item);
+      sub.textContent = plugin.subtitle(item, lang);
       sub.hidden = !sub.textContent;
     }
     const sig = JSON.stringify([result, names]);
     if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
     lastResult = sig;
     try {
-      plugin.render(body, result, { item, names, options: item.options || {} });
+      plugin.render(body, result, { item, names, options: item.options || {}, lang });
     } catch (e) {
       console.error('stage plug-in failed', item.type, e);
     }

@@ -1,5 +1,6 @@
-"""A session's stage look on top of ``themes/default.css``: its font (session.yaml
-→ ``font``) as generated CSS, then its own ``theme.css`` from the folder.
+"""A session's stage look on top of ``themes/default.css``: its lettering
+(session.yaml → ``font``: file or installed family, weight, line thickness,
+capitals) as generated CSS, then its own ``theme.css`` from the folder.
 
 The font file stays where it is on this PC (it is named by path in
 session.yaml) and is served by ``/api/sessions/{sid}/font``; the URL carries
@@ -9,6 +10,7 @@ its modification time so a replaced file is fetched again.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -36,9 +38,15 @@ def font_file(session: Session) -> Optional[Path]:
     return path
 
 
+def _family(name: str) -> str:
+    """An installed font's name as a CSS string (quotes and escapes dropped)."""
+    return '"' + re.sub(r'["\\;{}<>]', "", name).strip() + '"'
+
+
 def font_css(session: Session, font_url: str) -> str:
-    """``@font-face`` and the stage variables for the session's font (empty when it has none)."""
-    if session.font is None:
+    """``@font-face`` and the stage variables for the session's lettering (empty when it has none)."""
+    font = session.font
+    if font is None:
         return ""
     rules: list[str] = []
     props: list[str] = []
@@ -49,8 +57,14 @@ def font_css(session: Session, font_url: str) -> str:
         rules.append(f'@font-face {{ font-family: "{FAMILY}"; src: url("{font_url}?v={version}") format("{fmt}"); '
                      "font-display: block; }")
         props.append(f'--st-font: "{FAMILY}", {FALLBACK};')
-    if session.font.stroke_px:
-        props.append(f"--st-font-stroke: {session.font.stroke_px:g}px;")
+    elif font.family.strip() and _family(font.family) != '""':
+        props.append(f"--st-font: {_family(font.family)}, {FALLBACK};")
+    if font.weight != 400:
+        props.append(f"--st-font-weight: {font.weight};")
+    if font.stroke_px:
+        props.append(f"--st-font-stroke: {font.stroke_px:g}px;")
+    if not font.caps:
+        props.append("--st-question-transform: none;")
     if props:
         rules.append(".stage-canvas { " + " ".join(props) + " }")
     return "\n".join(rules)

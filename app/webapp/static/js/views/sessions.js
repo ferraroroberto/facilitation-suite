@@ -7,6 +7,7 @@ import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
+import { words, LANGUAGES } from '/static/js/stage-words.js';
 
 let root;
 let ctx;
@@ -180,7 +181,8 @@ async function renderDetail() {
   const title = document.createElement('div');
   title.className = 'detail-title';
   const when = s.date ? `${fmtDate(s.date)} · ${timeRange(s.date, s.duration_minutes)}` : 'No date yet';
-  title.innerHTML = `<h1>${esc(s.title)}</h1><p class="muted">${esc(when)} · ${fmtMinutes(s.duration_minutes)} planned</p>` +
+  const language = (LANGUAGES.find(([k]) => k === s.language) || LANGUAGES[0])[1];
+  title.innerHTML = `<h1>${esc(s.title)}</h1><p class="muted">${esc(when)} · ${fmtMinutes(s.duration_minutes)} planned · ${esc(language)} on stage</p>` +
     `<button type="button" class="button-surface" data-edit-meta>${icon('pencil')} Edit</button>`;
   title.querySelector('[data-edit-meta]').addEventListener('click', () => editMeta(sid, s));
   detailEl.appendChild(title);
@@ -247,54 +249,83 @@ async function renderDetail() {
   detailEl.appendChild(go);
 }
 
-// -- stage font: a font file on this PC and how thick its lines are drawn
+// -- stage lettering: the font (a file on this PC or an installed one), its
+// weight and line thickness, and capitals — every item follows it unless it
+// sets its own in the Plan tab.
+const STAGE_FONTS = [
+  ['', 'Patrick Hand (theme)'],
+  ['system-ui', 'System sans'],
+  ['Georgia', 'Georgia (serif)'],
+  ['Segoe Print', 'Segoe Print (handwriting)'],
+];
+
 function fontCard(sid, s) {
-  const font = s.font || { file: '', stroke_px: 0 };
+  const font = Object.assign({ file: '', family: '', weight: 400, stroke_px: 0, caps: true }, s.font || {});
   const file = (font.file || '').trim();
   const name = file ? file.split(/[\\/]/).pop() : '';
   const stroke = Number(font.stroke_px) || 0;
+  const familyLabel = file ? name : (STAGE_FONTS.find(([v]) => v === font.family) || [null, font.family || 'Patrick Hand (theme)'])[1];
   applySessionTheme(sid, s.theme, JSON.stringify(font));
   const card = document.createElement('div');
   card.className = 'card font-card';
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('type')} Stage font</h3>` +
-    `<span class="card-head-meta">${file ? esc(name) : 'Patrick Hand (theme)'}</span></div>` +
+    `<span class="card-head-meta">${esc(familyLabel)}</span></div>` +
     `<div class="font-sample-host"><div class="stage-canvas font-sample" style="--st-font-stroke:${stroke}px">` +
     `<h1 class="st-question">Hello, group!</h1></div></div>` +
-    (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '<p class="muted small">Questions, answers and titles on the stage use this font. Pick an .otf, .ttf or .woff file on this PC.</p>') +
-    `<label class="font-stroke"><span class="small">Line thickness</span>` +
+    `<p class="muted small">Questions, answers, titles and slide text on the stage use it; an item can set its own in the Plan tab.</p>` +
+    `<div class="font-rows">` +
+    `<label class="font-row"><span class="small">Font</span><span class="inline-controls"><select class="select-native" aria-label="Stage font">` +
+    STAGE_FONTS.map(([v, l]) => `<option value="${esc(v)}"${!file && v === font.family ? ' selected' : ''}>${esc(l)}</option>`).join('') +
+    (file ? `<option value="__file" selected>File · ${esc(name)}</option>` : '') +
+    `</select><button type="button" class="button-surface" data-font-pick>${icon('folder-open')} ${file ? 'Change file…' : 'Font file…'}</button></span></label>` +
+    `<div class="font-row"><span class="small">Weight</span>` +
+    `<div class="range-tabs ed-tabs" role="group" aria-label="Weight">${[[400, 'Regular'], [700, 'Bold']].map(([v, l]) =>
+      `<button type="button" class="range-tab${font.weight === v ? ' active' : ''}" aria-pressed="${font.weight === v}" data-weight="${v}">${l}</button>`).join('')}</div></div>` +
+    `<label class="font-row font-stroke"><span class="small">Line thickness</span>` +
     `<input type="range" min="0" max="6" step="0.25" value="${stroke}" aria-label="Line thickness in stage px">` +
     `<output class="mono small">${stroke} px</output></label>` +
-    `<div class="row-actions"><button type="button" class="button-surface" data-font-pick>${icon('folder-open')} ${file ? 'Change font…' : 'Choose font…'}</button>` +
-    (file ? `<button type="button" class="button-ghost" data-font-clear>Use Patrick Hand</button>` : '') + `</div>`;
+    `<div class="font-row"><span class="small">Capitals</span>` +
+    `<div class="range-tabs ed-tabs" role="group" aria-label="Capitals">${[[true, 'ALL CAPS'], [false, 'As typed']].map(([v, l]) =>
+      `<button type="button" class="range-tab${font.caps === v ? ' active' : ''}" aria-pressed="${font.caps === v}" data-caps="${v}">${l}</button>`).join('')}</div></div>` +
+    `</div>` +
+    (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '');
   const sample = card.querySelector('.font-sample');
   const range = card.querySelector('input[type=range]');
   const out = card.querySelector('output');
-  const saveFont = async (next) => {
+  const saveFont = async (change) => {
+    const next = Object.assign({}, font, change);
     const session = Object.assign({}, s, { font: next });
-    if (!next.file && !next.stroke_px) delete session.font;
+    // all defaults: no font block in session.yaml
+    if (!next.file && !next.family && next.weight === 400 && !next.stroke_px && next.caps) delete session.font;
     try {
       await api(`/api/sessions/${sid}`, { method: 'PUT', body: { session } });
       s.font = session.font;
       return true;
     } catch (e) { toast(e.message, 'error'); return false; }
   };
+  card.querySelector('select').addEventListener('change', async (e) => {
+    if (e.target.value === '__file') return;
+    if (await saveFont({ file: '', family: e.target.value })) renderDetail();
+  });
+  card.querySelectorAll('[data-weight]').forEach((b) => b.addEventListener('click', async () => {
+    if (await saveFont({ weight: Number(b.dataset.weight) })) renderDetail();
+  }));
+  card.querySelectorAll('[data-caps]').forEach((b) => b.addEventListener('click', async () => {
+    if (await saveFont({ caps: b.dataset.caps === 'true' })) renderDetail();
+  }));
   range.addEventListener('input', () => {
     out.textContent = `${range.value} px`;
     sample.style.setProperty('--st-font-stroke', `${range.value}px`);
   });
   range.addEventListener('change', async () => {
-    if (await saveFont({ file, stroke_px: Number(range.value) })) toast(`Line thickness ${range.value} px saved`);
+    if (await saveFont({ stroke_px: Number(range.value) })) toast(`Line thickness ${range.value} px saved`);
   });
   card.querySelector('[data-font-pick]').addEventListener('click', async () => {
     let picked;
     try { picked = await api('/api/pick', { method: 'POST', body: { kind: 'font' } }); } catch (e) { toast(e.message, 'error'); return; }
     if (!picked.path) return;
-    if (await saveFont({ file: picked.path, stroke_px: Number(range.value) })) { toast('Stage font saved'); renderDetail(); }
-  });
-  const clear = card.querySelector('[data-font-clear]');
-  if (clear) clear.addEventListener('click', async () => {
-    if (await saveFont({ file: '', stroke_px: Number(range.value) })) renderDetail();
+    if (await saveFont({ file: picked.path })) { toast('Stage font saved'); renderDetail(); }
   });
   return card;
 }
@@ -354,14 +385,18 @@ async function editMeta(sid, s) {
       { name: 'title', label: 'Title', value: s.title, required: true },
       { name: 'date', label: 'Date and time', type: 'datetime-local', value: local },
       { name: 'duration', label: 'Duration (min)', type: 'number', value: s.duration_minutes },
+      { name: 'language', label: 'Language on the stage', type: 'select', value: s.language || 'en', options: LANGUAGES.map(([value, label]) => ({ value, label })),
+        hint: 'The words the stage says by itself: the chat hint, default titles, breakout rooms.' },
       { name: 'chat_hint', label: 'Stage hint under activities', value: s.chat_hint || '',
-        hint: 'Shown on the stage in the language of the session, e.g. "Escribe tu respuesta en el chat de Zoom".' },
+        placeholder: words(s.language).chat_hint,
+        hint: `Empty = the language's own: "${words('en').chat_hint}" · "${words('es').chat_hint}".` },
     ],
   });
   if (!v) return;
   const next = Object.assign({}, s, {
     title: v.title.trim(),
-    chat_hint: v.chat_hint.trim() || 'Write your answer in the Zoom chat',
+    language: v.language,
+    chat_hint: v.chat_hint.trim(),
     date: v.date ? new Date(v.date).toISOString() : null,
     duration_minutes: Math.max(1, parseInt(v.duration, 10) || s.duration_minutes),
   });

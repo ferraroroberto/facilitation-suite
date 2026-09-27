@@ -45,7 +45,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     # -- Sessions → Stage font: choose it, thicken its lines
     card = page.locator(".font-card")
     expect(card.locator(".card-head-meta")).to_have_text("Patrick Hand (theme)")
-    card.get_by_role("button", name="Choose font…").click()
+    card.get_by_role("button", name="Font file…").click()
     expect(card.locator(".card-head-meta")).to_have_text(font.name)
     _until(lambda: (_saved(folder).get("font") or {}).get("file") == str(font))
     card.locator("input[type=range]").fill("2")
@@ -66,7 +66,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     expect(q).to_contain_text("kryptonite")
     assert "Session Font" in q.evaluate("el => getComputedStyle(el).fontFamily")
     expect(q).to_have_css("-webkit-text-stroke-width", "2px")
-    expect(page.locator(".ed-row", has_text="Question font").locator("select")).to_have_value("theme")
+    expect(page.locator("#panePlan select[aria-label=\"Question font\"]")).to_have_value("theme")
 
     # -- multi-select: click, Shift+click a range, Ctrl+click one out
     rows = page.locator(".item-row")
