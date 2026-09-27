@@ -1,0 +1,53 @@
+/* /remote — the phone remote. One column at phone width; the fleet nav pill
+   at the bottom (vendored nav-tabs). */
+
+.remote-page .app { max-width: 520px; margin: 0 auto; }
+.remote .pane { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
+.remote .pane[hidden] { display: none; }
+body.offline .remote { opacity: 0.6; }
+.remote-page .tabs[hidden] { display: none; }
+
+.remote-head .home-title { min-width: 0; flex: 1; }
+.remote-titles { display: grid; min-width: 0; line-height: 1.25; }
+.remote-sub { font-size: var(--font-body-sm); color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.r-now { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.r-stage { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; container-type: inline-size; }
+.r-caption { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-sm); }
+.r-caption b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-count { flex: none; margin-right: auto; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.r-timer { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--muted); flex: none; }
+.r-timer.running { color: var(--danger-text); }
+.r-timer.running::before { content: "● "; }
+.r-timer.done { color: var(--danger-text); }
+
+.r-next { display: flex; align-items: center; gap: var(--space-md); }
+.r-next .grow { flex: 1; min-width: 0; }
+.r-label { font-size: var(--font-body-sm); color: var(--muted); }
+.r-next-title { font-weight: 700; font-size: var(--font-heading-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-clock { display: grid; justify-items: end; flex: none; }
+.r-clock b { font-family: var(--mono); font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.r-clock span { font-size: var(--font-body-sm); color: var(--muted); font-weight: 600; }
+.r-clock span.over { color: var(--attention-text); }
+
+.r-capture, .r-nav button, .r-more button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.r-capture { min-height: 60px; font-size: 1.05rem; }
+.r-capture[hidden] { display: none; }
+.r-nav { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.r-nav button { min-height: 72px; font-size: 1.05rem; }
+.r-more { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.r-more button { flex: 1 1 0; min-height: 48px; padding: 0 12px; }
+.r-more button[hidden] { display: none; }
+.r-more button.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.r-foot { text-align: center; margin: 0 8px; }
+
+.r-chat-hint { margin: 12px 16px 4px; }
+.r-msg { display: grid; gap: 2px; width: 100%; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 10px 16px; cursor: pointer; }
+.r-msg + .r-msg { border-top: 1px solid var(--line-muted); }
+.r-msg-head { display: flex; justify-content: space-between; gap: var(--space-sm); }
+.r-msg-text { overflow-wrap: anywhere; }
+.r-msg.hidden-msg .r-msg-text { color: var(--muted); text-decoration: line-through; }
+
+.r-rooms { margin: var(--space-md) 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.r-rooms li { display: grid; gap: 2px; padding: 8px 0; border-top: 1px solid var(--line-muted); }
+.r-rooms li:first-child { border-top: 0; }

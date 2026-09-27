@@ -7,7 +7,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
 import { api, esc, toast, currentTheme, setTheme } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
-import { connectLive, bindKeys, remaining } from '/static/js/live.js';
+import { connectLive, bindKeys, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 
 const root = document.getElementById('presenter');
@@ -341,13 +341,6 @@ function tickItemTimer(cur, s) {
   if (btn.dataset.label !== label) { btn.dataset.label = label; btn.innerHTML = `${label}<kbd>T</kbd>`; }
 }
 
-function hms(sec) {
-  const s = Math.max(0, Math.floor(sec));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const ss = String(s % 60).padStart(2, '0');
-  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${String(m).padStart(2, '0')}:${ss}`;
-}
 const hm = (min) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, '0')}`;
 
 function drawTiming(cur, s) {
@@ -355,10 +348,10 @@ function drawTiming(cur, s) {
   const body = card.querySelector('[data-body]');
   const drift = card.querySelector('[data-drift]');
   const secs = plan.run.sections;
-  const sec = cur ? secs.find((x) => x.id === cur.section_id) : null;
-  const started = s.clock.started_at;
+  const now = live.now();
+  const t = timing(plan, s, cur, now);
   const dur = s.clock.duration_minutes;
-  if (!started) {
+  if (!t) {
     drift.hidden = true;
     if (body.dataset.mode !== 'idle') {
       body.dataset.mode = 'idle';
@@ -380,12 +373,11 @@ function drawTiming(cur, s) {
       if (ok) live.send('clock_reset');
     });
   }
-  const now = live.now();
-  const elapsedMin = (now - started) / 60000;
-  body.querySelector('[data-elapsed]').textContent = hms((now - started) / 1000);
+  const elapsedMin = t.elapsed / 60;
+  body.querySelector('[data-elapsed]').textContent = hms(t.elapsed);
+  const sec = t.section;
   if (sec) {
-    const entered = s.section_entered[sec.id] || now;
-    const inSec = (now - entered) / 60000;
+    const inSec = t.inSection;
     const left = sec.minutes - inSec;
     body.querySelector('[data-secname]').textContent = sec.name;
     body.querySelector('[data-secleft]').innerHTML = left >= 0
@@ -393,11 +385,9 @@ function drawTiming(cur, s) {
       : `Planned ${sec.minutes} min · <b class="over">over by ${clock(-left * 60)}</b>`;
     body.querySelector('[data-bar]').style.width = `${Math.min(100, sec.minutes ? (inSec / sec.minutes) * 100 : 100)}%`;
     body.querySelector('[data-bar]').classList.toggle('over', left < 0);
-    const d = (entered - started) / 60000 - sec.planned_start + Math.max(0, inSec - sec.minutes);
     drift.hidden = false;
-    const r = Math.round(d);
-    drift.className = 'chip ' + (r >= 1 ? 'warn' : r <= -1 ? 'ok' : 'ok');
-    drift.textContent = r >= 1 ? `+${r} min` : r <= -1 ? `−${-r} min` : 'on time';
+    drift.className = 'chip ' + (t.drift >= 1 ? 'warn' : 'ok');
+    drift.textContent = driftText(t.drift);
     const brk = secs.find((x) => x.planned_start > sec.planned_start && x.has_break);
     body.querySelector('[data-break]').textContent = brk
       ? `${brk.name} at ${hm(brk.planned_start)}, in ${Math.max(0, Math.round(brk.planned_start - elapsedMin))} min`

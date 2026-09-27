@@ -43,3 +43,12 @@ def client(isolated_env: Path):
 
     with TestClient(create_app(), client=("127.0.0.1", 50000)) as c:
         yield c
+
+
+def paired_remote(app, host: str = "100.64.0.9"):  # noqa: ANN001, ANN201 — FastAPI app → TestClient
+    """A TestClient from another device that holds the phone-remote token (the app gets one first)."""
+    from fastapi.testclient import TestClient
+
+    with TestClient(app, client=("127.0.0.1", 50000)) as pc:
+        pc.post("/api/settings/remote/token")
+    return TestClient(app, client=(host, 5000), headers={"Authorization": f"Bearer {app.state.config.remote.token}"})

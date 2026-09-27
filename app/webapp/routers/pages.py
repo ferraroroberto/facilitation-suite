@@ -40,6 +40,13 @@ def stage() -> HTMLResponse:
     return _page("stage.html")
 
 
+@router.get("/remote", include_in_schema=False)
+def remote() -> HTMLResponse:
+    """The phone remote. The page itself is open (an unpaired phone is told how
+    to pair); everything it loads needs the token (``app/webapp/auth.py``)."""
+    return _page("remote.html")
+
+
 @router.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}

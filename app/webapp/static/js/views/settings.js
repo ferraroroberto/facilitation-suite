@@ -1,5 +1,6 @@
 // Settings — shared by every session: OBS (connection + the three profiles:
-// scene and camera zone), the chat reader, and the credits.
+// scene and camera zone), the chat reader, the phone remote, the Stream Deck
+// buttons and the credits.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
@@ -53,18 +54,56 @@ function render() {
   setStatus(head, 'Shared by every session');
   root.appendChild(obsCard());
   root.appendChild(readerCard());
+  root.appendChild(remoteCard());
   root.appendChild(streamDeckCard());
   root.appendChild(creditsCard());
+}
+
+function remoteCard() {
+  const r = data.remote;
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  const state = !r.https ? ['warn', 'needs HTTPS'] : r.enabled ? ['ok', 'on'] : ['', 'off'];
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('smartphone')} Phone remote</h3><span class="chip ${state[0]}">${state[1]}</span></div>` +
+    '<p class="small muted settings-note">Next, previous, capture, timer and blackout from your phone, over Tailscale. Open the link once on the phone: it pairs that phone. ' +
+    'Other devices never get in without it; this PC never needs it.</p>';
+  if (!r.https) {
+    card.insertAdjacentHTML('beforeend', '<p class="small settings-note">HTTPS is not set up on this PC yet: run <code>scripts/gen_tailscale_cert.py</code> (a Tailscale certificate), then restart the tray.</p>');
+    return card;
+  }
+  const row = document.createElement('div');
+  row.className = 'row-actions remote-actions';
+  if (r.enabled && r.link) {
+    card.insertAdjacentHTML('beforeend', `<div class="list-row deck-row"><span class="deck-label">Pairing link</span><code class="grow" data-link>${esc(r.link.replace(/token=.*/, 'token=•••'))}</code></div>`);
+    row.innerHTML = `<button type="button" class="button-tint" data-copy>${icon('copy')} Copy the link</button>` +
+      `<button type="button" class="button-surface" data-new>${icon('refresh-cw')} New link (unpairs phones)</button>` +
+      `<button type="button" class="button-surface" data-off>${icon('x')} Turn off</button>`;
+  } else {
+    row.innerHTML = `<button type="button" class="button-tint" data-new>${icon('smartphone')} Make the phone link</button>`;
+  }
+  card.appendChild(row);
+  const on = (sel, fn) => { const b = row.querySelector(sel); if (b) b.addEventListener('click', fn); };
+  on('[data-copy]', async () => {
+    try { await navigator.clipboard.writeText(r.link); toast('Link copied — open it on the phone (send it to yourself)'); } catch (e) { toast('Could not copy', 'error'); }
+  });
+  on('[data-new]', async () => {
+    try { data = await api('/api/settings/remote/token', { method: 'POST' }); render(); toast(r.enabled ? 'New link made — phones paired before need it again' : 'Phone link made'); } catch (e) { toast(e.message, 'error'); }
+  });
+  on('[data-off]', async () => {
+    try { data = await api('/api/settings/remote/token', { method: 'DELETE' }); render(); toast('Phone remote off'); } catch (e) { toast(e.message, 'error'); }
+  });
+  return card;
 }
 
 let actions = null;
 function streamDeckCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
-  const base = `${location.protocol}//127.0.0.1:${location.port || (location.protocol === 'https:' ? 443 : 80)}`;
+  const base = data.remote.base_url;
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('keyboard')} Stream Deck buttons</h3><span class="muted small">one URL per button</span></div>` +
-    `<p class="small muted settings-note">Each button sends a POST to <code>${esc(base)}</code> plus the path below — the same pattern as home-automation's action alias, so the fleet Stream Deck plugin's “Call Action” key works with it. No token is needed from this PC.</p>` +
+    `<p class="small muted settings-note">Each button sends a POST to <code>${esc(base)}</code> plus the path below — the same pattern as home-automation's action alias, so the fleet Stream Deck plugin's “Call Action” key works with it. No token is needed from this PC (the fleet plugin's <code>FACILITATION_SUITE_BASE_URL</code> is this address).</p>` +
     `<div class="list deck-list" data-deck><p class="muted small">Loading…</p></div>`;
   const load = actions ? Promise.resolve(actions) : api('/api/actions').then((r) => { actions = r.actions; return actions; });
   load.then((list) => {

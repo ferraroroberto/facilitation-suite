@@ -6,8 +6,8 @@ registry (``src/live/actions.py`` — the very intents the keyboard and the
 presenter send), ``{"action_id", "ok": true}`` back. A caller names itself in
 ``X-Automation-Source`` (the fleet Stream Deck plugin sends it).
 
-Callers on this PC need no token. Anyone else is refused until the phone
-remote (step 14) brings a bearer token.
+Callers on this PC need no token; any other device needs the phone-remote
+bearer token, checked for every route by ``app/webapp/auth.py``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 
-from app.webapp.errors import AppError, require_local
+from app.webapp.errors import AppError
 from src.live.actions import catalog, run_action
 from src.live.hub import LiveError
 
@@ -33,7 +33,6 @@ def _source(request: Request) -> str:
 
 
 async def _run(request: Request, action_id: str, arg: Optional[str]) -> dict[str, Any]:
-    require_local(request, "Actions from another device need the remote token (not enabled)")
     source = _source(request)
     hub = request.app.state.live
     try:

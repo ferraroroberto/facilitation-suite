@@ -3,9 +3,13 @@ flowchart LR
   subgraph clients[Browser views]
     appv["/ app<br/>Sessions · Plan · Groups · Results · Settings"]
     presenter["/presenter"]
+    remotev["/remote (phone, over the tailnet)"]
     stage["/stage (OBS display capture)"]
   end
   tray["tray.bat → app/tray/tray.py"] --> server
+  remotev -->|HTTPS · pairing cookie| gate["app/webapp/auth.py<br/>RemoteAuth — this PC always, others with the token"]
+  gate --> server
+  remotev <-->|WS snapshots / intents| liver
   subgraph server[FastAPI :8449 — app/webapp/server.py]
     pages["routers/pages.py<br/>pages · /healthz · /api/version"]
     sessr["routers/sessions.py<br/>/api/sessions…"]
