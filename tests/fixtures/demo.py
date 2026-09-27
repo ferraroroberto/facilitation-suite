@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from openpyxl import Workbook
 from PIL import Image, ImageDraw, ImageFont
 
 from src.importer.service import build_slides_meta
@@ -139,6 +140,29 @@ PLAN: dict[str, Any] = {
 }
 
 
+FIRST = ["Alex", "Sam", "Jordan", "Casey", "Robin", "Jamie", "Taylor", "Morgan", "Avery", "Riley", "Quinn", "Drew",
+         "Noa", "Ian", "Eli", "Mia", "Leo", "Ada", "Max", "Zoe"]
+LAST = "RSTPLMGBDC"
+ROLES = ["Designer", "Engineer", "Product owner", "Analyst", "Marketing lead", "Consultant", "Founder", "Operations"]
+PLACES = ["Madrid, ES", "Barcelona, ES", "Sevilla, ES", "Lisboa, PT", "Ciudad de México, MX", "Bogotá, CO", "Milan, IT"]
+
+
+def write_demo_roster(path: Path, n: int = 40) -> list[str]:
+    """A synthetic roster (made-up names, example.com emails): two absent, two without an email."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Participants"
+    ws.append(["name", "role", "company", "country", "present", "email"])
+    names = []
+    for i in range(n):
+        name = f"{FIRST[i % len(FIRST)]} {LAST[(i // len(FIRST) + i) % len(LAST)]}."
+        names.append(name)
+        email = "" if i in (5, 17) else f"{name.split()[0].lower()}.{i}@example.com"
+        ws.append([name, ROLES[i % len(ROLES)], "Demo Co", PLACES[i % len(PLACES)], 0 if i in (8, 23) else 1, email])
+    wb.save(path)
+    return names
+
+
 def build_demo_session(folder: Path, ledger: Path | None = None) -> tuple[str, Path]:
     """Write the demo session into ``folder`` (and the ledger, when given)."""
     slides_dir = folder / "slides"
@@ -154,6 +178,7 @@ def build_demo_session(folder: Path, ledger: Path | None = None) -> tuple[str, P
                               "background": "#f2f2f2", "hidden": False, "file": file})
     meta = build_slides_meta({"sections": [], "slides": export_slides}, slides_dir, Path("demo.pptx"))
     (slides_dir / "slides.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    write_demo_roster(folder / "roster.xlsx")
     session = parse_session(PLAN)
     from src.sessions.model import dump_session
 

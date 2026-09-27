@@ -44,7 +44,7 @@ class Beat(BaseModel):
 
 
 class Simulate(BaseModel):
-    kind: Literal["random", "burst"] = "random"
+    kind: Literal["random", "burst", "list"] = "random"
     count: int = Field(30, ge=1, le=500)
     every_ms: int = Field(700, ge=50, le=10000)
     answers: list[str] = Field(default_factory=list, max_length=200)
@@ -89,7 +89,7 @@ async def reader_stop(request: Request) -> dict[str, Any]:
 @router.post("/simulate")
 async def simulate(request: Request, body: Simulate) -> dict[str, Any]:
     """Rehearse alone: replay fake answers through the same POST as the reader."""
-    spec = f"burst:{body.count}" if body.kind == "burst" else f"random:{body.count}:{body.every_ms}"
+    spec = {"burst": f"burst:{body.count}", "list": f"list:{body.every_ms}"}.get(body.kind, f"random:{body.count}:{body.every_ms}")
     answers = [a for a in body.answers if a.strip()] or None
     await asyncio.to_thread(_proc(request).start, spec, answers)
     _chat(request).refresh()

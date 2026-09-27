@@ -1,0 +1,48 @@
+# What people type in a chat that the gazetteer would not find by itself.
+# cities: "<typed>" → "<GeoNames city name>, <ISO country>"
+# countries: "<typed>" → "<ISO country>"
+# Matching ignores case and accents. Add a line when an answer lands in "unplaced".
+cities:
+  CDMX: Mexico City, MX
+  DF: Mexico City, MX
+  México DF: Mexico City, MX
+  Ciudad de México: Mexico City, MX
+  NYC: New York City, US
+  NY: New York City, US
+  Nueva York: New York City, US
+  New York: New York City, US
+  LA: Los Angeles, US
+  SF: San Francisco, US
+  BCN: Barcelona, ES
+  Barna: Barcelona, ES
+  MAD: Madrid, ES
+  BA: Buenos Aires, AR
+  Bs As: Buenos Aires, AR
+  Baires: Buenos Aires, AR
+  CABA: Buenos Aires, AR
+  Bogotá DC: Bogotá, CO
+  SP: São Paulo, BR
+  Sao Paulo: São Paulo, BR
+  Rio: Rio de Janeiro, BR
+  Lima Peru: Lima, PE
+  Palma de Mallorca: Palma, ES
+  Mallorca: Palma, ES
+  Gran Canaria: Las Palmas de Gran Canaria, ES
+  Tenerife: Santa Cruz de Tenerife, ES
+countries:
+  EEUU: US
+  EE UU: US
+  USA: US
+  UK: GB
+  England: GB
+  Inglaterra: GB
+  Scotland: GB
+  Escocia: GB
+  Wales: GB
+  Gales: GB
+  Holanda: NL
+  Holland: NL
+  Emiratos: AE
+  UAE: AE
+  Corea: KR
+  Korea: KR

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ITEM_ID = re.compile(r"^[a-z]{2,6}-[a-z0-9-]{1,40}$")
-PLUGIN_ASSETS = {"stage.js": "text/javascript", "stage.css": "text/css"}
+PLUGIN_ASSETS = {"stage.js": "text/javascript", "stage.css": "text/css", "world.svg": "image/svg+xml"}
 
 
 def _hub(request: Request) -> LiveHub:
@@ -33,6 +33,11 @@ def _err(exc: LiveError) -> AppError:
 
 class Activate(BaseModel):
     session: str = Field(min_length=1, max_length=40)
+
+
+class PlaceBody(BaseModel):
+    message_id: int = Field(ge=1)
+    geonameid: str = Field(min_length=1, max_length=20, pattern=r"^(\d+|country:[A-Z]{2})$")
 
 
 class ActionBody(BaseModel):
@@ -72,6 +77,21 @@ async def action(request: Request, body: ActionBody) -> dict[str, Any]:
         return run_action(_hub(request), body.action, body.arg)
     except LiveError as exc:
         raise _err(exc) from exc
+
+
+@router.post("/api/live/place")
+async def place(request: Request, body: PlaceBody) -> dict[str, Any]:
+    """Put an unplaced map answer where it belongs (the presenter's fix)."""
+    from src.geo.gazetteer import gazetteer
+
+    hub = _hub(request)
+    if hub.session_id is None:
+        raise AppError(409, "not_live", "No session is live")
+    found = await asyncio.to_thread(lambda: gazetteer().by_geonameid(body.geonameid))
+    if found is None:
+        raise AppError(404, "unknown_place", "No such place")
+    request.app.state.capture.place(body.message_id, body.geonameid)
+    return {"placed": found.as_dict()}
 
 
 @router.get("/api/live/actions")

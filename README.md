@@ -89,10 +89,25 @@ At every stop the result is **frozen** in the session folder: `live/captures/<it
 |---|---|---|
 | Word cloud | answers of up to three words stay one phrase; longer ones become words minus filler words (Spanish/English lists); laughter dropped; case, accents and simple plurals merged | the cloud grows, most frequent biggest |
 | Scale | the first number in range, or a keyword from the list (lowest → highest); one vote per person | bars with counts, the leader highlighted, the average |
+| Map | a place, geocoded offline: `Milan, italy`, `Sevilla, España`, `CDMX`, `desde Bogotá`, a country alone (→ its capital); an ambiguous city follows the room ("Valencia" goes to Spain when the others are there); one pin per person, their latest answer | people pop in with their names, the view fits everyone, a crowded region gets its own inset, click a pin for who is there; the headcount, countries and top cities alongside |
 | Cards | each answer with its name | the latest cards in a grid |
 | Feed | each answer with its name | bubbles, the newest at the bottom and largest |
 
 Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the Plan tab's fields and sample answers), `parse.py` (`parse(message, options)` → contribution, `aggregate(contributions, options)` → result; pure and unit-tested) and `stage.js` + `stage.css` (draws a result). The Plan tab's stage preview is drawn by the same renderer with the sample answers, and the presenter's *Simulate answers* on an activity uses them too.
+
+**Map answers that land nowhere** are listed on the presenter under *Not on the map* with the closest places as one-click buttons, or type the place and press Enter. Common chat spellings live in `app/activities/map/aliases.yaml` (add a line when an answer keeps landing there). The map's data is built once by `scripts/build_geo.py` (needs the network and `babel`) and committed; the app never downloads anything.
+
+## Breakout groups
+
+The **Groups** tab makes the 1-2-4-all breakout rooms (the algorithm ported from `facilitation-shuffle`, unchanged):
+
+1. **Import roster (.xlsx)** — the first sheet, columns by header in any order: `name` (required; without a `name` header the first column is used), `role`, `company`, `country`, `present`, `email` (optional). The file is copied into the session folder as `roster.xlsx`; the original is never edited.
+2. **Mark who is here** with the switches (they win over the file's `present` column and are saved in `groups.yaml`).
+3. **Shuffle** — three rounds: **pairs** (an odd number gives one trio), **groups of 4 · A** (whole pairs merged, never split; 4k+2 people give one room of six), **groups of 4 · B** (re-mixed into rooms of four — a room of three or five takes the remainder, never fewer than three — keeping as few people as possible with someone from their round-A room — up to 120 000 tries). The note under the tabs says how well round B mixed.
+4. **Copy rooms for Zoom** (`Room 1: Ana, Sam` lines to paste while assigning rooms by hand) or **Export Zoom pre-assign CSV** (`Pre-assign Room Name,Email Address`, also kept in `exports/`) — only when everyone present has an email; otherwise the tab says who is missing one.
+5. **Add reveal slide** puts a "Who are you with?" item at the end of the first section (move it in the Plan tab): the stage shows every room of that round, numbered.
+
+If presence changes after a shuffle, the tab and the readiness checklist say so until you shuffle again.
 
 ## The Zoom chat reader
 
@@ -162,6 +177,16 @@ Personal-data guard → byte-compile → ruff → pytest → diff-routed Playwri
 ## Privacy
 
 The repository is public and holds no personal data: sessions, rosters, decks and chat logs live in session folders outside the repo, and tests use synthetic fixtures only.
+
+## Credits
+
+- Cities and countries on the map: [GeoNames](https://www.geonames.org) (`cities15000`, `countryInfo`), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The data is compacted by `scripts/build_geo.py`.
+- Country outlines: [world-atlas](https://github.com/topojson/world-atlas) from [Natural Earth](https://www.naturalearthdata.com), public domain.
+- Country names in Spanish and English: [Unicode CLDR](https://cldr.unicode.org) through `babel` (build time only).
+- Stage lettering: [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand), SIL Open Font License (`app/webapp/static/fonts/OFL-PatrickHand.txt`).
+- Icons: [Lucide](https://lucide.dev), ISC license.
+
+The same credits are in the app under Settings.
 
 ## License
 

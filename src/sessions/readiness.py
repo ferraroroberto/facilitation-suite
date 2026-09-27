@@ -52,16 +52,27 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
         detail = f"{len(acts) - len(skipped)} configured" + (f" · {len(skipped)} skipped" if skipped else "")
         checks.append(_check("activities", "Activities", "ok", detail))
 
-    roster = live.get("roster")
-    if roster:
-        checks.append(_check("roster", "Roster", "ok", f"{roster['present']} present of {roster['total']}"))
-    elif (folder / "roster.xlsx").is_file():
-        checks.append(_check("roster", "Roster", "ok", "roster.xlsx in the folder"))
-    else:
+    from src.groups.roster import RosterError, roster_state
+
+    try:
+        people, gstate = roster_state(folder)
+    except RosterError as exc:
+        people, gstate = [], {"rounds": None}
+        checks.append(_check("roster", "Roster", "warn", str(exc)))
+    if people:
+        present = sum(1 for p in people if p.present)
+        checks.append(_check("roster", "Roster", "ok", f"{present} present of {len(people)}"))
+    elif not any(c["key"] == "roster" for c in checks):
         checks.append(_check("roster", "Roster", "todo", "No roster yet (Groups tab)"))
 
-    if (folder / "groups.yaml").is_file():
-        checks.append(_check("groups", "Groups", "ok", "Pairs + two rounds of 4 saved"))
+    rounds = gstate.get("rounds")
+    if rounds and people:
+        now = {p.name for p in people if p.present}
+        shuffled = {n for g in rounds["pairs"] for n in g}
+        if now != shuffled:
+            checks.append(_check("groups", "Groups", "warn", "Presence changed since the shuffle — shuffle again"))
+        else:
+            checks.append(_check("groups", "Groups", "ok", f"{len(rounds['pairs'])} pairs + two rounds of 4 saved"))
     else:
         checks.append(_check("groups", "Groups", "todo", "Not shuffled yet (Groups tab)"))
 

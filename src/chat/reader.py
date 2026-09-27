@@ -237,9 +237,13 @@ SIM_ANSWERS = ["meetings", "perfectionism", "procrastination", "interruptions", 
 
 
 def load_script(spec: str, answers: Optional[list[str]] = None) -> list[dict[str, Any]]:
-    """``burst:N`` (N messages at once), ``random:N[:every_ms]`` or a YAML file
+    """``burst:N`` (N numbered messages at once), ``random:N[:every_ms]``,
+    ``list:every_ms`` (each answer once, verbatim, in order) or a YAML file
     ``{messages: [{after: seconds, sender, text}]}``."""
     pool = answers or SIM_ANSWERS
+    if spec.startswith("list:"):
+        every = int(spec.split(":")[1]) / 1000
+        return [{"after": every if i else 0, "sender": SIM_PEOPLE[i % len(SIM_PEOPLE)], "text": t} for i, t in enumerate(pool)]
     if spec.startswith("burst:"):
         n = int(spec.split(":")[1])
         return [{"after": 0, "sender": SIM_PEOPLE[i % len(SIM_PEOPLE)], "text": f"{pool[i % len(pool)]} {i + 1}"} for i in range(n)]

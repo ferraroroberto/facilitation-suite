@@ -1,0 +1,18 @@
+/* The rooms, numbered: colour squares cycle through four theme colours. */
+.stage-canvas .gr { --cols: 4; --size: 30px; position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: calc(var(--size) * 0.55); align-content: start; }
+.stage-canvas .gr-room {
+  display: flex; align-items: center; gap: calc(var(--size) * 0.7);
+  padding: calc(var(--size) * 0.45) calc(var(--size) * 0.7);
+  border-radius: 20px; background: #ffffff; border: 2px solid var(--st-chip-line);
+}
+.stage-canvas .gr-n {
+  flex: none; width: calc(var(--size) * 2); height: calc(var(--size) * 2); border-radius: 12px;
+  display: grid; place-items: center; color: #ffffff; font-family: var(--st-font); font-size: calc(var(--size) * 1.25);
+}
+.stage-canvas .gr-n.c0 { background: var(--st-c2); }
+.stage-canvas .gr-n.c1 { background: var(--st-c1); }
+.stage-canvas .gr-n.c2 { background: var(--st-c3); }
+.stage-canvas .gr-n.c3 { background: var(--st-c4); }
+.stage-canvas .gr-names { display: grid; font-size: var(--size); line-height: 1.25; min-width: 0; }
+.stage-canvas .gr-names span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-canvas .gr-empty { font-size: 36px; color: var(--st-muted); }

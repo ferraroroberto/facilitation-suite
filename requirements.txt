@@ -29,3 +29,6 @@ ruff>=0.5
 # Brand-icon generation only (scripts/gen_icons.py -> project-scaffolding's
 # brand_gen). The generated PNG/ICO assets are committed.
 resvg-py>=0.1
+# Map data build only (scripts/build_geo.py -> country names from Unicode CLDR).
+# The generated files under app/activities/map/ are committed.
+babel>=2.14
