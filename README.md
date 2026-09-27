@@ -47,7 +47,7 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 
 Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the Windows file dialog on this PC). PowerPoint desktop exports every slide to a 1920×1080 PNG through COM, from a read-only copy of the deck, in its own process with a 5-minute timeout. Each slide keeps PowerPoint's own SlideID, title, notes and fingerprints (image dHash + title/notes hashes) in `slides/slides.json`.
 
-- **Slide text in the stage font.** A slide's plain text shapes (not grouped, not rotated, not in a table) are also recorded — position, size, colour, alignment — and the slide is exported a second time without them (`slide-<id>-bg.png`). The stage draws that picture and the text on top in the session's lettering (font, weight, thickness, capitals), shrinking a box if the font runs wider than PowerPoint's. Per slide, the Plan tab can keep **As in PowerPoint** (the original picture) or set the text's own font and capitals. Decks imported before this need one re-import (nothing to review; **Apply** adds the text layer).
+- **Slide text in the stage lettering.** A slide's plain text shapes (not grouped, not rotated, not in a table) are also recorded — position, size, colour, alignment — and the slide is exported a second time without them (`slide-<id>-bg.png`). The stage draws that picture and the text on top in the session's lettering — its title in the title lettering, the rest as slide text (see *Stage lettering*) — shrinking a box if the font runs wider than PowerPoint's. Per slide, the Plan tab can keep **As in PowerPoint** (the original picture) or set the title's and the text's own font and capitals. Decks imported before this need one re-import (nothing to review; **Apply** adds the text layer).
 - **OBS profile per slide** comes from where the slide reserves the camera: a flat grey box (or empty area) on the right → *Camera strip*; a small box top-right → *Camera PiP*; nothing reserved → *Screen only*. A notes line `[obs: pip|strip|screen]` overrides it; an unsure slide stays unset and is flagged.
 - **First import builds the plan:** PowerPoint sections when the deck has them, otherwise a new section at every title-only divider slide. Placeholder slides become plan items: a slide titled `activity – <question>` (or the older `streamalive N – <question>`) becomes an activity (map / scale / word cloud guessed from the words), `breakout – <title>` a break, `mentimeter …` a skipped slide.
 - **Re-import changes nothing until you review it.** The export waits in `slides/incoming/` and the Plan tab opens the review: slides are matched by SlideID first, then — for a slide PowerPoint re-created with a new id — by image and text fingerprints, and each one is *identical*, *modified* (image, title or notes — it says which, "Notes changed · 2 lines added"), *new*, *removed* or *moved* (the fewest moves that explain the new order), with the old and new picture side by side. Every change has its own switch; **Apply** does only those. An activity stays anchored to the slide before it: a moved slide takes its activities along, and when a slide is removed its activities follow the previous surviving slide (the review says which). A declined change keeps the old picture/title (modified), keeps the slide (removed), keeps the plan order (moved) or leaves the slide out (new — the next re-import offers it again). **Back** leaves the review waiting (a banner in the Plan tab); **Cancel** throws the export away.
@@ -59,7 +59,7 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to reorder, rename, collapse — or **Collapse all / Expand all**; every load opens them all), and inside each section the slides, activities and breaks in order (drag, or Alt+↑/↓, or Move up/down). **Add slide or activity** at the end of a section also adds a **section after this one**. Each item has:
 
 - an **OBS profile** (Camera strip / Camera PiP / Screen only; slides start with the detected one),
-- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); a paused timer shows yellow on the stage, the presenter and the phone,
+- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); a paused timer shows yellow on the stage, the presenter and the phone; on a slide it sits in a bottom corner over the slide (the left one when the camera takes the right),
 - **In this session** (off = skipped live, kept in the plan),
 - for a **breakout** (Add slide or activity → Breakout): its title, the round in the rooms (Pairs, Groups of 4 · A or B — the stage says it with the room count from the Groups tab) and its clock, ten minutes by default,
 - for activities: type, title (the name in the plan and on the presenter; the question when empty), question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options,
@@ -69,17 +69,22 @@ Type `\n` in a question or title where the line should break on the stage; lists
 
 Select several items as in a file manager — **Ctrl+click** adds or removes one, **Shift+click** selects a range (Ctrl+Shift+click adds it), **Shift+↑/↓** extends, **Ctrl+A** selects all, **Esc** keeps one — and the editor becomes a bulk panel: one OBS profile or **In this session** for all of them, **Duplicate** or **Delete**. Dragging any selected item moves the whole selection; **Delete** on the keyboard deletes it. Deleting an imported slide only takes it out of the plan: it stays in the deck, and **Add slide or activity → Slide from the deck** brings it back.
 
-**Stage font** (Sessions tab) — the lettering of every question, answer, title and slide text on the stage: the **font** (Patrick Hand, a font installed on this PC, or **Font file…** — an `.otf`, `.ttf` or `.woff` on this PC, your own handwriting font, say), its **weight** (regular / bold), **line thickness** in stage pixels (a stroke under the letters, so they keep their shape) and **capitals** (ALL CAPS or as typed, for questions and titles). They go into `session.yaml`:
+**Stage lettering** (Sessions tab) — two fonts. The **title font** letters titles and questions: Patrick Hand, a font installed on this PC, or **Font file…** (an `.otf`, `.ttf` or `.woff` on this PC, your own handwriting font, say), its **weight** (regular / bold) and **line thickness** in stage pixels (a stroke under the letters, so they keep their shape). The **text font** letters everything else — by default the chat hint's plain sans, or an installed font, regular or bold. Then **each kind of text** takes either font, in **ALL CAPS** or **as typed**: titles and questions (the title font, in capitals, by default), subtitles, the chat hint ("Write your answer in the chat"), the answers (word cloud, cards, feed, scale, map, groups) and a slide's text other than its title (all four in the text font, as typed, by default). A slide's title is the box PowerPoint marks as its title, else its biggest text. It all goes into `session.yaml` (only what differs from the defaults):
 
 ```yaml
 font:
   file: C:/Users/you/Fonts/MyHand-Regular.otf   # else family: Georgia
   weight: 400
   stroke_px: 1.5
-  caps: true
+  caps: true              # titles and questions in capitals
+  text_family: Georgia    # empty = the chat hint's plain sans
+  text_weight: 400
+  roles:                  # title, sub, hint, answers, slide_text
+    answers: {caps: true}           # the word cloud in capitals
+    hint: {font: title, caps: true} # the chat hint in the title font
 ```
 
-Every item follows it; an item's own **font** row in the Plan tab (font, size, capitals — "as the session" by default) is the exception for that item only.
+Every item follows it; in the Plan tab an item's title **font** row (font, size, capitals — "as the session" by default) and its **Other text** rows (the chat hint and answers of an activity, a breakout's subtitle, a slide's text: font — the title font, the text font or an installed one — and capitals) are the exceptions for that item only (`font.roles` on the item).
 
 The file stays where it is (keep it on this PC — the readiness list warns if it goes missing, and the stage then falls back to Patrick Hand); it is served to the stage, the presenter's previews, the phone remote and the frozen captures from `/api/sessions/<id>/font`.
 
@@ -96,7 +101,7 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 | B · . | blackout |
 | T | the item's timer: start / pause |
 | M · + | the item's timer: +1 min |
-| Space | capture start / stop (activities) |
+| Space | capture start / stop (activities); on any other item with a timer, timer start / pause |
 | Home · End | the first · the last item |
 
 The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there. **Start the session over** (the ↺ next to ×) goes back to the first item with no clocks, timers, captures or chat — after a rehearsal, say; nothing is deleted: the run so far stays in the session folder as `live-<date>-<time>/`.
@@ -200,7 +205,7 @@ session.yaml      the plan (schema v1) — human-readable, safe to edit by hand
 slides/           slide PNGs + slides.json (titles, notes, fingerprints, detected OBS profile)
 roster.xlsx       participants (optional)
 groups.yaml       breakout groups (optional)
-theme.css         per-session stage theme override (optional; applied after the stage font)
+theme.css         per-session stage theme override (optional; applied after the stage lettering)
 live/             chat.jsonl, events.jsonl, captures/ — append-only during the session
 exports/          session.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 ```

@@ -245,4 +245,5 @@ def test_real_powerpoint_export(tmp_path: Path) -> None:
     first = export["slides"][0]
     assert first["bg_file"] == first["file"].replace(".png", "-bg.png") and (tmp_path / "out" / first["bg_file"]).is_file()
     assert [b["text"] for b in first["boxes"]] == ["Opening"] and first["boxes"][0]["size"] > 0
+    assert first["boxes"][0]["title"] is True  # the title placeholder: lettered as a title on the stage
     assert dhash(tmp_path / "out" / first["file"]) != dhash(tmp_path / "out" / first["bg_file"])  # the text is gone from it

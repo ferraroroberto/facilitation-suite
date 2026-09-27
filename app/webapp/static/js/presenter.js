@@ -138,7 +138,7 @@ function buildShell() {
   nextStage = createStage(nextBody.querySelector('.p-stage-next'), { guides: true, blackout: false });
 
   root.querySelector('.p-keylist').innerHTML =
-    [['→ · PageDown', 'next — or click the stage'], ['← · PageUp', 'previous'], ['B', 'blackout'], ['T', 'timer start / pause'], ['M', 'timer +1 min'], ['Space', 'capture start / stop'], ['Home · End', 'first · last item']]
+    [['→ · PageDown', 'next — or click the stage'], ['← · PageUp', 'previous'], ['B', 'blackout'], ['T', 'timer start / pause'], ['M', 'timer +1 min'], ['Space', 'capture start / stop — else the timer'], ['Home · End', 'first · last item']]
       .map(([k, v]) => `<div><dt><kbd>${k}</kbd></dt><dd>${v}</dd></div>`).join('');
   const keysBtn = root.querySelector('[data-keys]');
   keysBtn.addEventListener('click', () => {
@@ -663,7 +663,7 @@ function chime() {
 
 bindKeys(live);
 
-// Space means "capture" on the presenter: a button clicked with the mouse must
+// Space means "capture" (or "timer") on the presenter: a button clicked with the mouse must
 // not keep the focus (Space would click it again). Keyboard focus is kept.
 root.addEventListener('click', (e) => {
   const b = e.target.closest('button');

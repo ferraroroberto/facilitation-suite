@@ -49,6 +49,14 @@ def _rgb(bgr: int) -> str:
     return f"#{bgr & 0xFF:02x}{(bgr >> 8) & 0xFF:02x}{(bgr >> 16) & 0xFF:02x}"
 
 
+def _is_title(shape: Any) -> bool:
+    """The slide's title placeholder (ppPlaceholderTitle 1, ppPlaceholderCenterTitle 3)."""
+    try:
+        return int(shape.PlaceholderFormat.Type) in (1, 3)
+    except Exception:  # noqa: BLE001 — not a placeholder
+        return False
+
+
 def _box(shape: Any) -> dict[str, Any] | None:
     """A plain, unrotated text shape as a box the stage can redraw; else None."""
     try:
@@ -70,6 +78,7 @@ def _box(shape: Any) -> dict[str, Any] | None:
             "align": _ALIGN.get(int(tr.Paragraphs(1).ParagraphFormat.Alignment), "left"),
             "anchor": _ANCHOR.get(int(tf.VerticalAnchor), "top"),
             "pad": [float(tf.MarginTop), float(tf.MarginRight), float(tf.MarginBottom), float(tf.MarginLeft)],
+            "title": _is_title(shape),
         }
     except Exception:  # noqa: BLE001 — COM raises on shapes without these properties: leave it in the picture
         return None

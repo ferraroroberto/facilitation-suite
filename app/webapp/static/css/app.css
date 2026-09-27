@@ -269,6 +269,16 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .font-row.font-stroke { grid-template-columns: 120px 1fr 56px; }
 .font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .font-stroke output { width: 56px; text-align: right; }
+.font-group { margin: var(--space-md) 0 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.font-sample-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
+.stage-canvas.font-sample .st-hint { flex: none; white-space: nowrap; font-size: 20px; padding: 8px 18px; }
+.stage-canvas.font-sample .st-body { flex: 0 1 auto; min-width: 0; }
+.font-sample-words { font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-weight: var(--st-font-weight); font-size: 44px; color: var(--st-c3); white-space: nowrap; }
+.role-row { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; align-items: center; gap: var(--space-sm); }
+.role-rows { display: grid; gap: var(--space-sm); }
+.ed-control .role-row { grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr); }
+.ed-control .role-row .select-native { min-width: 0; width: 100%; }
+@media (max-width: 720px) { .role-row, .ed-control .role-row { grid-template-columns: 1fr; } }
 .go-row a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; min-height: 56px; }
 
 /* ---- import dialog ------------------------------------------------------- */

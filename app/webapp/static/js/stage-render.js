@@ -7,6 +7,7 @@
 import { esc, lines } from '/static/js/ui.js';
 import { remaining } from '/static/js/live.js';
 import { words, roundLine } from '/static/js/stage-words.js';
+import { roleStyle } from '/static/js/lettering.js';
 
 export const W = 1920;
 export const H = 1080;
@@ -56,13 +57,29 @@ function lettering(f, defaultSize) {
 
 const ANCHOR = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
 
-/** A slide's text boxes (from the import), drawn over its text-free picture in the stage font. */
+/** A slide's timer goes bottom-left when the camera zone takes the bottom-right corner. */
+function pillLeft(zone) {
+  return !!(zone && zone[2] > 0.8 && zone[3] > 0.85);
+}
+
+/**
+ * Which of a slide's text boxes are its title: the ones PowerPoint marks as
+ * the title, else (a deck of plain text boxes) the ones in the biggest size.
+ */
+function titleBoxes(boxes) {
+  if (boxes.some((b) => b.title)) return boxes.map((b) => !!b.title);
+  const biggest = Math.max(...boxes.map((b) => Number(b.size) || 0));
+  return boxes.map((b) => (Number(b.size) || 0) === biggest);
+}
+
+/** A slide's text boxes (from the import), drawn over its text-free picture: its title in the title lettering, the rest as slide text. */
 function slideText(it) {
-  const own = lettering(Object.assign({}, it.font, { size_px: null }));
-  return `<div class="st-slide-text">` + it.text_boxes.map((b) =>
-    `<div class="st-tbox" data-size="${Number(b.size) || 40}" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;` +
+  const own = lettering(Object.assign({}, it.font, { size_px: null, roles: null }));
+  const titles = titleBoxes(it.text_boxes);
+  return `<div class="st-slide-text">` + it.text_boxes.map((b, i) =>
+    `<div class="st-tbox${titles[i] ? ' title' : ''}" data-size="${Number(b.size) || 40}" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;` +
     `padding:${(b.pad || []).map((p) => `${Number(p) || 0}px`).join(' ')};color:${esc(b.color)};text-align:${esc(b.align)};` +
-    `justify-content:${ANCHOR[b.anchor] || 'flex-start'};font-size:${Number(b.size) || 40}px;${own}"><span>${esc(b.text)}</span></div>`).join('') +
+    `justify-content:${ANCHOR[b.anchor] || 'flex-start'};font-size:${Number(b.size) || 40}px;${titles[i] ? own : ''}"><span>${esc(b.text)}</span></div>`).join('') +
     '</div>';
 }
 
@@ -160,7 +177,9 @@ export function createStage(host, opts = {}) {
     const sid = ctx.plan.session.id;
     lang = ctx.plan.run.language || 'en';
     const hint = ctx.plan.run.chat_hint || words(lang).chat_hint;
-    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}" style="${it.kind === 'slide' ? '' : zoneStyle(it.zone)}">`;
+    // the item's own lettering for its other texts (hint, answers, subtitles, slide text) rides on its box
+    const roles = roleStyle((it.font || {}).roles);
+    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}" style="${it.kind === 'slide' ? '' : zoneStyle(it.zone)}${roles}">`;
     if (it.kind === 'slide') {
       const slides = `/api/sessions/${encodeURIComponent(sid)}/slides/`;
       html += it.slide_bg && it.text_boxes
@@ -168,18 +187,19 @@ export function createStage(host, opts = {}) {
         : it.slide_file
           ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
           : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(it.title)}</h1></div>`;
+      // a slide's timer sits in a bottom corner, away from the camera
+      if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>`;
     } else if (it.kind === 'break' || it.kind === 'breakout') {
       // a breakout says which round is in the rooms, under its title
       const sub = it.kind === 'breakout' ? roundLine(lang, (it.options || {}).round, it.rooms) : '';
       html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
-        (sub ? `<p class="st-sub" style="${lettering({ caps: (it.font || {}).caps })}">${esc(sub)}</p>` : '') +
+        (sub ? `<p class="st-sub">${esc(sub)}</p>` : '') +
         (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
     } else {
       const text = it.capture ? (it.question || it.title) : it.title;
-      const caps = lettering({ caps: (it.font || {}).caps });
       html += `<div class="st-content">` +
         `<div class="st-head"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(text)}</h1>` +
-        `<p class="st-sub" data-sub hidden style="${caps}"></p></div>` +
+        `<p class="st-sub" data-sub hidden></p></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +

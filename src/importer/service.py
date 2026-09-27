@@ -153,6 +153,7 @@ def stage_boxes(boxes: list[dict[str, Any]], width_pt: float, height_pt: float) 
             "text": b["text"], "size": round(b["size"] * kx, 1), "color": b.get("color") or "#1f1f1f",
             "align": b.get("align") or "left", "anchor": b.get("anchor") or "top",
             "pad": [round(top * ky, 1), round(right * kx, 1), round(bottom * ky, 1), round(left * kx, 1)],
+            "title": bool(b.get("title")),  # the stage letters it as a title, the rest as slide text
         })
     return out
 

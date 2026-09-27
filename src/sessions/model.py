@@ -44,17 +44,42 @@ class Timer(_Open):
 
 THEME_FONT = "theme"
 
+# The kinds of text on the stage, each with its own font and capitals: titles
+# and questions; subtitles (a breakout's round); the chat hint ("Write your
+# answer in the chat"); the answers (word cloud, cards, feed, scale, map,
+# groups); and a slide's text other than its title.
+TEXT_ROLES: tuple[str, ...] = ("title", "sub", "hint", "answers", "slide_text")
+
+
+class TextRole(_Open):
+    """Where one kind of stage text takes its lettering from. ``font`` is
+    ``"title"`` or ``"text"`` (the session's two fonts), a font installed on
+    this PC, or ``""`` to follow (the session, then the default: the title font
+    for titles, the text font for the rest); ``caps`` ``None`` follows too."""
+
+    font: str = ""
+    caps: Optional[bool] = None
+
+
+def _known_roles(v: Any) -> Any:
+    """Only the stage's kinds of text; an unknown key (a typo) is dropped."""
+    return {k: r for k, r in v.items() if k in TEXT_ROLES} if isinstance(v, dict) else v
+
 
 class Font(_Open):
     """One item's lettering, an exception to the session's (``StageFont``).
     ``family`` is ``"theme"`` (the session's stage font) or a font installed on
     this PC; ``size_px`` is in stage pixels (the stage is a 1920×1080 canvas
     scaled to its window); ``caps`` — capitals or as typed — is ``None`` to
-    follow the session."""
+    follow the session. Those three are the item's title; ``roles`` sets its
+    other text (``TEXT_ROLES`` but ``title``) apart from the session's."""
 
     family: str = THEME_FONT
     size_px: int = Field(72, ge=12, le=240)
     caps: Optional[bool] = None
+    roles: dict[str, TextRole] = Field(default_factory=dict)
+
+    _roles = field_validator("roles", mode="before")(classmethod(lambda cls, v: _known_roles(v)))
 
     @field_validator("family")
     @classmethod
@@ -70,13 +95,21 @@ class StageFont(_Open):
     (``.otf``/``.ttf``/``.woff``/``.woff2``), else a font installed on this PC
     (``family``; both empty = the theme's Patrick Hand); the weight; extra line
     thickness in stage px, for thin handwriting fonts; and whether questions
-    and titles are in capitals."""
+    and titles are in capitals. That is the **title font**. The **text font**
+    (``text_family``, ``text_weight``; empty = the chat hint's plain sans) is
+    for every other text. ``roles`` says which of the two each kind of text
+    uses, and its capitals (a title's capitals are ``caps``)."""
 
     file: str = ""
     family: str = ""
     weight: Literal[400, 700] = 400
     stroke_px: float = Field(0, ge=0, le=8)
     caps: bool = True
+    text_family: str = ""
+    text_weight: Literal[400, 700] = 400
+    roles: dict[str, TextRole] = Field(default_factory=dict)
+
+    _roles = field_validator("roles", mode="before")(classmethod(lambda cls, v: _known_roles(v)))
 
 
 class Item(_Open):
@@ -214,4 +247,17 @@ def dump_session(session: Session) -> dict[str, Any]:
                     it.pop(key)
             if it.get("include") is True:
                 it.pop("include")
+            _quiet_roles(it.get("font"))
+    _quiet_roles(data.get("font"))
     return data
+
+
+def _quiet_roles(font: Any) -> None:
+    """A lettering block's kinds of text without what only follows (an empty font, no exceptions at all)."""
+    if not isinstance(font, dict):
+        return
+    for style in (font.get("roles") or {}).values():
+        if style.get("font") == "":
+            style.pop("font")
+    if not font.get("roles"):
+        font.pop("roles", None)

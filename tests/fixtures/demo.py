@@ -29,7 +29,7 @@ BG, BOX, INK = (242, 242, 242), (217, 217, 217), (31, 31, 31)
 PALETTE = [(229, 57, 53), (67, 160, 71), (30, 136, 229), (251, 192, 45), (142, 36, 170)]
 
 SLIDES: list[dict[str, Any]] = [
-    {"id": 101, "title": "Welcome to the workshop", "shape": "sun", "divider": True},
+    {"id": 101, "title": "Welcome to the workshop", "shape": "sun", "divider": True, "tagline": "Two hours, one team"},
     {"id": 102, "title": "Today's menu", "shape": "pizza"},
     {"id": 103, "title": "What we want from today", "shape": "puzzle"},
     {"id": 104, "title": "Getting to know each other", "shape": "none", "divider": True},
@@ -56,6 +56,8 @@ def draw_slide(spec: dict[str, Any], path: Path, *, text: bool = True) -> None:
     if spec.get("divider"):
         if text:
             d.text((110, 470), spec["title"], font=_font(96), fill=(94, 94, 94))
+            if spec.get("tagline"):
+                d.text((110, 624), spec["tagline"], font=_font(44), fill=(94, 94, 94))
     else:
         d.text((110, 80), spec["title"].upper(), font=_font(64), fill=INK)
     cx, cy = (960, 600) if wide else (520, 620)
@@ -109,7 +111,8 @@ PLAN: dict[str, Any] = {
         ]},
         {"id": "sec-readme", "name": "Personal readme", "minutes": 40, "items": [
             {"kind": "slide", "slide_id": 104, "profile": "camera_strip"},
-            {"kind": "slide", "slide_id": 105, "profile": "camera_strip", "title": "Personal readme instructions"},
+            {"kind": "slide", "slide_id": 105, "profile": "camera_strip", "title": "Personal readme instructions",
+             "timer": {"enabled": True, "seconds": 300, "start": "manual", "show_on": "stage", "end": "keep"}},
             {"kind": "activity", "id": "act-pairs", "type": "groups_reveal", "title": "Who are you with?", "profile": "screen_only",
              "include": False, "options": {"round": "pairs"}},
             {"kind": "activity", "id": "act-kryptonite", "type": "word_cloud",
@@ -330,9 +333,12 @@ def build_demo_session(folder: Path, ledger: Path | None = None) -> tuple[str, P
         if spec.get("divider"):
             # a title-only divider: its text box (in points, as the exporter writes it) and text-free picture
             draw_slide(spec, slides_dir / f"slide-{spec['id']}-bg.png", text=False)
-            entry.update(bg_file=f"slide-{spec['id']}-bg.png", boxes=[{
-                "x": 55.0, "y": 228.0, "w": 480.0, "h": 80.0, "text": spec["title"], "size": 48.0, "bold": False,
-                "italic": False, "color": "#5e5e5e", "align": "left", "anchor": "middle", "pad": [0, 0, 0, 0]}])
+            boxes = [{"x": 55.0, "y": 228.0, "w": 480.0, "h": 80.0, "text": spec["title"], "size": 48.0, "bold": False,
+                      "italic": False, "color": "#5e5e5e", "align": "left", "anchor": "middle", "pad": [0, 0, 0, 0], "title": True}]
+            if spec.get("tagline"):
+                boxes.append({"x": 55.0, "y": 312.0, "w": 480.0, "h": 40.0, "text": spec["tagline"], "size": 22.0, "bold": False,
+                              "italic": False, "color": "#5e5e5e", "align": "left", "anchor": "top", "pad": [0, 0, 0, 0]})
+            entry.update(bg_file=f"slide-{spec['id']}-bg.png", boxes=boxes)
         export_slides.append(entry)
     meta = build_slides_meta({"sections": [], "slides": export_slides}, slides_dir, Path("demo.pptx"))
     (slides_dir / "slides.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")

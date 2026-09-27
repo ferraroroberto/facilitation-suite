@@ -25,7 +25,9 @@ Durability (epic §5.4): the position, clocks and timers are mirrored to
 ``live/state.json`` so a restarted server resumes where it was, and every
 item change, clock and timer event is appended to ``live/events.jsonl``
 (which drives the session PDF order in step 12). A failed write is logged,
-kept in memory and surfaced on the presenter as ``write_error``.
+kept in memory and surfaced on the presenter as ``write_error``; the state is
+written again two seconds later, and the warning goes once a write succeeds
+(OneDrive holding the file open while it uploads is the usual cause).
 
 Reset (the presenter, after a rehearsal): the whole ``live/`` folder is set
 aside as ``live-<date>-<time>/`` — nothing is deleted — and the session
@@ -126,6 +128,7 @@ class LiveHub:
         self.timers: dict[str, TimerState] = {}
         self._timer_handles: dict[str, asyncio.TimerHandle] = {}
         self.write_error: Optional[str] = None
+        self._state_retry = False  # a retry of a failed state write is scheduled
         self.rev = 0
         # Step hooks: later services (capture, OBS) subscribe to item changes and timer ends.
         self.item_listeners: list[Callable[[Optional[dict[str, Any]], dict[str, Any]], None]] = []
@@ -553,6 +556,22 @@ class LiveHub:
             atomic_write_text(live / STATE_FILE, json.dumps(data, indent=1))
         except OSError as exc:
             self._write_failed(STATE_FILE, exc)
+            if self.loop is not None and not self._state_retry:
+                self._state_retry = True
+                self.loop.call_later(2.0, self._retry_state)
+            return
+        if self.write_error and STATE_FILE in self.write_error:
+            logger.info("✅ live: %s written again — the session folder is writable", STATE_FILE)
+            self.write_error = None
+
+    def _retry_state(self) -> None:
+        """A failed write of the state, tried once more; the views hear when it clears."""
+        self._state_retry = False
+        had = self.write_error
+        self._save_state()
+        if had != self.write_error:
+            self.rev += 1
+            self._broadcast_state()
 
     def _restore_state(self) -> None:
         live = self._live_dir()
