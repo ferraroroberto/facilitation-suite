@@ -219,7 +219,7 @@ export function render(body, result, ctx) {
       '<svg class="mp-links"></svg><div class="mp-pins"></div><div class="mp-inset" hidden><div class="mp-inset-title"></div>' +
       '<div class="mp-inset-map"><svg class="mp-land" preserveAspectRatio="none"></svg><div class="mp-pins"></div></div></div></div>' +
       '<aside class="mp-side"><div class="mp-total"></div><div class="mp-top"></div></aside></div>';
-    st = body._mp = { vb: null, target: null, anim: 0, pins: [], names: true, size: '', inset: null };
+    st = body._mp = { vb: null, target: null, anim: 0, pins: [], names: true, size: '', inset: null, insetOn: true };
     const area = body.querySelector('.mp-area');
     area.addEventListener('click', () => area.querySelectorAll('.mp-pop').forEach((p) => p.remove()));
     loadWorld().then((paths) => {
@@ -234,12 +234,14 @@ export function render(body, result, ctx) {
   }
   const pins = ((result && result.pins) || []).map((p) => ({ ...p, xy: project(p.lat, p.lon) }));
   const names = ctx.names !== false;
-  const sig = JSON.stringify([pins.map((p) => [p.id, p.lat, p.lon]), names]);
+  const insetOn = ctx.options.inset !== false;
+  const sig = JSON.stringify([pins.map((p) => [p.id, p.lat, p.lon]), names, insetOn]);
   drawSide(body, result);
   if (sig === st.sig) return; // the same pins: keep the view (and its animation) as it is
   st.sig = sig;
   st.pins = pins;
   st.names = names;
+  st.insetOn = insetOn;
   aim(body, st);
 }
 
@@ -265,7 +267,7 @@ function aim(body, st) {
   st.target = fitBox(st.pins.map((p) => p.xy), W / H);
   st.from = st.vb && Math.abs(st.vb.w / st.vb.h - st.target.w / st.target.h) < 0.01 ? { ...st.vb } : { ...st.target };
   st.start = performance.now();
-  st.inset = findInset(st.pins, st.target, st.inset);
+  st.inset = st.insetOn ? findInset(st.pins, st.target, st.inset) : null;
   const layer = area.querySelector(':scope > .mp-pins');
   const groups = cluster(st.pins, st.target, W, H);
   const onClick = (g, el) => popover(area, g, el);

@@ -24,7 +24,7 @@ export const TEXT_FONTS = [
   ['Segoe Print', 'Segoe Print (handwriting)'],
 ];
 
-const family = (name) => `"${String(name).replace(/["'\\;{}<>]/g, '').trim()}"`;
+const family = (name) => `'${String(name).replace(/["'\\;{}<>]/g, '').trim()}'`;
 
 /** The inline CSS variables that give one kind of text a font (and capitals). */
 export function roleVars(key, style) {
@@ -35,7 +35,7 @@ export function roleVars(key, style) {
   const font = (style.font || '').trim();
   if (font === 'title') {
     out += `${v}-font:var(--st-font);${v}-weight:var(--st-font-weight);${v}-stroke:var(--st-font-stroke);`;
-  } else if (font && (font === 'text' || family(font) !== '""')) {
+  } else if (font && (font === 'text' || family(font) !== "''")) {
     const fam = font === 'text' ? 'var(--st-text-font)' : `${family(font)},var(--st-text-font)`;
     const weight = key === 'hint' ? 'max(600, var(--st-text-weight))' : 'var(--st-text-weight)';
     out += `${v}-font:${fam};${v}-weight:${weight};${v}-stroke:0px;`;
