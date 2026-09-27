@@ -12,7 +12,6 @@ import logging
 import sys
 from pathlib import Path
 
-from src.config import data_dir
 from src.logger import configure_logging
 
 logger = logging.getLogger("freeze")
@@ -45,7 +44,7 @@ def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print("usage: python -m src.live.freeze <url> <out.png>", file=sys.stderr)
         return 1
-    configure_logging(log_file=data_dir() / "logs" / "facilitation-suite.log")
+    configure_logging()
     return 0 if render(argv[1], Path(argv[2])) else 2
 
 
