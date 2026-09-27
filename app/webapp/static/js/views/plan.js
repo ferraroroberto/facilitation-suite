@@ -44,7 +44,7 @@ let reviewNote;
 let split;
 let reviewHost;
 // selected = the focused item (the editor's); picked = every selected item (it included); anchor = where Shift ranges start.
-const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, rounds: null, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), loadedFor: null, pending: false };
+const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, rounds: null, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), pending: false };
 
 // ---------------------------------------------------------------- helpers
 
@@ -169,7 +169,7 @@ export async function mount(el, context) {
  * Returns the section's name.
  */
 export async function stageItem(item) {
-  if (st.loadedFor !== ctx.sessionId && !st.dirty) await load();
+  if (!st.dirty) await load();
   if (!st.session || !(st.session.sections || []).length) throw new Error('The plan has no sections yet — import the slides first');
   const at = st.selected ? findItem(st.selected) : null;
   const sec = at ? at.sec : st.session.sections[0];
@@ -194,7 +194,7 @@ async function loadRounds() {
 
 export function show() {
   if (ctx.reviewFor && ctx.reviewFor === ctx.sessionId) { load(); return; }
-  if (st.loadedFor !== ctx.sessionId && !st.dirty) load();
+  if (!st.dirty) load();
 }
 
 function showReview() {
@@ -224,7 +224,6 @@ function renderReviewNote() {
 
 async function load() {
   st.sid = ctx.sessionId;
-  st.loadedFor = st.sid;
   st.dirty = false;
   st.collapsed.clear(); // every section opens expanded
   if (!st.sid) {

@@ -14,10 +14,18 @@ from app.webapp.errors import AppError, is_local, require_local
 from src import settings as settings_file
 from src.certs import cert_hostname
 from src.config import profiles
+from src.settings import SettingsError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings")
+
+
+def _update(patch: dict[str, Any]) -> Any:
+    try:
+        return settings_file.update(patch)
+    except SettingsError as exc:
+        raise AppError(exc.status, exc.code, str(exc)) from exc
 
 
 class ObsPatch(BaseModel):
@@ -102,7 +110,7 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
     if body.reader:
         patch["reader"] = body.reader.model_dump(exclude_none=True)
     if patch:
-        request.app.state.config = settings_file.update(patch)
+        request.app.state.config = _update(patch)
         if "obs" in patch or "profiles" in patch:
             request.app.state.obs.reconnect()
         hub = request.app.state.live
@@ -128,7 +136,7 @@ async def test_obs(request: Request) -> dict[str, Any]:
 def new_remote_token(request: Request) -> dict[str, Any]:
     """A fresh phone-remote token: turns the remote on, or unpairs every phone that had the old one."""
     require_local(request, "The phone link can only be made on this PC")
-    request.app.state.config = settings_file.update({"remote": {"token": secrets.token_urlsafe(24)}})
+    request.app.state.config = _update({"remote": {"token": secrets.token_urlsafe(24)}})
     logger.info("✅ phone remote: new token (every earlier pairing is void)")
     return payload(request)
 
@@ -137,6 +145,6 @@ def new_remote_token(request: Request) -> dict[str, Any]:
 def remote_off(request: Request) -> dict[str, Any]:
     """Turn the phone remote off: no other device gets in."""
     require_local(request, "The phone remote can only be switched off on this PC")
-    request.app.state.config = settings_file.update({"remote": {"token": ""}})
+    request.app.state.config = _update({"remote": {"token": ""}})
     logger.info("ℹ️ phone remote switched off")
     return payload(request)
