@@ -19,7 +19,6 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from src.config import data_dir
 from src.logger import configure_logging
 
 logger = logging.getLogger("session_pdf")
@@ -119,7 +118,7 @@ def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print("usage: python -m src.results.pdf <session.html> <out.pdf>", file=sys.stderr)
         return 1
-    configure_logging(log_file=data_dir() / "logs" / "facilitation-suite.log")
+    configure_logging()
     try:
         pages = print_pdf(Path(argv[1]), Path(argv[2]))
     except Exception as exc:  # noqa: BLE001 — reported to the server through the exit code
