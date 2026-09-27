@@ -76,7 +76,7 @@ def test_dhash_is_stable_and_discriminates(tmp_path: Path) -> None:
         ("streamalive 1 - map", {"kind": "activity", "type": "map"}),
         ("streamalive 2 – weather report", {"kind": "activity", "type": "scale"}),
         ("activity – what did you learn about the group", {"kind": "activity", "type": "word_cloud"}),
-        ("breakout 1 – 1:1 instructions", {"kind": "break"}),
+        ("breakout 1 – 1:1 instructions", {"kind": "breakout", "title": "1:1 instructions"}),
         ("Mentimeter slide", {"kind": "skip"}),
         ("Working agreement", None),
     ],
@@ -122,7 +122,7 @@ def test_first_plan_uses_dividers_and_placeholders(tmp_path: Path) -> None:
     assert [s.name for s in sections] == ["Opening", "Working agreement"]
     kinds = [(it.kind, it.slide_id or it.type) for it in sections[0].items]
     assert kinds == [("slide", 10), ("slide", 11), ("activity", "map"), ("slide", 13)]
-    assert sections[1].items[-1].kind == "break"
+    assert (sections[1].items[-1].kind, sections[1].items[-1].title) == ("breakout", "pairs")
     assert sum(s.minutes for s in sections) == pytest.approx(120, abs=10)
     assert all(it.timer is None for s in sections for it in s.items)
 

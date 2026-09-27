@@ -213,8 +213,8 @@ def diff(old_meta: Optional[dict[str, Any]], new_meta: dict[str, Any], session: 
             prev = next((p for p in reversed(new[:pos]) if p["slide_id"] in pairs), None)
             if ph and ph.get("kind") == "activity":
                 detail = f"New activity slide · becomes a {ph['type'].replace('_', ' ')}"
-            elif ph and ph.get("kind") == "break":
-                detail = "New breakout slide · becomes a break"
+            elif ph and ph.get("kind") in ("break", "breakout"):
+                detail = "New breakout slide · becomes a breakout card"
             elif ph:
                 detail = "New slide · skipped in the plan"
             else:

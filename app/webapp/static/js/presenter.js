@@ -11,7 +11,8 @@ import { connectLive, bindKeys, remaining, hms, timing, driftText } from '/stati
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 
 const root = document.getElementById('presenter');
-const KIND_LABEL = { slide: 'slide', break: 'break' };
+const KIND_LABEL = { slide: 'slide', break: 'break', breakout: 'breakout' };
+const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
 let plan = null;
 let nowStage = null;
 let nextStage = null;
@@ -163,7 +164,7 @@ function buildThumbs() {
   box.innerHTML = plan.run.items.map((it, i) => {
     const inner = it.slide_file
       ? `<img alt="" loading="lazy" src="/api/sessions/${encodeURIComponent(plan.session.id)}/slides/${esc(it.slide_file)}">`
-      : `<span class="p-thumb-text">${it.kind === 'break' ? icon('coffee') : ''}${esc(oneLine(it.title))}</span>`;
+      : `<span class="p-thumb-text">${KIND_ICON[it.kind] ? icon(KIND_ICON[it.kind]) : ''}${esc(oneLine(it.title))}</span>`;
     return `<button type="button" class="p-thumb" data-goto="${i + 1}" title="${esc(oneLine(it.title))}"><span class="p-thumb-img">${inner}</span><span class="p-thumb-n">${i + 1}</span></button>`;
   }).join('');
   box.addEventListener('click', (e) => {
@@ -178,7 +179,7 @@ const items = () => plan.run.items;
 
 function kindLabel(it) {
   if (it.kind === 'activity') return (it.type_label || 'activity').toLowerCase();
-  if (it.kind === 'break' && it.timer) return `break · ${Math.round(it.timer.seconds / 60)} min`;
+  if ((it.kind === 'break' || it.kind === 'breakout') && it.timer) return `${it.kind} · ${Math.round(it.timer.seconds / 60)} min`;
   return KIND_LABEL[it.kind] || it.kind;
 }
 
@@ -331,6 +332,7 @@ function tickItemTimer(cur, s) {
   tc.textContent = clock(left);
   tc.classList.toggle('done', !!(ts && ts.done));
   const running = ts && ts.running_since != null;
+  tc.classList.toggle('paused', !!(ts && !running && !ts.done));
   card.querySelector('[data-tstate]').textContent = !ts ? 'not started' : ts.done ? 'time is up' : running ? 'running' : 'paused';
   const btn = card.querySelector('[data-ttoggle]');
   const label = running ? `${icon('pause')} Pause` : ts && !ts.done ? `${icon('play')} Resume` : `${icon('play')} Start timer`;

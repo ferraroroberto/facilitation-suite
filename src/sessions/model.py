@@ -38,7 +38,8 @@ class Timer(_Open):
     seconds: int = Field(180, ge=5, le=6 * 3600)
     start: Literal["manual", "on_enter", "with_capture"] = "manual"
     show_on: Literal["stage", "presenter", "both"] = "both"
-    end: Literal["keep", "stop_capture", "advance", "chime"] = "keep"
+    # At 00:00: keep showing it, stop the capture, go to the next item, chime, or take it off the stage.
+    end: Literal["keep", "stop_capture", "advance", "chime", "hide"] = "keep"
 
 
 THEME_FONT = "theme"
@@ -79,9 +80,9 @@ class StageFont(_Open):
 
 
 class Item(_Open):
-    """A slide, an activity or a break, in plan order."""
+    """A slide, an activity, a break or a breakout (rooms, with their clock), in plan order."""
 
-    kind: Literal["slide", "activity", "break"]
+    kind: Literal["slide", "activity", "break", "breakout"]
     id: str = ""
     title: str = ""
     profile: Optional[Profile] = None
@@ -94,7 +95,7 @@ class Item(_Open):
     # A slide's text drawn by the stage in the session's font (None = yes, when
     # the import found plain text on it); False keeps PowerPoint's picture.
     live_text: Optional[bool] = None
-    # activities
+    # activities (and a breakout's round: options.round)
     type: Optional[str] = None
     question: str = ""
     font: Optional[Font] = None
@@ -170,7 +171,7 @@ def ensure_ids(session: Session) -> Session:
                 if it.kind == "slide" and it.slide_id is not None and f"slide-{it.slide_id}" not in seen:
                     it.id = f"slide-{it.slide_id}"
                 else:
-                    it.id = new_id({"slide": "slide", "activity": "act", "break": "brk"}[it.kind])
+                    it.id = new_id({"slide": "slide", "activity": "act", "break": "brk", "breakout": "bko"}[it.kind])
                 while it.id in seen:
                     it.id = new_id(it.kind[:3])
             seen.add(it.id)

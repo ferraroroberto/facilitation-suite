@@ -1,6 +1,6 @@
 """Story 4: plan the session — edit an activity, give it its own timer, notes and a
 title, break its question over two lines, duplicate it, reorder, skip, fold the
-sections, add one, save."""
+sections, add one with a breakout card in it, save."""
 
 from __future__ import annotations
 
@@ -56,6 +56,14 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.fill("#f-name", "Energiser")
     page.locator(".detail-save-btn").click()
     expect(page.locator(".sec-row").nth(4)).to_contain_text("Energiser")
+    # a breakout card in it: the round under its title, a ten-minute clock
+    page.locator(".add-row").nth(4).click()
+    page.locator(".row-menu-item", has_text="Breakout").click()
+    page.locator("#panePlan .ed-row", has_text="Rooms").locator(".range-tab", has_text="Groups of 4 · A").click()
+    expect(page.locator(".item-row.selected")).to_contain_text("Groups of 4 · A")
+    expect(page.locator(".preview-frame .st-break-title")).to_have_text("Breakout rooms")
+    expect(page.locator(".preview-frame .st-sub")).to_have_text("Groups of 4 · A")  # no shuffle yet: no room count
+    expect(page.locator(".preview-frame [data-clock]")).to_have_text("10:00")
     page.locator(".item-row", has_text="Take-home word").first.click()
     expect(page.locator(".preview-frame .wc-word").first).to_be_visible()  # sample answers drawn
     shot(page, shots / "story-04-plan-1-desktop.png")
@@ -64,6 +72,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
 
     saved = yaml.safe_load((Path(folder) / "session.yaml").read_text(encoding="utf-8"))
     assert [s["name"] for s in saved["sections"]] == ["Welcome", "Personal readme", "Break", "Working agreement", "Energiser", "Closing"]
+    assert [(i["kind"], i["options"], i["timer"]["seconds"]) for i in saved["sections"][4]["items"]] == [("breakout", {"round": "g4a"}, 600)]
     closing = saved["sections"][-1]["items"]
     assert [i.get("slide_id") or i["id"] for i in closing][:2] == [110, "act-takeaway"]
     assert closing[0]["include"] is False

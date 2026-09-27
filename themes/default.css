@@ -24,6 +24,9 @@
   --st-ui-font: system-ui, "Segoe UI", Roboto, sans-serif;
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
+  /* A paused timer: the pill turns yellow, a break clock amber. */
+  --st-paused: #f2b705;
+  --st-paused-ink: #b37f00;
   --st-chip-bg: #ffffff;
   --st-chip-line: #d6d6d6;
   --st-c1: #c62828;
@@ -127,6 +130,7 @@
   font-weight: 700;
 }
 .stage-canvas .st-pill.done { background: var(--st-c1); }
+.stage-canvas .st-pill.paused { background: var(--st-paused); color: var(--st-ink); }
 
 /* Break: the title and a big clock, centred in the content area. */
 .stage-canvas .st-break {
@@ -155,5 +159,6 @@
   letter-spacing: -0.02em;
 }
 .stage-canvas .st-break-clock.done { color: var(--st-c1); }
+.stage-canvas .st-break-clock.paused { color: var(--st-paused-ink); }
 
 .stage-canvas .st-blackout { position: absolute; inset: 0; background: #000000; }

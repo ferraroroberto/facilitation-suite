@@ -17,7 +17,9 @@ Clocks are wall-clock epochs in milliseconds; each snapshot carries
 Timers are per item (epic §9): an item's timer state is created when it is
 first started and lives until reset. A timer keeps running when the
 presenter moves on (like a real kitchen timer), but its end behaviour
-``advance`` only fires while its item is still on stage.
+``advance`` only fires while its item is still on stage. Other services hear
+when a timer starts running (a start, a resume, a minute added after 00:00)
+and when it is reset — the capture follows both.
 
 Durability (epic §5.4): the position, clocks and timers are mirrored to
 ``live/state.json`` so a restarted server resumes where it was, and every
@@ -124,6 +126,8 @@ class LiveHub:
         # Step hooks: later services (capture, OBS) subscribe to item changes and timer ends.
         self.item_listeners: list[Callable[[Optional[dict[str, Any]], dict[str, Any]], None]] = []
         self.timer_end_listeners: list[Callable[[dict[str, Any], str], None]] = []
+        # ("start" | "reset", item): a timer began running, or was reset.
+        self.timer_listeners: list[Callable[[str, dict[str, Any]], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
         # The camera zone of each OBS profile (Settings); the defaults until the server wires it.
@@ -372,6 +376,11 @@ class LiveHub:
             t.running_since = now_ms()
             self._schedule_end(item["id"])
             self._event("timer_start", item_id=item["id"], remaining=round(t.remaining(now_ms())))
+            self._timer_heard("start", item)
+
+    def _timer_heard(self, event: str, item: dict[str, Any]) -> None:
+        for fn in self.timer_listeners:
+            fn(event, item)
 
     def _timer_pause(self, item_id: str) -> None:
         t = self.timers.get(item_id)
@@ -409,6 +418,7 @@ class LiveHub:
         t = self.timers.get(item["id"])
         if t is None:
             t = self.timers[item["id"]] = TimerState(total=int(item["timer"]["seconds"]))
+        restarted = t.done
         if t.done:
             # "One more minute" after the end: a fresh minute, running.
             t.total, t.elapsed, t.done = 60, 0.0, False
@@ -418,6 +428,8 @@ class LiveHub:
         if t.running_since is not None:
             self._schedule_end(item["id"])
         self._event("timer_add_minute", item_id=item["id"])
+        if restarted:
+            self._timer_heard("start", item)
         self._commit()
 
     def timer_reset(self) -> None:
@@ -425,6 +437,7 @@ class LiveHub:
         self._cancel_handle(item["id"])
         self.timers.pop(item["id"], None)
         self._event("timer_reset", item_id=item["id"])
+        self._timer_heard("reset", item)
         self._commit()
 
     def _schedule_end(self, item_id: str) -> None:

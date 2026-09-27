@@ -3,14 +3,11 @@
 // The rooms come with the item (groups.yaml, via the live run) — no capture.
 
 import { esc } from '/static/js/ui.js';
-import { words } from '/static/js/stage-words.js';
+import { words, roundLine } from '/static/js/stage-words.js';
 
 /** Under the title: the round and how many rooms — it follows the round picked in the plan. */
 export function subtitle(item, lang) {
-  const w = words(lang);
-  const round = (item.options || {}).round || 'pairs';
-  const n = (item.rooms || []).length;
-  return `${w.rounds[round] || round}${n ? ` · ${w.rooms(n)}` : ''}`;
+  return roundLine(lang, (item.options || {}).round || 'pairs', item.rooms);
 }
 
 /** Does the grid spill out of the body, or cut a name short? */
