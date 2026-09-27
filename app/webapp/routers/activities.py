@@ -2,15 +2,30 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
-from src.activities.registry import editors
+from app.webapp.errors import AppError
+from src.activities.registry import editors, preview
 
 router = APIRouter()
+
+
+class PreviewBody(BaseModel):
+    options: dict[str, Any] = Field(default_factory=dict)
+    answers: Optional[list[str]] = Field(None, max_length=200)
 
 
 @router.get("/api/activities")
 def activity_types() -> dict[str, Any]:
     return {"types": list(editors().values())}
+
+
+@router.post("/api/activities/{activity_type}/preview")
+def activity_preview(activity_type: str, body: PreviewBody) -> dict[str, Any]:
+    """The type's result for its sample answers — the Plan tab's stage preview."""
+    if activity_type not in editors():
+        raise AppError(404, "unknown_type", f"No activity type {activity_type!r}")
+    return {"result": preview(activity_type, body.options, body.answers)}

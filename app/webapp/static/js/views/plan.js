@@ -8,6 +8,7 @@ import { switchEl } from '/static/_vendored/switch/switch.js';
 import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
+import { createStage } from '/static/js/stage-render.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -69,6 +70,9 @@ function parseTimer(text) {
 function markDirty() {
   st.dirty = true;
   renderToolbar();
+  // Every edit (question, options, profile…) redraws the stage preview.
+  const found = st.selected && findItem(st.selected);
+  if (found) updatePreview(found.it);
 }
 
 function thumbHtml(it) {
@@ -716,10 +720,12 @@ function previewCard(it) {
   const card = document.createElement('div');
   card.className = 'card preview-card';
   card.innerHTML =
-    `<div class="preview-frame" data-preview></div>` +
+    `<div class="preview-frame stage-host" data-preview></div>` +
     `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'
       ? 'The slide as imported. The dashed box is where the camera goes for the chosen profile.'
-      : 'The question in its font and size, at the size Zoom will see it.'}</p></div>`;
+      : it.kind === 'activity'
+        ? 'Drawn by the real stage with sample answers, at the size Zoom will see it. The dashed box is the camera.'
+        : 'The break as the stage shows it.'}</p></div>`;
   setTimeout(() => updatePreview(it), 0);
   return card;
 }
@@ -730,25 +736,45 @@ const ZONES = {
   screen_only: null,
 };
 
+let pv = null; // { frame, stage } — rebuilt when the editor re-renders its preview frame
+const previewResults = new Map();
+let previewTimer = null;
+
+/** A plan item as the live run shows it (src/live/plan.py), for the stage renderer. */
+function runItem(it) {
+  const s = slideOf(it);
+  const profile = it.profile || (s && s.profile) || 'screen_only';
+  const spec = st.types[it.type] || {};
+  return {
+    id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
+    capture: it.kind === 'activity' && spec.capture !== false,
+    title: titleOf(it), question: it.question || (it.kind === 'activity' ? 'Your question here' : ''),
+    font: it.font || { family: 'Patrick Hand', size_px: 72 }, options: it.options || {},
+    profile, zone: ZONES[profile], slide_file: s ? s.file : null,
+    timer: it.timer && it.timer.enabled !== false ? it.timer : null,
+  };
+}
+
 function updatePreview(it) {
   const frame = editor.querySelector('[data-preview]');
   if (!frame) return;
-  const w = frame.clientWidth || 320;
-  const scale = w / 1920;
-  let inner = '';
-  const s = slideOf(it);
-  if (s) {
-    inner = `<img alt="" src="/api/sessions/${st.sid}/slides/${s.file}">`;
-  } else {
-    const font = it.font || { family: 'Patrick Hand', size_px: 72 };
-    const capture = it.kind === 'activity' && (st.types[it.type] || {}).capture !== false;
-    const text = capture ? (it.question || 'Your question here') : titleOf(it);
-    inner = `<div class="pv-question" style="font-family:'${esc(font.family)}',system-ui,sans-serif;font-size:${Math.max(6, Math.round((capture ? font.size_px : 96) * scale))}px">${esc(text)}</div>`;
-  }
-  const zone = s && s.zone ? s.zone : ZONES[it.profile || 'screen_only'];
-  if (zone && it.profile !== 'screen_only') {
-    const z = it.profile === 'camera_pip' ? ZONES.camera_pip : zone;
-    inner += `<div class="pv-zone" style="left:${z[0] * 100}%;top:${z[1] * 100}%;width:${(z[2] - z[0]) * 100}%;height:${(z[3] - z[1]) * 100}%">${icon('video')}</div>`;
-  }
-  frame.innerHTML = inner;
+  if (!pv || pv.frame !== frame) pv = { frame, stage: createStage(frame, { guides: true, slideGuides: true }) };
+  const item = runItem(it);
+  const plan = { rev: 0, active: true, session: { id: st.sid }, run: { chat_hint: st.session.chat_hint, theme: st.session.theme } };
+  const opts = Object.assign({}, ...((st.types[item.type] || {}).options || []).map((o) => ({ [o.key]: o.default })), item.options);
+  const key = JSON.stringify([item.type, item.options]);
+  const draw = () => pv.stage.render(item, {
+    plan, state: { timers: {}, blackout: false }, now: Date.now(),
+    names: !!opts.show_names, result: previewResults.get(key) || null,
+  });
+  draw();
+  if (!item.capture || previewResults.has(key)) return;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    try {
+      const res = await api(`/api/activities/${encodeURIComponent(item.type)}/preview`, { method: 'POST', body: { options: item.options } });
+      previewResults.set(key, res.result);
+      if (pv && pv.frame === frame && frame.isConnected) draw();
+    } catch (e) { /* the preview stays without sample answers */ }
+  }, 250);
 }

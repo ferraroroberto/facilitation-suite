@@ -6,7 +6,27 @@
   "description": "People pop onto the world map with their name as they type their city.",
   "chat_prompt_hint": "Your city and country",
   "options": [
-    {"key": "show_names", "label": "Show names on the map", "kind": "switch", "default": true},
-    {"key": "inset", "label": "Zoom inset for a crowded region", "kind": "switch", "default": true}
+    {
+      "key": "show_names",
+      "label": "Show names on the map",
+      "kind": "switch",
+      "default": true
+    },
+    {
+      "key": "inset",
+      "label": "Zoom inset for a crowded region",
+      "kind": "switch",
+      "default": true
+    }
+  ],
+  "samples": [
+    "Madrid, Spain",
+    "Milan, Italy",
+    "Lisbon",
+    "Mexico City",
+    "Buenos Aires",
+    "Berlin",
+    "Seville, Spain",
+    "Bogotá"
   ]
 }

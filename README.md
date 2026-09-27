@@ -62,6 +62,50 @@ The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to re
 
 Activity types are plug-ins: one folder per type under `app/activities/<type>/` with an `editor.json` (label, icon, options). Edits are staged; **Save to session.yaml** is the only write.
 
+## Presenting live
+
+**Open presenter** (Sessions tab) makes the session live and opens `/presenter` on the second monitor; **Open stage window** opens `/stage` — drag it to the display OBS captures and double-click it for full screen. Both follow one state owned by the server and pushed over the `/ws` WebSocket: every view only sends *intents* (next, blackout, timer…), so the stage and the presenter can never disagree.
+
+| Key (stage or presenter window) | Action |
+|---|---|
+| → · PageDown · ↓ · N | next item (a presentation clicker works) |
+| ← · PageUp · ↑ · P | previous item |
+| B · . | blackout |
+| T | the item's timer: start / pause |
+| M · + | the item's timer: +1 min |
+| Space | capture start / stop (activities) |
+
+The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there.
+
+The live position, clocks and timers are mirrored to `live/state.json` (a restarted server resumes where it was) and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; the hint under activities ("Write your answer in the Zoom chat") is set per session in **Session details**.
+
+## Activities and captures
+
+On an activity, **Space** (or the presenter's big button) starts the **capture**: every participant message that arrives from then on belongs to the activity, and the stage grows its visual live — a word cloud, scale bars with the average, cards, or a feed of bubbles. Space again stops it; a stopped capture can be reopened (what arrived while it was stopped stays out). Only one capture runs at a time. Your own messages ("You" in Zoom) never count. **Click a message** in the presenter's chat to hide it from the activity (a "can you hear me?"); click again to count it back.
+
+At every stop the result is **frozen** in the session folder: `live/captures/<item>.json` (every answer with its name and parsed value, and the result) and `live/captures/<item>.png` (the stage as it looked, rendered by a headless browser). An item timer set to start *with the capture* starts with it; one set to *stop the capture* at 00:00 does.
+
+| Type | What counts | On the stage |
+|---|---|---|
+| Word cloud | answers of up to three words stay one phrase; longer ones become words minus filler words (Spanish/English lists); laughter dropped; case, accents and simple plurals merged | the cloud grows, most frequent biggest |
+| Scale | the first number in range, or a keyword from the list (lowest → highest); one vote per person | bars with counts, the leader highlighted, the average |
+| Cards | each answer with its name | the latest cards in a grid |
+| Feed | each answer with its name | bubbles, the newest at the bottom and largest |
+
+Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the Plan tab's fields and sample answers), `parse.py` (`parse(message, options)` → contribution, `aggregate(contributions, options)` → result; pure and unit-tested) and `stage.js` + `stage.css` (draws a result). The Plan tab's stage preview is drawn by the same renderer with the sample answers, and the presenter's *Simulate answers* on an activity uses them too.
+
+## The Zoom chat reader
+
+Participants answer in the Zoom chat; a separate local process reads it — no bot, no Zoom app. In Zoom, **pop out the meeting chat** (Chat → … → Pop out): the reader finds that window (`Meeting chat`) and reads every message through Windows accessibility (MSAA) twice a second, then posts the new ones to the server, which appends them to the session's `live/chat.jsonl` and shows them on the presenter.
+
+- It starts when a session goes live (`reader.enabled` in the config), from the presenter's **Zoom chat** chip or card, or from the readiness **Test** in the Sessions tab. It stops with the live session and exits by itself if the server goes away.
+- The presenter chip says what it is doing: *reading*, *pop out the chat* (window not found), *no answer* (no heartbeat for 3 s), *error*, *simulating* or *off*.
+- Messages already in the window when it starts are history (Zoom keeps chat across meetings in the same room), so a restarted reader never duplicates what was stored. Emoji arrive as nothing, so prompts should ask for words or numbers. Private messages are not read.
+- While it runs, the Windows "screen reader present" flag is on (Zoom may need it to expose the chat); the reader restores it when it stops.
+- **Rehearse alone:** *Simulate answers* on the presenter replays fake answers through the same pipeline; from a terminal, `python -m src.chat.reader --server http://127.0.0.1:8449 --simulate burst:50` (or `random:30`, or a YAML script `{messages: [{after, sender, text}]}`).
+
+Log: `data/logs/chat-reader.log`.
+
 ## Configuration
 
 `config/config.json` (gitignored; `config/config.sample.json` documents every key):
@@ -97,9 +141,11 @@ The Sessions tab creates, duplicates (plan, slides, roster, theme — never live
 ```
 app/
   webapp/            FastAPI server (server.py), routers/, static/ (app, presenter, stage)
+  activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, logger, build identity, certs (non-UI Python)
+src/                 config, logger, build identity, certs, sessions/, importer/, live/ (hub, actions)
+themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)

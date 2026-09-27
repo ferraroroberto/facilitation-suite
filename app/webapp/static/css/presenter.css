@@ -1,0 +1,193 @@
+/* The presenter cockpit (second monitor). Fleet design tokens; the two stage
+   previews inside follow the session theme (stage.css + /themes). On a wide
+   screen everything fits one viewport — the cards scroll inside, never the
+   page — so nothing moves while presenting. */
+
+/* `hidden` wins over every component's display rule here. */
+.presenter [hidden] { display: none !important; }
+.presenter-page { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); }
+.presenter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--gap);
+  padding: var(--gap);
+  min-height: 100vh;
+}
+.presenter.picker { display: grid; place-items: center; }
+.p-picker { width: min(560px, 100%); display: grid; gap: var(--space-sm); }
+.p-picker .list-row .button-tint { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; min-height: var(--control-h); }
+
+/* ---- top bar ---------------------------------------------------------- */
+.p-top { display: flex; align-items: center; gap: var(--space-md); min-width: 0; }
+.p-brand { width: 40px; height: 40px; border-radius: var(--radius-md); flex: none; }
+.p-titles { min-width: 0; flex: 1; }
+.p-title { font-size: var(--font-heading-md); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-sub { color: var(--muted); font-size: var(--font-body-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); justify-content: flex-end; }
+.p-chips .chip { min-height: 30px; padding: 4px 12px; font-size: var(--font-body-sm); border: 0; cursor: default; }
+.p-chips button.chip { cursor: pointer; font: inherit; font-size: var(--font-body-sm); font-weight: 600; }
+.p-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.p-icon-btn .icon { width: 20px; height: 20px; }
+.p-icon-btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* ---- cards ------------------------------------------------------------ */
+.p-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
+.p-side { display: grid; gap: var(--gap); align-content: start; }
+.p-card { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+.p-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 8px var(--space-md);
+  border-bottom: 1px solid var(--line-muted);
+  font-size: var(--font-body-sm);
+}
+.p-label { font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+.p-meta { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.p-meta:not(:empty)::before { content: "· "; }
+.p-head .chip, .p-flag { margin-left: auto; flex: none; }
+.p-flag { font-size: var(--font-caption); font-weight: 700; color: var(--danger-text); background: var(--danger-soft); border-radius: var(--radius-pill); padding: 2px 10px; }
+.live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); }
+.p-body { padding: var(--space-md); display: grid; gap: var(--space-sm); align-content: start; min-height: 0; overflow: auto; }
+
+/* Flex, not grid: a grid row under-sizes an aspect-ratio box with overflow hidden. */
+.p-next .p-body { display: flex; flex-direction: column; }
+.p-stage { flex: none; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-md); border: 1px solid var(--line); background: #f2f2f2; }
+.p-caption { margin: 0; }
+.p-then-label { margin-top: var(--space-xs); padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.p-then { list-style: none; margin: 0; padding: 0; }
+.p-then li { display: flex; gap: var(--space-md); align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line-muted); }
+.p-then-n { color: var(--muted); width: 2ch; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+.p-then-t { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-then-k { color: var(--muted); font-size: var(--font-body-sm); flex: none; }
+
+.p-notes-text { white-space: pre-wrap; font-size: 1.15rem; line-height: 1.55; }
+.p-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: var(--space-sm); }
+.p-prompt-text { color: var(--accent-text); font-weight: 600; }
+.p-prompt .button-surface, .p-timer-actions .button-surface, .p-clock-reset {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h);
+}
+
+.p-timer { display: flex; align-items: baseline; gap: var(--space-sm); }
+.p-timer-clock { font-family: var(--mono); font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.p-timer-clock.done { color: var(--danger-text); }
+.p-timer-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.p-timer-actions .button-primary { flex: 1 1 160px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.p-timer-actions kbd, .p-keylist kbd {
+  font-family: var(--mono);
+  font-size: var(--font-caption);
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}
+.p-names { margin-top: var(--space-xs); }
+.p-cap-status { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.p-cap-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); flex: none; }
+.p-cap-dot.live { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); animation: p-pulse 1.4s ease-in-out infinite; }
+.p-cap-dot.stopped { background: var(--success); }
+@keyframes p-pulse { 50% { box-shadow: 0 0 0 8px transparent; } }
+.p-cap-counts { margin: 0; }
+.p-cap-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+.p-cap-btn.live { background: var(--danger); border-color: var(--danger); }
+.p-timer.compact .p-timer-clock { font-size: 1.8rem; }
+.p-msg { cursor: pointer; }
+.p-msg.own { cursor: default; }
+.p-msg.counted { box-shadow: inset 3px 0 0 var(--success); padding-left: 10px; }
+.p-msg.hidden-msg .p-msg-text { text-decoration: line-through; color: var(--muted); }
+.p-msg.hidden-msg { opacity: 0.7; }
+
+/* Zoom chat: chronological, newest at the bottom, the list scrolls inside the card. */
+.p-chat .p-body { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 0; gap: 0; }
+.p-age { margin-left: auto; flex: none; }
+.p-msgs { list-style: none; margin: 0; padding: 0 var(--space-md); flex: 1; min-height: 120px; overflow-y: auto; }
+.p-msg { padding: 8px 0; border-bottom: 1px solid var(--line-muted); }
+.p-msg-top { display: flex; align-items: center; gap: 6px; font-size: var(--font-body-sm); }
+.p-msg-top b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-msg-time { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.p-msg-text { overflow-wrap: anywhere; }
+.p-msg.own .p-msg-text { color: var(--muted); }
+.p-chat-foot { padding: var(--space-sm) var(--space-md) var(--space-md); border-top: 1px solid var(--line-muted); display: grid; gap: 6px; }
+.p-chat-foot .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.p-chat-hint { margin: 0; }
+
+/* The keys popover under the top bar. */
+.p-keys { position: fixed; top: 64px; right: var(--gap); z-index: 20; width: 300px; display: grid; gap: var(--space-sm);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18); }
+.p-keylist { margin: 0; display: grid; gap: 6px; }
+.p-keylist div { display: flex; gap: var(--space-sm); align-items: center; }
+.p-keylist dt { width: 120px; flex: none; }
+.p-keylist dd { margin: 0; color: var(--muted); font-size: var(--font-body-sm); }
+
+.p-clock { display: flex; align-items: baseline; gap: var(--space-sm); }
+.p-clock-big { font-family: var(--mono); font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.p-clock-of { color: var(--muted); font-size: var(--font-body-sm); }
+.p-sec-name { font-weight: 700; margin-top: var(--space-xs); }
+.p-sec-left { color: var(--muted); }
+.p-sec-left b { color: var(--ink); font-family: var(--mono); }
+.p-sec-left b.over { color: var(--danger-text); }
+.p-bar { height: 8px; border-radius: 9999px; background: var(--neutral-soft); overflow: hidden; }
+.p-bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.p-bar span.over { background: var(--danger); }
+.p-clock-start { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.p-clock-reset { justify-self: start; }
+
+/* ---- filmstrip -------------------------------------------------------- */
+.p-strip { display: flex; align-items: center; gap: var(--space-sm); padding: 10px var(--space-sm); }
+.p-nav {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--card); color: var(--ink); cursor: pointer;
+}
+.p-nav:disabled { color: var(--muted); cursor: default; opacity: 0.5; }
+.p-thumbs { flex: 1; min-width: 0; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: thin; padding: 4px 2px; }
+.p-thumb {
+  flex: none; width: 128px; display: grid; gap: 4px; justify-items: center;
+  padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit; font-size: var(--font-caption);
+}
+.p-thumb-img {
+  width: 128px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden;
+  border: 2px solid var(--line-muted); background: #f2f2f2; display: grid; place-items: center;
+}
+.p-thumb-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p-thumb-text {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; text-align: center;
+  color: #1f1f1f; font-weight: 600; font-size: 11px; line-height: 1.2;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+}
+.p-thumb-text .icon { width: 12px; height: 12px; }
+.p-thumb.current .p-thumb-img { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.p-thumb.current .p-thumb-n { color: var(--accent-text); font-weight: 700; }
+
+/* Wide, fine pointer: the mock-up's three-column cockpit, one viewport high. */
+@media (min-width: 1100px) and (pointer: fine) {
+  .presenter { height: 100vh; min-height: 0; }
+  .p-grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    min-height: 0;
+  }
+  .p-now { grid-column: 1; grid-row: 1; }
+  .p-next { grid-column: 2; grid-row: 1; }
+  .p-side { grid-column: 3; grid-row: 1 / span 2; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+  .p-side .p-chat { min-height: 0; }
+  .p-notes { grid-column: 1; grid-row: 2; }
+  .p-timing { grid-column: 2; grid-row: 2; }
+  /* The live preview takes the largest 16:9 box its card body allows. */
+  .p-now .p-body { flex: 1; display: grid; place-items: center; overflow: hidden; container-type: size; }
+  .p-now .p-stage { width: min(100cqw, 100cqh * 16 / 9); height: auto; }
+}
+/* "Next" is a glance, not a second stage: smaller, so three items fit under it. */
+.p-stage-next { width: 82%; }

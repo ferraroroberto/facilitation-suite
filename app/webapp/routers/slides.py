@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.webapp.errors import AppError
+from app.webapp.errors import AppError, require_local
 from src.importer.service import Importer, ImportError_
 from src.sessions.store import SessionError, SessionStore
 
@@ -109,9 +109,7 @@ def native_pick(kind: str) -> str:
 
 @router.post("/api/pick")
 def pick(request: Request, body: PickRequest) -> dict[str, str]:
-    host = request.client.host if request.client else ""
-    if host not in ("127.0.0.1", "::1", "localhost"):
-        raise AppError(403, "local_only", "The file picker only opens on this PC")
+    require_local(request, "The file picker only opens on this PC")
     if not _pick_lock.acquire(blocking=False):
         raise AppError(409, "busy", "A file dialog is already open")
     try:

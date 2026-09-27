@@ -56,6 +56,8 @@ def draw_slide(spec: dict[str, Any], path: Path) -> None:
     else:
         d.text((110, 80), spec["title"].upper(), font=_font(64), fill=INK)
     cx, cy = (960, 600) if wide else (520, 620)
+    if spec.get("divider"):
+        cx, cy = 300, 250  # above the divider's title, not over it
     shape = spec["shape"]
     if shape == "pizza":
         d.ellipse((cx - 300, cy - 300, cx + 300, cy + 300), fill=(210, 60, 40), outline=(90, 30, 20), width=12)

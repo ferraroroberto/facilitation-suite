@@ -11,7 +11,32 @@ flowchart LR
     sessr["routers/sessions.py<br/>/api/sessions…"]
     slidesr["routers/slides.py<br/>import jobs · slides · native picker"]
     actr["routers/activities.py<br/>/api/activities"]
+    liver["routers/live.py<br/>WS /ws · /api/live…"]
   end
+  liver --> hub["src/live/hub.py<br/>LiveHub — the one live state<br/>position · clocks · item timers"]
+  liver --> acts["src/live/actions.py<br/>intent registry"]
+  acts --> hub
+  hub --> run["src/live/plan.py<br/>run order"]
+  hub --> store
+  hub --> livefiles[("live/state.json · live/events.jsonl")]
+  sessr -->|plan saved| hub
+  presenter <-->|WS snapshots / intents| liver
+  stage <-->|WS snapshots / intents| liver
+  presenter --> themes[("themes/*.css + session theme.css")]
+  zoom["Zoom · popped-out Meeting chat"] -->|MSAA walk every 0.5 s| reader["src/chat/reader.py<br/>own process · diff by order · simulator"]
+  reader -->|POST /api/chat/messages · heartbeat| chatr["routers/chat.py (loopback only)"]
+  chatr --> chathub["src/chat/hub.py<br/>ChatHub · reader state · stale monitor"]
+  chathub --> hub
+  chathub --> chatfile[("live/chat.jsonl")]
+  hub -->|session live| proc["src/chat/process.py<br/>ReaderProcess"]
+  proc -.->|spawns| reader
+  chathub -->|new messages| capture["src/live/capture.py<br/>CaptureService · windows · hide · freeze"]
+  capture --> hub
+  capture --> reg
+  reg --> parsers[("app/activities/&lt;type&gt;/parse.py · stage.js")]
+  capture --> capfiles[("live/captures.json · captures/&lt;item&gt;.json + .png")]
+  capture -.->|spawns| freeze["src/live/freeze.py<br/>headless /stage?freeze="]
+  stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg
   reg --> plug[("app/activities/&lt;type&gt;/editor.json")]

@@ -256,7 +256,14 @@ function readyRow(c) {
 async function readinessAction(sid, s, action) {
   if (action === 'pin') return pin(sid);
   if (action === 'import') return runImport(sid, s, false);
-  if (action === 'test_reader') { toast('The chat reader test arrives with the reader (step 6).'); return; }
+  if (action === 'test_reader') {
+    try {
+      await api('/api/chat/reader/start', { method: 'POST' });
+      toast('Chat reader started — pop out the Zoom meeting chat; this check turns green once it has read it');
+      setTimeout(renderDetail, 4000);
+    } catch (e) { toast(e.message, 'error'); }
+    return;
+  }
   if (action === 'confirm_zoom_update') {
     const next = Object.assign({}, s, { checklist: Object.assign({}, s.checklist, { zoom_autoupdate_off: true }) });
     await save(sid, next);
@@ -285,11 +292,14 @@ async function editMeta(sid, s) {
       { name: 'title', label: 'Title', value: s.title, required: true },
       { name: 'date', label: 'Date and time', type: 'datetime-local', value: local },
       { name: 'duration', label: 'Duration (min)', type: 'number', value: s.duration_minutes },
+      { name: 'chat_hint', label: 'Stage hint under activities', value: s.chat_hint || '',
+        hint: 'Shown on the stage in the language of the session, e.g. "Escribe tu respuesta en el chat de Zoom".' },
     ],
   });
   if (!v) return;
   const next = Object.assign({}, s, {
     title: v.title.trim(),
+    chat_hint: v.chat_hint.trim() || 'Write your answer in the Zoom chat',
     date: v.date ? new Date(v.date).toISOString() : null,
     duration_minutes: Math.max(1, parseInt(v.duration, 10) || s.duration_minutes),
   });
