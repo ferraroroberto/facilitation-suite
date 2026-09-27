@@ -7,7 +7,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
 import { api, esc, oneLine, toast, currentTheme, setTheme } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
-import { connectLive, bindKeys, remaining, hms, timing, driftText } from '/static/js/live.js';
+import { connectLive, bindKeys, clickToAdvance, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 
 const root = document.getElementById('presenter');
@@ -105,6 +105,7 @@ function buildShell() {
       `<button type="button" class="p-icon-btn" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
       `<button type="button" class="p-icon-btn" data-blackout title="Blackout (B)" aria-label="Blackout">${icon('eye-off')}</button>` +
       `<button type="button" class="p-icon-btn" data-theme title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
+      `<button type="button" class="p-icon-btn" data-reset title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
       `<button type="button" class="p-icon-btn" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button>` +
     `</header>` +
     `<div class="p-grid">` +
@@ -128,6 +129,8 @@ function buildShell() {
   nowHost.className = 'stage-host p-stage';
   root.querySelector('.p-now [data-body]').appendChild(nowHost);
   nowStage = createStage(nowHost, { guides: true, blackout: false });
+  nowHost.title = 'Click to go on';
+  clickToAdvance(nowHost, live);
 
   const nextBody = root.querySelector('.p-next [data-body]');
   nextBody.innerHTML = `<div class="stage-host p-stage p-stage-next"></div><p class="p-caption small muted" data-caption></p>` +
@@ -135,7 +138,7 @@ function buildShell() {
   nextStage = createStage(nextBody.querySelector('.p-stage-next'), { guides: true, blackout: false });
 
   root.querySelector('.p-keylist').innerHTML =
-    [['→ · PageDown', 'next'], ['← · PageUp', 'previous'], ['B', 'blackout'], ['T', 'timer start / pause'], ['M', 'timer +1 min'], ['Space', 'capture start / stop'], ['Home', 'first item']]
+    [['→ · PageDown', 'next — or click the stage'], ['← · PageUp', 'previous'], ['B', 'blackout'], ['T', 'timer start / pause'], ['M', 'timer +1 min'], ['Space', 'capture start / stop'], ['Home · End', 'first · last item']]
       .map(([k, v]) => `<div><dt><kbd>${k}</kbd></dt><dd>${v}</dd></div>`).join('');
   const keysBtn = root.querySelector('[data-keys]');
   keysBtn.addEventListener('click', () => {
@@ -151,6 +154,14 @@ function buildShell() {
   root.querySelector('[data-theme]').addEventListener('click', (e) => {
     setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
     e.currentTarget.innerHTML = icon(currentTheme() === 'dark' ? 'sun' : 'moon');
+  });
+  root.querySelector('[data-reset]').addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'Start the session over?',
+      message: 'Back to the first item, with no clocks, timers, captures or chat. Nothing is deleted: the run so far is kept in the session folder as live-<date>-<time>.',
+      actionLabel: 'Start over', danger: true,
+    });
+    if (ok) live.send('session_reset');
   });
   root.querySelector('[data-close]').addEventListener('click', async () => {
     const ok = await confirmDialog({ title: 'Close the live session?', message: 'The stage goes blank. Position, clocks and timers are kept in the session folder and come back when you go live again.', actionLabel: 'Close' });
@@ -650,7 +661,7 @@ function chime() {
   } catch (e) { /* no audio device */ }
 }
 
-bindKeys(live, { Home: () => live.send('goto', '1') });
+bindKeys(live);
 
 // Space means "capture" on the presenter: a button clicked with the mouse must
 // not keep the focus (Space would click it again). Keyboard focus is kept.

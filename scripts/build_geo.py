@@ -12,7 +12,10 @@
   Spanish (Unicode CLDR via ``babel``, build-time only).
 - ``world.svg`` — country outlines from world-atlas ``countries-50m``
   (Natural Earth, public domain), projected equirectangular with a 35°
-  standard parallel (x = lon·cos 35°, y = −lat), rounded and thinned.
+  standard parallel (x = lon·cos 35°, y = −lat), rounded and thinned. A
+  ring that crosses the 180° meridian (Russia, Fiji) is kept continuous past
+  the map's edge instead of jumping back across it — the jump drew a filled
+  band over the whole map at that latitude.
 
 Network is needed only here; the app itself never downloads anything.
 """
@@ -122,9 +125,25 @@ def _ring(indexes: list[int], arcs: list[list[tuple[float, float]]]) -> list[tup
     return pts
 
 
+def _unwrap(ring: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Longitudes made continuous: a step of more than 180° is the ring crossing
+    the antimeridian, so the rest of it goes on past ±180° (off the map)."""
+    out: list[tuple[float, float]] = []
+    shift = 0.0
+    for i, (lon, lat) in enumerate(ring):
+        if i:
+            step = lon + shift - out[-1][0]
+            if step > 180:
+                shift -= 360
+            elif step < -180:
+                shift += 360
+        out.append((lon + shift, lat))
+    return out
+
+
 def _path(ring: list[tuple[float, float]]) -> str:
     out, last = [], None
-    for lon, lat in ring:
+    for lon, lat in _unwrap(ring):
         p = (round(lon * KX * SVG_SCALE), round(-lat * SVG_SCALE))
         if p != last:
             out.append(p)

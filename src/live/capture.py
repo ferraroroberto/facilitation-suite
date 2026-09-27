@@ -61,6 +61,7 @@ class CaptureService:
         live.timer_end_listeners.append(self._on_timer_end)
         live.timer_listeners.append(self._on_timer)
         live.session_listeners.append(lambda sid: self._load())
+        live.reset_listeners.append(self._forget)
         chat.listeners.append(self._on_messages)
         register(Action("capture_toggle", "Capture start/stop", lambda h, a: self.toggle()))
         register(Action("hide_message", "Hide a chat message", lambda h, a: self.set_hidden(_int(a), True), arg="id", stream_deck=False))
@@ -238,6 +239,11 @@ class CaptureService:
             self.places = {int(k): str(v) for k, v in (data.get("places") or {}).items()}
         except (OSError, ValueError, TypeError) as exc:
             logger.warning("⚠️ %s unreadable (%s) — captures start empty", STATE_FILE, exc)
+
+    def _forget(self) -> None:
+        """After a reset: nothing captured, hidden or placed (the old run is set aside)."""
+        self._session = None
+        self._load()
 
     def _save(self) -> None:
         d = self._dir()

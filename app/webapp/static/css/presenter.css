@@ -82,6 +82,7 @@
 }
 
 .p-timer { display: flex; align-items: baseline; gap: var(--space-sm); }
+.p-now .p-stage { cursor: pointer; }
 .p-timer-clock { font-family: var(--mono); font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .p-timer-clock.done { color: var(--danger-text); }
 .p-timer-clock.paused { color: var(--attention-text); background: var(--attention-soft); border-radius: var(--radius-sm); padding: 0 6px; }

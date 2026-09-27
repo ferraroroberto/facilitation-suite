@@ -91,14 +91,15 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 
 | Key (stage or presenter window) | Action |
 |---|---|
-| → · PageDown · ↓ · N | next item (a presentation clicker works) |
+| → · PageDown · ↓ · N · click | next item (a presentation clicker works; so does a click on the stage window or the presenter's "on stage now" — a double-click on the stage is full screen) |
 | ← · PageUp · ↑ · P | previous item |
 | B · . | blackout |
 | T | the item's timer: start / pause |
 | M · + | the item's timer: +1 min |
 | Space | capture start / stop (activities) |
+| Home · End | the first · the last item |
 
-The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there.
+The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there. **Start the session over** (the ↺ next to ×) goes back to the first item with no clocks, timers, captures or chat — after a rehearsal, say; nothing is deleted: the run so far stays in the session folder as `live-<date>-<time>/`.
 
 The live position, clocks and timers are mirrored to `live/state.json` (a restarted server resumes where it was) and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; **Session details** sets the session's **language on the stage** (English or Español: the words the stage says by itself — the hint under activities, "Write your answer in the chat" / "Escribe tu respuesta en el chat", default titles such as "Break" / "Descanso", the breakout rounds and room counts) and, optionally, a hint of your own instead of the language's.
 
@@ -112,7 +113,7 @@ At every stop the result is **frozen** in the session folder: `live/captures/<it
 |---|---|---|
 | Word cloud | answers of up to three words stay one phrase; longer ones become words minus filler words (Spanish/English lists); laughter dropped; case, accents and simple plurals merged | the cloud grows, most frequent biggest |
 | Scale | the first number in range, or a keyword from the list (lowest → highest); one vote per person | bars with counts, the leader highlighted, the average |
-| Map | a place, geocoded offline: `Milan, italy`, `Sevilla, España`, `CDMX`, `desde Bogotá`, a country alone (→ its capital); an ambiguous city follows the room ("Valencia" goes to Spain when the others are there); one pin per person, their latest answer | people pop in with their names, the view fits everyone, a crowded region gets its own inset, click a pin for who is there; the headcount, countries and top cities alongside |
+| Map | a place, geocoded offline: `Milan, italy`, `Sevilla, España`, `CDMX`, `desde Bogotá`, a country alone (→ its capital); an ambiguous city follows the room ("Valencia" goes to Spain when the others are there); one pin per person, their latest answer | people pop in with their names, the view fits everyone, nearby pins merge into one with the count in its dot, each label takes a free side of its dot (or waits in the side list), a crowded region gets its own inset that stays put, click a pin for who is there; the headcount, countries and top cities alongside |
 | Cards | each answer with its name | the latest cards in a grid |
 | Feed | each answer with its name | bubbles, the newest at the bottom and largest |
 

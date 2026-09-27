@@ -1,4 +1,5 @@
-"""Story 5: go live — the stage and the presenter follow one state; keys, blackout, timer, clocks."""
+"""Story 5: go live — the stage and the presenter follow one state; keys, clicks, blackout, timer,
+clocks, and starting the session over."""
 
 from __future__ import annotations
 
@@ -67,5 +68,23 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     expect(stage.locator("[data-clock]")).to_contain_text("09:")
     shot(page, shots / "story-05-live-1-presenter.png")
     shot(stage, shots / "story-05-live-2-stage.png")
+
+    # a click on "on stage now" or on the stage window goes on; End and Home jump to the ends
+    page.locator(".p-now .p-stage").click()
+    expect(page.locator(".p-sub")).to_contain_text("11 of 17")
+    stage.mouse.click(640, 360)
+    expect(page.locator(".p-sub")).to_contain_text("12 of 17")
+    page.keyboard.press("End")
+    expect(page.locator(".p-sub")).to_contain_text("17 of 17")
+    stage.keyboard.press("Home")
+    expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+
+    # start over after the rehearsal: first item, no clock; the run so far is kept aside
+    page.keyboard.press("End")
+    page.locator("[data-reset]").click()
+    page.locator(".dialog-confirm").click()
+    expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+    expect(page.locator("[data-cstart]")).to_be_visible()
+    assert [d.name.startswith("live-") for d in folder.iterdir()].count(True) == 1
     stage_ctx.close()
     assert errors == []
