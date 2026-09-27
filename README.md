@@ -55,14 +55,17 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 
 ## Planning
 
-The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to reorder, rename, collapse), and inside each section the slides, activities and breaks in order (drag, or Alt+↑/↓, or Move up/down). Each item has:
+The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to reorder, rename, collapse — or **Collapse all / Expand all**; every load opens them all), and inside each section the slides, activities and breaks in order (drag, or Alt+↑/↓, or Move up/down). **Add slide or activity** at the end of a section also adds a **section after this one**. Each item has:
 
 - an **OBS profile** (Camera strip / Camera PiP / Screen only; slides start with the detected one),
 - its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep, stop the capture, next item, chime),
 - **In this session** (off = skipped live, kept in the plan),
-- for activities: type, question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options.
+- for activities: type, title (the name in the plan and on the presenter; the question when empty), question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options,
+- **Notes** for the presenter's Notes card — a slide starts from its PowerPoint notes, and editing them here leaves the deck as it is (clear the box to get the deck's back).
 
-Select several items as in a file manager — **Ctrl+click** adds or removes one, **Shift+click** selects a range (Ctrl+Shift+click adds it), **Shift+↑/↓** extends, **Ctrl+A** selects all, **Esc** keeps one — and the editor becomes a bulk panel: one OBS profile or **In this session** for all of them, or **Delete**. Dragging any selected item moves the whole selection; **Delete** on the keyboard deletes it. Deleting an imported slide only takes it out of the plan: it stays in the deck, and **Add slide or activity → Slide from the deck** brings it back.
+Type `\n` in a question or title where the line should break on the stage; lists, the presenter and the results show it on one line. **Duplicate** (or Ctrl+D) copies the selected items right after the last of them. The "who are you with?" preview draws the rooms from the Groups tab (it redraws after a shuffle), and the stage shows the round and room count under its title.
+
+Select several items as in a file manager — **Ctrl+click** adds or removes one, **Shift+click** selects a range (Ctrl+Shift+click adds it), **Shift+↑/↓** extends, **Ctrl+A** selects all, **Esc** keeps one — and the editor becomes a bulk panel: one OBS profile or **In this session** for all of them, **Duplicate** or **Delete**. Dragging any selected item moves the whole selection; **Delete** on the keyboard deletes it. Deleting an imported slide only takes it out of the plan: it stays in the deck, and **Add slide or activity → Slide from the deck** brings it back.
 
 **Stage font** (Sessions tab): **Choose font…** picks an `.otf`, `.ttf` or `.woff` file on this PC (your own handwriting font, say) for every question, answer and title on the stage, and **Line thickness** thickens its lines, in stage pixels (a stroke under the letters, so they keep their shape). Both go into `session.yaml`:
 
@@ -137,7 +140,7 @@ The **Groups** tab makes the 1-2-4-all breakout rooms (the algorithm ported from
 2. **Mark who is here** with the switches (they win over the file's `present` column and are saved in `groups.yaml`).
 3. **Shuffle** — three rounds: **pairs** (an odd number gives one trio), **groups of 4 · A** (whole pairs merged, never split; 4k+2 people give one room of six), **groups of 4 · B** (re-mixed into rooms of four — a room of three or five takes the remainder, never fewer than three — keeping as few people as possible with someone from their round-A room — up to 120 000 tries). The note under the tabs says how well round B mixed.
 4. **Copy rooms for Zoom** (`Room 1: Ana, Sam` lines to paste while assigning rooms by hand) or **Export Zoom pre-assign CSV** (`Pre-assign Room Name,Email Address`, also kept in `exports/`) — only when everyone present has an email; otherwise the tab says who is missing one.
-5. **Add reveal slide** puts a "Who are you with?" item at the end of the first section (move it in the Plan tab): the stage shows every room of that round, numbered.
+5. **Add reveal slide** puts a "Who are you with?" item into the Plan tab's unsaved edits, right after the selected item (then Save there): the stage shows every room of that round, numbered.
 
 If presence changes after a shuffle, the tab and the readiness checklist say so until you shuffle again.
 

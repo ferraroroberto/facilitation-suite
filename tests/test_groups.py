@@ -1,5 +1,5 @@
 """Groups: the ported algorithm's rules for every group size, the roster, groups.yaml,
-the Zoom exports, the reveal, and the API."""
+the Zoom exports, the reveal's rooms, and the API."""
 
 from __future__ import annotations
 
@@ -149,7 +149,4 @@ def test_groups_api(client, isolated_env: Path) -> None:
     readiness = {c["key"]: c for c in client.get(base).json()["readiness"]}
     assert readiness["groups"]["state"] == "warn"
 
-    added = client.post(f"{base}/groups/reveal", json={"round": "g4a"}).json()
-    session = client.get(base).json()["session"]
-    assert session["sections"][0]["items"][-1]["id"] == added["item_id"]
     assert client.post(f"{base}/roster", json={"path": str(folder / "nope.xlsx")}).status_code == 404

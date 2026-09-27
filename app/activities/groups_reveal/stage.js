@@ -4,6 +4,15 @@
 
 import { esc } from '/static/js/ui.js';
 
+const ROUND = { pairs: 'Pairs', g4a: 'Groups of 4 · A', g4b: 'Groups of 4 · B' };
+
+/** Under the title: the round and how many rooms — it follows the round picked in the plan. */
+export function subtitle(item) {
+  const round = (item.options || {}).round || 'pairs';
+  const n = (item.rooms || []).length;
+  return `${ROUND[round] || round}${n ? ` · ${n} rooms` : ''}`;
+}
+
 /** The largest type (30px down to 14px) at which the whole grid fits the body. */
 function fit(body) {
   const grid = body.querySelector('.gr');

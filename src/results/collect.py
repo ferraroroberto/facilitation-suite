@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.activities.registry import editors, report_for, value_for
-from src.live.plan import build_run
+from src.live.plan import build_run, one_line
 from src.sessions.model import Session
 from src.sessions.readiness import slides_meta
 
@@ -84,7 +84,7 @@ def _activity(item_id: str, frozen: dict[str, Any], png: Path) -> dict[str, Any]
         "id": item_id,
         "type": kind,
         "type_label": item.get("type_label") or (editors().get(kind) or {}).get("label") or kind,
-        "title": item.get("title") or item.get("question") or "Activity",
+        "title": one_line(item.get("title") or item.get("question") or "Activity"),
         "question": item.get("question") or "",
         "answers": len(counted),
         "people": len({a["sender"] for a in counted if a.get("sender")}),
@@ -119,7 +119,7 @@ def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], capt
         if it is None or it["kind"] != "slide" or not it.get("slide_file") or item_id in seen:
             return
         seen.add(item_id)
-        pages.append({"kind": "slide", "item_id": item_id, "title": it["title"], "file": it["slide_file"], "at": at})
+        pages.append({"kind": "slide", "item_id": item_id, "title": one_line(it["title"]), "file": it["slide_file"], "at": at})
 
     for ev in events:
         name, at = ev.get("event"), ev.get("at", "")

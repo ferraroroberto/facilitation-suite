@@ -35,6 +35,8 @@ GLYPHS = [
     "coffee", "image", "keyboard", "camera", "video", "radio", "gauge", "list-ordered",
     "cloud-off", "hard-drive", "grip-vertical", "circle-plus", "sliders-horizontal", "rotate-ccw",
     "smartphone", "text-cursor-input", "type", "wand-sparkles",
+    # plan editing
+    "chevrons-down-up", "chevrons-up-down", "list-plus", "copy-plus",
 ]
 
 SYMBOL_RE = re.compile(r'  <symbol id="i-([a-z0-9-]+)" viewBox="0 0 24 24" fill="none">\n(.*?)  </symbol>\n', re.S)
