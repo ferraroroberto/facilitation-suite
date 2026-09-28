@@ -99,7 +99,7 @@ class TrayApp:
     def __init__(self, config: AppConfig, instance: SingleInstance) -> None:
         self.config = config
         self.instance = instance  # held for the tray's lifetime (named mutex)
-        self.manager = WebappManager(WebappManagerConfig(port=config.port))
+        self.manager = WebappManager(WebappManagerConfig.from_app_config(config))
         self.wd_log = BreadcrumbLog(WATCHDOG_LOG)
         self.watchdog_stop = threading.Event()
         self.watchdog = HealthWatchdog(

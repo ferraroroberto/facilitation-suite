@@ -35,6 +35,7 @@ from typing import Any
 from app.tray.single_instance import cross_process_lock
 from app.webapp.event_loop import LOOP_FACTORY
 from src.certs import cert_hostname, cert_paths, ensure_cert_fresh, uvicorn_ssl_args
+from src.config import AppConfig
 from src.no_window import NO_WINDOW
 
 logger = logging.getLogger(__name__)
@@ -44,15 +45,23 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 OWNERSHIP_NONE = "none"
 OWNERSHIP_OURS = "ours"
 OWNERSHIP_EXTERNAL = "external"
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
 @dataclass(frozen=True)
 class WebappManagerConfig:
-    host: str = "0.0.0.0"
-    port: int = 8449
+    """Bind address and port come from ``AppConfig`` (``from_app_config``) —
+    no default of their own, so ``config.json`` is the one place to set them."""
+
+    host: str
+    port: int
     startup_timeout_seconds: float = 20.0
     request_timeout_seconds: float = 1.5
     poll_interval_seconds: float = 0.4
+
+    @classmethod
+    def from_app_config(cls, config: AppConfig) -> WebappManagerConfig:
+        return cls(host=config.host, port=config.port)
 
 
 @dataclass
@@ -90,8 +99,8 @@ def stop_process(proc: subprocess.Popen, name: str) -> None:
 class WebappManager:
     """Start / stop / health-check the webapp uvicorn process."""
 
-    def __init__(self, config: WebappManagerConfig | None = None) -> None:
-        self.config = config or WebappManagerConfig()
+    def __init__(self, config: WebappManagerConfig) -> None:
+        self.config = config
         self._proc: subprocess.Popen | None = None
 
     @property
@@ -104,9 +113,10 @@ class WebappManager:
     def public_url(self) -> str:
         """The URL to open / share: ``https://<host>.ts.net:<port>`` when the
         served cert names the tailnet host (no browser warning, works from the
-        phone too), else the loopback URL."""
+        phone too), else the loopback URL. Bound to loopback only (``"host":
+        "127.0.0.1"``) the tailnet name cannot reach it, so the loopback URL."""
         host = cert_hostname()
-        if host:
+        if host and self.config.host not in LOOPBACK_HOSTS:
             return f"https://{host}:{self.config.port}"
         return self.base_url
 

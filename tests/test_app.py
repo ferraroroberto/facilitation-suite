@@ -72,6 +72,55 @@ def test_config_wrong_type_falls_back(tmp_path: Path, monkeypatch: pytest.Monkey
     assert cfg.obs.enabled is True
 
 
+# ---- config.host / config.port are the one bind setting (#39) ----------------------
+
+def _loopback_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> config_mod.AppConfig:
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps({"host": "127.0.0.1", "port": 8601}), encoding="utf-8")
+    monkeypatch.setenv("FS_CONFIG_PATH", str(path))
+    return config_mod.load_config()
+
+
+def test_tray_manager_binds_what_the_config_says(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.webapp import manager as manager_mod
+
+    monkeypatch.setattr(manager_mod, "uvicorn_ssl_args", lambda: [])
+    cmd = manager_mod.WebappManager(manager_mod.WebappManagerConfig.from_app_config(
+        _loopback_config(tmp_path, monkeypatch)))._build_command()
+    assert cmd[cmd.index("--host") + 1] == "127.0.0.1"
+    assert cmd[cmd.index("--port") + 1] == "8601"
+    # The defaults are the config's defaults: every interface, :8449 (the phone remote needs it).
+    default = manager_mod.WebappManagerConfig.from_app_config(config_mod.AppConfig())
+    assert (default.host, default.port) == ("0.0.0.0", config_mod.DEFAULT_PORT)
+
+
+def test_loopback_bind_opens_the_loopback_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.webapp import manager as manager_mod
+
+    monkeypatch.setattr(manager_mod, "cert_hostname", lambda: "pc.example.ts.net")
+    monkeypatch.setattr(manager_mod, "cert_paths", lambda: ("cert.pem", "key.pem"))
+    shared = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601))
+    local = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="127.0.0.1", port=8601))
+    assert shared.public_url == "https://pc.example.ts.net:8601"
+    assert local.public_url == "https://127.0.0.1:8601"
+
+
+def test_launcher_webapp_binds_what_the_config_says(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import uvicorn
+
+    import launcher
+    from src import certs
+
+    _loopback_config(tmp_path, monkeypatch)
+    seen: dict = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: seen.update(kwargs))
+    monkeypatch.setattr(certs, "ensure_cert_fresh", lambda *args, **kwargs: None)
+    monkeypatch.setattr(certs, "uvicorn_ssl_kwargs", lambda: {})
+    monkeypatch.setattr(logger_mod, "configure_logging", lambda *args, **kwargs: None)
+    assert launcher.main(["launcher.py", "webapp"]) == 0
+    assert (seen["host"], seen["port"]) == ("127.0.0.1", 8601)
+
+
 def test_log_follows_fs_data_dir(tmp_path: Path) -> None:
     """A second instance (a test run, a scratch server) must not write into the tray's log (#26)."""
     marker = f"log-probe-{uuid.uuid4().hex}"
