@@ -213,7 +213,7 @@ def create_player_app(quiz: QuizService) -> FastAPI:
                     if conn is not None:
                         push.conns.discard(conn)
                     conn = Conn(ws, str(msg.get("player_id") or "")[:40], str(msg.get("secret") or "")[:64])
-                    push.conns.add(conn)
+                    push.add(conn)
                     await push.send(conn, force=True)
                 elif op == "ping":
                     await ws.send_text(json.dumps({"type": "pong", "t": msg.get("t"), "now_ms": now_ms()}))

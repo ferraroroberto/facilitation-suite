@@ -40,15 +40,20 @@ class PlayerPush:
     def __init__(self, view: Callable[[str, str], dict[str, Any]]) -> None:
         self.view = view  # (player_id, secret) → the message for that phone
         self.conns: set[Conn] = set()
+        self.loop: Optional[asyncio.AbstractEventLoop] = None  # the loop the sockets live on
         self._scheduled = False
         self._task: Optional[asyncio.Task[None]] = None
 
+    def add(self, conn: Conn) -> None:
+        self.loop = asyncio.get_running_loop()
+        self.conns.add(conn)
+
     def notify(self) -> None:
-        """A game changed (called on the hub's loop): push soon, once for the whole burst."""
-        if self._scheduled or not self.conns:
+        """A game changed: push soon, once for the whole burst (safe from any thread)."""
+        if self._scheduled or not self.conns or self.loop is None:
             return
         self._scheduled = True
-        asyncio.get_running_loop().call_later(FLUSH_S, self._start_flush)
+        self.loop.call_soon_threadsafe(self.loop.call_later, FLUSH_S, self._start_flush)
 
     def _start_flush(self) -> None:
         self._scheduled = False
