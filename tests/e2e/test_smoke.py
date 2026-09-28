@@ -1,7 +1,7 @@
 """Smoke: the app shell loads in both themes, the nav switches panes, Settings opens,
 and on a phone the vendored nav owns `.app`'s padding (safe area on top, the
 floating tab bar's reserve at the bottom) on both nav pages. The quiz player
-listener answers beside it on its own port (HTTP ping + WS echo)."""
+page answers beside it on its own port."""
 
 from __future__ import annotations
 
@@ -40,10 +40,11 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     assert before != after
     assert errors == []
 
-    # #49: the quiz player listener runs beside the app on its own (free) port.
-    page.goto(webapp.player_url + "/play")
-    expect(page.locator("#http")).to_contain_text("ok")
-    expect(page.locator("#ws")).to_contain_text("ok")
+    # #49/#52: the quiz player page answers beside the app on its own (free) port.
+    page.goto(webapp.player_url + "/play?pin=123456")
+    expect(page.locator("#joinForm")).to_be_visible()
+    expect(page.locator("#pin")).to_have_value("123456")
+    expect(page.locator("#conn")).to_have_attribute("data-state", "online")  # the ping answered
     assert errors == []
 
     # #46: app.css loads after nav-tabs.css, so an unscoped `.app { padding }`

@@ -18,6 +18,7 @@ from starlette.routing import Mount
 from websockets.exceptions import InvalidStatus
 from websockets.sync.client import connect
 
+from app.player.app import STATIC_DIR as PLAYER_STATIC
 from app.player.app import create_player_app
 from tests.conftest import write_test_config
 
@@ -54,13 +55,17 @@ def player(isolated_env: Path) -> Iterator[tuple[TestClient, str]]:
         yield main, f"127.0.0.1:{port}"
 
 
-def test_player_app_routes_are_play_only() -> None:
-    app = create_player_app()
+def test_player_app_routes_are_play_only(client) -> None:
+    app = create_player_app(client.app.state.quiz)
     paths = [r.path for r in app.routes]
     assert paths, "the player app has no routes"
     assert all(p == "/play" or p.startswith("/play/") for p in paths), paths
-    assert not any(isinstance(r, Mount) for r in app.routes)  # no static mounts shared with :8449
+    # One mount: its own static folder (never the main app's /static or anything shared with :8449).
+    mounts = [r for r in app.routes if isinstance(r, Mount)]
+    assert [(m.path, Path(m.app.directory).resolve()) for m in mounts] == [("/play/static", PLAYER_STATIC.resolve())]
+    assert PLAYER_STATIC.resolve().is_relative_to(Path(__file__).resolve().parents[1] / "app" / "player")
     assert app.openapi_url is None and app.docs_url is None and app.redoc_url is None
+    app.state.detach()
 
 
 def test_listener_serves_the_player_app_only(player) -> None:
@@ -71,8 +76,8 @@ def test_listener_serves_the_player_app_only(player) -> None:
     status, body = _get(f"http://{addr}/play/api/ping")
     assert status == 200 and json.loads(body)["ok"] is True
     with connect(f"ws://{addr}/play/ws", open_timeout=5) as ws:
-        ws.send("hello")
-        assert ws.recv(timeout=5) == "hello"
+        ws.send(json.dumps({"op": "ping", "t": 1}))
+        assert json.loads(ws.recv(timeout=5))["type"] == "pong"
 
     # Nothing of the main app is reachable through the player port…
     for path in ("/presenter", "/stage", "/", "/remote", "/api/sessions", "/api/version", "/healthz",

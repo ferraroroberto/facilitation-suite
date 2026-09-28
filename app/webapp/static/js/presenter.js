@@ -460,6 +460,14 @@ function drawChips() {
       paused: ['warn', 'Music · paused', null, label], error: ['bad', 'Music · error', null, mu.detail] }[mu.state] ||
       ['', 'Music · idle', null, 'Nothing playing']);
   }
+  const qz = s.quiz;
+  if (qz && qz.pin) {
+    const pin = `${qz.pin.slice(0, 3)} ${qz.pin.slice(3)}`;
+    const players = `${qz.player_count} player${qz.player_count === 1 ? '' : 's'}`;
+    if (!qz.listener) chips.push(['bad', `Quiz · PIN ${pin} · players can't join`, null, 'The quiz player listener is off (quiz.public_port busy or 0) — see the log.']);
+    else if (!qz.join_url) chips.push(['warn', `Quiz · PIN ${pin} · public URL not configured`, null, 'Set quiz.public_url in config/config.json (the Tailscale Funnel address), then restart.']);
+    else chips.push(['ok', `Quiz · PIN ${pin} · ${players}`, null, qz.join_url]);
+  }
   if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
   if (s.write_error) chips.push(['bad', s.write_error]);
   const html = chips.map(([k, t, act, title]) => act

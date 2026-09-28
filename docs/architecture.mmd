@@ -10,8 +10,11 @@ flowchart LR
   phones["players' phones (public internet, not the tailnet)"] -->|HTTPS · WS| funnel["Tailscale Funnel :10000<br/>&lt;this PC&gt;.&lt;tailnet&gt;.ts.net"]
   funnel -->|"http://127.0.0.1:8451"| playerapp
   subgraph player[Quiz player listener 127.0.0.1:8451 — app/player/ · same process + loop]
-    playerapp["app/player/app.py<br/>/play · /play/api/ping · WS /play/ws — nothing else"]
+    playerapp["app/player/app.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
+    playerpush["app/player/push.py<br/>PlayerPush — each phone's own view on every change"]
   end
+  playerapp -->|same QuizService, async routes| quizsvc
+  playerpush -->|player_view only| quizsvc
   server -.->|lifespan starts / stops| listener["app/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
   listener --> playerapp
   remotev -->|HTTPS · pairing cookie| gate["app/webapp/auth.py<br/>RemoteAuth — this PC always, others with the token"]
@@ -104,7 +107,10 @@ flowchart LR
   quizsvc["src/quiz/service.py<br/>QuizService · game scope · next steps phases · in-process player API"] --> hub
   quizsvc --> quizeng["src/quiz/engine.py<br/>pure event-sourced game · Kahoot scoring · standings"]
   quizeng --> quizmodel
-  quizsvc --> quizfile[("live/quiz.jsonl<br/>joins · answers · phases, replayed on activate")]
+  quizsvc --> quizfile[("live/quiz.jsonl<br/>PINs · joins · answers · phases, replayed on activate")]
+  stage -->|img| quizr["routers/quiz.py<br/>GET /api/quiz/qr.svg (RemoteAuth)"]
+  quizr --> quizsvc
+  quizr --> qr["src/quiz/qr.py<br/>join QR SVG (public_url + /play?pin=)"]
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
   sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]
