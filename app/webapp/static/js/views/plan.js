@@ -86,6 +86,7 @@ function roundLabel(it) {
 
 function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8)}`; }
 
+/** A timer's length as the Plan tab shows and edits it: "m:ss" ("5:00"), read back by parseTimer. */
 function fmtTimer(sec) {
   const s = Math.max(0, Math.round(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;

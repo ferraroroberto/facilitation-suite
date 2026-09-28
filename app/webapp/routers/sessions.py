@@ -18,7 +18,7 @@ from src.importer.review import read_meta
 from src.sessions import readiness
 from src.sessions.model import dump_session, parse_session
 from src.sessions.offline import check_folder, pin_folder
-from src.sessions.store import SessionError, SessionStore
+from src.sessions.store import SessionStore
 from src.sessions.theme import FONT_TYPES, font_file, theme_css
 
 logger = logging.getLogger(__name__)
@@ -27,10 +27,6 @@ router = APIRouter(prefix="/api/sessions")
 
 def store(request: Request) -> SessionStore:
     return request.app.state.store
-
-
-def _err(exc: SessionError) -> AppError:
-    return AppError(exc.status, exc.code, str(exc))
 
 
 class NewSession(BaseModel):
@@ -59,10 +55,7 @@ class OpenTarget(BaseModel):
 @router.get("")
 def list_sessions(request: Request) -> dict[str, Any]:
     st = store(request)
-    try:
-        rows = [st.summary(e) for e in st.entries()]
-    except SessionError as exc:
-        raise _err(exc) from exc
+    rows = [st.summary(e) for e in st.entries()]
     return {"sessions": rows, "session_root": str(st.default_root())}
 
 
@@ -72,8 +65,6 @@ def create_session(request: Request, body: NewSession) -> dict[str, Any]:
     try:
         entry = st.create(body.title, body.workshop, body.folder or body.title, date=body.date,
                           duration_minutes=body.duration_minutes, root=body.root)
-    except SessionError as exc:
-        raise _err(exc) from exc
     except OSError as exc:
         logger.error("❌ create session failed: %s", exc)
         raise AppError(500, "folder_error", "The session folder could not be created") from exc
@@ -83,27 +74,18 @@ def create_session(request: Request, body: NewSession) -> dict[str, Any]:
 @router.post("/add", status_code=201)
 def add_existing(request: Request, body: AddExisting) -> dict[str, Any]:
     st = store(request)
-    try:
-        return st.summary(st.add_existing(body.path))
-    except SessionError as exc:
-        raise _err(exc) from exc
+    return st.summary(st.add_existing(body.path))
 
 
 @router.post("/{sid}/duplicate", status_code=201)
 def duplicate(request: Request, sid: str, body: Duplicate) -> dict[str, Any]:
     st = store(request)
-    try:
-        return st.summary(st.duplicate(sid, body.title, body.folder or body.title, body.workshop))
-    except SessionError as exc:
-        raise _err(exc) from exc
+    return st.summary(st.duplicate(sid, body.title, body.folder or body.title, body.workshop))
 
 
 @router.delete("/{sid}")
 def remove(request: Request, sid: str) -> dict[str, Any]:
-    try:
-        store(request).remove(sid)
-    except SessionError as exc:
-        raise _err(exc) from exc
+    store(request).remove(sid)
     return {"removed": sid}
 
 
@@ -119,11 +101,8 @@ def live_facts(request: Request) -> dict[str, Any]:
 
 def session_payload(request: Request, sid: str, *, with_offline: bool = True) -> dict[str, Any]:
     st = store(request)
-    try:
-        entry = st.entry(sid)
-        session = st.load(sid)
-    except SessionError as exc:
-        raise _err(exc) from exc
+    entry = st.entry(sid)
+    session = st.load(sid)
     folder = Path(entry.path)
     offline = check_folder(folder)
     meta = read_meta(folder / "slides" / "slides.json") or {}
@@ -154,10 +133,7 @@ def put_session(request: Request, sid: str, body: dict[str, Any]) -> dict[str, A
         session = parse_session(raw)
     except (ValueError, ValidationError) as exc:
         raise AppError(422, "invalid_session", "The plan is not valid", str(exc)) from exc
-    try:
-        store(request).save(sid, session)
-    except SessionError as exc:
-        raise _err(exc) from exc
+    store(request).save(sid, session)
     hub = getattr(request.app.state, "live", None)
     if hub is not None:
         hub.session_saved(sid)
@@ -167,20 +143,14 @@ def put_session(request: Request, sid: str, body: dict[str, Any]) -> dict[str, A
 @router.get("/{sid}/theme.css", include_in_schema=False)
 def session_theme(request: Request, sid: str) -> Response:
     """The session's stage font and its own ``theme.css``, for the plan's stage previews."""
-    try:
-        css = theme_css(store(request).load(sid), store(request).folder(sid), f"/api/sessions/{sid}/font")
-    except SessionError as exc:
-        raise _err(exc) from exc
+    css = theme_css(store(request).load(sid), store(request).folder(sid), f"/api/sessions/{sid}/font")
     return Response(css, media_type="text/css", headers={"Cache-Control": "no-cache"})
 
 
 @router.get("/{sid}/font", include_in_schema=False)
 def session_font(request: Request, sid: str) -> FileResponse:
     """The font file session.yaml names (``font.file``) — only a font, only when it exists."""
-    try:
-        path = font_file(store(request).load(sid))
-    except SessionError as exc:
-        raise _err(exc) from exc
+    path = font_file(store(request).load(sid))
     if path is None:
         raise AppError(404, "font_not_found", "This session has no stage font on this PC")
     # Versioned by the theme's URL (?v=<mtime>), so it can be cached for good.
@@ -189,19 +159,13 @@ def session_font(request: Request, sid: str) -> FileResponse:
 
 @router.get("/{sid}/offline")
 def offline(request: Request, sid: str) -> dict[str, Any]:
-    try:
-        folder = store(request).folder(sid)
-    except SessionError as exc:
-        raise _err(exc) from exc
+    folder = store(request).folder(sid)
     return check_folder(folder).as_dict()
 
 
 @router.post("/{sid}/pin")
 def pin(request: Request, sid: str) -> dict[str, Any]:
-    try:
-        folder = store(request).folder(sid)
-    except SessionError as exc:
-        raise _err(exc) from exc
+    folder = store(request).folder(sid)
     ok, message = pin_folder(folder)
     if not ok:
         raise AppError(422, "pin_failed", message)
@@ -211,10 +175,7 @@ def pin(request: Request, sid: str) -> dict[str, Any]:
 @router.post("/{sid}/open")
 def open_in_explorer(request: Request, sid: str, body: OpenTarget) -> dict[str, str]:
     """Open the folder (Explorer) or session.yaml (default editor) on this PC."""
-    try:
-        folder = store(request).folder(sid)
-    except SessionError as exc:
-        raise _err(exc) from exc
+    folder = store(request).folder(sid)
     target = folder if body.what == "folder" else folder / "session.yaml"
     if sys.platform != "win32":
         raise AppError(501, "unsupported", "Opening files is only available on Windows")

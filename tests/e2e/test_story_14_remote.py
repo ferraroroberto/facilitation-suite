@@ -26,7 +26,7 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
     assert page.request.post(f"{base}/api/sessions/{sid}/groups/shuffle", data={"seed": 7}).ok
     assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
-    assert page.request.post(f"{base}/api/live/action", data={"action": "clock_start"}).ok
+    assert page.request.post(f"{base}/api/actions/clock_start").ok
 
     page.set_viewport_size(PHONE)
     page.goto(f"{base}/remote")

@@ -5,7 +5,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
-import { api, esc, oneLine, toast, currentTheme, setTheme } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, setTheme, fmtMinutes } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
 import { connectLive, bindKeys, clickToAdvance, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
@@ -361,8 +361,6 @@ function tickItemTimer(cur, s) {
   if (btn.dataset.label !== label) { btn.dataset.label = label; btn.innerHTML = `${label}<kbd>T</kbd>`; }
 }
 
-const hm = (min) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, '0')}`;
-
 function drawTiming(cur, s) {
   const card = root.querySelector('.p-timing');
   const body = card.querySelector('[data-body]');
@@ -410,8 +408,8 @@ function drawTiming(cur, s) {
     drift.textContent = driftText(t.drift);
     const brk = secs.find((x) => x.planned_start > sec.planned_start && x.has_break);
     body.querySelector('[data-break]').textContent = brk
-      ? `${brk.name} at ${hm(brk.planned_start)}, in ${Math.max(0, Math.round(brk.planned_start - elapsedMin))} min`
-      : `Planned end at ${hm(plan.run.planned_minutes)}`;
+      ? `${brk.name} at ${fmtMinutes(brk.planned_start)}, in ${Math.max(0, Math.round(brk.planned_start - elapsedMin))} min`
+      : `Planned end at ${fmtMinutes(plan.run.planned_minutes)}`;
   }
 }
 

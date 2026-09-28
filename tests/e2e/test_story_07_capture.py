@@ -89,7 +89,7 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     # a slide with a timer: Space starts it (nothing to capture) and it shows over the slide
     items = page.request.get(f"{webapp.base_url}/api/live").json()["plan"]["run"]["items"]
     readme = next(it for it in items if it["title"] == "Personal readme instructions")
-    page.request.post(f"{webapp.base_url}/api/live/action", data={"action": "goto", "arg": str(readme["index"] + 1)})
+    page.request.post(f"{webapp.base_url}/api/actions/goto/{readme['index'] + 1}")
     expect(stage.locator(".st-slide")).to_be_visible()
     expect(stage.locator("[data-pill]")).to_be_hidden()
     page.keyboard.press("Space")

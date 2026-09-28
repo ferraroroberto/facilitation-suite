@@ -46,6 +46,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.errors import DomainError
 from src.groups.roster import RosterError, load_groups
 from src.importer.review import read_meta
 from src.live.plan import build_run
@@ -70,11 +71,8 @@ def _rounds(folder: Path) -> Optional[dict[str, Any]]:
         return None
 
 
-class LiveError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.code = code
+class LiveError(DomainError):
+    """A live intent that cannot run now (or a session that cannot go live)."""
 
 
 @dataclass(eq=False)

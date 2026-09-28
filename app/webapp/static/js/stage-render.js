@@ -114,7 +114,8 @@ function zoneStyle(zone) {
   return `--st-head-right:${Math.max(0, Math.round(W - x0 - 110 + 40))}px;--st-head-min:${Math.max(0, Math.round(y1 - 80 + 24))}px;`;
 }
 
-/** "mm:ss" for the stage clocks. */
+/** "mm:ss" for the countdowns (stage, presenter, phone). Rounds up, so 00:00 shows only at
+ * zero, and never turns into hours — unlike live.js `hms`, which counts up (rounds down). */
 export function clock(sec) {
   const s = Math.max(0, Math.ceil(sec));
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;

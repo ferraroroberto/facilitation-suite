@@ -46,14 +46,14 @@ def test_the_scene_follows_the_item(obs_env) -> None:
     _until(lambda: app.state.obs.state == "connected")
     client.post("/api/live/activate", json={"session": sid})
     _until(lambda: fake.switched[-1:] == ["Slides + camera"])  # the first slide: camera strip
-    client.post("/api/live/action", json={"action": "next"})  # the map: camera PiP
+    client.post("/api/actions/next")  # the map: camera PiP
     _until(lambda: fake.switched[-1:] == ["Camera PiP"])
     snap = client.get("/api/live").json()["state"]["obs"]
     assert snap["state"] == "connected" and snap["profile"] == "camera_pip"
     # by hand (Stream Deck / presenter)
-    assert client.post("/api/live/action", json={"action": "obs_profile", "arg": "screen_only"}).status_code == 200
+    assert client.post("/api/actions/obs_profile/screen_only").status_code == 200
     _until(lambda: fake.switched[-1:] == ["Screen only"])
-    r = client.post("/api/live/action", json={"action": "obs_profile", "arg": "nope"})
+    r = client.post("/api/actions/obs_profile/nope")
     assert r.status_code == 404 and r.json()["error"]["code"] == "unknown_profile"
     readiness = {c["key"]: c for c in client.get(f"/api/sessions/{sid}").json()["readiness"]}
     assert readiness["obs"]["state"] == "ok" and "3 of 3 profiles" in readiness["obs"]["detail"]
@@ -65,9 +65,9 @@ def test_obs_going_away_never_stops_the_deck(obs_env) -> None:
     _until(lambda: app.state.obs.state == "connected")
     client.post("/api/live/activate", json={"session": sid})
     fake.close()
-    client.post("/api/live/action", json={"action": "next"})  # the switch fails: OBS is gone
+    client.post("/api/actions/next")  # the switch fails: OBS is gone
     _until(lambda: app.state.obs.state == "disconnected")
-    assert client.post("/api/live/action", json={"action": "next"}).json() == {"ok": True, "action": "next"}
+    assert client.post("/api/actions/next").json() == {"action_id": "next", "ok": True}
     state = client.get("/api/live").json()["state"]
     assert state["index"] == 2 and state["obs"]["state"] in ("disconnected", "connecting")
     readiness = {c["key"]: c for c in client.get(f"/api/sessions/{sid}").json()["readiness"]}

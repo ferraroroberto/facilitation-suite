@@ -23,14 +23,15 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.config import data_dir
+from src.jsonl import read_jsonl
 from src.logger import relay
 from src.no_window import NO_WINDOW
-from src.results.collect import load_results, participation, read_jsonl
+from src.results.collect import load_results, participation
 from src.results.excel import build_report
 from src.results.pdf import session_html
 from src.results.reconcile import reconcile_file
 from src.sessions.model import ITEM_ID
-from src.sessions.store import SessionError, SessionStore, atomic_write_text
+from src.sessions.store import SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")
@@ -49,10 +50,7 @@ def _store(request: Request) -> SessionStore:
 
 
 def _load(request: Request, sid: str) -> tuple[Path, Any]:
-    try:
-        return _store(request).folder(sid), _store(request).load(sid)
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    return _store(request).folder(sid), _store(request).load(sid)
 
 
 def _file_info(path: Path) -> Optional[dict[str, Any]]:

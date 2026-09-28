@@ -18,7 +18,6 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 
-from app.webapp.errors import AppError
 from src.live.actions import catalog, run_action
 from src.live.hub import LiveError
 
@@ -39,7 +38,7 @@ async def _run(request: Request, action_id: str, arg: Optional[str]) -> dict[str
         run_action(hub, action_id, arg)
     except LiveError as exc:
         logger.info("ℹ️ action %s%s from %s refused: %s", action_id, f"/{arg}" if arg else "", source, exc)
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+        raise
     request.app.state.last_action = {"action": action_id, "arg": arg, "source": source, "at": int(time.time() * 1000)}
     hub.push_state()
     return {"action_id": action_id, "ok": True}

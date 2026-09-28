@@ -70,7 +70,8 @@ export function remaining(t, now) {
   return Math.max(0, t.total - t.elapsed - running);
 }
 
-/** Seconds → "mm:ss", or "h:mm:ss" from an hour on. */
+/** Seconds → "mm:ss", or "h:mm:ss" from an hour on — for elapsed time (rounds down;
+ * the countdowns use stage-render.js `clock`). */
 export function hms(sec) {
   const s = Math.max(0, Math.floor(sec));
   const h = Math.floor(s / 3600);

@@ -1,10 +1,11 @@
-"""The live session: ``/ws`` (snapshots out, intents in) and its REST twins."""
+"""The live session: ``/ws`` (snapshots out, intents in), activation, map fixes and
+frozen captures. REST intents (the Stream Deck) are ``routers/actions.py``."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
@@ -12,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.activities.registry import ACTIVITIES_DIR, editors
-from src.live.actions import catalog, run_action
+from src.live.actions import run_action
 from src.live.hub import LiveError, LiveHub
 from src.sessions.model import ITEM_ID
 from src.sessions.store import SessionError
@@ -28,10 +29,6 @@ def _hub(request: Request) -> LiveHub:
     return request.app.state.live
 
 
-def _err(exc: LiveError) -> AppError:
-    return AppError(exc.status, exc.code, str(exc))
-
-
 class Activate(BaseModel):
     session: str = Field(min_length=1, max_length=40)
 
@@ -39,11 +36,6 @@ class Activate(BaseModel):
 class PlaceBody(BaseModel):
     message_id: int = Field(ge=1)
     geonameid: str = Field(min_length=1, max_length=20, pattern=r"^(\d+|country:[A-Z]{2})$")
-
-
-class ActionBody(BaseModel):
-    action: str = Field(min_length=1, max_length=60)
-    arg: Optional[str] = Field(None, max_length=60)
 
 
 def _both(hub: LiveHub) -> dict[str, Any]:
@@ -59,10 +51,7 @@ async def live_state(request: Request) -> dict[str, Any]:
 @router.post("/api/live/activate")
 async def activate(request: Request, body: Activate) -> dict[str, Any]:
     hub = _hub(request)
-    try:
-        hub.activate(body.session)
-    except LiveError as exc:
-        raise _err(exc) from exc
+    hub.activate(body.session)
     return _both(hub)
 
 
@@ -70,14 +59,6 @@ async def activate(request: Request, body: Activate) -> dict[str, Any]:
 async def deactivate(request: Request) -> dict[str, Any]:
     _hub(request).deactivate()
     return {"active": False}
-
-
-@router.post("/api/live/action")
-async def action(request: Request, body: ActionBody) -> dict[str, Any]:
-    try:
-        return run_action(_hub(request), body.action, body.arg)
-    except LiveError as exc:
-        raise _err(exc) from exc
 
 
 @router.post("/api/live/place")
@@ -93,11 +74,6 @@ async def place(request: Request, body: PlaceBody) -> dict[str, Any]:
         raise AppError(404, "unknown_place", "No such place")
     request.app.state.capture.place(body.message_id, body.geonameid)
     return {"placed": found.as_dict()}
-
-
-@router.get("/api/live/actions")
-def actions() -> dict[str, Any]:
-    return {"actions": catalog()}
 
 
 @router.get("/api/live/captures/{item_id}")

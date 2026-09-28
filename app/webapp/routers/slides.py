@@ -18,7 +18,7 @@ from app.webapp.errors import AppError, require_local
 from src.importer import review as rv
 from src.importer.service import INCOMING, Importer, ImportError_
 from src.sessions.model import Session, Source, ensure_ids
-from src.sessions.store import SessionError, SessionStore, atomic_write_text
+from src.sessions.store import SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -35,10 +35,7 @@ def _importer(request: Request) -> Importer:
 
 
 def _folder(request: Request, sid: str) -> Path:
-    try:
-        return _store(request).folder(sid)
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    return _store(request).folder(sid)
 
 
 class ImportRequest(BaseModel):
@@ -91,10 +88,7 @@ class ApplyRequest(BaseModel):
 
 
 def _session(request: Request, sid: str) -> Session:
-    try:
-        return _store(request).load(sid)
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    return _store(request).load(sid)
 
 
 @router.get("/api/sessions/{sid}/reimport")
@@ -122,17 +116,11 @@ def reimport_png(request: Request, sid: str, name: str) -> FileResponse:
 def reimport_apply(request: Request, sid: str, body: ApplyRequest) -> dict[str, Any]:
     folder = _folder(request, sid)
     session = _session(request, sid)
-    try:
-        result = rv.apply(folder, session, set(body.accepted))
-    except rv.ReviewError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    result = rv.apply(folder, session, set(body.accepted))
     meta = result.pop("meta")
     atomic_write_text(folder / "slides" / "slides.json", json.dumps(meta, ensure_ascii=False, indent=1))
     session.source = Source(pptx=meta.get("source", ""), imported_at=datetime.now().replace(microsecond=0))
-    try:
-        _store(request).save(sid, ensure_ids(session))
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    _store(request).save(sid, ensure_ids(session))
     rv.discard(folder)
     hub = getattr(request.app.state, "live", None)
     if hub is not None:

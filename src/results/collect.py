@@ -25,30 +25,11 @@ from typing import Any, Optional
 
 from src.activities.registry import editors, report_for, value_for
 from src.importer.review import read_meta
+from src.jsonl import read_jsonl
 from src.live.plan import build_run, one_line
 from src.sessions.model import Session
 
 logger = logging.getLogger(__name__)
-
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    """Every parseable line of a JSONL file; a damaged line is skipped and logged."""
-    if not path.is_file():
-        return []
-    out: list[dict[str, Any]] = []
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        logger.error("❌ results: %s unreadable (%s)", path.name, exc)
-        return []
-    for n, line in enumerate(lines, start=1):
-        if not line.strip():
-            continue
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            logger.warning("⚠️ results: %s line %d is not JSON — skipped", path.name, n)
-    return out
 
 
 def frozen_captures(folder: Path) -> dict[str, dict[str, Any]]:
