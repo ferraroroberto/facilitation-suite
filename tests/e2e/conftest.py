@@ -5,9 +5,10 @@ temp copy of the sample config (OBS and the chat reader off),
 ``FS_LEDGER_PATH`` → a temp ledger, ``FS_DATA_DIR`` → a temp data dir and
 ``FS_ENV_PATH`` → an empty ``.env`` (no Spotify login), so a
 run never reads or writes the real config, ledger or session folders.
-The disposable instance always binds a free port, so a running tray on
-:8449 never collides with it. ``FS_E2E_LIVE=1`` is the one loudly-named
-opt-in to run the suite read-only against the live instance instead.
+The disposable instance always binds free ports (the app and the quiz player
+listener), so a running tray on :8449/:8451 never collides with it.
+``FS_E2E_LIVE=1`` is the one loudly-named opt-in to run the suite read-only
+against the live instance instead.
 
 Screenshots from a story go to ``docs/screenshots`` through ``shot()`` so the
 repo carries the proof; fixtures are synthetic only. They are written only
@@ -34,6 +35,7 @@ from tests.conftest import write_test_config
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
 LIVE_PORT = 8449
+LIVE_PLAYER_PORT = 8451
 LIVE_ENV = "FS_E2E_LIVE"
 LOOP_FACTORY = "app.webapp.event_loop:selector_loop_factory"
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
@@ -46,9 +48,10 @@ def _free_port() -> int:
 
 
 class Instance:
-    def __init__(self, base_url: str, root: Path) -> None:
+    def __init__(self, base_url: str, root: Path, player_url: str = "") -> None:
         self.base_url = base_url
         self.root = root
+        self.player_url = player_url  # the quiz player listener (app/player/)
 
 
 def stop_instance(proc: subprocess.Popen) -> None:
@@ -67,6 +70,10 @@ def boot_instance(root: Path, **config: object) -> tuple[subprocess.Popen, Insta
     """Start a disposable server under ``root``; returns (process, instance)."""
     root.mkdir(parents=True, exist_ok=True)
     port = _free_port()
+    player_port = _free_port()
+    while player_port == port:
+        player_port = _free_port()
+    config.setdefault("quiz", {"public_port": player_port, "public_url": ""})
     write_test_config(root / "config.json", port=port, session_root=str(root / "sessions"), **config)
     env = os.environ.copy()
     env.update(
@@ -93,7 +100,7 @@ def boot_instance(root: Path, **config: object) -> tuple[subprocess.Popen, Insta
         try:
             with urllib.request.urlopen(base + "/healthz", timeout=1) as r:
                 if r.status == 200:
-                    return proc, Instance(base, root)
+                    return proc, Instance(base, root, f"http://127.0.0.1:{player_port}")
         except OSError:
             time.sleep(0.25)
     stop_instance(proc)
@@ -104,7 +111,7 @@ def boot_instance(root: Path, **config: object) -> tuple[subprocess.Popen, Insta
 def webapp() -> Iterator[Instance]:
     if os.environ.get(LIVE_ENV) == "1":
         print(f"[e2e] {LIVE_ENV}=1 - running against the live instance on :{LIVE_PORT}")
-        yield Instance(f"http://127.0.0.1:{LIVE_PORT}", Path(tempfile.gettempdir()))
+        yield Instance(f"http://127.0.0.1:{LIVE_PORT}", Path(tempfile.gettempdir()), f"http://127.0.0.1:{LIVE_PLAYER_PORT}")
         return
     with tempfile.TemporaryDirectory(prefix="fs-e2e-", ignore_cleanup_errors=True) as tmp:
         proc, inst = boot_instance(Path(tmp))

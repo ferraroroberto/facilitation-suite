@@ -30,7 +30,7 @@ CONFIG_PATH = CONFIG_DIR / "config.json"
 CONFIG_SAMPLE_PATH = CONFIG_DIR / "config.sample.json"
 DEFAULT_LEDGER_PATH = PROJECT_ROOT / "sessions.local.yaml"
 DEFAULT_PORT = 8449
-
+DEFAULT_PLAYER_PORT = 8451
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,17 @@ class RemoteConfig:
     token: str = ""
 
 
+@dataclass(frozen=True)
+class QuizConfig:
+    """The public quiz player listener (#34, #49): a separate app on
+    ``127.0.0.1:public_port`` that only Tailscale Funnel publishes. ``0`` turns
+    it off (the tests do). ``public_url`` is the address players open, e.g.
+    ``https://<host>.<tailnet>.ts.net:10000`` — empty until Funnel is set up."""
+
+    public_port: int = DEFAULT_PLAYER_PORT
+    public_url: str = ""
+
+
 # OBS profiles (epic §11): each item's profile picks an OBS scene, and the
 # stage keeps that profile's camera zone empty. Zones are fractions of the
 # 1920×1080 canvas (x0, y0, x1, y1); the strip matches the house slides' grey box.
@@ -82,6 +93,7 @@ class AppConfig:
     obs: ObsConfig = field(default_factory=ObsConfig)
     reader: ReaderConfig = field(default_factory=ReaderConfig)
     remote: RemoteConfig = field(default_factory=RemoteConfig)
+    quiz: QuizConfig = field(default_factory=QuizConfig)
     profiles: dict[str, Any] = field(default_factory=dict)
     source: str = "defaults"
 

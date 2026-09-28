@@ -12,6 +12,10 @@ Pages (``app/webapp/routers/pages.py``):
     GET /healthz     → liveness
     GET /api/version → build identity (git_sha captured at import, schema version)
 
+The lifespan also runs the **quiz player listener** — a second, separate app on
+``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface Tailscale
+Funnel publishes. It shares this loop, never this app's routes.
+
 Static assets are served ``no-cache`` (revalidated by ETag on every load):
 the app runs on this PC and on a phone over the tailnet, so a stale asset
 after a restart is the only real risk, and revalidation removes it without a
@@ -44,6 +48,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from app.player.listener import PlayerListener
 from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import error_response
 from app.webapp.routers import (
@@ -102,8 +107,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.live.bind(asyncio.get_running_loop())
     monitor = asyncio.create_task(app.state.chat.monitor())
     app.state.obs.start()
+    player = PlayerListener(cfg.quiz.public_port)
+    app.state.player = player
+    await player.start()  # optional: a busy port is logged, never fatal
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
+    await player.stop()
     monitor.cancel()
     app.state.obs.stop()
     await asyncio.to_thread(app.state.music.close)

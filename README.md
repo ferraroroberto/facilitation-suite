@@ -210,6 +210,25 @@ A Kahoot-style quiz is planned as items (#34; players' phones, the stage's lobby
 
 Every join, answer, kick and phase change is appended to `live/quiz.jsonl`, and phase changes also go to `live/events.jsonl`. A restarted server replays `quiz.jsonl` and resumes every game with the same players, answers and scores. Scores are always derived, never stored. A question whose time ran out while the server was down is revealed at once. Stream Deck: `quiz_lock`.
 
+## Quiz player (public)
+
+The quiz (in progress, #34) is the one part of the app strangers reach: players on their own phones, on mobile data, not on the tailnet. So it is a **separate, minimal app** — never `:8449`, never `RemoteAuth` loosened:
+
+- The server starts a second listener, the player app (`app/player/`), on **`127.0.0.1:8451`** (`quiz.public_port`), loopback only whatever `host` says. It runs in the same process and event loop as the main app and stops with it.
+- It serves `/play` (for now a page that checks the connection), `/play/api/ping` and the `/play/ws` socket — nothing else: the presenter, the stage, the app, `/api/*`, `/ws`, `/static` and the OpenAPI docs are all `404` there. Only the player app may ever use port 8451.
+- **Tailscale Funnel** publishes it on the public internet as `https://<this PC>.<tailnet>.ts.net:10000/play`. Funnel only serves on 443, 8443 and 10000, and on this PC the other two are taken: 443 by the tailnet-only LLM hub, 8443 by voice-transcriber (a Funnel there would capture its tailnet traffic). Likewise 8450 is parking-manager's, hence 8451. The `tailscale serve` entries on 443, 3000 and 8465 stay tailnet-only and untouched.
+- If 8451 is busy at start, the log says `❌ quiz player listener: 127.0.0.1:8451 is busy …` once, the public quiz is off, and the main app keeps serving. `quiz.public_port: 0` turns the listener off.
+
+```powershell
+tailscale funnel --bg --https=10000 http://127.0.0.1:8451  # publish (persists across reboots)
+tailscale funnel status                                     # what is public (:10000 = "Funnel on")
+tailscale funnel --https=10000 off                          # stop publishing
+```
+
+Never `tailscale funnel reset` — it clears the whole serve config, the tailnet-only entries included.
+
+Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net:10000`) — later steps show it to players as a QR code.
+
 ## Phone remote
 
 `/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
@@ -280,6 +299,7 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
+| `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public Funnel address, empty until published (see *Quiz player*). Restart the tray after changing it |
 
 **`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere.
 
@@ -307,6 +327,7 @@ The Sessions tab creates, duplicates (plan, slides, roster, theme, music — nev
 ```
 app/
   webapp/            FastAPI server (server.py), routers/, static/ (app, presenter, stage)
+  player/            the public quiz player app on 127.0.0.1:8451 (only /play*; published by Tailscale Funnel)
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
