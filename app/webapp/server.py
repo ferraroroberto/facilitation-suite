@@ -76,6 +76,7 @@ from src.live.hub import LiveError, LiveHub
 from src.logger import configure_logging
 from src.music.service import MusicService
 from src.obs.service import ObsService
+from src.quiz.chat import ChatAnswers
 from src.quiz.service import QuizService
 from src.sessions.store import SessionStore
 
@@ -201,8 +202,10 @@ def _install_music(app: FastAPI) -> None:
 
 
 def _install_quiz(app: FastAPI) -> None:
-    """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``)."""
+    """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``), plus its
+    Zoom-chat fallback (``src/quiz/chat.py``; own messages count only in the capture's rehearsal mode)."""
     app.state.quiz = QuizService(app.state.live)
+    app.state.quiz_chat = ChatAnswers(app.state.quiz, app.state.chat, count_own=lambda: app.state.capture.count_own)
 
 
 def create_app() -> FastAPI:

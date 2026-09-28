@@ -6,6 +6,7 @@
 const WORDS = {
   en: {
     chat_hint: 'Write your answer in the chat',
+    quiz_hint: 'Answer on your phone or type A–D in the chat',
     break: 'Break',
     breakout: 'Breakout rooms',
     reveal: 'Who are you with?',
@@ -16,6 +17,7 @@ const WORDS = {
   },
   es: {
     chat_hint: 'Escribe tu respuesta en el chat',
+    quiz_hint: 'Responde en tu móvil o escribe A–D en el chat',
     break: 'Descanso',
     breakout: 'Salas de grupos',
     reveal: '¿Con quién estás?',

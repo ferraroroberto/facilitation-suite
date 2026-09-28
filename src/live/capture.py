@@ -70,7 +70,7 @@ class CaptureService:
         live.reset_listeners.append(self._forget)
         chat.listeners.append(self._on_messages)
         register(Action("capture_toggle", "Capture start/stop", lambda h, a: self.toggle()))
-        register(Action("space", "Space: the capture, else the timer", lambda h, a: self.space(), stream_deck=False))
+        register(Action("space", "Space: lock a quiz question, the capture, else the timer", lambda h, a: self.space(), stream_deck=False))
         register(Action("hide_message", "Hide a chat message", lambda h, a: self.set_hidden(_int(a), True), arg="id", stream_deck=False))
         register(Action("unhide_message", "Show a hidden message", lambda h, a: self.set_hidden(_int(a), False), arg="id", stream_deck=False))
         register(Action("capture_count_own", "Count my own chat messages (rehearsal) on/off",
@@ -132,7 +132,10 @@ class CaptureService:
             self.start(cur["id"])
 
     def space(self) -> None:
-        """The Space key: the capture on an activity that takes answers, else the item's timer."""
+        """The Space key: a service's own step first (``LiveHub.space_handlers``: the quiz locks an
+        open question), else the capture on an activity that takes answers, else the item's timer."""
+        if any(take() for take in self.live.space_handlers):
+            return
         cur = self.live.current()
         if cur and cur.get("capture"):
             self.toggle()

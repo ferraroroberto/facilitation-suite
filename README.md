@@ -113,7 +113,7 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 | B · . | blackout |
 | T | the item's timer: start / pause |
 | M · + | the item's timer: +1 min |
-| Space | capture start / stop (activities); on any other item with a timer, timer start / pause |
+| Space | capture start / stop (activities); on a quiz question while its answers are open, **lock the answers** (the reveal); on any other item with a timer, timer start / pause |
 | Home · End | the first · the last item |
 
 The presenter shows what is on stage, the next item and the three after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there. **Start the session over** (the ↺ next to ×) goes back to the first item with no clocks, timers, captures or chat — after a rehearsal, say; nothing is deleted: the run so far stays in the session folder as `live-<date>-<time>/`.
@@ -180,7 +180,7 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 ## Quiz
 
-A Kahoot-style quiz is planned as items (#34; players' phones, the stage's lobby, leaderboard and podium and the presenter's quiz controls arrive in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
+A Kahoot-style quiz is planned as items (#34; players' phones and the stage's lobby, leaderboard and podium arrive in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
 
 - **Quiz lobby** starts a game; its **Quiz name** is the title on the stage. The game is the quiz questions after it, in plan order, up to the next quiz podium.
 - **Quiz question**: the question, **Answer 1–4** (two to four), **Correct answer(s)** (the answer numbers, as Kahoot writes them: `2`, or `1,3` for several), **Time limit** (5, 10, 20, 30, 60, 90, 120 or 240 s; 20 by default) and **Points** (standard, double or none).
@@ -199,16 +199,29 @@ A Kahoot-style quiz is planned as items (#34; players' phones, the stage's lobby
 **The game** (`src/quiz/`) runs on the server; phones and the stage only render it. The first time the stage reaches a quiz lobby (or one of its questions) a game opens. Coming back to the lobby later resumes the same game, and `quiz_new_game` on the lobby starts a fresh one to play it again.
 
 - **Phases.** Entering a question opens it with a deadline of its time limit. **Next** then steps *question → reveal* (the answers lock; the answer distribution and the correct answer show) *→ leaderboard*, and only from the leaderboard moves on to the next item.
-- **Time up** reveals by itself, and so does `quiz_lock` (lock answers now).
+- **Time up** reveals by itself, and so does `quiz_lock` or **Space** while the question is open (lock answers now). Once revealed, Space is back to the item's timer, if it has one.
 - **Previous** always goes to the previous item. A question left while it is still open is locked. Coming back to it shows its reveal again, never a second chance to answer.
 - **Other items.** On every other item, including the lobby and the podium, next and previous work as before.
-- **Answers.** Answers are not captured from the chat. A quiz question never opens a capture window, and the Space key does not start one.
+- **Answers** come from phones (see *Quiz player*) and from the Zoom chat (below). A quiz question never opens a capture window, and the Space key does not start one.
 - **Scoring** follows Kahoot's published rule: a correct answer scores `round(1000 × (1 − (response time / time limit) / 2))`, full points inside the first half second, ×2 for **double**, 0 for **none**. A wrong or missing answer scores 0.
 - **Response time** runs from when the buttons appeared on that phone, clamped to how long the server has been asking.
 - **Streaks.** Answer streaks are counted and shown but score nothing, as in Kahoot today.
 - **Ties** go to the smaller total response time over correct answers, then to who joined first.
 
 Every join, answer, kick and phase change is appended to `live/quiz.jsonl`, and phase changes also go to `live/events.jsonl`. A restarted server replays `quiz.jsonl` and resumes every game with the same players, answers and scores. Scores are always derived, never stored. A question whose time ran out while the server was down is revealed at once. Stream Deck: `quiz_lock`.
+
+**Running it.** On a quiz item the presenter's side card becomes **Quiz**: the phase (lobby, question *n* of *N* with its time left, answers locked, leaderboard, podium), players joined and answered, the join **PIN** and public link with a **Copy link** button (or *not configured* while the player page or `quiz.public_url` is not set up; the public link's reachability check is a later step and says *not checked* until then), and the controls:
+
+- **Next phase** (→) is the same `next` as everywhere: on the lobby it opens the first question, then *reveal → leaderboard → next question*, and from the last leaderboard on to the podium. There is no separate "next phase" action, because `next` already is one.
+- **Lock answers** (Space) reveals the question now (`quiz_lock`).
+- **New game**, on the lobby only and after a confirmation, plays the quiz again with no players (`quiz_new_game`); the game so far is kept.
+- The **player list** marks chat players and has a remove button per player (after a confirmation; `quiz_kick/<id>`).
+
+The phone remote shows the same essentials on a quiz item — the phase, players, answers, PIN and time left, with **Lock answers**; its **Next** steps the phases.
+
+**Chat fallback.** If the public link fails mid-session, say "type your answer in the chat": while a question is open, a Zoom chat message that is exactly `A`–`D`, `a`–`d` or `1`–`4` (optionally followed by punctuation — `B`, `b.`, `3!`) is that sender's answer, scored by the same engine (`src/quiz/chat.py`). The sender joins as a chat player on their first answer, with their Zoom name as the nickname (a phone player with the same name keeps it; the chat player gets `(2)`, so both stay distinct on the leaderboard). The first answer wins, as on a phone; a letter the question has no answer for (`D` on a three-answer question) is ignored; the response time is from the question opening to when the chat reader saw the message; messages outside an open question are ignored, and so are your own — unless **Count my own chat answers (rehearsal)** is on. The quiz lobby's **Answers typed in the chat count too** switch (on by default) turns it off for that game; while it is on, the stage says *Answer on your phone or type A–D in the chat* under an open question. Known trade-off: chat answers are visible to everyone in the chat, so people can copy.
+
+**Rehearse alone:** on a quiz question, the presenter's **Simulate answers** makes twelve simulated people type a random letter each through the chat simulator — the whole game, lobby to podium, runs without anyone else.
 
 ## Quiz player (public)
 
@@ -231,7 +244,7 @@ Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net
 
 ## Phone remote
 
-`/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
+`/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any, and on a quiz item its phase, players, answers, PIN, time left and **Lock answers**. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
 
 1. Set up HTTPS once (see *Run*).
 2. **Settings → Phone remote → Make the phone link**, **Copy the link**, send it to yourself and open it on the phone (on the tailnet). Opening it pairs that phone: the server sets a 30-day cookie and the token leaves the address bar.
