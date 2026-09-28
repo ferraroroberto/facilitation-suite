@@ -1,9 +1,14 @@
 // Word cloud on the stage: the most frequent words biggest, laid out on a
 // spiral from the centre. Each word keeps its colour (hashed from its key)
 // and its element, so a word that grows animates instead of flashing.
+// An entry of more than three words (only a verbatim answer has one) is
+// capped so it fits the cloud and, from six words, wraps onto balanced lines
+// of about four words; shorter entries are laid out exactly as always.
 
 const PALETTE = ['--st-c1', '--st-c2', '--st-c3', '--st-c4', '--st-c5', '--st-c6'];
 const MIN_PX = 34;
+const PHRASE_MAX_WORDS = 3; // up to this many words: one line (every entry of the automatic and words modes)
+const WORDS_PER_LINE = 4;
 
 function hash(s) {
   let h = 0;
@@ -19,6 +24,21 @@ function measure(text, px, font) {
   return measureCtx.measureText(font.caps ? text.toUpperCase() : text).width;
 }
 
+/** An entry's lines: one up to five words, else balanced lines of about four words. */
+function wrap(text) {
+  const words = text.split(' ');
+  const count = Math.round(words.length / WORDS_PER_LINE);
+  if (count < 2) return [text];
+  const target = text.length / count;
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    if (line && line.length + 1 + word.length / 2 > target) { lines.push(line); line = word; } else line = line ? `${line} ${word}` : word;
+  }
+  lines.push(line);
+  return lines;
+}
+
 function overlaps(r, placed) {
   return placed.some((p) => r.x < p.x + p.w && r.x + r.w > p.x && r.y < p.y + p.h && r.y + r.h > p.y);
 }
@@ -32,10 +52,19 @@ function layout(words, w, h, font, names) {
   const out = [];
   for (const word of words) {
     let px = MIN_PX + (maxPx - MIN_PX) * Math.sqrt(word.count / maxCount);
+    const long = word.text.split(' ').length > PHRASE_MAX_WORDS;
+    const lines = long ? wrap(word.text) : [word.text];
+    const size = (at) => ({
+      tw: Math.max(...lines.map((l) => measure(l, at, font))) + at * 0.35,
+      th: at * ((lines.length - 1) * 1.05 + (names && word.names.length ? 1.5 : 1.12)),
+    });
+    if (long) { // a long answer: no wider than 80% of the cloud, no taller than 40%, and more tries to fit
+      const { tw, th } = size(px);
+      px *= Math.min(1, (w * 0.8) / tw, (h * 0.4) / th);
+    }
     let spot = null;
-    for (let attempt = 0; attempt < 3 && !spot; attempt += 1) {
-      const tw = measure(word.text, px, font) + px * 0.35;
-      const th = px * (names && word.names.length ? 1.5 : 1.12);
+    for (let attempt = 0; attempt < (long ? 5 : 3) && !spot; attempt += 1) {
+      const { tw, th } = size(px);
       for (let t = 0; t < 900; t += 1) {
         const a = t * 0.19;
         const r = 4 * a;
@@ -49,7 +78,7 @@ function layout(words, w, h, font, names) {
     }
     if (!spot) continue;
     placed.push(spot);
-    out.push({ word, px, x: spot.x, y: spot.y });
+    out.push({ word, lines, px, x: spot.x, y: spot.y });
   }
   return out;
 }
@@ -84,7 +113,8 @@ export function render(body, result, ctx) {
       host.appendChild(el);
       requestAnimationFrame(() => el.classList.remove('wc-enter'));
     }
-    el.querySelector('.wc-text').textContent = s.word.text;
+    el.querySelector('.wc-text').textContent = s.lines.join('\n');
+    el.classList.toggle('wc-lines', s.lines.length > 1);
     const n = s.word.names || [];
     el.querySelector('.wc-names').textContent = ctx.names && n.length ? n.slice(0, 3).join(', ') + (n.length > 3 ? ` +${n.length - 3}` : '') : '';
     el.style.fontSize = `${Math.round(s.px)}px`;
