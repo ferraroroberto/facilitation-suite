@@ -126,7 +126,7 @@ body {
   line-height: 1.2;
   white-space: nowrap;
 }
-.chip .icon { width: 14px; height: 14px; }
+.chip .icon { width: var(--icon-inline); height: var(--icon-inline); }
 .chip.ok { background: var(--success-soft); color: var(--success-text); }
 .chip.warn { background: var(--attention-soft); color: var(--attention-text); }
 .chip.bad { background: var(--danger-soft); color: var(--danger-text); }
@@ -254,10 +254,10 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .status-line.warn { color: var(--attention-text); }
 .status-line.unknown { color: var(--muted); }
 .card .row-actions .button-surface, .card-head .button-surface { display: inline-flex; align-items: center; gap: 6px; }
-.plan-row { min-height: 40px; padding: 8px 0; }
+.plan-row { min-height: var(--row-sm); padding: 8px 0; }
 .ready-card { padding-bottom: 4px; }
 .ready-row { gap: 10px; min-height: var(--row-sm); padding: 8px 0; }
-.ready-icon { display: inline-flex; width: 22px; justify-content: center; }
+.ready-icon { display: inline-flex; width: var(--icon-feature); justify-content: center; }
 .ready-icon .icon { width: 20px; height: 20px; }
 .state-ok .ready-icon { color: var(--success); }
 .state-warn .ready-icon { color: var(--attention); }
@@ -276,7 +276,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .font-row.font-stroke { grid-template-columns: 120px 1fr 56px; }
 .font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .font-stroke output { width: 56px; text-align: right; }
-.font-group { margin: var(--space-md) 0 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.font-group { margin: var(--space-md) 0 0; font-size: var(--font-label); font-weight: 600; color: var(--muted); }
 .font-sample-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
 .stage-canvas.font-sample .st-hint { flex: none; white-space: nowrap; font-size: 20px; padding: 8px 18px; }
 .stage-canvas.font-sample .st-body { flex: 0 1 auto; min-width: 0; }
@@ -322,7 +322,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .grip { color: var(--muted); cursor: grab; display: inline-flex; }
 .grip .icon { width: var(--icon-inline); height: var(--icon-inline); }
 .sec-toggle, .sec-name { border: 0; background: transparent; cursor: pointer; color: var(--ink); padding: 0; }
-.sec-toggle { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+/* 34px visual + the shared .hit-target (co-applied in plan.js) = 44px effective (design.md Touch targets). */
+.sec-toggle { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .sec-name { font-weight: 700; text-align: left; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sec-meta { font-size: var(--font-body-sm); color: var(--muted); white-space: nowrap; }
 .sec-min { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-body-sm); color: var(--muted); }
@@ -413,6 +414,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .ed-hint.warn { color: var(--attention-text); font-weight: 600; }
 .ed-tabs { margin: 0; flex-wrap: wrap; }
 .ed-tabs .range-tab { flex: 1 1 auto; }
+.ed-tabs .range-tab .icon { margin-left: 4px; }
 .inline-controls { display: flex; align-items: center; gap: var(--space-sm); }
 .inline-controls .select-native { flex: 1; min-width: 0; }
 .font-controls { flex-wrap: wrap; }
@@ -547,7 +549,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .result-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
 @media (min-width: 720px) { .result-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); } .result-cards.single { grid-template-columns: minmax(0, 1fr); } }
 .result-cards .card { display: grid; gap: 4px; align-content: start; }
-.top-row, .answer-row { min-height: 40px; padding: 8px 0; gap: var(--space-md); }
+.top-row, .answer-row { min-height: var(--row-sm); padding: 8px 0; gap: var(--space-md); }
 .answers-card .list { max-height: 420px; overflow-y: auto; }
 .answer-name { width: 34%; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .answer-row .grow { overflow-wrap: anywhere; }
@@ -575,6 +577,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .settings-row > .icon { color: var(--muted); }
 .settings-ico { width: 64px; display: grid; place-items: center; color: var(--muted); }
 .settings-note { margin: 0; }
+.settings-card .range-tabs { margin: 0; }
 .zone-thumb { position: relative; flex: none; width: 64px; height: 36px; border-radius: 6px; background: var(--card-off); border: 1px solid var(--line); overflow: hidden; }
 .zone-thumb span { position: absolute; background: var(--muted); border-radius: 3px; }
 .deck-row { gap: var(--space-md); padding: 8px 0; }

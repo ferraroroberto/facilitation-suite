@@ -77,7 +77,7 @@ export async function openReview(host, sid, { onClose }) {
       : `${c.position} · ${c.title}`;
     const thumb = (side, src) => (side ? `<img class="review-thumb" loading="lazy" alt="" src="${src(side.file)}">` : '<span class="review-thumb empty"></span>');
     row.innerHTML = `<span class="review-pill ${c.kind}">${esc(KINDS.find(([k]) => k === c.kind)[1])}</span>` +
-      `<span class="review-thumbs">${thumb(c.old, oldSrc)}<span class="review-arrow" aria-hidden="true">→</span>${thumb(c.new, newSrc)}</span>` +
+      `<span class="review-thumbs">${thumb(c.old, oldSrc)}<span class="review-arrow" aria-hidden="true">${icon('arrow-right')}</span>${thumb(c.new, newSrc)}</span>` +
       `<span class="review-text"><span class="row-title">${esc(label)}</span><span class="row-meta">${esc(c.detail)}</span></span>`;
     row.appendChild(switchEl(true, {
       label: `Apply: ${label}`,

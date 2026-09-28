@@ -1,10 +1,11 @@
 // Settings — shared by every session: OBS (connection + the three profiles:
 // scene and camera zone), the chat reader, the phone remote, the Stream Deck
-// buttons and the credits.
+// buttons, this device's text size and the credits.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
-import { api, esc, pageHead, setStatus, toast } from '/static/js/ui.js';
+import { bindTextSize } from '/static/_vendored/text-size/text-size.js';
+import { APP, api, esc, pageHead, setStatus, toast } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
 
 const CREDITS = [
@@ -56,6 +57,7 @@ function render() {
   root.appendChild(readerCard());
   root.appendChild(remoteCard());
   root.appendChild(streamDeckCard());
+  root.appendChild(textSizeCard());
   root.appendChild(creditsCard());
 }
 
@@ -235,6 +237,21 @@ function readerCard() {
   note.className = 'small muted settings-note';
   note.textContent = `It reads the popped-out Zoom window titled “${data.reader.window_title}” every ${data.reader.poll_ms} ms.`;
   card.appendChild(note);
+  return card;
+}
+
+/** The zoom-lock escape (design.md Layout "Text size"): vendored text-size control, per device. */
+function textSizeCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('type')} Text size</h3></div>` +
+    '<nav class="range-tabs" id="textSizeControl" aria-label="Text size">' +
+    '<button type="button" class="range-tab" data-textsize="small">Small</button>' +
+    '<button type="button" class="range-tab" data-textsize="default">Default</button>' +
+    '<button type="button" class="range-tab" data-textsize="large">Large</button></nav>' +
+    '<p class="small muted settings-note">For this app on this device; the stage keeps its own sizes.</p>';
+  bindTextSize(card.querySelector('#textSizeControl'), APP);
   return card;
 }
 
