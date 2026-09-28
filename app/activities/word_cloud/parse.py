@@ -1,11 +1,21 @@
 """Word cloud: answers → terms → a weighted list of words and phrases.
 
-- Answers of up to three words stay one phrase ("no agenda", "miedo a fallar").
-- Longer answers are split into words, dropping filler words (Spanish and/or
-  English stopword lists) — so a sentence still feeds the cloud.
-- Laughter and fillers ("jajaja", "lol", "xd") are dropped.
-- With ``merge_variants``: case, accents and simple plurals are grouped
-  ("Reunión", "reuniones" → one entry) and the most common spelling is shown.
+How an answer becomes cloud entries is the ``terms`` option:
+
+- ``auto`` (the default, and what a session without the option gets): answers
+  of up to three words stay one phrase ("no agenda", "miedo a fallar"); longer
+  answers are split into words, dropping filler words (Spanish and/or English
+  stopword lists) — so a sentence still feeds the cloud.
+- ``verbatim``: each answer is one entry as typed — trimmed, whitespace
+  collapsed, and the punctuation at its ends dropped ("¡Sí!" → "Sí"), so
+  "saying yes!" and "Saying yes" group together. No stopwords.
+- ``words``: every answer, even a short one, is split into words minus
+  stopwords (the classic cloud: "no agenda" → "agenda").
+
+In every mode an answer made only of laughter and fillers ("jajaja", "lol",
+"xd", "ok") is dropped (``auto`` and ``words`` also drop them inside answers).
+With ``merge_variants``: case, accents and simple plurals are grouped
+("Reunión", "reuniones" → one entry) and the most common spelling is shown.
 """
 
 from __future__ import annotations
@@ -19,6 +29,7 @@ from typing import Any, Optional
 HERE = Path(__file__).resolve().parent
 FILLER = re.compile(r"^(?:(?:ja|je|ji|ha|he|jo)+h?|lol+|xd+|jaj+|hah+|mm+|eh+|ok+|okay)$")
 TOKEN = re.compile(r"[\w'’-]+", re.UNICODE)
+SPACES = re.compile(r"\s+")
 PHRASE_MAX_WORDS = 3
 MAX_WORDS = 60
 
@@ -38,12 +49,28 @@ def _stopwords(which: str) -> frozenset[str]:
     return frozenset(words)
 
 
+def _trim(text: str) -> str:
+    """Drop spaces and punctuation (Unicode category P*: "¡", "!", "…", quotes) from both ends."""
+    def edge(c: str) -> bool:
+        return c.isspace() or unicodedata.category(c).startswith("P")
+    start, end = 0, len(text)
+    while start < end and edge(text[start]):
+        start += 1
+    while end > start and edge(text[end - 1]):
+        end -= 1
+    return text[start:end]
+
+
 def parse(message: dict[str, Any], options: dict[str, Any]) -> Optional[dict[str, Any]]:
-    tokens = [t.strip("'’-") for t in TOKEN.findall(message.get("text") or "")]
+    text = message.get("text") or ""
+    tokens = [t.strip("'’-") for t in TOKEN.findall(text)]
     tokens = [t for t in tokens if t and not FILLER.match(fold(t))]
     if not tokens:
         return None
-    if len(tokens) <= PHRASE_MAX_WORDS:
+    mode = str(options.get("terms") or "auto")
+    if mode == "verbatim":
+        terms = [_trim(SPACES.sub(" ", text))]
+    elif mode != "words" and len(tokens) <= PHRASE_MAX_WORDS:
         terms = [" ".join(tokens)]
     else:
         stop = _stopwords(str(options.get("stopwords", "es")))

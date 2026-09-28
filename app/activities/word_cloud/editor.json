@@ -3,9 +3,29 @@
   "label": "Word cloud",
   "icon": "cloud",
   "order": 1,
-  "description": "Every answer grows the cloud live. Answers of up to three words stay one phrase.",
+  "description": "Every answer grows the cloud live: answers of up to three words stay one phrase (Automatic), each answer stays whole (Verbatim) or every answer is split into words (Words).",
   "chat_prompt_hint": "One or two words: …",
   "options": [
+    {
+      "key": "terms",
+      "label": "How answers become words",
+      "kind": "select",
+      "default": "auto",
+      "choices": [
+        [
+          "auto",
+          "Automatic: short answers whole, long ones split"
+        ],
+        [
+          "verbatim",
+          "Verbatim: each answer as typed"
+        ],
+        [
+          "words",
+          "Words: every answer split"
+        ]
+      ]
+    },
     {
       "key": "merge_variants",
       "label": "Merge plurals, accents and case",
