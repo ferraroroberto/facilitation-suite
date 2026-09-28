@@ -24,13 +24,16 @@ def write_test_config(path: Path, **overrides: object) -> Path:
 
 @pytest.fixture(autouse=True)
 def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """Point config, ledger and data at a temp dir so no test touches real files."""
+    """Point config, ledger, data and .env at a temp dir so no test touches real files."""
     root = tmp_path / "env"
     root.mkdir()
     write_test_config(root / "config.json", session_root=str(root / "sessions"))
     monkeypatch.setenv("FS_CONFIG_PATH", str(root / "config.json"))
     monkeypatch.setenv("FS_LEDGER_PATH", str(root / "sessions.local.yaml"))
     monkeypatch.setenv("FS_DATA_DIR", str(root / "data"))
+    monkeypatch.setenv("FS_ENV_PATH", str(root / ".env"))  # never the real secrets file
+    for key in ("SPOTIFY_CLIENT_ID", "SPOTIFY_REFRESH_TOKEN", "SPOTIFY_DEVICE_NAME"):
+        monkeypatch.delenv(key, raising=False)
     yield root
 
 

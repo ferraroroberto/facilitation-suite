@@ -40,6 +40,8 @@ from src.live.hub import LiveHub
 from src.music.backend import Backend, EventSink, MusicError, Track
 from src.music.file_backend import FileBackend
 from src.music.library import audio_files, resolve
+from src.music.spotify import SpotifyBackend, is_link, normalize
+from src.music.spotify import label as spotify_label
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ BackendFactory = Callable[[EventSink], Backend]
 class MusicService:
     def __init__(self, live: LiveHub, backends: Optional[dict[str, BackendFactory]] = None) -> None:
         self.live = live
-        factories = backends if backends is not None else {"file": FileBackend}
+        factories = backends if backends is not None else {"file": FileBackend, "spotify": SpotifyBackend}
         self.backends: dict[str, Backend] = {kind: make(self._from_backend) for kind, make in factories.items()}
         self.state = "idle"
         self.detail = ""
@@ -117,7 +119,19 @@ class MusicService:
             "sounding": self.sounding,
             "backend": self.backend.snapshot() if self.backend is not None and self.state != "idle" else None,
             "tracks": [{k: v for k, v in t.items() if k != "music"} for t in self.tracks()],
+            "spotify": self._spotify_configured(),
         }}
+
+    def _spotify_configured(self) -> bool:
+        backend = self.backends.get("spotify")
+        return bool(backend is not None and getattr(backend, "configured", lambda: False)())
+
+    def spotify_status(self) -> tuple[str, str]:
+        """The readiness check: (state, detail) — ``ok`` only when the token works and the desktop app is visible."""
+        backend = self.backends.get("spotify")
+        if backend is None or not hasattr(backend, "status"):
+            return "unknown", "Spotify playback is not set up in this app"
+        return backend.status()
 
     # ------------------------------------------------------------- actions
 
@@ -148,7 +162,11 @@ class MusicService:
         self.live.push_state()
 
     def play_pick(self, pick: str) -> None:
-        """The presenter's picker: a track by its number in ``tracks()``."""
+        """The presenter's picker: a track by its number in ``tracks()``, or a pasted Spotify link."""
+        if is_link(pick):
+            self._start(self._track("spotify", pick, False), self.volume, DEFAULT_FADE_S, DEFAULT_FADE_S, owner=None)
+            self.live.push_state()
+            return
         row = next((t for t in self.tracks() if str(t["n"]) == pick.strip()), None)
         if row is None:
             raise MusicError(404, "no_track", f"No track {pick!r} in this session")
@@ -214,7 +232,8 @@ class MusicService:
             if not path.is_file():
                 raise MusicError(404, "missing_audio", f"{ref} is not in the session folder — pick it again in the Plan tab")
             return Track("file", str(path), _label("file", ref), loop)
-        return Track("spotify", ref, _label("spotify", ref))
+        uri = normalize(ref)
+        return Track("spotify", uri, spotify_label(uri))
 
     def _play_music(self, m: dict[str, Any], owner: Optional[str]) -> None:
         ref = m["path"] if m["source"] == "file" else m["uri"]
@@ -305,7 +324,7 @@ class MusicService:
 def _label(source: str, ref: str) -> str:
     if source == "file":
         return Path(ref).name
-    return "Spotify " + (ref.split("spotify:")[-1].split(":")[0] if ref.startswith("spotify:") else "link")
+    return spotify_label(normalize(ref)) if is_link(ref) else "Spotify (not a valid link)"
 
 
 def _volume(arg: Optional[str]) -> int:

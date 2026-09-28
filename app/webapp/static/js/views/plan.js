@@ -33,6 +33,7 @@ const FONTS = [
 const TIMER_START = { manual: 'When I start it', on_enter: 'When the item opens', with_capture: 'With the capture' };
 const TIMER_END = { keep: 'Keep showing 00:00', hide: 'Remove the timer', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
 const MUSIC_START = { with_timer: 'With the timer', on_enter: 'When the item opens', manual: 'Only from the presenter' };
+const SPOTIFY_LINK = /^(spotify:(playlist|album|artist|track|show|episode):[A-Za-z0-9]+|https?:\/\/open\.spotify\.com\/(intl-[A-Za-z-]+\/)?(playlist|album|artist|track|show|episode)\/[A-Za-z0-9]+)/;
 const MUSIC_LEAVE = { fade_out: 'Fade out and stop', keep_playing: 'Keep playing' };
 const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
 const ROUNDS = [['pairs', 'Pairs'], ['g4a', 'Groups of 4 · A'], ['g4b', 'Groups of 4 · B'], ['', 'No rooms shown']];
@@ -1170,10 +1171,26 @@ function musicField(it) {
   }, 'Music on this item'));
   if (!on) return field('Music', wrap);
   const m = it.music;
+  wrap.appendChild(rangeTabs([['file', 'File'], ['spotify', 'Spotify']], m.source || 'file', (v) => {
+    m.source = v;
+    markDirty();
+    renderList();
+    renderEditor();
+  }, 'Music source'));
+  if (m.source === 'spotify') {
+    const link = input(m.uri, (v, el) => {
+      const ok = SPOTIFY_LINK.test(v.trim());
+      el.classList.toggle('invalid', v.trim() !== '' && !ok);
+      m.uri = v.trim();
+      markDirty();
+    }, { placeholder: 'https://open.spotify.com/playlist/…', 'aria-label': 'Spotify link' });
+    wrap.appendChild(link);
+    wrap.insertAdjacentHTML('beforeend', '<p class="ed-hint">A playlist, album, artist or track link (Share → Copy link) — it plays on the Spotify desktop app of this PC (Premium; README → Music → Spotify setup).</p>');
+  }
   const src = document.createElement('div');
   src.className = 'music-src';
-  const ref = m.source === 'spotify' ? m.uri : m.path;
-  src.innerHTML = `<span class="music-file${ref ? '' : ' muted'}">${icon('music')}<span>${esc(ref || 'No file yet')}</span></span>` +
+  src.hidden = m.source === 'spotify';
+  src.innerHTML = `<span class="music-file${m.path ? '' : ' muted'}">${icon('music')}<span>${esc(m.path || 'No file yet')}</span></span>` +
     `<button type="button" class="button-surface" data-pick>${icon('folder-open')} Choose file…</button>`;
   src.querySelector('[data-pick]').addEventListener('click', async () => {
     try {
@@ -1190,10 +1207,12 @@ function musicField(it) {
     }
   });
   wrap.appendChild(src);
-  const hint = document.createElement('p');
-  hint.className = 'ed-hint';
-  hint.textContent = 'The file is copied into the session folder (audio/): mp3, wav, ogg or flac.';
-  wrap.appendChild(hint);
+  if (m.source !== 'spotify') {
+    const hint = document.createElement('p');
+    hint.className = 'ed-hint';
+    hint.textContent = 'The file is copied into the session folder (audio/): mp3, wav, ogg or flac.';
+    wrap.appendChild(hint);
+  }
   if (m.start === 'with_timer' && !(it.timer && it.timer.enabled)) {
     wrap.insertAdjacentHTML('beforeend', '<p class="ed-hint warn">This item has no timer — the music starts with it. Add a timer, or start the music when the item opens.</p>');
   }

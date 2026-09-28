@@ -454,7 +454,7 @@ function drawChips() {
     if (ago < 3600) chips.push(['ok', `${deck ? 'Stream Deck' : 'Buttons'} · ${la.action.replace(/_/g, ' ')}`, null, `Last press ${ago} s ago (${la.source})`]);
   }
   const mu = s.music;
-  if (mu && (mu.tracks.length || mu.state !== 'idle')) {
+  if (mu && (mu.tracks.length || mu.spotify || mu.state !== 'idle')) {
     const label = mu.track ? mu.track.label : '';
     chips.push({ playing: ['ok', `Music · ${label}`, null, mu.owner ? 'With the item timer' : 'Played by hand'],
       paused: ['warn', 'Music · paused', null, label], error: ['bad', 'Music · error', null, mu.detail] }[mu.state] ||
@@ -490,6 +490,8 @@ function buildMusic() {
   body.innerHTML =
     `<div class="p-music-now"><span class="p-cap-dot" data-mdot></span><span class="p-music-title" data-mnow></span></div>` +
     `<select class="select-native" data-mpick aria-label="Track to play"></select>` +
+    `<div class="p-music-link" data-mlinkrow hidden><input class="input" data-mlink placeholder="Paste a Spotify link" aria-label="Spotify link">` +
+    `<button type="button" class="button-surface" data-mlinkplay>${icon('play')} Play link</button></div>` +
     `<div class="p-timer-actions">` +
     `<button type="button" class="button-primary" data-mtoggle></button>` +
     `<button type="button" class="button-surface" data-mstop title="Stop (fades out)">${icon('square')} Stop</button>` +
@@ -505,6 +507,10 @@ function buildMusic() {
   });
   body.querySelector('[data-mstop]').addEventListener('click', () => live.send('music_stop'));
   body.querySelector('[data-mfade]').addEventListener('click', () => live.send('music_fade_out'));
+  const link = body.querySelector('[data-mlink]');
+  const playLink = () => { if (link.value.trim()) live.send('music_play', link.value.trim()); };
+  body.querySelector('[data-mlinkplay]').addEventListener('click', playLink);
+  link.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); playLink(); } });
   const vol = body.querySelector('[data-mvol]');
   vol.addEventListener('input', () => { body.querySelector('[data-mvolout]').textContent = `${vol.value}%`; });
   vol.addEventListener('change', () => live.send('music_volume', vol.value));
@@ -513,12 +519,14 @@ function buildMusic() {
 function drawMusic(cur, s) {
   const card = root.querySelector('.p-music');
   const m = s.music;
-  const show = !!(m && (m.tracks.length || m.state !== 'idle'));
+  const show = !!(m && (m.tracks.length || m.spotify || m.state !== 'idle'));
   card.hidden = !show;
   root.querySelector('.p-side').classList.toggle('with-music', show);
   if (!show) return;
   const body = card.querySelector('[data-body]');
   const pick = body.querySelector('[data-mpick]');
+  pick.hidden = !m.tracks.length;
+  body.querySelector('[data-mlinkrow]').hidden = !m.spotify;
   const sig = JSON.stringify(m.tracks.map((t) => [t.n, t.label]));
   if (pick.dataset.sig !== sig) {
     pick.dataset.sig = sig;
@@ -549,7 +557,7 @@ function drawMusic(cur, s) {
   const hint = body.querySelector('[data-mhint]');
   hint.textContent = m.state === 'error' ? m.detail
     : owner ? `Follows the timer of “${oneLine(owner.title)}”.`
-      : playing || paused ? 'Played by hand — no timer touches it.' : 'Pick a track and press Play, or let an item’s timer start its music.';
+      : playing || paused ? 'Played by hand — no timer touches it.' : m.tracks.length ? 'Pick a track and press Play, or let an item’s timer start its music.' : 'Paste a Spotify link to play it.';
   hint.classList.toggle('warn', m.state === 'error');
 }
 

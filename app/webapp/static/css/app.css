@@ -427,6 +427,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .timer-box, .music-box { display: grid; gap: 8px; }
 .timer-grid { display: grid; gap: 8px; }
 .dur-input { width: 90px; font-family: var(--mono); }
+.music-src[hidden] { display: none; }
 .music-src { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
 .music-src .button-surface { display: inline-flex; align-items: center; gap: 6px; min-height: var(--control-h); padding: 0 12px; }
 .music-file { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 160px; font-weight: 600; overflow-wrap: anywhere; }
