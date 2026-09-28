@@ -304,15 +304,26 @@ function drawItemCard(cur, s) {
     }
     if (cur && cur.kind === 'activity') {
       const line = document.createElement('div');
-      line.className = 'switch-line p-names';
+      line.className = 'switch-line p-switch';
       const sw = switchEl(!!s.names, { label: 'Show names on stage', onToggle: () => live.send('names_toggle') });
       sw.dataset.names = '';
       line.append(sw, Object.assign(document.createElement('span'), { textContent: 'Show names on stage' }));
       body.appendChild(line);
     }
+    if (cap) {
+      const line = document.createElement('div');
+      line.className = 'switch-line p-switch';
+      const label = 'Count my own messages (rehearsal)';
+      const sw = switchEl(!!s.count_own, { label, onToggle: () => live.send('capture_count_own') });
+      sw.dataset.countOwn = '';
+      line.append(sw, Object.assign(document.createElement('span'), { textContent: label }));
+      body.appendChild(line);
+    }
   }
   const sw = body.querySelector('[data-names]');
   if (sw) setSwitch(sw, !!s.names);
+  const own = body.querySelector('[data-count-own]');
+  if (own) setSwitch(own, !!s.count_own);
   if (cap) drawCapture(body, s.capture);
   if (t) tickItemTimer(cur, s);
 }
@@ -441,6 +452,7 @@ function drawChips() {
     const deck = la.source === 'streamdeck' || la.source === 'stream-deck';
     if (ago < 3600) chips.push(['ok', `${deck ? 'Stream Deck' : 'Buttons'} · ${la.action.replace(/_/g, ' ')}`, null, `Last press ${ago} s ago (${la.source})`]);
   }
+  if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
   if (s.write_error) chips.push(['bad', s.write_error]);
   const html = chips.map(([k, t, act, title]) => act
     ? `<button type="button" class="chip ${k}" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`

@@ -37,6 +37,7 @@ def test_the_list_carries_one_path_per_button(client) -> None:
     assert rows["goto_section"]["path"] == "/api/actions/goto_section/{n}"
     assert rows["obs_profile"]["path"] == "/api/actions/obs_profile/{name}"
     assert rows["capture_toggle"]["stream_deck"] is True and rows["hide_message"]["stream_deck"] is False
+    assert rows["capture_count_own"]["stream_deck"] is False  # rehearsal only: never a deck button
 
 
 def test_other_devices_need_the_remote_token(isolated_env: Path) -> None:

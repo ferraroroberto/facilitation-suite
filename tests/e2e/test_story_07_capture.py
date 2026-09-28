@@ -1,5 +1,6 @@
 """Story 7: capture an activity — Space starts it, simulated answers grow the
-word cloud on the stage, a message is hidden, Space stops it and freezes it;
+word cloud on the stage (the rehearsal switch flips the "counting your
+messages" chip on and off), a message is hidden, Space stops it and freezes it;
 then the timer drives it: resuming reopens it, paused shows yellow, a reset
 stops it; on a slide with a timer, Space starts the timer over the slide."""
 
@@ -30,6 +31,20 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     page.keyboard.press("Space")
     expect(page.locator("[data-captoggle]")).to_contain_text("Stop capture")
     expect(page.locator("[data-tstate]")).to_have_text("running")  # the timer starts with the capture
+
+    # the rehearsal switch: off by default, a warning chip in the header while it's on
+    own = page.locator("[data-count-own]")
+    expect(own).to_have_attribute("aria-checked", "false")
+    own.click()
+    expect(own).to_have_attribute("aria-checked", "true")
+    expect(page.locator(".p-chips .chip.warn", has_text="Counting your messages")).to_be_visible()
+    mine = {"batch": "rehearsal", "messages": [{"sender": "You", "text": "rehearsal", "time": "18:41"}]}
+    assert page.request.post(f"{webapp.base_url}/api/chat/messages", data=mine).ok
+    expect(stage.locator(".wc-word", has_text="rehearsal")).to_be_visible()  # my own answer is on the stage
+    own.click()
+    expect(own).to_have_attribute("aria-checked", "false")
+    expect(page.locator(".p-chips", has_text="Counting your messages")).to_have_count(0)
+    expect(stage.locator(".wc-word", has_text="rehearsal")).to_have_count(0)  # off: the live rule again
 
     resp = page.request.post(f"{webapp.base_url}/api/chat/simulate",
                              data={"kind": "burst", "count": 12, "answers": ["meetings", "perfectionism", "hello"]})

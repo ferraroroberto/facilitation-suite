@@ -98,7 +98,7 @@
   border: 1px solid currentColor;
   opacity: 0.85;
 }
-.p-names { margin-top: var(--space-xs); }
+.p-switch { margin-top: var(--space-xs); }
 .p-cap-status { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .p-cap-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); flex: none; }
 .p-cap-dot.live { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); animation: p-pulse 1.4s ease-in-out infinite; }
