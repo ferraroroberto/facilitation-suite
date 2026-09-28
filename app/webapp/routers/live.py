@@ -87,14 +87,6 @@ def frozen_capture(request: Request, item_id: str) -> dict[str, Any]:
     return data
 
 
-@router.get("/api/live/captures/{item_id}/png", include_in_schema=False)
-def frozen_png(request: Request, item_id: str) -> Response:
-    path = request.app.state.capture.frozen_path(item_id, "png") if ITEM_ID.fullmatch(item_id) else None
-    if path is None or not path.is_file():
-        raise AppError(404, "not_found", "No picture yet")
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})
-
-
 @router.get("/activities/{activity_type}/{name}", include_in_schema=False)
 def plugin_asset(activity_type: str, name: str) -> Response:
     """An activity plug-in's stage renderer (``stage.js``) and style (``stage.css``)."""
