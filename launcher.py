@@ -22,10 +22,11 @@ if str(HERE) not in sys.path:
 
 def main(argv: list[str]) -> int:
     from src.config import load_config
-    from src.logger import configure_logging
+    from src.logger import configure_logging, log_path
 
-    configure_logging()
     command = argv[1] if len(argv) > 1 else "tray"
+    # One writer per log file (#37): the tray and the webapp child it spawns never share one.
+    configure_logging(log_file=log_path("tray") if command == "tray" else None)
     config = load_config()
 
     if command == "tray":

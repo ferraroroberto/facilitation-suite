@@ -44,7 +44,7 @@ def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print("usage: python -m src.live.freeze <url> <out.png>", file=sys.stderr)
         return 1
-    configure_logging()
+    configure_logging(to_file=False)  # the server relays our stderr into its log (#37)
     return 0 if render(argv[1], Path(argv[2])) else 2
 
 
