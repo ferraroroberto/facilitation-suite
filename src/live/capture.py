@@ -142,14 +142,14 @@ class CaptureService:
         self.windows.setdefault(item_id, []).append([now_ms(), None])
         reopened = len(self.windows[item_id]) > 1
         logger.info("ℹ️ capture %s %s", "reopened on" if reopened else "started on", item_id)
-        self.live._event("capture_reopen" if reopened else "capture_start", item_id=item_id)
+        self.live.event("capture_reopen" if reopened else "capture_start", item_id=item_id)
         item = self.live.item_by_id(item_id)
         timer = (item or {}).get("timer") or {}
         self._save()
         if timer.get("start") == "with_capture":
             self.live.start_timer_for(item_id)  # commits
         else:
-            self.live._commit()
+            self.live.commit()
 
     def stop(self, item_id: str, *, by_hand: bool) -> None:
         wins = self.windows.get(item_id)
@@ -159,7 +159,7 @@ class CaptureService:
         item = self.live.item_by_id(item_id)
         count = len(self.messages_for(item_id))
         logger.info("ℹ️ capture stopped on %s (%d answers)", item_id, count)
-        self.live._event("capture_stop", item_id=item_id, answers=count)
+        self.live.event("capture_stop", item_id=item_id, answers=count)
         self._save()
         if item is not None:
             self._freeze(item)
@@ -167,14 +167,14 @@ class CaptureService:
         if by_hand and timer.get("start") == "with_capture":
             self.live.pause_timer_for(item_id)  # commits
         else:
-            self.live._commit()
+            self.live.commit()
 
     def set_hidden(self, message_id: int, hidden: bool) -> None:
         if hidden:
             self.hidden.add(message_id)
         else:
             self.hidden.discard(message_id)
-        self.live._event("hide" if hidden else "unhide", message_id=message_id)
+        self.live.event("hide" if hidden else "unhide", message_id=message_id)
         self._save()
         # A frozen capture that contained it is re-frozen so the files match what counts.
         for item_id in list(self.windows):
@@ -182,19 +182,19 @@ class CaptureService:
                 item = self.live.item_by_id(item_id)
                 if item is not None:
                     self._freeze(item)
-        self.live._commit()
+        self.live.commit()
 
     def place(self, message_id: int, geonameid: str) -> None:
         """Fix an unplaced map answer by hand (the presenter's one-click fix)."""
         self.places[message_id] = geonameid
-        self.live._event("place", message_id=message_id, geonameid=geonameid)
+        self.live.event("place", message_id=message_id, geonameid=geonameid)
         self._save()
         for item_id in list(self.windows):
             if self.status(item_id) == "stopped" and any(m["id"] == message_id for m in self.messages_for(item_id, include_hidden=True)):
                 item = self.live.item_by_id(item_id)
                 if item is not None:
                     self._freeze(item)
-        self.live._commit()
+        self.live.commit()
 
     # ------------------------------------------------------------- hooks
 
@@ -227,8 +227,7 @@ class CaptureService:
 
         def push() -> None:
             self._push_pending = False
-            self.live.rev += 1
-            self.live.broadcast(self.live.snapshot())
+            self.live.push_state()
 
         self.live.loop.call_later(PUSH_EVERY_S, push)
 
@@ -266,7 +265,7 @@ class CaptureService:
             atomic_write_text(d / STATE_FILE, json.dumps({"windows": self.windows, "hidden": sorted(self.hidden),
                                                           "places": {str(k): v for k, v in self.places.items()}}, indent=1))
         except OSError as exc:
-            self.live._write_failed(STATE_FILE, exc)
+            self.live.write_failed(STATE_FILE, exc)
 
     def frozen_path(self, item_id: str, ext: str) -> Optional[Path]:
         d = self._dir()
@@ -297,7 +296,7 @@ class CaptureService:
         try:
             atomic_write_text(path, json.dumps(frozen, ensure_ascii=False, indent=1))
         except OSError as exc:
-            self.live._write_failed(f"captures/{path.name}", exc)
+            self.live.write_failed(f"captures/{path.name}", exc)
             return
         self._render_png(item["id"])
 

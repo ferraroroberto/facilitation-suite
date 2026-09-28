@@ -88,7 +88,7 @@ class ChatHub:
                 for rec in records:
                     fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         except OSError as exc:
-            self.live._write_failed(CHAT_FILE, exc)
+            self.live.write_failed(CHAT_FILE, exc)
 
     # ------------------------------------------------------------ messages
 
@@ -163,8 +163,7 @@ class ChatHub:
         if state != self._state:
             logger.info("ℹ️ chat reader: %s → %s", self._state, state)
             self._state = state
-            self.live.rev += 1
-            self.live.broadcast(self.live.snapshot())
+            self.live.push_state()
 
     async def monitor(self) -> None:
         while True:
