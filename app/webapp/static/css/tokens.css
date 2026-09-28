@@ -73,8 +73,8 @@
   --font-heading-md: 1.25rem;
   --font-body: 1rem;
   --font-body-sm: 0.875rem;
-  --font-label: 0.92rem;
-  --font-caption: 0.78rem;
+  --font-label: 0.875rem;
+  --font-caption: 0.75rem;
   --icon-inline: 16px;
   --icon-title: 18px;
   --icon-nav: 20px;
@@ -104,11 +104,11 @@
   --danger-text: #ff7b72;
   --attention: #d29922;
   --attention-text: #e3b341;
-  --tile-green: #2ea043;
-  --tile-blue: #2f81f7;
-  --tile-purple: #a371f7;
-  --tile-orange: #db6d28;
-  --tile-yellow: #d29922;
+  --tile-green: #238636;
+  --tile-blue: #1f6feb;
+  --tile-purple: #8957e5;
+  --tile-orange: #bd561d;
+  --tile-yellow: #9e6a03;
   --input-bg: var(--bg);
   --toggle-knob: var(--ink);
   --close-bg: var(--line);
@@ -116,9 +116,6 @@
   --tabbar-border: rgba(240, 246, 252, 0.1);
   color-scheme: dark;
 }
-
-html[data-textsize="small"] { font-size: 93.75%; }
-html[data-textsize="large"] { font-size: 112.5%; }
 
 .icon {
   display: inline-block;

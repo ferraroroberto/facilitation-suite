@@ -325,7 +325,7 @@ function renderList() {
     h.draggable = true;
     h.innerHTML =
       `<span class="grip" aria-hidden="true">${icon('grip-vertical')}</span>` +
-      `<button type="button" class="sec-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
+      `<button type="button" class="sec-toggle hit-target" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
       `<button type="button" class="sec-name" title="Rename">${esc(sec.name)}</button>` +
       `<span class="sec-meta">${sec.items.length} item${sec.items.length === 1 ? '' : 's'}${collapsed ? ' · collapsed' : ''}</span>` +
       `<label class="sec-min"><input type="number" min="0" max="1440" value="${sec.minutes}" aria-label="Planned minutes for ${esc(sec.name)}"><span>min</span></label>` +
@@ -722,11 +722,12 @@ function rangeTabs(options, value, onPick, label) {
   nav.className = 'range-tabs ed-tabs';
   nav.setAttribute('role', 'group');
   nav.setAttribute('aria-label', label);
-  options.forEach(([v, text]) => {
+  options.forEach(([v, text, trailing]) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'range-tab' + (v === value ? ' active' : '');
     b.textContent = text;
+    if (trailing) b.insertAdjacentHTML('beforeend', icon(trailing));
     b.setAttribute('aria-pressed', String(v === value));
     b.addEventListener('click', () => onPick(v));
     nav.appendChild(b);
@@ -787,7 +788,7 @@ function renderEditor() {
   if (it.kind === 'activity') {
     const types = Object.values(st.types).map((t) => [t.type, t.label]);
     const extra = types.slice(5).find(([t]) => t === it.type);
-    const moreTab = types.length > 5 ? [[extra ? it.type : '__more', extra ? `${extra[1]} ▾` : 'More…']] : [];
+    const moreTab = types.length > 5 ? [[extra ? it.type : '__more', extra ? extra[1] : 'More…', extra ? 'chevron-down' : null]] : [];
     form.appendChild(field('Type', rangeTabs(types.slice(0, 5).concat(moreTab), it.type, (v) => {
       if (v === it.type && extra) v = '__more';
       if (v === '__more') {

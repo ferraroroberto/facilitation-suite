@@ -27,7 +27,7 @@ GLYPHS = [
     "calendar-days", "presentation", "shuffle", "chart-column", "settings", "sun", "moon",
     # common actions
     "plus", "x", "pencil", "trash-2", "copy", "check", "circle-check", "triangle-alert",
-    "chevron-right", "chevron-left", "chevron-down", "chevron-up", "ellipsis-vertical", "folder",
+    "chevron-right", "chevron-left", "chevron-down", "chevron-up", "arrow-right", "ellipsis-vertical", "folder",
     "folder-open", "file-text", "upload", "download", "refresh-cw", "save", "search", "external-link",
     # live
     "play", "pause", "square", "skip-forward", "skip-back", "timer", "clock", "eye", "eye-off",
