@@ -68,7 +68,7 @@ function titleOf(it) {
   if (it.kind === 'slide') { const s = slideOf(it); return s ? s.title : `Slide ${it.slide_id}`; }
   // Default titles are the stage's words, in the session's language (as src/live/plan.py).
   const w = words(st.session && st.session.language);
-  if (it.kind === 'activity') return it.question || (it.type === 'groups_reveal' ? w.reveal : (st.types[it.type] || {}).label) || 'Activity';
+  if (it.kind === 'activity') return it.question || (it.options || {}).title || (it.type === 'groups_reveal' ? w.reveal : (st.types[it.type] || {}).label) || 'Activity';
   return it.kind === 'breakout' ? w.breakout : w.break;
 }
 
@@ -293,6 +293,7 @@ function renderToolbar() {
   toolbar.innerHTML =
     `<button type="button" class="button-surface" data-reimport>${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
     `<button type="button" class="button-surface" data-add-section>${icon('plus')} Add section</button>` +
+    `<button type="button" class="button-surface" data-kahoot title="A quiz from Kahoot's spreadsheet template (.xlsx)">${icon('upload')} Import Kahoot</button>` +
     `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
     `<button type="button" class="button-ghost" data-fold="expand" title="Expand all sections">${icon('chevrons-up-down')} Expand all</button></span>` +
     `<span class="plan-totals ${over ? 'over' : ''}">Planned ${fmtMinutes(total)} of ${fmtMinutes(st.session ? st.session.duration_minutes : 0)}` +
@@ -302,6 +303,7 @@ function renderToolbar() {
       `<button type="button" class="button-primary save-small" data-save>Save</button></span>` : '');
   toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
   toolbar.querySelector('[data-add-section]').addEventListener('click', () => addSection());
+  toolbar.querySelector('[data-kahoot]').addEventListener('click', importKahoot);
   toolbar.querySelectorAll('[data-fold]').forEach((b) => b.addEventListener('click', () => {
     st.collapsed = new Set(b.dataset.fold === 'collapse' ? secs.map((x) => x.id) : []);
     renderList();
@@ -695,6 +697,37 @@ async function reimport() {
   await load();
 }
 
+/**
+ * A quiz from Kahoot's spreadsheet template: pick the .xlsx on this PC, name
+ * the quiz (default: the file's name), and the server adds a section with the
+ * lobby, one question per row and the podium, saved — then the plan reloads.
+ */
+async function importKahoot() {
+  if (st.dirty) {
+    const ok = await confirmDialog({ title: 'Unsaved changes', message: 'Save or discard your plan edits before importing.', actionLabel: 'Discard edits and continue', danger: true });
+    if (!ok) return;
+  }
+  try {
+    const picked = await api('/api/pick', { method: 'POST', body: { kind: 'xlsx' } });
+    if (!picked.path) return;
+    const stem = picked.path.split(/[\\/]/).pop().replace(/\.xlsx$/i, '');
+    const v = await formDialog({
+      title: 'Import Kahoot quiz',
+      fields: [{ name: 'title', label: 'Quiz name', value: stem, required: true, hint: 'The new section and the quiz lobby take this name.' }],
+      saveLabel: 'Import',
+    });
+    if (!v) return;
+    const res = await api(`/api/sessions/${st.sid}/quiz-import`, { method: 'POST', body: { path: picked.path, title: v.title.trim() } });
+    st.dirty = false;
+    st.selected = st.anchor = res.lobby_id;
+    st.picked = new Set([res.lobby_id]);
+    await load();
+    toast(`${res.questions} questions imported into "${res.section}"`);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
 async function saveSession() {
   try {
     const res = await api(`/api/sessions/${st.sid}`, { method: 'PUT', body: { session: st.session } });
@@ -807,7 +840,7 @@ function renderEditor() {
       renderEditor();
     }, 'Activity type')));
     const spec = st.types[it.type] || {};
-    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : spec.label }), 'with-hint'));
+    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : (it.options || {}).title || spec.label }), 'with-hint'));
     form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
       ? '<p class="ed-hint">The name in the plan and on the presenter. Empty = the question.</p>'
       : '<p class="ed-hint">Shown on the stage — type \\n for a line break there.</p>');
@@ -877,8 +910,9 @@ function renderEditor() {
           const sel = document.createElement('select');
           sel.className = 'select-native';
           sel.setAttribute('aria-label', o.label);
-          o.choices.forEach(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; op.selected = v === cur; sel.appendChild(op); });
-          sel.addEventListener('change', () => { setOpt(sel.value); renderList(); }); // the round shows as a chip
+          // A choice keeps its type: a number stays a number in session.yaml (a quiz's time limit).
+          o.choices.forEach(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; op.selected = String(v) === String(cur); sel.appendChild(op); });
+          sel.addEventListener('change', () => { setOpt(o.choices.map(([v]) => v).find((v) => String(v) === sel.value)); renderList(); }); // the round shows as a chip
           const line = document.createElement('label');
           line.className = 'opt-line';
           line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), sel);

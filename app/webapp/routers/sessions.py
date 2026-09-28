@@ -13,9 +13,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
-from app.webapp.errors import AppError
+from app.webapp.errors import AppError, require_local
 from src.importer.review import read_meta
 from src.music import library
+from src.quiz.importer import import_kahoot
 from src.sessions import readiness
 from src.sessions.model import dump_session, parse_session
 from src.sessions.offline import check_folder, pin_folder
@@ -170,6 +171,29 @@ class AudioBody(BaseModel):
 def import_audio(request: Request, sid: str, body: AudioBody) -> dict[str, Any]:
     """Copy a music file into the session's ``audio/`` (the Plan tab's Music picker)."""
     return library.import_audio(store(request).folder(sid), Path(body.path.strip().strip('"')))
+
+
+class QuizImportBody(BaseModel):
+    path: str = Field(min_length=1)
+    title: str = Field("", max_length=200)
+    section_id: Optional[str] = None  # add to the end of this section; none = a new section
+
+
+@router.post("/{sid}/quiz-import")
+def quiz_import(request: Request, sid: str, body: QuizImportBody) -> dict[str, Any]:
+    """A Kahoot spreadsheet template → the lobby, one quiz item per row and the podium, saved.
+
+    It reads a file on this PC, so only this PC may ask (like the file picker)."""
+    require_local(request, "The Kahoot import reads a file on this PC")
+    st = store(request)
+    session = st.load(sid)
+    path = Path(body.path.strip().strip('"'))
+    result = import_kahoot(session, path, body.title.strip() or path.stem, body.section_id)
+    st.save(sid, session)
+    hub = getattr(request.app.state, "live", None)
+    if hub is not None:
+        hub.session_saved(sid)
+    return result
 
 
 @router.post("/{sid}/pin")
