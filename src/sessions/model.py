@@ -10,6 +10,7 @@ and nothing is inherited from sections or settings.
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 import unicodedata
@@ -20,7 +21,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.activities.registry import editors
 
+logger = logging.getLogger(__name__)
+
 SCHEMA_VERSION = 1
+# An item id — the one rule for every route that takes one. It names the item's
+# files (``live/captures/<id>.json``/``.png``), so no dots, slashes or spaces.
+# Every id the app generates fits (``slide-<SlideID>``, ``act-``/``brk-``/``bko-``
+# + hex); so does a hand-written one like ``act-Q1``. Use ``fullmatch``.
+ITEM_ID = re.compile(r"[A-Za-z0-9_-]{1,80}")
 
 Profile = Literal["camera_strip", "camera_pip", "screen_only"]
 Language = Literal["en", "es"]
@@ -190,8 +198,21 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")[:24] or "x"
 
 
+def _valid_item_id(item_id: str) -> str:
+    """A hand-edited id outside ``ITEM_ID`` made fit, the same way on every load
+    (``"act Q1"`` → ``"act-Q1"``); ``""`` when nothing is left of it."""
+    if not item_id or ITEM_ID.fullmatch(item_id):
+        return item_id
+    ascii_id = unicodedata.normalize("NFKD", item_id).encode("ascii", "ignore").decode("ascii")
+    fixed = re.sub(r"[^A-Za-z0-9_-]+", "-", ascii_id).strip("-")[:80]
+    logger.warning("⚠️ session plan: item id %r is not valid — using %r until the plan is saved",
+                   item_id, fixed or "a new id")
+    return fixed
+
+
 def ensure_ids(session: Session) -> Session:
-    """Give every section and item a stable, unique id (slides: ``slide-<SlideID>``)."""
+    """Give every section and item a stable, unique id (slides: ``slide-<SlideID>``);
+    an item id outside ``ITEM_ID`` is made to fit."""
     seen: set[str] = set()
     for sec in session.sections:
         if not sec.id or sec.id in seen:
@@ -200,6 +221,7 @@ def ensure_ids(session: Session) -> Session:
                 sec.id = new_id("sec")
         seen.add(sec.id)
         for it in sec.items:
+            it.id = _valid_item_id(it.id)
             if not it.id or it.id in seen:
                 if it.kind == "slide" and it.slide_id is not None and f"slide-{it.slide_id}" not in seen:
                     it.id = f"slide-{it.slide_id}"

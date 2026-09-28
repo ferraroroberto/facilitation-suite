@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from typing import Any, Optional
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
@@ -15,13 +14,13 @@ from app.webapp.errors import AppError
 from src.activities.registry import ACTIVITIES_DIR, editors
 from src.live.actions import catalog, run_action
 from src.live.hub import LiveError, LiveHub
+from src.sessions.model import ITEM_ID
 from src.sessions.store import SessionError
 from src.sessions.theme import theme_css
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-ITEM_ID = re.compile(r"^[a-z]{2,6}-[a-z0-9-]{1,40}$")
 PLUGIN_ASSETS = {"stage.js": "text/javascript", "stage.css": "text/css", "world.svg": "image/svg+xml"}
 
 
@@ -104,7 +103,7 @@ def actions() -> dict[str, Any]:
 @router.get("/api/live/captures/{item_id}")
 def frozen_capture(request: Request, item_id: str) -> dict[str, Any]:
     """A frozen capture (answers + result + the item as it was)."""
-    if not ITEM_ID.match(item_id):
+    if not ITEM_ID.fullmatch(item_id):
         raise AppError(404, "not_found", "No such capture")
     data = request.app.state.capture.frozen(item_id)
     if data is None:
@@ -114,7 +113,7 @@ def frozen_capture(request: Request, item_id: str) -> dict[str, Any]:
 
 @router.get("/api/live/captures/{item_id}/png", include_in_schema=False)
 def frozen_png(request: Request, item_id: str) -> Response:
-    path = request.app.state.capture.frozen_path(item_id, "png") if ITEM_ID.match(item_id) else None
+    path = request.app.state.capture.frozen_path(item_id, "png") if ITEM_ID.fullmatch(item_id) else None
     if path is None or not path.is_file():
         raise AppError(404, "not_found", "No picture yet")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})

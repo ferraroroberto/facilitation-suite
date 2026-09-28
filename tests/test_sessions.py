@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from src.config import load_config
-from src.sessions.model import Session, dump_session, parse_session
+from src.sessions.model import ITEM_ID, Session, dump_session, new_id, parse_session
 from src.sessions.offline import check_folder
 from src.sessions.store import SessionError, SessionStore
 
@@ -216,3 +216,53 @@ def test_demo_fixture_is_a_valid_session(tmp_path: Path) -> None:
     session = st.load(sid)
     assert len(session.sections) == 5
     assert sum(1 for it in session.all_items() if it.kind == "activity") == 7
+
+
+# ---- the item-id rule (ITEM_ID): one pattern for the model and every route ----
+
+@pytest.mark.parametrize("item_id", [
+    "slide-263", "slide-2147483647",                        # slide-<PowerPoint SlideID>
+    new_id("act"), new_id("brk"), new_id("bko"), new_id("slide"), new_id("item"),
+    new_id("sli"), new_id("bre"),                           # ensure_ids' collision fallback (kind[:3])
+    "a-kryptonite", "brk", "act-Q1", "act_q1", "x" * 80,    # written by hand
+])
+def test_every_id_the_app_makes_or_accepts_fits_and_is_kept(item_id: str) -> None:
+    assert ITEM_ID.fullmatch(item_id)
+    session = parse_session({"sections": [{"items": [{"kind": "activity", "id": item_id}]}]})
+    assert session.all_items()[0].id == item_id
+
+
+def test_an_empty_or_duplicate_id_is_still_assigned() -> None:
+    session = parse_session({"sections": [{"items": [
+        {"kind": "slide", "slide_id": 300}, {"kind": "activity"}, {"kind": "activity", "id": "act-a"},
+        {"kind": "activity", "id": "act-a"}]}]})
+    ids = [it.id for it in session.all_items()]
+    assert ids[0] == "slide-300" and ids[2] == "act-a" and len(set(ids)) == 4
+    assert all(ITEM_ID.fullmatch(i) for i in ids)
+
+
+@pytest.mark.parametrize(("item_id", "fixed"), [
+    ("act Q1", "act-Q1"), ("act.q1", "act-q1"), ("../x", "x"), ("café", "cafe"), ("y" * 100, "y" * 80),
+])
+def test_an_invalid_hand_edited_id_is_made_to_fit_the_same_way_every_load(item_id: str, fixed: str, caplog) -> None:
+    raw = {"sections": [{"items": [{"kind": "activity", "id": item_id}]}]}
+    with caplog.at_level("WARNING", logger="src.sessions.model"):
+        assert parse_session(raw).all_items()[0].id == fixed
+    assert parse_session(raw).all_items()[0].id == fixed
+    assert "is not valid" in caplog.text
+
+
+def test_an_id_with_nothing_valid_left_gets_a_new_one_and_the_session_still_opens() -> None:
+    session = parse_session({"sections": [{"items": [
+        {"kind": "activity", "id": "!!!"}, {"kind": "activity", "id": "act Q1"}, {"kind": "activity", "id": "act-Q1"}]}]})
+    ids = [it.id for it in session.all_items()]
+    assert ids[0].startswith("act-") and ids[1] == "act-Q1" and ids[2] != "act-Q1"
+    assert len(set(ids)) == 3 and all(ITEM_ID.fullmatch(i) for i in ids)
+
+
+def test_both_capture_routes_use_the_one_rule(client) -> None:
+    # A hand-written id the Results tab accepted used to 404 on the live route (the stage's freeze).
+    r = client.get("/api/live/captures/act-Q1")
+    assert r.status_code == 404 and r.json()["error"]["message"] == "Not captured yet"
+    r = client.get("/api/live/captures/act.Q1")
+    assert r.status_code == 404 and r.json()["error"]["message"] == "No such capture"
