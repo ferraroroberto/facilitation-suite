@@ -5,5 +5,6 @@
   "order": 9,
   "description": "Ends the quiz and shows the final podium.",
   "capture": false,
-  "options": []
+  "options": [],
+  "samples": ["Robin", "Alex", "Jordan", "Sam", "Casey"]
 }

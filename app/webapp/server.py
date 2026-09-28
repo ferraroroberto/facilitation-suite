@@ -80,6 +80,7 @@ from src.logger import configure_logging
 from src.music.service import MusicService
 from src.obs.service import ObsService
 from src.quiz.chat import ChatAnswers
+from src.quiz.cues import QuizCues
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.sessions.store import SessionStore
@@ -248,6 +249,8 @@ def create_app() -> FastAPI:
     _install_obs(app)
     _install_music(app)
     _install_quiz(app)
+    # The quiz's phase sounds through the music service (after both: it hears the quiz's changes).
+    app.state.quiz_cues = QuizCues(app.state.live, app.state.quiz, app.state.music)
     _install_error_handlers(app)
     # Outermost: other devices need the phone-remote token before anything else runs.
     app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)

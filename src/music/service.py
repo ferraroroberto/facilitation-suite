@@ -23,6 +23,16 @@ replaces it again. The same track already playing is adopted, not restarted.
 Pausing, resuming or changing the volume by hand keeps the owner; stopping
 clears it.
 
+**Sound cues** (``cue(name)``, the quiz's phase sounds, #53): a short file
+from the session's ``audio/`` folder (``audio/<name>.mp3|ogg|wav|flac``;
+silent when there is none). A cue **never stomps real music**: while an
+item's music or ad-hoc music is playing or paused, the cue is skipped (and
+logged), and that music carries on untouched. A cue only replaces nothing or
+another cue (crossfading over it), and ``end_cue()`` fades out only a cue.
+Any other command (a timer's music, the presenter's play or stop) replaces a
+cue like any track: the cue is forgotten. The presenter's pause, stop and
+volume act on a cue as on any track.
+
 States (the presenter's chip): ``idle``, ``playing``, ``paused``, ``error``
 (the detail says why). Nothing of it is saved: a restarted server starts
 silent.
@@ -39,7 +49,7 @@ from src.live.actions import Action, register
 from src.live.hub import LiveHub
 from src.music.backend import Backend, EventSink, MusicError, Track
 from src.music.file_backend import FileBackend
-from src.music.library import audio_files, resolve
+from src.music.library import audio_files, cue_file, resolve
 from src.music.spotify import SpotifyBackend, is_link, normalize
 from src.music.spotify import label as spotify_label
 
@@ -49,6 +59,8 @@ DEFAULT_VOLUME = 80
 DEFAULT_FADE_S = 2.0
 FADE_OUT_LONG_S = 8.0  # music_fade_out: the slow "wind down" (end of a break)
 RESET_FADE_S = 1.0
+CUE_FADE_IN_S = 0.2  # a cue starts on its beat (a short ramp only, no click)
+CUE_FADE_OUT_S = 1.0
 
 BackendFactory = Callable[[EventSink], Backend]
 
@@ -62,6 +74,7 @@ class MusicService:
         self.detail = ""
         self.track: Optional[Track] = None  # what plays or is paused (or the last one, for the toggle)
         self.owner: Optional[str] = None  # the item whose timer drives it; None = ad hoc
+        self.cue_name: Optional[str] = None  # what plays is this sound cue (see cue())
         self.volume = DEFAULT_VOLUME
         self.fade_in_s = self.fade_out_s = DEFAULT_FADE_S
         self.sounding = False  # the backend confirmed sound is coming out
@@ -114,7 +127,8 @@ class MusicService:
 
     def state_fields(self) -> dict[str, Any]:
         return {"music": {
-            "state": self.state, "detail": self.detail, "owner": self.owner, "volume": self.volume,
+            "state": self.state, "detail": self.detail, "owner": self.owner, "cue": self.cue_name,
+            "volume": self.volume,
             "track": {"kind": self.track.kind, "label": self.track.label} if self.track and self.state != "idle" else None,
             "sounding": self.sounding,
             "backend": self.backend.snapshot() if self.backend is not None and self.state != "idle" else None,
@@ -175,6 +189,33 @@ class MusicService:
         else:
             self._start(self._track("file", row["ref"], False), self.volume, DEFAULT_FADE_S, DEFAULT_FADE_S, owner=None)
         self.live.push_state()
+
+    # ---------------------------------------------------------------- cues
+
+    def cue(self, name: str, *, loop: bool = False) -> bool:
+        """Play the sound cue ``audio/<name>.*`` once (``loop``: until replaced or ended); True if it plays.
+
+        Silent (False) when no session is live, the file is not there, or an item's or the
+        presenter's music is playing or paused — a cue never stomps real music. The caller's
+        change pushes the state (no push here)."""
+        if self.live.folder is None:
+            return False
+        path = cue_file(self.live.folder, name)
+        if path is None:
+            logger.debug("music: no %s cue in audio/ — silent", name)
+            return False
+        if self.state in ("playing", "paused") and self.cue_name is None:
+            logger.info("ℹ️ music: cue %s skipped — %s music is %s", name, "the item's" if self.owner else "ad-hoc",
+                        self.state)
+            return False
+        self._start(Track("file", str(path), path.name, loop), self.volume, CUE_FADE_IN_S, CUE_FADE_OUT_S, owner=None,
+                    cue=name)
+        return True
+
+    def end_cue(self, fade_s: float = CUE_FADE_OUT_S) -> None:
+        """Fade out a cue that is still playing (or paused); any other music is left alone."""
+        if self.cue_name is not None and self.state in ("playing", "paused"):
+            self._stop(fade_s)
 
     # --------------------------------------------------------------- hooks
 
@@ -247,7 +288,8 @@ class MusicService:
             return
         self._start(track, int(m["volume"]), float(m["fade_in_s"]), float(m["fade_out_s"]), owner)
 
-    def _start(self, track: Track, volume: int, fade_in_s: float, fade_out_s: float, owner: Optional[str]) -> None:
+    def _start(self, track: Track, volume: int, fade_in_s: float, fade_out_s: float, owner: Optional[str],
+               cue: Optional[str] = None) -> None:
         backend = self.backends.get(track.kind)
         if backend is None:
             raise MusicError(409, "no_backend", f"{track.kind.capitalize()} playback is not set up in this app")
@@ -255,12 +297,12 @@ class MusicService:
             self.backend.stop(min(fade_in_s, DEFAULT_FADE_S))
         self.play_id += 1
         backend.play(self.play_id, track, volume, fade_in_s)
-        self.backend, self.track, self.owner = backend, track, owner
+        self.backend, self.track, self.owner, self.cue_name = backend, track, owner, cue
         self.volume, self.fade_in_s, self.fade_out_s = volume, fade_in_s, fade_out_s
         self.state, self.detail, self.sounding = "playing", "", False
         logger.info("ℹ️ music: play %s (%s, volume %d, fade in %.1f s, %s)", track.label, track.kind, volume,
-                    fade_in_s, f"with {owner}" if owner else "by hand")
-        self.live.event("music_play", track=track.label, kind=track.kind, owner=owner)
+                    fade_in_s, f"with {owner}" if owner else f"cue {cue}" if cue else "by hand")
+        self.live.event("music_play", track=track.label, kind=track.kind, owner=owner, **({"cue": cue} if cue else {}))
 
     def _pause(self, fade_s: float) -> None:
         if self.state != "playing" or self.backend is None:
@@ -283,11 +325,11 @@ class MusicService:
             self.backend.stop(fade_s)
             logger.info("ℹ️ music: stop %s (fade out %.1f s)", self.track.label if self.track else "", fade_s)
             self.live.event("music_stop")
-        self.state, self.detail, self.owner, self.sounding = "idle", "", None, False
+        self.state, self.detail, self.owner, self.sounding, self.cue_name = "idle", "", None, False, None
 
     def _fail(self, detail: str) -> None:
         logger.warning("⚠️ music: %s", detail)
-        self.state, self.detail, self.owner, self.sounding = "error", detail, None, False
+        self.state, self.detail, self.owner, self.sounding, self.cue_name = "error", detail, None, False, None
         self.live.event("music_error", detail=detail)
 
     # ------------------------------------------------------------- backends
@@ -308,7 +350,7 @@ class MusicService:
             logger.info("✅ music: sound is coming out — %s", detail)
         elif event == "ended" and self.state == "playing":
             logger.info("ℹ️ music: %s ended", detail)
-            self.state, self.owner, self.sounding = "idle", None, False
+            self.state, self.owner, self.sounding, self.cue_name = "idle", None, False, None
             self.live.event("music_end")
         elif event == "error":
             self._fail(detail)

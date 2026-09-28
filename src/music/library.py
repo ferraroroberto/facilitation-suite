@@ -55,6 +55,17 @@ def audio_files(folder: Path) -> list[str]:
                    if p.is_file() and p.suffix.lower() in AUDIO_TYPES), key=str.lower)
 
 
+def cue_file(folder: Path, name: str) -> Optional[Path]:
+    """``audio/<name>.<ext>`` in the session folder (a sound cue, e.g. ``quiz-lobby.mp3``), else ``None``.
+
+    Extensions are tried in ``AUDIO_TYPES`` order; the name matches without regard to case."""
+    base = folder / AUDIO_DIR
+    if not base.is_dir():
+        return None
+    found = {(p.stem.lower(), p.suffix.lower()): p for p in base.iterdir() if p.is_file()}
+    return next((found[(name.lower(), ext)] for ext in AUDIO_TYPES if (name.lower(), ext) in found), None)
+
+
 def import_audio(folder: Path, source: Path) -> dict[str, Any]:
     """Copy ``source`` into ``audio/`` (checked first) and return its session-relative path.
 
