@@ -4,6 +4,11 @@ Every page of the ``timeline`` (``collect.py``) is one widescreen page — the
 slide PNG, or the capture's frozen PNG exactly as the stage showed it — then
 an appendix with every counted answer, activity by activity.
 
+A quiz (``src/quiz/results.py``) adds a page per question asked — its frozen
+PNG when one exists, else a rendered summary of its distribution — and a
+podium page per game, where they happened; the appendix then lists each
+game's final leaderboard. A session without a quiz prints exactly as before.
+
 The document is one HTML file printed by headless Chromium, so the images go
 in untouched and the appendix flows over as many pages as it needs. The
 printing runs as its own process (``python -m src.results.pdf <html> <out>``)
@@ -17,7 +22,7 @@ import re
 import sys
 from html import escape
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from src.logger import configure_logging
 
@@ -48,15 +53,93 @@ tr { break-inside: avoid; }
 td.name { width: 28%; font-weight: 600; } td.time { width: 8%; color: #5e5e5e; }
 """
 
+QUIZ_CSS = """
+.quiz { display: flex; flex-direction: column; justify-content: center; padding: 0 30mm; box-sizing: border-box; background: #f2f2f2; }
+.quiz .kicker { font-size: 13pt; color: #5e5e5e; margin: 0 0 3mm; }
+.quiz h1 { font-size: 28pt; margin: 0 0 9mm; }
+.quiz .bar-row { display: grid; grid-template-columns: 34% 1fr 16mm; align-items: center; gap: 5mm; margin: 0 0 4mm; font-size: 15pt; }
+.quiz .bar { height: 9mm; background: #d6d6d6; border-radius: 2mm; overflow: hidden; }
+.quiz .bar span { display: block; height: 100%; background: #9e9e9e; }
+.quiz .right .bar span { background: #1f1f1f; }
+.quiz .right .label { font-weight: 700; }
+.quiz .count { text-align: right; font-weight: 700; }
+.quiz .foot { font-size: 13pt; color: #5e5e5e; margin: 5mm 0 0; }
+.podium { display: flex; align-items: flex-end; justify-content: center; gap: 8mm; margin: 0 0 8mm; }
+.podium .place { width: 70mm; text-align: center; }
+.podium .name { font-size: 18pt; font-weight: 700; margin: 0 0 2mm; overflow-wrap: anywhere; }
+.podium .score { font-size: 13pt; color: #5e5e5e; margin: 0 0 3mm; }
+.podium .block { background: #1f1f1f; color: #fff; font-size: 30pt; font-weight: 700; display: flex; align-items: center;
+  justify-content: center; border-radius: 3mm 3mm 0 0; }
+.podium .p1 .block { height: 52mm; }
+.podium .p2 .block { height: 38mm; background: #5e5e5e; }
+.podium .p3 .block { height: 28mm; background: #9e9e9e; }
+.quiz .rest { font-size: 12pt; color: #5e5e5e; text-align: center; margin: 0; }
+td.num { width: 8%; }
+"""
+
+
+def _seconds(ms: Optional[int]) -> str:
+    return f"{ms / 1000:.1f} s" if ms is not None else "–"
+
+
+def _quiz_question(folder: Path, q: dict[str, Any], x: dict[str, Any]) -> str:
+    """A question's page: its frozen PNG, else its distribution with the correct answer(s) marked."""
+    if x["has_png"]:
+        png = folder / "live" / "captures" / f"{x['item_id']}.png"
+        return f"<div class='page'><img src='{png.as_uri()}' alt='{escape(x['question'])}'></div>"
+    top = max([a["count"] for a in x["answers"]] + [1])
+    rows = "".join(
+        f"<div class='bar-row{' right' if a['correct'] else ''}'>"
+        f"<span class='label'>{a['n']} · {escape(a['text'])}{' ✓' if a['correct'] else ''}</span>"
+        f"<span class='bar'><span style='width:{round(100 * a['count'] / top)}%'></span></span>"
+        f"<span class='count'>{a['count']}</span></div>" for a in x["answers"])
+    return (f"<div class='page quiz'><p class='kicker'>{escape(q['label'])} · question {x['number']} of {q['question_count']}</p>"
+            f"<h1>{escape(x['question'])}</h1>{rows}"
+            f"<p class='foot'>{x['answered']} of {x['players']} players answered · ✓ correct</p></div>")
+
+
+def _quiz_podium(q: dict[str, Any]) -> str:
+    """A game's podium page: the top three (second, first, third), then how many more played."""
+    places = {r["rank"]: r for r in q["podium"]}
+    cols = "".join(f"<div class='place p{n}'><p class='name'>{escape(places[n]['name'])}</p>"
+                   f"<p class='score'>{places[n]['score']} points</p><div class='block'>{n}</div></div>"
+                   for n in (2, 1, 3) if n in places) or "<p class='rest'>Nobody played.</p>"
+    more = q["player_count"] - len(places)
+    rest = (f"<p class='rest'>and {more} more player{'s' if more != 1 else ''} · the full leaderboard is in the appendix</p>"
+            if more > 0 else "")
+    return (f"<div class='page quiz'><p class='kicker'>{escape(q['summary'])}</p><h1>{escape(q['label'])} · podium</h1>"
+            f"<div class='podium'>{cols}</div>{rest}</div>")
+
+
+def _quiz_appendix(q: dict[str, Any]) -> str:
+    """A game's final leaderboard for the appendix."""
+    out = f"<div class='act'><h2>Quiz · {escape(q['label'])}</h2><p class='meta'>{escape(q['summary'])}</p>"
+    if q["leaderboard"]:
+        out += ("<table><thead><tr><th>Rank</th><th>Nickname</th><th>Score</th><th>Correct</th>"
+                "<th>Avg response</th><th>Source</th></tr></thead><tbody>")
+        out += "".join(f"<tr><td class='num'>{r['rank']}</td><td class='name'>{escape(r['name'])}</td><td>{r['score']}</td>"
+                       f"<td>{r['correct']} of {q['question_count']}</td><td>{_seconds(r['avg_ms'])}</td>"
+                       f"<td>{escape(r['source'])}</td></tr>" for r in q["leaderboard"])
+        out += "</tbody></table>"
+    return out + "</div>"
+
 
 def session_html(folder: Path, results: dict[str, Any]) -> str:
     acts = {a["id"]: a for a in results["activities"]}
+    quizzes = {q["id"]: q for q in results.get("quizzes") or []}
     parts = [f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(results['session']['title'])}</title>"
-             f"<style>{CSS}</style></head><body>"]
+             f"<style>{CSS}{QUIZ_CSS if quizzes else ''}</style></head><body>"]
     for p in results["pages"]:
         if p["kind"] == "slide":
             src = (folder / "slides" / p["file"]).as_uri()
             parts.append(f"<div class='page'><img src='{src}' alt='{escape(p['title'])}'></div>")
+            continue
+        if p["kind"] == "quiz_question":
+            q = quizzes[p["game"]]
+            parts.append(_quiz_question(folder, q, next(x for x in q["questions"] if x["item_id"] == p["item_id"])))
+            continue
+        if p["kind"] == "quiz_podium":
+            parts.append(_quiz_podium(quizzes[p["game"]]))
             continue
         a = acts[p["item_id"]]
         png = folder / "live" / "captures" / f"{a['id']}.png"
@@ -80,6 +163,7 @@ def session_html(folder: Path, results: dict[str, Any]) -> str:
                       f"<td>{escape(r['text'])}</td></tr>" for r in rows]
             parts.append("</tbody></table>")
         parts.append("</div>")
+    parts += [_quiz_appendix(q) for q in quizzes.values()]
     parts.append("</section></body></html>")
     return "".join(parts)
 

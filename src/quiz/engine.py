@@ -12,8 +12,9 @@ Records (every one also carries ``game`` and ``at``, epoch ms):
 
 - ``{"op": "game", "lobby_id", "run"}`` — a game opens (``game_id`` =
   ``<lobby item id>-<run>``; a replay of the same quiz is run 2, 3, …).
-- ``{"op": "join", "player_id", "name", "secret", "key"}`` — ``key`` is the
-  caller's optional idempotency key (a retried join returns the same player).
+- ``{"op": "join", "player_id", "name", "secret", "key", "source"}`` — ``key``
+  is the caller's optional idempotency key (a retried join returns the same
+  player); ``source`` is ``phone`` or ``chat`` (absent in older files: ``phone``).
 - ``{"op": "resume", "player_id"}`` / ``{"op": "kick", "player_id"}``.
 - ``{"op": "phase", "phase", "item_id"}`` — the stage shows ``phase`` of
   ``item_id``; entering a question for the first time also carries
@@ -75,6 +76,10 @@ NOT_OPEN = "not_open"  # the question has not been asked yet (or is not a questi
 UNKNOWN_PLAYER = "unknown_player"  # no such player in this game, or the secret does not match
 KICKED = "kicked"  # the host removed this player
 
+# Where a player plays from.
+PHONE = "phone"  # the public player page
+CHAT = "chat"  # the Zoom-chat fallback (Step 6)
+
 # Join and resume results.
 JOINED = "joined"
 RESUMED = "resumed"
@@ -110,6 +115,7 @@ class Player:
     seq: int  # join order: the last tie-break
     key: Optional[str] = None
     kicked: bool = False
+    source: str = PHONE
 
 
 @dataclass
@@ -183,7 +189,8 @@ class Game:
         if op == "join":
             if rec["player_id"] not in self.players:
                 self.players[rec["player_id"]] = Player(rec["player_id"], rec["name"], rec["secret"],
-                                                        seq=len(self.players), key=rec.get("key"))
+                                                        seq=len(self.players), key=rec.get("key"),
+                                                        source=rec.get("source") or PHONE)
         elif op == "kick":
             if rec["player_id"] in self.players:
                 self.players[rec["player_id"]].kicked = True

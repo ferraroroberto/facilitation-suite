@@ -10,7 +10,10 @@ Results tab works on any session without it being live:
   its order: every slide at its first showing, each capture at its last stop
   (the frozen image is the one from that stop);
 - ``live/chat.jsonl`` — every chat message (participation counts, the Zoom
-  reconciliation).
+  reconciliation);
+- ``live/quiz.jsonl`` — every quiz game, replayed through the engine
+  (``src/quiz/results.py``): a page per question asked and a podium per game,
+  placed by their ``quiz_phase`` events.
 
 Nothing here writes; a missing or damaged file reads as empty and is logged.
 """
@@ -27,6 +30,7 @@ from src.activities.registry import editors, report_for, value_for
 from src.importer.review import read_meta
 from src.jsonl import read_jsonl
 from src.live.plan import build_run, one_line
+from src.quiz.results import PODIUM_PAGE, page_keys, place_pages, quiz_results
 from src.sessions.model import Session
 
 logger = logging.getLogger(__name__)
@@ -83,16 +87,21 @@ def _activity(item_id: str, frozen: dict[str, Any], png: Path) -> dict[str, Any]
     }
 
 
-def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], captured: set[str]) -> list[dict[str, Any]]:
+def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], captured: set[str],
+             quiz: Optional[set[tuple[str, str]]] = None) -> list[dict[str, Any]]:
     """The session PDF's pages in the order they happened.
 
     A slide is a page at its first showing; a capture is a page at its last
     stop. Items shown that are not slides (activities, breaks) only count
     through their captures. A slide no longer in the plan is left out.
+    ``quiz`` holds the quiz pages that exist (``quiz.results.page_keys``): a
+    question is a page when it was first asked, a game's podium when it was
+    first shown.
     """
     by_id = {it["id"]: it for it in run_items}
     pages: list[dict[str, Any]] = []
     seen: set[str] = set()
+    seen_quiz: set[tuple[str, str]] = set()
     live_once = False
 
     def shown(item_id: Optional[str], at: str) -> None:
@@ -115,6 +124,13 @@ def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], capt
         elif name == "capture_stop" and ev.get("item_id") in captured:
             pages[:] = [p for p in pages if not (p["kind"] == "capture" and p["item_id"] == ev["item_id"])]
             pages.append({"kind": "capture", "item_id": ev["item_id"], "at": at})
+        elif name == "quiz_phase" and quiz and ev.get("phase") in ("question", "podium"):
+            podium = ev["phase"] == "podium"
+            key = (ev.get("game") or "", PODIUM_PAGE if podium else ev.get("item_id") or "")
+            if key in quiz and key not in seen_quiz:
+                seen_quiz.add(key)
+                pages.append({"kind": "quiz_podium" if podium else "quiz_question", "game": key[0],
+                              "item_id": ev.get("item_id"), "at": at})
     return pages
 
 
@@ -125,7 +141,9 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
     run = build_run(session, read_meta(folder / "slides" / "slides.json"))
     cap_dir = folder / "live" / "captures"
     acts = {iid: _activity(iid, fr, cap_dir / f"{iid}.png") for iid, fr in captures.items()}
-    pages = timeline(events, run["items"], set(acts))
+    quizzes = quiz_results(folder, run["items"])
+    pages = timeline(events, run["items"], set(acts), page_keys(quizzes))
+    place_pages(pages, quizzes)
     # Activities in the order they happened (their page), then any capture without a stop event.
     order = [p["item_id"] for p in pages if p["kind"] == "capture"]
     order += sorted((i for i in acts if i not in order), key=lambda i: acts[i]["start_ms"] or 0)
@@ -136,12 +154,23 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
         if p["kind"] == "capture":
             a = acts[p["item_id"]]
             p.update(title=a["title"], label=f"Live {a['type_label'].lower()}", tile=a["tile"], has_png=a["has_png"])
+        elif p["kind"] == "quiz_question":
+            q = next(q for q in quizzes if q["id"] == p["game"])
+            x = next(x for x in q["questions"] if x["item_id"] == p["item_id"])
+            p.update(title=x["question"], label=f"Quiz Q{x['number']}", tile=f"{x['answered']} answered",
+                     has_png=x["has_png"])
+        elif p["kind"] == "quiz_podium":
+            q = next(q for q in quizzes if q["id"] == p["game"])
+            p.update(title=f"{q['label']} · podium", label="Quiz podium", tile=q["podium"][0]["name"] if q["podium"] else "",
+                     has_png=False)
     return {
         "session": {"title": session.title, "date": session.date.isoformat() if session.date else None},
         "activities": activities,
         "pages": pages,
         "slides": sum(1 for p in pages if p["kind"] == "slide"),
         "captures": sum(1 for p in pages if p["kind"] == "capture"),
+        "quizzes": quizzes,
+        "quiz_pages": sum(1 for p in pages if p["kind"].startswith("quiz_")),
         "went_live": any(e.get("event") == "session_live" for e in events),
     }
 
