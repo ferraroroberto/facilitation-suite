@@ -1,5 +1,5 @@
 """Story 4: plan the session — edit an activity, give it its own timer, notes and a
-title, break its question over two lines, duplicate it, reorder, skip, fold the
+title, break its question over two lines, keep its answers verbatim, duplicate it, reorder, skip, fold the
 sections, add one with a breakout card in it, save."""
 
 from __future__ import annotations
@@ -39,6 +39,11 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     expect(page.locator(".dirty-bar")).to_be_visible()
     expect(page.locator(".preview-frame .st-question")).to_have_js_property("innerHTML", "One word<br>you take home")
     expect(page.locator(".item-row.selected .item-title")).to_have_text("Take-home word")
+    # answers verbatim: the preview's sample "saying yes to everything" stops being split into words
+    whole = page.locator(".preview-frame .wc-text", has_text="saying yes to everything")
+    expect(page.locator(".preview-frame .wc-text", has_text="everything")).to_have_text("everything")
+    page.get_by_label("How answers become words").select_option("verbatim")
+    expect(whole).to_be_visible()
 
     # duplicate it: the copy follows it and is selected
     page.locator(".ed-tools [data-dup]").click()
@@ -81,6 +86,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     assert act["question"] == r"One word\nyou take home"
     assert act["font"]["size_px"] == 88
     assert act["notes"] == "Read the top three aloud."
+    assert act["options"] == {"terms": "verbatim"}
     assert act["timer"] == {"enabled": True, "seconds": 90, "start": "with_capture", "show_on": "stage", "end": "stop_capture"}
     assert copy["id"] != act["id"] and {k: v for k, v in copy.items() if k != "id"} == {k: v for k, v in act.items() if k != "id"}
     # untouched items keep no timer: timers are decided item by item

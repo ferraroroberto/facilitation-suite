@@ -51,6 +51,45 @@ def test_word_cloud_without_merging_keeps_spellings_apart() -> None:
     assert sorted(w["text"] for w in r["words"]) == ["Sol", "sol"]
 
 
+def test_word_cloud_terms_auto_is_the_default() -> None:
+    texts = _msgs("no agenda", "miedo a fallar", "creo que el problema son las reuniones eternas", "jajaja")
+    assert result_for("word_cloud", {"terms": "auto"}, texts) == result_for("word_cloud", {}, texts)
+
+
+def test_word_cloud_terms_verbatim_keeps_each_answer_whole() -> None:
+    sentence = "the thing i take away is that saying no to meetings gives me back my whole afternoon"
+    r = result_for("word_cloud", {"terms": "verbatim"}, _msgs(
+        "Saying yes to everything", "  saying   yes to everything! ",  # one entry: case, spaces, end punctuation
+        sentence,                                                      # 17 words: still one entry
+        "jajaja xd",                                                   # laughter only: dropped
+        "no agenda",                                                   # no stopwords in verbatim
+    ))
+    assert [(w["text"], w["count"]) for w in r["words"]] == [
+        ("Saying yes to everything", 2), (sentence, 1), ("no agenda", 1)]  # a tie: the first seen spelling
+    assert r["answers"] == 4
+    apart = result_for("word_cloud", {"terms": "verbatim", "merge_variants": False}, _msgs("¡Sí!", "Sí", "sí"))
+    assert sorted((w["text"], w["count"]) for w in apart["words"]) == [("Sí", 2), ("sí", 1)]
+
+
+def test_word_cloud_terms_verbatim_shows_the_most_common_original_casing() -> None:
+    r = result_for("word_cloud", {"terms": "verbatim"}, _msgs(
+        "i stop listening", "I stop listening", "I stop listening!",   # merged: the typed casing wins 2-1
+        "Reunión", "reunion", "REUNIONES",                              # merged with accents and a plural: a tie
+    ))
+    assert [(w["text"], w["count"]) for w in r["words"]] == [("I stop listening", 3), ("Reunión", 3)]
+
+
+def test_word_cloud_terms_words_always_splits() -> None:
+    r = result_for("word_cloud", {"terms": "words", "stopwords": "both"}, _msgs(
+        "no agenda",                         # short, still split: "no" is a stopword
+        "meetings",
+        "long meetings with no agenda",      # a sentence: its words minus stopwords
+        "jajaja",
+    ))
+    assert [(w["key"], w["count"]) for w in r["words"]] == [("agenda", 2), ("meetings", 2), ("long", 1)]
+    assert r["answers"] == 3
+
+
 # ----------------------------------------------------------------------- scale
 
 
