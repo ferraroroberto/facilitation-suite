@@ -48,8 +48,8 @@ from typing import Any, Optional
 import yaml
 
 from src.chat.parse import Row, new_rows, rows_from_names
-from src.config import data_dir, load_config
-from src.logger import configure_logging
+from src.config import load_config
+from src.logger import configure_logging, log_path
 
 logger = logging.getLogger("chat_reader")
 
@@ -293,7 +293,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--answers", help="comma-separated answers for burst/random simulations")
     ap.add_argument("--stop-file", type=Path, help="exit cleanly when this file appears")
     args = ap.parse_args(argv)
-    configure_logging(log_file=data_dir() / "logs" / "chat-reader.log")
+    configure_logging(log_file=log_path("chat-reader"))
     poster = Poster(args.server)
     if args.simulate:
         answers = [a.strip() for a in args.answers.split(",") if a.strip()] if args.answers else None

@@ -118,7 +118,7 @@ def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print("usage: python -m src.results.pdf <session.html> <out.pdf>", file=sys.stderr)
         return 1
-    configure_logging()
+    configure_logging(to_file=False)  # the server relays our stderr into its log (#37)
     try:
         pages = print_pdf(Path(argv[1]), Path(argv[2]))
     except Exception as exc:  # noqa: BLE001 — reported to the server through the exit code

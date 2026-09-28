@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -135,10 +136,13 @@ def test_sheet_titles_are_valid_and_unique() -> None:
 
 # ---- the session PDF (real headless Chromium) ------------------------------------
 
-def test_session_pdf_prints_every_page_then_the_appendix(client, isolated_env: Path) -> None:
+def test_session_pdf_prints_every_page_then_the_appendix(client, isolated_env: Path, caplog) -> None:
     sid, folder, _ = _run(isolated_env)
     (folder / "live" / "captures" / "act-ideas.png").unlink()  # a PNG that never rendered still gets a page
-    r = client.post(f"/api/sessions/{sid}/exports/pdf")
+    with caplog.at_level(logging.INFO):
+        r = client.post(f"/api/sessions/{sid}/exports/pdf")
+    # the helper logs to stderr only; the server relays it into its own log (#37)
+    assert any(m.startswith("session_pdf: ✅ session PDF written") for m in caplog.messages), caplog.messages
     assert r.status_code == 200, r.text
     body = r.json()
     assert (body["slides"], body["captures"]) == (10, 6)

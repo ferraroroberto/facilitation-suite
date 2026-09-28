@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.config import data_dir
+from src.logger import relay
 from src.no_window import NO_WINDOW
 from src.results.collect import load_results, participation, read_jsonl
 from src.results.excel import build_report
@@ -101,13 +102,17 @@ def _print(html: str, out: Path) -> int:
         doc = Path(fh.name)
     try:
         proc = subprocess.run([sys.executable, "-m", "src.results.pdf", str(doc), str(out)], cwd=PROJECT_ROOT,
-                              capture_output=True, text=True, timeout=PDF_TIMEOUT_S, creationflags=NO_WINDOW)
+                              capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=PDF_TIMEOUT_S, creationflags=NO_WINDOW)
     except subprocess.TimeoutExpired as exc:
+        err = exc.stderr or ""  # str on Windows (read back after the kill), bytes elsewhere
+        relay((err.decode("utf-8", "replace") if isinstance(err, bytes) else err).splitlines(), logger)
         raise AppError(504, "pdf_timeout", f"The PDF took longer than {PDF_TIMEOUT_S} s — see the log") from exc
     finally:
         doc.unlink(missing_ok=True)
+    relay((proc.stderr or "").splitlines(), logger)  # the helper logs to stderr only (#37)
     if proc.returncode != 0:
-        logger.error("❌ session PDF process exited %s: %s", proc.returncode, (proc.stderr or "").strip()[-500:])
+        logger.error("❌ session PDF process exited %s", proc.returncode)
         raise AppError(500, "pdf_failed", "The session PDF could not be printed — see the log")
     try:
         return int((proc.stdout or "0").strip().splitlines()[-1])

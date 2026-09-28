@@ -28,6 +28,7 @@ import json
 import logging
 import subprocess
 import sys
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -36,6 +37,7 @@ from src.activities.registry import options_with_defaults, parser, result_for
 from src.chat.hub import ChatHub
 from src.live.actions import Action, register
 from src.live.hub import LiveError, LiveHub, now_ms
+from src.logger import relay
 from src.no_window import NO_WINDOW
 from src.sessions.store import atomic_write_text
 
@@ -305,10 +307,18 @@ class CaptureService:
             return
         url = f"{self.freeze_url}/stage?freeze={item_id}&session={self.live.session_id}"
         try:
-            subprocess.Popen([sys.executable, "-m", "src.live.freeze", url, str(out)], cwd=PROJECT_ROOT,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+            proc = subprocess.Popen([sys.executable, "-m", "src.live.freeze", url, str(out)], cwd=PROJECT_ROOT,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                                    encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
         except OSError as exc:
             logger.error("❌ capture PNG of %s not started: %s", item_id, exc)
+            return
+
+        def _relay() -> None:  # the helper logs to stderr only, so it never holds our log open (#37)
+            relay(proc.stderr, logger)
+            proc.wait()
+
+        threading.Thread(target=_relay, name=f"freeze-{item_id}", daemon=True).start()
 
     def frozen(self, item_id: str) -> Optional[dict[str, Any]]:
         path = self.frozen_path(item_id, "json")

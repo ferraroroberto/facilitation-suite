@@ -43,6 +43,15 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 
 **Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. Static files (`app/webapp/static/`) are served `no-cache`, so a browser reload picks them up without a restart.
 
+**Logs** live in `data/logs/` (under `FS_DATA_DIR` when it is set). Each file has exactly one writer, because Windows cannot rotate a file another process holds open; each rotates at 1 MB and keeps 3 backups (`.log.1`–`.log.3`):
+
+| File | Written by |
+|---|---|
+| `facilitation-suite.log` | the webapp (the server, including `✅ facilitation-suite up — build <sha>`), plus the lines of the freeze-PNG and session-PDF helpers it spawns — they log to stderr and the server relays them |
+| `tray.log` | the tray: starting, adopting and restarting the webapp |
+| `chat-reader.log` | the Zoom chat reader |
+| `webapp/watchdog.log` (repo root) | the tray's watchdog breadcrumbs |
+
 ## Importing a PowerPoint
 
 Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the Windows file dialog on this PC). PowerPoint desktop exports every slide to a 1920×1080 PNG through COM, from a read-only copy of the deck, in its own process with a 5-minute timeout. Each slide keeps PowerPoint's own SlideID, title, notes and fingerprints (image dHash + title/notes hashes) in `slides/slides.json`.
@@ -178,7 +187,7 @@ Participants answer in the Zoom chat; a separate local process reads it — no b
 - While it runs, the Windows "screen reader present" flag is on (Zoom may need it to expose the chat); the reader restores it when it stops.
 - **Rehearse alone:** *Simulate answers* on the presenter replays fake answers through the same pipeline; from a terminal, `python -m src.chat.reader --server http://127.0.0.1:8449 --simulate burst:50` (or `random:30`, or a YAML script `{messages: [{after, sender, text}]}`).
 
-Log: `data/logs/chat-reader.log`.
+Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 
 ## Configuration
 
