@@ -99,6 +99,19 @@ def test_ingest_writes_chat_jsonl_and_dedupes_batches(live_demo) -> None:
     assert [m["text"] for m in fresh.since(0)] == ["meetings", "the prompt"]
 
 
+def test_a_damaged_line_skips_only_itself_and_ids_never_collide(live_demo) -> None:
+    live, chat, folder = live_demo
+    chat.ingest("d-1", [_msg("Sam", "one"), _msg("Ana", "two"), _msg("Kim", "three")], baseline=False, source="zoom")
+    path = folder / "live" / "chat.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    lines[1] = lines[1][:20]  # a line cut short (a crash mid-write): not JSON any more
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    fresh = ChatHub(live)  # a restart reads the file back
+    assert [m["text"] for m in fresh.since(0)] == ["one", "three"]  # every good line, also after the damage
+    stored = fresh.ingest("d-2", [_msg("Lee", "four")], baseline=False, source="zoom")
+    assert [m["id"] for m in stored] == [4]  # after the highest id read, never a second 3
+
+
 def test_baseline_is_history_unless_it_follows_stored_rows(live_demo) -> None:
     _, chat, _ = live_demo
     # a reader starting on a window full of earlier chat: nothing is new

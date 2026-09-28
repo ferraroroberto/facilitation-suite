@@ -29,6 +29,7 @@ from typing import Any, Optional
 import yaml
 from openpyxl import load_workbook
 
+from src.errors import DomainError
 from src.groups.shuffle import _assign_ids, build_groups
 from src.sessions.store import atomic_write_text
 
@@ -41,11 +42,8 @@ ROUND_LABELS = {"pairs": "Pairs", "g4a": "Groups of 4 · A", "g4b": "Groups of 4
 COLUMNS = ("name", "role", "company", "country", "present", "email")
 
 
-class RosterError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.code = code
+class RosterError(DomainError):
+    """The roster file or groups.yaml."""
 
 
 @dataclass

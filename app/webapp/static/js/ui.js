@@ -95,11 +95,3 @@ export function fmtMinutes(min) {
   const m = Math.max(0, Math.round(min));
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
-
-/** Seconds → "mm:ss" (negative → "-mm:ss"). */
-export function fmtClock(sec) {
-  const neg = sec < 0;
-  const s = Math.abs(Math.round(sec));
-  const out = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  return neg ? '-' + out : out;
-}

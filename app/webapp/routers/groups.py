@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.groups import roster as rs
-from src.sessions.store import SessionError, SessionStore, atomic_write_text
+from src.sessions.store import SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")
@@ -42,17 +42,7 @@ def _store(request: Request) -> SessionStore:
 
 
 def _folder(request: Request, sid: str) -> Path:
-    try:
-        return _store(request).folder(sid)
-    except SessionError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
-
-
-def _call(fn, *args):  # noqa: ANN001, ANN202 — thin error translation
-    try:
-        return fn(*args)
-    except rs.RosterError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    return _store(request).folder(sid)
 
 
 def _changed(request: Request, sid: str) -> None:
@@ -64,38 +54,35 @@ def _changed(request: Request, sid: str) -> None:
 
 @router.get("/groups")
 def get_groups(request: Request, sid: str) -> dict[str, Any]:
-    return _call(rs.payload, _folder(request, sid))
+    return rs.payload(_folder(request, sid))
 
 
 @router.post("/roster")
 def import_roster(request: Request, sid: str, body: RosterBody) -> dict[str, Any]:
     folder = _folder(request, sid)
-    _call(rs.import_roster, folder, Path(body.path.strip().strip('"')))
-    return _call(rs.payload, folder)
+    rs.import_roster(folder, Path(body.path.strip().strip('"')))
+    return rs.payload(folder)
 
 
 @router.put("/groups/presence")
 def presence(request: Request, sid: str, body: PresenceBody) -> dict[str, Any]:
     folder = _folder(request, sid)
-    _call(rs.set_present, folder, body.name, body.present)
-    return _call(rs.payload, folder)
+    rs.set_present(folder, body.name, body.present)
+    return rs.payload(folder)
 
 
 @router.post("/groups/shuffle")
 async def shuffle(request: Request, sid: str, body: ShuffleBody) -> dict[str, Any]:
     folder = _folder(request, sid)
-    try:
-        await asyncio.to_thread(rs.shuffle, folder, body.seed)  # up to 120 000 tries: off the event loop
-    except rs.RosterError as exc:
-        raise AppError(exc.status, exc.code, str(exc)) from exc
+    await asyncio.to_thread(rs.shuffle, folder, body.seed)  # up to 120 000 tries: off the event loop
     _changed(request, sid)
-    return _call(rs.payload, folder)
+    return rs.payload(folder)
 
 
 @router.get("/groups/zoom.csv")
 def zoom_csv(request: Request, sid: str, round: Round = "pairs") -> Response:  # noqa: A002 — the API's word
     folder = _folder(request, sid)
-    people, state = _call(rs.roster_state, folder)
+    people, state = rs.roster_state(folder)
     if not state.get("rounds"):
         raise AppError(409, "not_shuffled", "Shuffle the groups first")
     text, missing = rs.zoom_csv(people, state["rounds"][round])

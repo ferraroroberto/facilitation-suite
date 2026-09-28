@@ -13,18 +13,14 @@ import os
 from typing import Any
 
 from src.config import CONFIG_SAMPLE_PATH, AppConfig, config_path, load_config
+from src.errors import DomainError
 from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
 
-class SettingsError(Exception):
+class SettingsError(DomainError):
     """Raised when the settings file can't be safely read for merging."""
-
-    def __init__(self, status: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.code = code
 
 
 def _read_raw() -> dict[str, Any]:

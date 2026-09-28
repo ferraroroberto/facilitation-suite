@@ -40,6 +40,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Optional
 
+from src.errors import DomainError
 from src.importer.analyze import hamming
 from src.importer.service import INCOMING, files_of, placeholder_item, slide_item
 from src.sessions.model import Item, Section, Session
@@ -51,11 +52,8 @@ IMAGE_SIMILAR = 10  # a re-created slide with the same drawing
 PROFILE_LABEL = {"camera_strip": "Camera strip", "camera_pip": "Camera PiP", "screen_only": "Screen only"}
 
 
-class ReviewError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.code = code
+class ReviewError(DomainError):
+    """The staged re-import and its review."""
 
 
 # ---- staging -----------------------------------------------------------------

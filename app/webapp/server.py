@@ -45,7 +45,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.webapp.auth import RemoteAuth, redact_server_logs
-from app.webapp.errors import AppError, error_response
+from app.webapp.errors import error_response
 from app.webapp.routers import (
     actions,
     activities,
@@ -63,6 +63,7 @@ from src.certs import cert_paths
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
 from src.config import load_config, profiles
+from src.errors import DomainError
 from src.importer.service import Importer
 from src.live.actions import Action, register
 from src.live.capture import CaptureService
@@ -108,8 +109,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def _install_error_handlers(app: FastAPI) -> None:
-    @app.exception_handler(AppError)
-    async def _app_error(request: Request, exc: AppError) -> Response:
+    # Any DomainError (AppError and every src/ module's error) → the one JSON envelope.
+    @app.exception_handler(DomainError)
+    async def _domain_error(request: Request, exc: DomainError) -> Response:
         return error_response(exc.status, exc.code, str(exc), exc.detail)
 
     @app.exception_handler(RequestValidationError)

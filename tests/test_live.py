@@ -205,13 +205,13 @@ def test_ws_keeps_stage_and_presenter_in_sync(client, demo: tuple[str, Path]) ->
 
 
 def test_rest_actions_and_errors(client, demo: tuple[str, Path]) -> None:
-    r = client.post("/api/live/action", json={"action": "next"})
+    r = client.post("/api/actions/next")
     assert r.status_code == 409 and r.json()["error"]["code"] == "not_live"
     assert client.post("/api/live/activate", json={"session": "nope"}).status_code == 404
     client.post("/api/live/activate", json={"session": demo[0]})
-    assert client.post("/api/live/action", json={"action": "next"}).json() == {"ok": True, "action": "next"}
+    assert client.post("/api/actions/next").json() == {"action_id": "next", "ok": True}
     assert client.get("/api/live").json()["state"]["index"] == 1
-    ids = {a["id"] for a in client.get("/api/live/actions").json()["actions"]}
+    ids = {a["id"] for a in client.get("/api/actions").json()["actions"]}
     assert {"next", "prev", "blackout", "timer_toggle", "goto_section"} <= ids
     assert client.post("/api/live/deactivate").json() == {"active": False}
     assert client.get("/api/live").json()["plan"]["active"] is False

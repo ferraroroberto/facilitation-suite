@@ -32,6 +32,7 @@ from typing import Any, Optional
 import yaml
 
 from src.config import AppConfig, ledger_path
+from src.errors import DomainError
 from src.sessions.model import Session, dump_session, parse_session
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,8 @@ SUBDIRS = ("slides", "live", "exports")
 DUPLICATE_ENTRIES = ("session.yaml", "slides", "roster.xlsx", "groups.yaml", "theme.css", "source")
 
 
-class SessionError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.code = code
+class SessionError(DomainError):
+    """The ledger, a session folder or its session.yaml."""
 
 
 @dataclass

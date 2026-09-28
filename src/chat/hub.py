@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.chat.parse import Row, new_rows
+from src.jsonl import read_jsonl
 from src.live.hub import LiveHub, now_ms
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class ChatHub:
     def __init__(self, live: LiveHub) -> None:
         self.live = live
         self.messages: list[dict[str, Any]] = []
+        self._last_id = 0  # the highest message id stored: the next one is always above it
         self._session: Optional[str] = None
         self._seen_batches: deque[str] = deque(maxlen=2000)
         self.beat: dict[str, Any] = {}
@@ -61,16 +63,13 @@ class ChatHub:
         if sid == self._session:
             return
         self._session = sid
-        self.messages = []
         path = self._file()
+        # A damaged line (a crash mid-write) skips only itself; ids continue
+        # after the highest one read, so a new message never reuses one.
+        self.messages = read_jsonl(path) if path is not None else []
+        self._last_id = max((m["id"] for m in self.messages if isinstance(m, dict) and isinstance(m.get("id"), int)), default=0)
         if path is None or not path.is_file():
             return
-        try:
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if line.strip():
-                    self.messages.append(json.loads(line))
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.error("❌ chat: %s unreadable (%s) — starting with what could be read", CHAT_FILE, exc)
         logger.info("ℹ️ chat: %d messages loaded for session %s", len(self.messages), sid)
 
     def forget(self) -> None:
@@ -112,7 +111,8 @@ class ChatHub:
             pairs = [(r, int(raw.get("received_at") or now_ms())) for r, raw in zip(incoming, rows, strict=True)]
         records = []
         for r, received in pairs:
-            rec = {"id": len(self.messages) + 1, "sender": r.sender, "text": r.text, "time": r.time,
+            self._last_id += 1
+            rec = {"id": self._last_id, "sender": r.sender, "text": r.text, "time": r.time,
                    "received_at": received, "at": datetime.now(UTC).isoformat(timespec="milliseconds"), "source": source,
                    # Zoom shows the facilitator's own messages as "You"; they are never answers.
                    "own": r.sender == "You"}

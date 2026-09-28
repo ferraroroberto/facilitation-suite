@@ -6,15 +6,12 @@ from typing import Any, Optional
 
 from starlette.responses import JSONResponse
 
+from src.errors import DomainError
 
-class AppError(Exception):
-    """A domain error with its HTTP status and a stable machine code."""
 
-    def __init__(self, status: int, code: str, message: str, detail: Any = None) -> None:
-        super().__init__(message)
-        self.status = status
-        self.code = code
-        self.detail = detail
+class AppError(DomainError):
+    """An error raised by the webapp itself (a route's own check); the domain
+    modules raise their own ``DomainError`` subclasses. Both render the same."""
 
 
 def error_response(status: int, code: str, message: str, detail: Optional[Any] = None) -> JSONResponse:
