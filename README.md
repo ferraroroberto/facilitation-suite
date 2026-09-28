@@ -196,16 +196,6 @@ A Kahoot-style quiz is planned as items (#34; the live game — players' phones,
             correct: "2", time_limit: 20, points: standard}
 ```
 
-## Phone remote
-
-`/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
-
-1. Set up HTTPS once (see *Run*).
-2. **Settings → Phone remote → Make the phone link**, **Copy the link**, send it to yourself and open it on the phone (on the tailnet). Opening it pairs that phone: the server sets a 30-day cookie and the token leaves the address bar.
-3. **New link** unpairs every phone that had the old one; **Turn off** locks every other device out.
-
-Every other device needs that token for everything (the app, the API, the live connection) — as a pairing cookie, an `Authorization: Bearer` header or `?token=`; without it, `401`. The pages and API stay open to this PC itself: loopback, or this PC reaching itself through its tailnet name (the connection comes from the same address it arrives on). The token lives in `config/config.json` → `remote.token` (gitignored), is never logged (request lines are redacted), and the native file picker, the chat reader's endpoints and the remote's own Settings stay PC-only even with it.
-
 ## Quiz player (public)
 
 The quiz (in progress, #34) is the one part of the app strangers reach: players on their own phones, on mobile data, not on the tailnet. So it is a **separate, minimal app** — never `:8449`, never `RemoteAuth` loosened:
@@ -224,6 +214,16 @@ tailscale funnel --https=10000 off                          # stop publishing
 Never `tailscale funnel reset` — it clears the whole serve config, the tailnet-only entries included.
 
 Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net:10000`) — later steps show it to players as a QR code.
+
+## Phone remote
+
+`/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
+
+1. Set up HTTPS once (see *Run*).
+2. **Settings → Phone remote → Make the phone link**, **Copy the link**, send it to yourself and open it on the phone (on the tailnet). Opening it pairs that phone: the server sets a 30-day cookie and the token leaves the address bar.
+3. **New link** unpairs every phone that had the old one; **Turn off** locks every other device out.
+
+Every other device needs that token for everything (the app, the API, the live connection) — as a pairing cookie, an `Authorization: Bearer` header or `?token=`; without it, `401`. The pages and API stay open to this PC itself: loopback, or this PC reaching itself through its tailnet name (the connection comes from the same address it arrives on). The token lives in `config/config.json` → `remote.token` (gitignored), is never logged (request lines are redacted), and the native file picker, the chat reader's endpoints and the remote's own Settings stay PC-only even with it.
 
 ## Results and exports
 
