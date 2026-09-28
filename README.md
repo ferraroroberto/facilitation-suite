@@ -197,6 +197,7 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 
 | Key | Meaning |
 |---|---|
+| `host` | bind address for the tray's and `webapp.bat`'s server: `0.0.0.0` (default) listens on every interface, which the phone remote and the Stream Deck over the tailnet need; `127.0.0.1` keeps the app on this PC only (off the LAN and the tailnet — the tray's **Open** then uses the loopback URL). Restart the tray after changing it |
 | `port` | server port (8449) |
 | `session_root` | default parent folder for new sessions (`<root>\<workshop>\<session>\`) |
 | `stage_display` | which display the stage window goes on (informational) |

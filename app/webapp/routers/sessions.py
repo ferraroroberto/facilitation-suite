@@ -157,12 +157,6 @@ def session_font(request: Request, sid: str) -> FileResponse:
     return FileResponse(path, media_type=FONT_TYPES[path.suffix.lower()], headers={"Cache-Control": "max-age=31536000, immutable"})
 
 
-@router.get("/{sid}/offline")
-def offline(request: Request, sid: str) -> dict[str, Any]:
-    folder = store(request).folder(sid)
-    return check_folder(folder).as_dict()
-
-
 @router.post("/{sid}/pin")
 def pin(request: Request, sid: str) -> dict[str, Any]:
     folder = store(request).folder(sid)

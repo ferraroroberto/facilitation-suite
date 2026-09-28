@@ -4,8 +4,9 @@
 // toggles full screen.
 //
 // /stage?freeze=<item> renders a stopped capture exactly once, from its frozen
-// JSON, and marks <body data-ready="1"> — the headless browser that writes
-// live/captures/<item>.png waits for that (src/live/freeze.py).
+// JSON, and marks <body data-ready="1"> — the headless browser that writes the
+// session folder's live/captures/<item>.png waits for that (src/live/freeze.py);
+// Results serves that picture from /api/sessions/<sid>/results/captures/<item>.png.
 
 import { api } from '/static/js/ui.js';
 import { connectLive, bindKeys, clickToAdvance } from '/static/js/live.js';

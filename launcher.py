@@ -2,8 +2,8 @@
 
 Usage:
     python launcher.py            # same as `tray`
-    python launcher.py tray       # tray icon owning the webapp on :8449
-    python launcher.py webapp     # foreground uvicorn (dev / headless box)
+    python launcher.py tray       # tray icon owning the webapp (config.json host:port, :8449)
+    python launcher.py webapp     # foreground uvicorn (dev / headless box), same bind
 
 Puts its own folder on ``sys.path`` so the top-level packages (``app``,
 ``src``, ``scripts``) resolve without an outer namespace — the folder is the
@@ -43,7 +43,7 @@ def main(argv: list[str]) -> int:
         ensure_cert_fresh()  # renew a Tailscale leaf expiring soon, before the bind
         uvicorn.run(
             "app.webapp.server:app",
-            host="0.0.0.0",
+            host=config.host,
             port=config.port,
             log_level="info",
             loop=LOOP_FACTORY,
