@@ -78,6 +78,9 @@ flowchart LR
   collect --> capfiles
   collect --> livefiles
   collect --> reg
+  collect --> quizres["src/quiz/results.py<br/>quiz.jsonl replayed → games · leaderboards · distributions"]
+  quizres --> quizsvc
+  quizres --> quizfile
   resultsr --> excel["src/results/excel.py<br/>openpyxl report"]
   resultsr --> reconcile["src/results/reconcile.py<br/>Zoom saved chat ↔ chat.jsonl"]
   reconcile --> chatfile

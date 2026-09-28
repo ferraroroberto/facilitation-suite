@@ -35,9 +35,10 @@ memory, shows ``write_error`` and is written with the next record.
 (Step 6). Every call must run on the live hub's event loop (an ``async``
 route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
 
-- ``join(nickname, game_id=None, key=None) -> JoinResult`` — ``joined`` with
-  ``player_id`` + ``secret`` (keep both on the phone), or ``no_game`` /
-  ``closed``. A retry with the same ``key`` returns the same player.
+- ``join(nickname, game_id=None, key=None, *, source="phone") -> JoinResult``
+  — ``joined`` with ``player_id`` + ``secret`` (keep both on the phone), or
+  ``no_game`` / ``closed``. A retry with the same ``key`` returns the same
+  player. The chat fallback joins its players with ``source="chat"``.
   Raises ``QuizError`` 422 ``bad_nickname`` for an empty nickname.
 - ``resume(player_id, secret) -> JoinResult`` — ``resumed`` (same player,
   same score), ``unknown_player`` (also for a wrong secret) or ``kicked``.
@@ -78,6 +79,7 @@ from src.quiz.engine import (
     JOINED,
     NO_GAME,
     NOT_OPEN,
+    PHONE,
     RESUMED,
     UNKNOWN_PLAYER,
     AnswerResult,
@@ -116,6 +118,57 @@ class JoinResult:
                 "secret": self.secret, "name": self.name}
 
 
+def scopes_of(items: list[dict[str, Any]]) -> dict[str, Scope]:
+    """Item id → its game's scope, for every lobby, question and podium of the run ``items``.
+
+    The one reading of the plan's game scopes: the live service and the
+    session results (``results.py``) both call it.
+    """
+    out: dict[str, Scope] = {}
+    scope: Optional[Scope] = None
+    for it in items:
+        kind = it.get("type") if it.get("kind") == "activity" else None
+        if kind == LOBBY:
+            scope = Scope(it["id"])
+            out[it["id"]] = scope
+        elif kind == QUESTION and scope is not None:
+            try:
+                q = question_from_item({**it, "options": options_with_defaults(QUESTION, it.get("options") or {})})
+            except QuizError as exc:
+                logger.warning("⚠️ quiz: %s — it is shown but cannot be played", exc)
+                scope.invalid[it["id"]] = str(exc)
+            else:
+                scope.order.append(it["id"])
+                scope.questions[it["id"]] = q
+            out[it["id"]] = scope
+        elif kind == PODIUM and scope is not None:
+            scope.podium_id = it["id"]
+            out[it["id"]] = scope
+            scope = None
+    return out
+
+
+def replay(records: list[dict[str, Any]]) -> dict[str, Game]:
+    """Every game of ``quiz.jsonl``'s ``records``, rebuilt through ``Game.apply`` in the order they opened.
+
+    The one replay: the live service after a restart and the session results
+    both call it, so neither can score a game differently.
+    """
+    games: dict[str, Game] = {}
+    for rec in records:
+        gid = rec.get("game")
+        if rec.get("op") == "game" and gid:
+            if gid in games:
+                continue  # written twice after a failed write: the game is already open
+            games[gid] = Game(gid, str(rec.get("lobby_id")), int(rec.get("run") or 1))
+        elif gid in games:
+            try:
+                games[gid].apply(rec)
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.warning("⚠️ quiz: a damaged %s record skipped (%s)", QUIZ_FILE, exc)
+    return games
+
+
 class QuizService:
     def __init__(self, live: LiveHub, clock: Callable[[], int] = now_ms) -> None:
         self.live, self.clock = live, clock
@@ -141,31 +194,9 @@ class QuizService:
     def scopes(self) -> dict[str, Scope]:
         """Item id → its game's scope, for every lobby, question and podium in a game (per plan revision)."""
         key = (self.live.session_id, self.live.plan_rev)
-        if self._scopes[0] == key:
-            return self._scopes[1]
-        out: dict[str, Scope] = {}
-        scope: Optional[Scope] = None
-        for it in self.live.items:
-            kind = it.get("type") if it.get("kind") == "activity" else None
-            if kind == LOBBY:
-                scope = Scope(it["id"])
-                out[it["id"]] = scope
-            elif kind == QUESTION and scope is not None:
-                try:
-                    q = question_from_item({**it, "options": options_with_defaults(QUESTION, it.get("options") or {})})
-                except QuizError as exc:
-                    logger.warning("⚠️ quiz: %s — it is shown but cannot be played", exc)
-                    scope.invalid[it["id"]] = str(exc)
-                else:
-                    scope.order.append(it["id"])
-                    scope.questions[it["id"]] = q
-                out[it["id"]] = scope
-            elif kind == PODIUM and scope is not None:
-                scope.podium_id = it["id"]
-                out[it["id"]] = scope
-                scope = None
-        self._scopes = (key, out)
-        return out
+        if self._scopes[0] != key:
+            self._scopes = (key, scopes_of(self.live.items))
+        return self._scopes[1]
 
     def _current(self) -> tuple[Optional[dict[str, Any]], Optional[Scope], Optional[Game]]:
         """The item on stage, its game's scope and that game (each ``None`` when there is none)."""
@@ -202,8 +233,10 @@ class QuizService:
 
     # ---------------------------------------------------------- players
 
-    def join(self, nickname: Any, game_id: Optional[str] = None, key: Optional[str] = None) -> JoinResult:
-        """A new player in the game on stage (see the module docstring)."""
+    def join(self, nickname: Any, game_id: Optional[str] = None, key: Optional[str] = None, *,
+             source: str = PHONE) -> JoinResult:
+        """A new player in the game on stage (see the module docstring). ``source`` is ``phone``
+        (the player page) or ``chat`` (the Zoom-chat fallback) — the results' leaderboard shows it."""
         _, scope, game = self._current()
         if game is None or scope is None or (game_id and game_id != game.game_id):
             return JoinResult(NO_GAME, game_id)
@@ -215,7 +248,8 @@ class QuizService:
         name = game.unique_name(nickname)
         player_id = self._new_player_id()
         secret = secrets.token_urlsafe(16)
-        self._record(game, {"op": "join", "player_id": player_id, "name": name, "secret": secret, "key": key})
+        self._record(game, {"op": "join", "player_id": player_id, "name": name, "secret": secret, "key": key,
+                            "source": source})
         logger.info("ℹ️ quiz %s: %s joined (%d players)", game.game_id, player_id, len(game.active()))
         self._changed(soon=True)
         return JoinResult(JOINED, game.game_id, player_id, secret, name)
@@ -435,18 +469,8 @@ class QuizService:
         if path is None:
             return
         records = read_jsonl(path)
-        for rec in records:
-            gid = rec.get("game")
-            if rec.get("op") == "game" and gid:
-                if gid in self.games:
-                    continue  # written twice after a failed write: the game is already open
-                self.games[gid] = Game(gid, str(rec.get("lobby_id")), int(rec.get("run") or 1))
-                self.latest[str(rec.get("lobby_id"))] = gid
-            elif gid in self.games:
-                try:
-                    self.games[gid].apply(rec)
-                except (KeyError, TypeError, ValueError) as exc:
-                    logger.warning("⚠️ quiz: a damaged %s record skipped (%s)", QUIZ_FILE, exc)
+        self.games = replay(records)
+        self.latest = {g.lobby_id: gid for gid, g in self.games.items()}
         if records:
             logger.info("✅ quiz: %d records replayed — %d game(s) rebuilt", len(records), len(self.games))
 

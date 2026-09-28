@@ -1,0 +1,35 @@
+{"at": "2026-10-27T18:00:30.000+00:00", "event": "item", "item_id": "qz-lobby", "index": 17, "kind": "activity"}
+{"at": "2026-10-27T18:00:30.000+00:00", "event": "quiz_game", "game": "qz-lobby-1", "lobby_id": "qz-lobby"}
+{"at": "2026-10-27T18:00:30.000+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "lobby", "item_id": "qz-lobby"}
+{"at": "2026-10-27T18:00:50.000+00:00", "event": "item", "item_id": "qz-red", "index": 18, "kind": "activity"}
+{"at": "2026-10-27T18:00:50.000+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "question", "item_id": "qz-red"}
+{"at": "2026-10-27T18:00:58.000+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "reveal", "item_id": "qz-red"}
+{"at": "2026-10-27T18:01:06.000+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "leaderboard", "item_id": "qz-red"}
+{"at": "2026-10-27T18:01:26.000+00:00", "event": "item", "item_id": "qz-rings", "index": 19, "kind": "activity"}
+{"at": "2026-10-27T18:01:26.000+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "question", "item_id": "qz-rings"}
+{"at": "2026-10-27T18:01:33.100+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "reveal", "item_id": "qz-rings"}
+{"at": "2026-10-27T18:01:41.100+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "leaderboard", "item_id": "qz-rings"}
+{"at": "2026-10-27T18:02:01.100+00:00", "event": "item", "item_id": "qz-moons", "index": 20, "kind": "activity"}
+{"at": "2026-10-27T18:02:01.100+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "question", "item_id": "qz-moons"}
+{"at": "2026-10-27T18:02:14.900+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "reveal", "item_id": "qz-moons"}
+{"at": "2026-10-27T18:02:22.900+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "leaderboard", "item_id": "qz-moons"}
+{"at": "2026-10-27T18:02:42.900+00:00", "event": "item", "item_id": "qz-sun", "index": 21, "kind": "activity"}
+{"at": "2026-10-27T18:02:42.900+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "question", "item_id": "qz-sun"}
+{"at": "2026-10-27T18:02:48.500+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "reveal", "item_id": "qz-sun"}
+{"at": "2026-10-27T18:02:56.500+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "leaderboard", "item_id": "qz-sun"}
+{"at": "2026-10-27T18:03:11.500+00:00", "event": "item", "item_id": "qz-podium", "index": 22, "kind": "activity"}
+{"at": "2026-10-27T18:03:11.500+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "podium", "item_id": "qz-podium"}
+{"at": "2026-10-27T18:03:41.500+00:00", "event": "item", "item_id": "qz-lobby", "index": 17, "kind": "activity"}
+{"at": "2026-10-27T18:03:41.500+00:00", "event": "quiz_phase", "game": "qz-lobby-1", "phase": "lobby", "item_id": "qz-lobby"}
+{"at": "2026-10-27T18:03:46.500+00:00", "event": "quiz_game", "game": "qz-lobby-2", "lobby_id": "qz-lobby"}
+{"at": "2026-10-27T18:03:46.500+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "lobby", "item_id": "qz-lobby"}
+{"at": "2026-10-27T18:04:06.500+00:00", "event": "item", "item_id": "qz-red", "index": 18, "kind": "activity"}
+{"at": "2026-10-27T18:04:06.500+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "question", "item_id": "qz-red"}
+{"at": "2026-10-27T18:04:10.600+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "reveal", "item_id": "qz-red"}
+{"at": "2026-10-27T18:04:18.600+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "leaderboard", "item_id": "qz-red"}
+{"at": "2026-10-27T18:04:38.600+00:00", "event": "item", "item_id": "qz-rings", "index": 19, "kind": "activity"}
+{"at": "2026-10-27T18:04:38.600+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "question", "item_id": "qz-rings"}
+{"at": "2026-10-27T18:04:43.400+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "reveal", "item_id": "qz-rings"}
+{"at": "2026-10-27T18:04:51.400+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "leaderboard", "item_id": "qz-rings"}
+{"at": "2026-10-27T18:05:21.400+00:00", "event": "item", "item_id": "qz-podium", "index": 22, "kind": "activity"}
+{"at": "2026-10-27T18:05:21.400+00:00", "event": "quiz_phase", "game": "qz-lobby-2", "phase": "podium", "item_id": "qz-podium"}
