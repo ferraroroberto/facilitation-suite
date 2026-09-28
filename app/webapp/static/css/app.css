@@ -16,9 +16,16 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
-  padding: var(--gap);
   max-width: var(--layout-measure);
   margin: 0 auto;
+}
+/* On a phone the vendored nav-tabs.css owns .app's padding: the status bar's safe
+   area on top and the floating tab bar's reserve at the bottom. This file loads
+   after it (index.html, remote.html), so a shorthand here would win the cascade and
+   put content under both (#46, app-launcher#355). The plain padding therefore only
+   applies where that phone rule doesn't: not (coarse pointer and at most 520px). */
+@media (pointer: fine), (pointer: none), (min-width: 521px) {
+  .app { padding: var(--gap); }
 }
 .pane-body {
   display: grid;
