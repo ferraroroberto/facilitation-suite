@@ -1,0 +1,12 @@
+/* A quiz question's answers: a 2×2 grid of tiles in four theme colours (Step 5 replaces it). */
+.stage-canvas .qz-answers { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-content: center; }
+.stage-canvas .qz-answer {
+  display: flex; align-items: center; gap: 28px; min-height: 150px; padding: 24px 32px;
+  border-radius: 20px; color: #ffffff; font-family: var(--st-answers-font); font-weight: var(--st-answers-weight); font-size: 44px; line-height: 1.2;
+}
+.stage-canvas .qz-answer.c0 { background: var(--st-c1); }
+.stage-canvas .qz-answer.c1 { background: var(--st-c2); }
+.stage-canvas .qz-answer.c2 { background: var(--st-c3); }
+.stage-canvas .qz-answer.c3 { background: var(--st-c4); }
+.stage-canvas .qz-key { flex: none; font-family: var(--st-font); font-size: 64px; }
+.stage-canvas .qz-text { min-width: 0; overflow-wrap: anywhere; }

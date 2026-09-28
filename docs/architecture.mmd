@@ -88,6 +88,9 @@ flowchart LR
   review --> staged
   review --> folder
   importer --> folder
+  sessr -->|Import Kahoot| quizimp["src/quiz/importer.py<br/>Kahoot template .xlsx → lobby · questions · podium"]
+  quizimp --> quizmodel["src/quiz/model.py<br/>the quiz item format · QuizError"]
+  quizimp --> model
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
   sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]

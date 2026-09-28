@@ -1,0 +1,9 @@
+{
+  "type": "quiz_podium",
+  "label": "Quiz podium",
+  "icon": "crown",
+  "order": 9,
+  "description": "Ends the quiz and shows the final podium.",
+  "capture": false,
+  "options": []
+}

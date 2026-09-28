@@ -178,6 +178,24 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 **Map answers that land nowhere** are listed on the presenter under *Not on the map* with the closest places as one-click buttons, or type the place and press Enter. Common chat spellings live in `app/activities/map/aliases.yaml` (add a line when an answer keeps landing there). The map's data is built once by `scripts/build_geo.py` (needs the network and `babel`) and committed; the app never downloads anything.
 
+## Quiz
+
+A Kahoot-style quiz is planned as items (#34; the live game — players' phones, scoring, the stage's lobby, leaderboard and podium — arrives in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
+
+- **Quiz lobby** starts a game; its **Quiz name** is the title on the stage. The game is the quiz questions after it, in plan order, up to the next quiz podium.
+- **Quiz question**: the question, **Answer 1–4** (two to four), **Correct answer(s)** (the answer numbers, as Kahoot writes them: `2`, or `1,3` for several), **Time limit** (5, 10, 20, 30, 60, 90, 120 or 240 s; 20 by default) and **Points** (standard, double or none).
+- **Quiz podium** ends the game.
+
+**Import Kahoot** (Plan tab toolbar) reads Kahoot's own spreadsheet import template (`KahootQuizTemplate.xlsx`, header row with *Question*, *Answer 1–4*, *Time limit (sec)*, *Correct answer(s)*; the questions end at the first empty question cell): pick the `.xlsx` on this PC, name the quiz (the file's name by default), and a new section at the end of the plan gets the lobby, one question per row and the podium — saved to `session.yaml` at once, with a planned-minutes estimate (every time limit plus 30 s each). A row that breaks the format (no correct answer, a correct answer pointing at an empty answer, fewer than two answers, a time limit Kahoot does not offer) refuses the whole file with a message naming the row, and nothing is saved. Kahoot's report `.xlsx` is not read. In `session.yaml`:
+
+```yaml
+- kind: activity
+  type: quiz
+  question: Which planet is known as the red planet?
+  options: {answer_1: Venus, answer_2: Mars, answer_3: Jupiter, answer_4: Saturn,
+            correct: "2", time_limit: 20, points: standard}
+```
+
 ## Phone remote
 
 `/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
@@ -276,7 +294,7 @@ app/
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, results/
+src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, quiz/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
