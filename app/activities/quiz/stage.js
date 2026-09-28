@@ -251,7 +251,7 @@ function reveal(body, { ctx, q, w, fresh }) {
   const correct = new Set(q.correct || []);
   const top = Math.max(1, ...answers.map((a) => dist[a.n - 1] || 0));
   const mark = (a) => (correct.has(a.n) ? 'correct' : 'wrong');
-  body.innerHTML = `<div class="qz-reveal${fresh ? '' : ' still'}">` +
+  body.innerHTML = `<div class="qz-reveal${fresh ? '' : ' qz-still'}">` +
     '<div class="qz-bars">' + answers.map((a) => {
       const count = dist[a.n - 1] || 0;
       return `<div class="qz-bar qz-a${a.n} ${mark(a)}" data-bar="${a.n}" style="--h:${count / top}">` +
@@ -270,7 +270,7 @@ function leaderboard(body, { q, w, fresh }) {
   const before = [...board].sort((a, b) => (b.score - b.last_points) - (a.score - a.last_points) || a.rank - b.rank);
   const was = new Map(before.map((p, i) => [p.id, i + 1]));
   const rows = board.slice(0, TOP);
-  body.innerHTML = `<div class="qz-board${fresh && !reduced() ? '' : ' still'}">` +
+  body.innerHTML = `<div class="qz-board${fresh ? '' : ' qz-still'}">` +
     `<h2 class="qz-board-title">${esc(w.leaderboard)}</h2>` +
     `<ol class="qz-rows" style="--rows:${Math.max(1, rows.length)}">` + rows.map((p) => {
       const from = Math.min(was.get(p.id) || p.rank, TOP + 1);
@@ -287,7 +287,7 @@ function leaderboard(body, { q, w, fresh }) {
 function podium(body, { ctx, q, w, fresh, redraw }) {
   const board = q ? q.leaderboard || [] : ctx.preview ? sampleBoard('quiz_podium', redraw) : [];
   const places = [2, 1, 3].map((rank) => board.find((p) => p.rank === rank)).filter(Boolean);
-  body.innerHTML = `<div class="qz-podium${fresh ? '' : ' still'}">` + places.map((p) =>
+  body.innerHTML = `<div class="qz-podium${fresh ? '' : ' qz-still'}">` + places.map((p) =>
     `<div class="qz-step p${p.rank}" data-rank="${p.rank}"><div class="qz-top">` +
     (p.rank === 1 ? ICON('crown') : '') +
     `<span class="qz-pname">${esc(p.name)}</span><span class="qz-pscore">${p.score}</span></div>` +

@@ -273,7 +273,7 @@
 @keyframes qz-move { from { transform: translateY(calc((var(--from) - var(--to)) * var(--row))); opacity: var(--o0, 1); } }
 
 /* A redraw of the same phase (a player removed) and reduced motion: no animation at all. */
-.stage-canvas .still *, .stage-canvas .still { animation: none !important; }
+.stage-canvas .qz-still *, .stage-canvas .qz-still { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .stage-canvas [class*="qz-"] { animation: none !important; transition: none !important; }
 }
