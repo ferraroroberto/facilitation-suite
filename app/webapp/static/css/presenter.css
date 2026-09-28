@@ -113,6 +113,9 @@
 .p-music-vol .icon { width: 18px; height: 18px; color: var(--muted); flex: none; }
 .p-music-vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .p-music-vol output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
+.p-music-link { display: flex; gap: var(--space-sm); }
+.p-music-link .input { flex: 1; min-width: 0; }
+.p-music-link .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); flex: none; }
 .p-music-hint { margin: 0; }
 .p-music-hint.warn { color: var(--danger-text); }
 @keyframes p-pulse { 50% { box-shadow: 0 0 0 8px transparent; } }

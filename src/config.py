@@ -145,6 +145,12 @@ def data_dir() -> Path:
     return Path(override) if override else PROJECT_ROOT / "data"
 
 
+def env_path() -> Path:
+    """The secrets file (``.env``, gitignored): Spotify's client id and refresh token."""
+    override = os.environ.get("FS_ENV_PATH", "").strip()
+    return Path(override) if override else PROJECT_ROOT / ".env"
+
+
 def load_config() -> AppConfig:
     """The real config, else the sample, else code defaults — said once in the log."""
     path = config_path()

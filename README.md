@@ -122,7 +122,7 @@ The live position, clocks and timers are mirrored to `live/state.json` (a restar
 
 ## Music
 
-An item can carry **music**: a file on this PC played through this PC's own audio output (the app plays it itself, so it never depends on a browser tab; route the PC's audio into Zoom/OBS as you already do). In the Plan tab, the item's **Music** row: switch it on, **Choose file…** (mp3, wav, ogg or flac — m4a/AAC is not decoded; convert it first), then its volume, fade-in and fade-out seconds, **Starts** and **When leaving the item**, and **loop** (start over at the end). The file is **copied into the session folder** as `audio/<name>` (the way the roster is copied), so the session stays self-contained and *Files offline* covers it; a different file with the same name becomes `<name>-2`. In `session.yaml`:
+An item can carry **music**: a file, or a Spotify playlist, album, artist or track — played on this PC's own audio output (the app plays it itself, so it never depends on a browser tab; route the PC's audio into Zoom/OBS as you already do). In the Plan tab, the item's **Music** row: switch it on, pick **File** or **Spotify** — **Choose file…** (mp3, wav, ogg or flac — m4a/AAC is not decoded; convert it first) or paste the Spotify link (Share → Copy link) — then its volume, fade-in and fade-out seconds, **Starts** and **When leaving the item**, and **loop** (start over at the end). The file is **copied into the session folder** as `audio/<name>` (the way the roster is copied), so the session stays self-contained and *Files offline* covers it; a different file with the same name becomes `<name>-2`. In `session.yaml`:
 
 ```yaml
 - kind: slide
@@ -136,15 +136,29 @@ An item can carry **music**: a file on this PC played through this PC's own audi
     loop: true
     start: with_timer         # with_timer | on_enter | manual
     on_leave: fade_out        # fade_out | keep_playing
+- kind: break
+  music: {source: spotify, uri: "https://open.spotify.com/playlist/…", start: on_enter}
 ```
 
 **With the timer:** starting or resuming the item's timer fades the music in and plays it; pausing the timer fades it out and pauses it; **Reset**, or the timer reaching 00:00, fades it out and stops it. `on_enter` plays when the item comes on stage (its timer still pauses and stops it); `manual` plays only from the presenter. Leaving the item fades it out and stops it, unless it is set to **keep playing** (then its own timer, still running, stops it at 00:00). A file that ends by itself just stops, or starts over with loop on.
 
-**By hand:** the presenter's **Music** card (shown when the session has music) plays any of the session's tracks — every item's, plus any other file in `audio/` — with the item's own music picked when it comes on stage: **Play / Pause / Resume**, **Stop** (fades out over the track's fade-out), **Fade out** (a slow 8-second wind-down, then stop) and a volume slider. The phone remote has the same play/pause, stop and volume. The Stream Deck actions are `music_toggle` (with nothing playing: the item's music, else the last track), `music_stop`, `music_fade_out` and `music_volume/<0–100>`.
+**By hand:** the presenter's **Music** card (shown when the session has music, or Spotify is set up) plays any of the session's tracks — every item's, plus any other file in `audio/` — or a pasted Spotify link, with the item's own music picked when it comes on stage: **Play / Pause / Resume**, **Stop** (fades out over the track's fade-out), **Fade out** (a slow 8-second wind-down, then stop) and a volume slider. The phone remote has the same play/pause, stop and volume. The Stream Deck actions are `music_toggle` (with nothing playing: the item's music, else the last track), `music_stop`, `music_fade_out` and `music_volume/<0–100>`.
 
 **Which wins:** the latest command. An item's timer and leaving the item only act on music **that item started itself**: music you play by hand is never paused or stopped by a timer, and a timer start on an item with *with the timer* music replaces whatever plays (the same track already playing is taken over, not restarted). Pausing, resuming or changing the volume by hand keeps the item in charge; stopping ends it.
 
-The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *error* — with the reason, e.g. no audio output device (speakers or headset disconnected) or a file missing from `audio/`; a music problem never stops the deck. The readiness list's **Music files** check (only when the session plays files) says whether every track is in the folder, on this PC and playable. Nothing of the music is saved: after a restart the app starts silent. Music starts and stops are logged (`facilitation-suite.log`, *sound is coming out* once the device plays) and appended to `live/events.jsonl`.
+The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *error* — with the reason, e.g. no audio output device (speakers or headset disconnected) or a file missing from `audio/`; a music problem never stops the deck. The readiness list's **Music files** check (only when the session plays files) says whether every track is in the folder, on this PC and playable; its **Spotify** check (only when the session plays Spotify) says whether the login works and the desktop app on this PC is visible. Nothing of the music is saved: after a restart the app starts silent. Music starts and stops are logged (`facilitation-suite.log`, *sound is coming out* once the device plays) and appended to `live/events.jsonl`.
+
+### Spotify setup (once)
+
+Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`.
+
+1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard), log in with the Premium account and **Create app**: any name and description, **Redirect URI** `http://127.0.0.1:8765/callback` (exactly — Spotify only accepts the loopback address, not `localhost`), API **Web API**. Save.
+2. In the app's **Settings**, copy the **Client ID** into `.env` at the repo root: `SPOTIFY_CLIENT_ID=<client id>`. (No client secret: the login uses PKCE.)
+3. Open the Spotify desktop app on this PC, logged in to the same account.
+4. Run `& .\.venv\Scripts\python.exe scripts\spotify_login.py`: the browser asks you to allow the app; the script writes `SPOTIFY_REFRESH_TOKEN` to `.env` and prints the account type and the devices Spotify sees (it ends with *The desktop app on this PC is ready*). No restart needed. Another port: `--port 8766` (and that redirect URI in the dashboard).
+5. The app plays on the `Computer` device named like this PC; if Spotify shows it under another name, set `SPOTIFY_DEVICE_NAME=<name>` in `.env`.
+
+Fades step Spotify's volume twice a second; a stop fades out, pauses (Spotify has no stop) and puts the app's volume back where it was. The chip and the readiness list keep the failures apart: **not set up** (no client id or login in `.env`, or a wrong client id), **login expired** (revoked or expired — run the login again), **not open on this PC** (open the desktop app), **Premium needed**, and **unknown** when Spotify could not be reached or is rate-limiting — never counted as ready.
 
 ## Activities and captures
 
@@ -233,6 +247,8 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 
+**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere.
+
 The **ledger** `sessions.local.yaml` (gitignored; example in `sessions.example.yaml`) lists session names and folders only. Each session lives in its own folder with its own `session.yaml`.
 
 ## Sessions
@@ -262,7 +278,7 @@ app/
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
 src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
-scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py
+scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)
 ```

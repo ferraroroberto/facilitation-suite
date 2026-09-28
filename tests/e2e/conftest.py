@@ -2,7 +2,8 @@
 
 ``webapp`` boots uvicorn on a free loopback port with ``FS_CONFIG_PATH`` → a
 temp copy of the sample config (OBS and the chat reader off),
-``FS_LEDGER_PATH`` → a temp ledger and ``FS_DATA_DIR`` → a temp data dir, so a
+``FS_LEDGER_PATH`` → a temp ledger, ``FS_DATA_DIR`` → a temp data dir and
+``FS_ENV_PATH`` → an empty ``.env`` (no Spotify login), so a
 run never reads or writes the real config, ledger or session folders.
 The disposable instance always binds a free port, so a running tray on
 :8449 never collides with it. ``FS_E2E_LIVE=1`` is the one loudly-named
@@ -72,8 +73,11 @@ def boot_instance(root: Path, **config: object) -> tuple[subprocess.Popen, Insta
         FS_CONFIG_PATH=str(root / "config.json"),
         FS_LEDGER_PATH=str(root / "sessions.local.yaml"),
         FS_DATA_DIR=str(root / "data"),
+        FS_ENV_PATH=str(root / ".env"),  # no real Spotify login in a disposable instance
         PYTHONUTF8="1",
     )
+    for key in ("SPOTIFY_CLIENT_ID", "SPOTIFY_REFRESH_TOKEN", "SPOTIFY_DEVICE_NAME"):
+        env.pop(key, None)
     log = open(root / "server.log", "wb")  # noqa: SIM115 — closed with the process
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.webapp.server:app", "--host", "127.0.0.1",

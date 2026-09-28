@@ -55,6 +55,10 @@ flowchart LR
   music --> filebk["src/music/file_backend.py<br/>miniaudio mixer · own thread · per-sample fades"]
   filebk -->|default output device| speakers["this PC's audio output"]
   filebk --> audiofiles[("session audio/ · mp3 wav ogg flac")]
+  music --> spotbk["src/music/spotify.py<br/>SpotifyBackend — Web API · own thread · stepped fades · distinct states"]
+  spotbk -->|HTTPS · token from .env| spotapi["Spotify Web API → the desktop app on this PC"]
+  login["scripts/spotify_login.py<br/>PKCE, once"] -.->|writes SPOTIFY_REFRESH_TOKEN| envfile[(".env (gitignored)")]
+  spotbk --> envfile
   sessr -->|Plan tab picker · readiness| musiclib["src/music/library.py<br/>copy into audio/ · Music files check"]
   musiclib --> audiofiles
   appv --> settingsr["routers/settings.py<br/>OBS connection · profiles · reader"]

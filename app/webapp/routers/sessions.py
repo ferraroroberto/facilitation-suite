@@ -107,6 +107,10 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
     folder = Path(entry.path)
     offline = check_folder(folder)
     meta = read_meta(folder / "slides" / "slides.json") or {}
+    facts = live_facts(request)
+    music = getattr(request.app.state, "music", None)
+    if music is not None and library.uses_spotify(session):
+        facts["spotify"] = music.spotify_status()  # only then: it asks Spotify (cached 30 s)
     return {
         "summary": st.summary(entry),
         "session": dump_session(session),
@@ -118,7 +122,7 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
             "groups": (folder / "groups.yaml").is_file(),
             "offline": offline.as_dict(),
         },
-        "readiness": readiness.build(folder, session, offline, live_facts(request)),
+        "readiness": readiness.build(folder, session, offline, facts),
     }
 
 

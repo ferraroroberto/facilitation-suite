@@ -130,7 +130,8 @@ def test_items_without_music_behave_as_before(isolated_env: Path) -> None:
     end_timer(hub, "brk-coffee")
     assert made[0].calls == []
     assert hub.snapshot()["state"]["music"] == {"state": "idle", "detail": "", "owner": None, "volume": 80, "track": None,
-                                               "sounding": False, "backend": None, "tracks": []}
+                                               "sounding": False, "backend": None, "tracks": [],
+                                               "spotify": False}
     assert music.state == "idle"
 
 

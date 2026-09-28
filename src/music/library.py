@@ -131,3 +131,19 @@ def readiness(folder: Path, session: Session, offline: OfflineReport) -> Optiona
     if unchecked:
         return dict(check, state="unknown", detail=f"{len(unchecked)} file(s) could not be checked")
     return dict(check, state="ok", detail=f"{len(paths)} track{'s' if len(paths) != 1 else ''} in audio/, on this PC")
+
+
+def uses_spotify(session: Session) -> bool:
+    return any(it.include and it.music and it.music.enabled and it.music.source == "spotify" for it in session.all_items())
+
+
+SPOTIFY_STATES = {"ok": "ok", "unknown": "unknown"}  # every other state (not set up, expired, no device, not Premium) needs you
+
+
+def spotify_check(status: Optional[tuple[str, str]]) -> dict[str, Any]:
+    """The "Spotify" check — only for a session that plays Spotify: the token works and the
+    desktop app on this PC is visible. ``unknown`` when it could not be checked, never ok."""
+    if status is None:
+        return {"key": "spotify", "label": "Spotify", "state": "unknown", "detail": "Could not be checked"}
+    state, detail = status
+    return {"key": "spotify", "label": "Spotify", "state": SPOTIFY_STATES.get(state, "warn"), "detail": detail}
