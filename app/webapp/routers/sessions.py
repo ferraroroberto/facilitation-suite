@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import AppError
+from src.importer.review import read_meta
 from src.sessions import readiness
 from src.sessions.model import dump_session, parse_session
 from src.sessions.offline import check_folder, pin_folder
@@ -125,7 +126,7 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
         raise _err(exc) from exc
     folder = Path(entry.path)
     offline = check_folder(folder)
-    meta = readiness.slides_meta(folder) or {}
+    meta = read_meta(folder / "slides" / "slides.json") or {}
     return {
         "summary": st.summary(entry),
         "session": dump_session(session),

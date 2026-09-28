@@ -282,7 +282,8 @@ class CaptureService:
             if mod is not None and m["id"] not in self.hidden:
                 try:
                     parsed = mod.parse(m, opts)
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001 — a parser crash leaves this answer unparsed, not the freeze failed
+                    logger.exception("❌ capture %s: parse failed on message %s", item["id"], m["id"])
                     parsed = None
             answers.append({"id": m["id"], "sender": m["sender"], "text": m["text"], "time": m["time"],
                             "received_at": m["received_at"], "hidden": m["id"] in self.hidden, "parsed": parsed})
@@ -315,7 +316,8 @@ class CaptureService:
             return None
         try:
             return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError) as exc:
+            logger.warning("⚠️ capture %s: frozen record unreadable (%s)", item_id, exc)
             return None
 
 

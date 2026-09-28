@@ -70,7 +70,7 @@ def read_meta(path: Path) -> Optional[dict[str, Any]]:
     except FileNotFoundError:
         return None
     except (OSError, json.JSONDecodeError) as exc:
-        logger.error("❌ re-import: %s unreadable (%s)", path, exc)
+        logger.error("❌ slides: %s unreadable (%s)", path, exc)
         return None
 
 
