@@ -5,6 +5,7 @@
   "order": 8,
   "description": "One quiz question with up to four answers; correct and fast scores most.",
   "chat_prompt_hint": "A, B, C or D",
+  "capture": false,
   "options": [
     {"key": "answer_1", "label": "Answer 1", "kind": "text", "default": ""},
     {"key": "answer_2", "label": "Answer 2", "kind": "text", "default": ""},

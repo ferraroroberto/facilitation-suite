@@ -180,7 +180,7 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 ## Quiz
 
-A Kahoot-style quiz is planned as items (#34; the live game — players' phones, scoring, the stage's lobby, leaderboard and podium — arrives in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
+A Kahoot-style quiz is planned as items (#34; players' phones, the stage's lobby, leaderboard and podium and the presenter's quiz controls arrive in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
 
 - **Quiz lobby** starts a game; its **Quiz name** is the title on the stage. The game is the quiz questions after it, in plan order, up to the next quiz podium.
 - **Quiz question**: the question, **Answer 1–4** (two to four), **Correct answer(s)** (the answer numbers, as Kahoot writes them: `2`, or `1,3` for several), **Time limit** (5, 10, 20, 30, 60, 90, 120 or 240 s; 20 by default) and **Points** (standard, double or none).
@@ -195,6 +195,20 @@ A Kahoot-style quiz is planned as items (#34; the live game — players' phones,
   options: {answer_1: Venus, answer_2: Mars, answer_3: Jupiter, answer_4: Saturn,
             correct: "2", time_limit: 20, points: standard}
 ```
+
+**The game** (`src/quiz/`) runs on the server; phones and the stage only render it. The first time the stage reaches a quiz lobby (or one of its questions) a game opens. Coming back to the lobby later resumes the same game, and `quiz_new_game` on the lobby starts a fresh one to play it again.
+
+- **Phases.** Entering a question opens it with a deadline of its time limit. **Next** then steps *question → reveal* (the answers lock; the answer distribution and the correct answer show) *→ leaderboard*, and only from the leaderboard moves on to the next item.
+- **Time up** reveals by itself, and so does `quiz_lock` (lock answers now).
+- **Previous** always goes to the previous item. A question left while it is still open is locked. Coming back to it shows its reveal again, never a second chance to answer.
+- **Other items.** On every other item, including the lobby and the podium, next and previous work as before.
+- **Answers.** Answers are not captured from the chat. A quiz question never opens a capture window, and the Space key does not start one.
+- **Scoring** follows Kahoot's published rule: a correct answer scores `round(1000 × (1 − (response time / time limit) / 2))`, full points inside the first half second, ×2 for **double**, 0 for **none**. A wrong or missing answer scores 0.
+- **Response time** runs from when the buttons appeared on that phone, clamped to how long the server has been asking.
+- **Streaks.** Answer streaks are counted and shown but score nothing, as in Kahoot today.
+- **Ties** go to the smaller total response time over correct answers, then to who joined first.
+
+Every join, answer, kick and phase change is appended to `live/quiz.jsonl`, and phase changes also go to `live/events.jsonl`. A restarted server replays `quiz.jsonl` and resumes every game with the same players, answers and scores. Scores are always derived, never stored. A question whose time ran out while the server was down is revealed at once. Stream Deck: `quiz_lock`.
 
 ## Quiz player (public)
 
@@ -253,7 +267,7 @@ OBS is never in the critical path: it runs on its own thread, reconnects by itse
 
 ## Stream Deck
 
-Every live control is one URL: `POST /api/actions/{action_id}` (or `/{action_id}/{arg}`), the same contract as home-automation's action alias, backed by the one intent list the keyboard and the presenter use (`src/live/actions.py`). **Settings → Stream Deck buttons** lists each button's URL with a Copy button: `next`, `prev`, `capture_toggle`, `timer_toggle`, `timer_add_minute`, `timer_reset`, `blackout`, `names_toggle`, `goto_section/<n>`, `obs_profile/<name>`, `music_toggle`, `music_stop`, `music_fade_out`, `music_volume/<n>`. Calls from this PC need no token; any other device needs the phone-remote token (see *Phone remote*). A caller can name itself in `X-Automation-Source`; the presenter shows the last press as a chip. Once the app serves HTTPS, point the plugin at the tailnet name (`FACILITATION_SUITE_BASE_URL=https://<this PC>.<tailnet>.ts.net:8449` in its `.env`) — still no token, since it runs on this PC.
+Every live control is one URL: `POST /api/actions/{action_id}` (or `/{action_id}/{arg}`), the same contract as home-automation's action alias, backed by the one intent list the keyboard and the presenter use (`src/live/actions.py`). **Settings → Stream Deck buttons** lists each button's URL with a Copy button: `next`, `prev`, `capture_toggle`, `timer_toggle`, `timer_add_minute`, `timer_reset`, `blackout`, `names_toggle`, `goto_section/<n>`, `obs_profile/<name>`, `music_toggle`, `music_stop`, `music_fade_out`, `music_volume/<n>`, `quiz_lock`. Calls from this PC need no token; any other device needs the phone-remote token (see *Phone remote*). A caller can name itself in `X-Automation-Source`; the presenter shows the last press as a chip. Once the app serves HTTPS, point the plugin at the tailnet name (`FACILITATION_SUITE_BASE_URL=https://<this PC>.<tailnet>.ts.net:8449` in its `.env`) — still no token, since it runs on this PC.
 
 The physical keys come from the fleet Stream Deck plugin (`fleet-config/stream-deck`, its `Call Action` key with `"app": "facilitation-suite"` — fleet-config#1006).
 
@@ -300,7 +314,7 @@ roster.xlsx       participants (optional)
 audio/            music files the items play (optional; copied in from the Plan tab)
 groups.yaml       breakout groups (optional)
 theme.css         per-session stage theme override (optional; applied after the stage lettering)
-live/             chat.jsonl, events.jsonl, captures/ — append-only during the session
+live/             chat.jsonl, events.jsonl, quiz.jsonl, captures/ — append-only during the session
 exports/          session.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 ```
 

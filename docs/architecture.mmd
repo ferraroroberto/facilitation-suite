@@ -98,6 +98,10 @@ flowchart LR
   sessr -->|Import Kahoot| quizimp["src/quiz/importer.py<br/>Kahoot template .xlsx → lobby · questions · podium"]
   quizimp --> quizmodel["src/quiz/model.py<br/>the quiz item format · QuizError"]
   quizimp --> model
+  quizsvc["src/quiz/service.py<br/>QuizService · game scope · next steps phases · in-process player API"] --> hub
+  quizsvc --> quizeng["src/quiz/engine.py<br/>pure event-sourced game · Kahoot scoring · standings"]
+  quizeng --> quizmodel
+  quizsvc --> quizfile[("live/quiz.jsonl<br/>joins · answers · phases, replayed on activate")]
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
   sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]
