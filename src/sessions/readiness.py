@@ -85,6 +85,12 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
     else:
         checks.append(_check("offline", "Files offline", "unknown", offline.detail or "Could not check"))
 
+    from src.music.library import readiness as music_files
+
+    music = music_files(folder, session, offline)
+    if music:
+        checks.append(music)
+
     reader = live.get("reader")
     if reader and reader.get("tested"):
         checks.append(_check("reader", "Zoom chat reader", "ok", reader["detail"]))

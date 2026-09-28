@@ -104,6 +104,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "profile": profile,
                 "zone": zones.get(profile),
                 "timer": it.timer.model_dump() if it.timer and it.timer.enabled else None,
+                "music": it.music.model_dump() if it.music and it.music.enabled else None,
                 "section_id": sec.id,
                 "section_name": sec.name,
                 **({"rooms": (rounds or {}).get((it.options or {}).get("round", "pairs")) or []}

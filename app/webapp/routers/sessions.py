@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import AppError
 from src.importer.review import read_meta
+from src.music import library
 from src.sessions import readiness
 from src.sessions.model import dump_session, parse_session
 from src.sessions.offline import check_folder, pin_folder
@@ -155,6 +156,16 @@ def session_font(request: Request, sid: str) -> FileResponse:
         raise AppError(404, "font_not_found", "This session has no stage font on this PC")
     # Versioned by the theme's URL (?v=<mtime>), so it can be cached for good.
     return FileResponse(path, media_type=FONT_TYPES[path.suffix.lower()], headers={"Cache-Control": "max-age=31536000, immutable"})
+
+
+class AudioBody(BaseModel):
+    path: str = Field(min_length=1)
+
+
+@router.post("/{sid}/audio")
+def import_audio(request: Request, sid: str, body: AudioBody) -> dict[str, Any]:
+    """Copy a music file into the session's ``audio/`` (the Plan tab's Music picker)."""
+    return library.import_audio(store(request).folder(sid), Path(body.path.strip().strip('"')))
 
 
 @router.post("/{sid}/pin")

@@ -18,8 +18,9 @@ Timers are per item (epic §9): an item's timer state is created when it is
 first started and lives until reset. A timer keeps running when the
 presenter moves on (like a real kitchen timer), but its end behaviour
 ``advance`` only fires while its item is still on stage. Other services hear
-when a timer starts running (a start, a resume, a minute added after 00:00)
-and when it is reset — the capture follows both.
+when a timer starts running (a start, a resume, a minute added after 00:00),
+when it is paused and when it is reset — the capture follows the start and
+the reset, the music (``src/music/``) all three.
 
 Durability (epic §5.4): the position, clocks and timers are mirrored to
 ``live/state.json`` so a restarted server resumes where it was, and every
@@ -131,7 +132,7 @@ class LiveHub:
         # Step hooks: later services (capture, OBS) subscribe to item changes and timer ends.
         self.item_listeners: list[Callable[[Optional[dict[str, Any]], dict[str, Any]], None]] = []
         self.timer_end_listeners: list[Callable[[dict[str, Any], str], None]] = []
-        # ("start" | "reset", item): a timer began running, or was reset.
+        # ("start" | "pause" | "reset", item): a timer began running, was paused, or was reset.
         self.timer_listeners: list[Callable[[str, dict[str, Any]], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
@@ -427,6 +428,9 @@ class LiveHub:
         t.running_since = None
         self._cancel_handle(item_id)
         self.event("timer_pause", item_id=item_id, remaining=round(t.remaining(now_ms())))
+        item = self.item_by_id(item_id)
+        if item is not None:
+            self._timer_heard("pause", item)
 
     def start_timer_for(self, item_id: str) -> None:
         """Start an item's timer from another service (capture start, step 7)."""

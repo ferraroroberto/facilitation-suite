@@ -50,6 +50,27 @@ class Timer(_Open):
     end: Literal["keep", "stop_capture", "advance", "chime", "hide"] = "keep"
 
 
+class Music(_Open):
+    """The music an item plays (``src/music/``): a file in the session folder
+    (``path``, session-relative, usually ``audio/<name>``) or a Spotify
+    playlist, album or track (``uri``: a ``spotify:`` URI or an
+    ``open.spotify.com`` link). It starts with the item's timer, when the item
+    opens, or only by hand from the presenter; pausing the timer fades it out
+    and pauses it, a reset or 00:00 fades it out and stops it, and leaving the
+    item fades it out or keeps it playing."""
+
+    enabled: bool = True
+    source: Literal["file", "spotify"] = "file"
+    path: str = ""
+    uri: str = ""
+    volume: int = Field(80, ge=0, le=100)
+    fade_in_s: float = Field(2.0, ge=0, le=60)
+    fade_out_s: float = Field(2.0, ge=0, le=60)
+    loop: bool = False  # files: start over at the end
+    start: Literal["with_timer", "on_enter", "manual"] = "with_timer"
+    on_leave: Literal["fade_out", "keep_playing"] = "fade_out"
+
+
 THEME_FONT = "theme"
 
 # The kinds of text on the stage, each with its own font and capitals: titles
@@ -129,6 +150,7 @@ class Item(_Open):
     profile: Optional[Profile] = None
     include: bool = True
     timer: Optional[Timer] = None
+    music: Optional[Music] = None
     # The presenter's notes for this item; on a slide they replace its PowerPoint notes.
     notes: str = ""
     # slides

@@ -32,6 +32,8 @@ const FONTS = [
 ];
 const TIMER_START = { manual: 'When I start it', on_enter: 'When the item opens', with_capture: 'With the capture' };
 const TIMER_END = { keep: 'Keep showing 00:00', hide: 'Remove the timer', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
+const MUSIC_START = { with_timer: 'With the timer', on_enter: 'When the item opens', manual: 'Only from the presenter' };
+const MUSIC_LEAVE = { fade_out: 'Fade out and stop', keep_playing: 'Keep playing' };
 const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
 const ROUNDS = [['pairs', 'Pairs'], ['g4a', 'Groups of 4 · A'], ['g4b', 'Groups of 4 · B'], ['', 'No rooms shown']];
 
@@ -124,6 +126,7 @@ function chipHtml(it) {
   const round = it.type === 'groups_reveal' || it.kind === 'breakout' ? roundLabel(it) : '';
   if (round) chips.push(`<span class="chip">${esc(round)}</span>`);
   if (it.timer && it.timer.enabled) chips.push(`<span class="chip">${icon('timer')}${fmtTimer(it.timer.seconds)}</span>`);
+  if (it.music && it.music.enabled !== false) chips.push(`<span class="chip" title="Music">${icon('music')}</span>`);
   if (!it.profile && it.kind === 'slide') chips.push('<span class="chip warn">Pick profile</span>');
   return chips.join('');
 }
@@ -849,6 +852,7 @@ function renderEditor() {
   }
 
   form.appendChild(timerField(it));
+  form.appendChild(musicField(it));
 
   form.appendChild(field('In this session', switchRow(it.include !== false, 'Off = skipped live, kept in the plan', (next) => {
     it.include = next;
@@ -1146,6 +1150,98 @@ function timerField(it) {
     wrap.appendChild(grid);
   }
   return field('Timer', wrap);
+}
+
+/** The item's music: a file copied into the session's audio/, synced to the item's timer. */
+function musicField(it) {
+  const wrap = document.createElement('div');
+  wrap.className = 'music-box';
+  const on = !!(it.music && it.music.enabled !== false);
+  wrap.appendChild(switchRow(on, on ? '' : 'No music on this item', (next) => {
+    if (next) {
+      it.music = Object.assign({ source: 'file', path: '', volume: 80, fade_in_s: 2, fade_out_s: 2, loop: false, start: 'with_timer', on_leave: 'fade_out' },
+        it.music || {}, { enabled: true });
+    } else if (it.music) {
+      it.music.enabled = false;
+    }
+    markDirty();
+    renderList();
+    renderEditor();
+  }, 'Music on this item'));
+  if (!on) return field('Music', wrap);
+  const m = it.music;
+  const src = document.createElement('div');
+  src.className = 'music-src';
+  const ref = m.source === 'spotify' ? m.uri : m.path;
+  src.innerHTML = `<span class="music-file${ref ? '' : ' muted'}">${icon('music')}<span>${esc(ref || 'No file yet')}</span></span>` +
+    `<button type="button" class="button-surface" data-pick>${icon('folder-open')} Choose file…</button>`;
+  src.querySelector('[data-pick]').addEventListener('click', async () => {
+    try {
+      const picked = await api('/api/pick', { method: 'POST', body: { kind: 'audio' } });
+      if (!picked.path) return;
+      const res = await api(`/api/sessions/${st.sid}/audio`, { method: 'POST', body: { path: picked.path } });
+      Object.assign(m, { source: 'file', path: res.path });
+      markDirty();
+      renderList();
+      renderEditor();
+      toast(`${res.name} is in the session's audio folder`);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  });
+  wrap.appendChild(src);
+  const hint = document.createElement('p');
+  hint.className = 'ed-hint';
+  hint.textContent = 'The file is copied into the session folder (audio/): mp3, wav, ogg or flac.';
+  wrap.appendChild(hint);
+  if (m.start === 'with_timer' && !(it.timer && it.timer.enabled)) {
+    wrap.insertAdjacentHTML('beforeend', '<p class="ed-hint warn">This item has no timer — the music starts with it. Add a timer, or start the music when the item opens.</p>');
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'timer-grid';
+  const line = (label, control) => {
+    const l = document.createElement('label');
+    l.className = 'opt-line';
+    l.append(Object.assign(document.createElement('span'), { className: 'small', textContent: label }), control);
+    return l;
+  };
+  const vol = document.createElement('span');
+  vol.className = 'music-volume';
+  vol.innerHTML = `<input type="range" min="0" max="100" step="5" aria-label="Music volume"><output class="small"></output>`;
+  const range = vol.querySelector('input');
+  range.value = String(m.volume);
+  vol.querySelector('output').textContent = `${m.volume}%`;
+  range.addEventListener('input', () => { m.volume = Number(range.value); vol.querySelector('output').textContent = `${m.volume}%`; markDirty(); });
+  grid.appendChild(line('Volume', vol));
+  const secs = (key, label) => {
+    const el = input(m[key], (v, e) => {
+      const n = Number(v);
+      const ok = v !== '' && Number.isFinite(n) && n >= 0 && n <= 60;
+      e.classList.toggle('invalid', !ok);
+      if (ok) { m[key] = n; markDirty(); }
+    }, { type: 'number', min: '0', max: '60', step: '0.5', 'aria-label': label });
+    return line(label, el);
+  };
+  grid.appendChild(secs('fade_in_s', 'Fade in (s)'));
+  grid.appendChild(secs('fade_out_s', 'Fade out (s)'));
+  const sel = (label, map, key, rerender) => {
+    const s = document.createElement('select');
+    s.className = 'select-native';
+    s.setAttribute('aria-label', label);
+    Object.entries(map).forEach(([k, l]) => { const o = document.createElement('option'); o.value = k; o.textContent = l; o.selected = k === m[key]; s.appendChild(o); });
+    s.addEventListener('change', () => { m[key] = s.value; markDirty(); if (rerender) renderEditor(); });
+    return line(label, s);
+  };
+  grid.appendChild(sel('Starts', MUSIC_START, 'start', true));
+  grid.appendChild(sel('When leaving the item', MUSIC_LEAVE, 'on_leave', false));
+  wrap.appendChild(grid);
+  if (m.source !== 'spotify') wrap.appendChild(switchRow(!!m.loop, 'Start over at the end (loop)', (next) => { m.loop = next; markDirty(); }));
+  const how = document.createElement('p');
+  how.className = 'ed-hint';
+  how.textContent = 'Pausing the timer fades the music out and pauses it; a reset or 00:00 fades it out and stops it.';
+  wrap.appendChild(how);
+  return field('Music', wrap);
 }
 
 function previewCard(it) {

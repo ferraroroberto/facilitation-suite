@@ -69,6 +69,7 @@ from src.live.actions import Action, register
 from src.live.capture import CaptureService
 from src.live.hub import LiveError, LiveHub
 from src.logger import configure_logging
+from src.music.service import MusicService
 from src.obs.service import ObsService
 from src.sessions.store import SessionStore
 
@@ -104,6 +105,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     monitor.cancel()
     app.state.obs.stop()
+    await asyncio.to_thread(app.state.music.close)
     await asyncio.to_thread(app.state.reader_process.stop)
     logger.info("👋 facilitation-suite stopping")
 
@@ -183,6 +185,11 @@ def _install_obs(app: FastAPI) -> None:
     register(Action("obs_profile", "Switch the OBS profile", by_hand, arg="name"))
 
 
+def _install_music(app: FastAPI) -> None:
+    """Music on this PC's audio output, synced to item timers (``src/music/``)."""
+    app.state.music = MusicService(app.state.live)
+
+
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
@@ -196,6 +203,7 @@ def create_app() -> FastAPI:
     app.state.live.extra_state.append(lambda: {"last_action": app.state.last_action})
     _install_chat(app)
     _install_obs(app)
+    _install_music(app)
     _install_error_handlers(app)
     # Outermost: other devices need the phone-remote token before anything else runs.
     app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)
