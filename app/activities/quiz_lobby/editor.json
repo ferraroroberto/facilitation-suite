@@ -1,0 +1,12 @@
+{
+  "type": "quiz_lobby",
+  "label": "Quiz lobby",
+  "icon": "rocket",
+  "order": 7,
+  "description": "Starts a quiz: the questions after it, up to the quiz podium, are one game.",
+  "capture": false,
+  "options": [
+    {"key": "title", "label": "Quiz name", "kind": "text", "default": "", "placeholder": "Quiz"},
+    {"key": "accept_chat", "label": "Answers typed in the chat count too", "kind": "switch", "default": true}
+  ]
+}

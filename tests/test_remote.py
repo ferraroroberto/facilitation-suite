@@ -75,6 +75,8 @@ def test_the_phone_cannot_manage_the_remote_or_the_pc(app) -> None:
         assert body["enabled"] and body["link"] is None  # the link is shown on the PC only
         assert phone.post("/api/settings/remote/token", headers=auth).json()["error"]["code"] == "local_only"
         assert phone.post("/api/pick", json={"kind": "pptx"}, headers=auth).json()["error"]["code"] == "local_only"
+        quiz = phone.post("/api/sessions/any/quiz-import", json={"path": "C:/quiz.xlsx"}, headers=auth)
+        assert quiz.json()["error"]["code"] == "local_only"
         assert phone.post("/api/chat/messages", json={"messages": []}, headers=auth).json()["error"]["code"] == "local_only"
 
 

@@ -51,6 +51,9 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
         return words[item.kind]
     if item.question.strip():
         return item.question.strip()
+    named = str((item.options or {}).get("title") or "").strip()  # a quiz lobby: the quiz's name
+    if named:
+        return named
     return words.get(item.type or "") or (types.get(item.type or "") or {}).get("label") or "Activity"
 
 
