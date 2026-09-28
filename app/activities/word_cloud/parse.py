@@ -15,7 +15,10 @@ How an answer becomes cloud entries is the ``terms`` option:
 In every mode an answer made only of laughter and fillers ("jajaja", "lol",
 "xd", "ok") is dropped (``auto`` and ``words`` also drop them inside answers).
 With ``merge_variants``: case, accents and simple plurals are grouped
-("Reunión", "reuniones" → one entry) and the most common spelling is shown.
+("Reunión", "reuniones" → one entry) and the most common spelling is shown —
+lower-cased in ``auto`` and ``words``; in ``verbatim`` the most common spelling
+as typed ("I stop listening" ×2 beats "i stop listening" ×1; a tie goes to the
+first seen).
 """
 
 from __future__ import annotations
@@ -92,13 +95,17 @@ def _singular(key: str, keys: set[str]) -> str:
 
 def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> dict[str, Any]:
     merge = bool(options.get("merge_variants", True))
+    verbatim = str(options.get("terms") or "auto") == "verbatim"
     spellings: dict[str, Counter] = {}
     names: dict[str, list[str]] = {}
     order: dict[str, int] = {}
+    seen: dict[str, int] = {}  # each spelling's first appearance (verbatim's tie-break)
     for c in contributions:
         for term in c["terms"]:
             key = fold(term) if merge else term
-            spellings.setdefault(key, Counter())[term.lower() if merge else term] += 1
+            spelling = term.lower() if merge and not verbatim else term
+            spellings.setdefault(key, Counter())[spelling] += 1
+            seen.setdefault(spelling, len(seen))
             names.setdefault(key, [])
             if c["sender"] and c["sender"] not in names[key]:
                 names[key].append(c["sender"])
@@ -111,9 +118,14 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
                 spellings[target].update(spellings.pop(key))
                 names[target] += [n for n in names.pop(key) if n not in names[target]]
                 order[target] = min(order[target], order.pop(key))
+    def shown(sp: Counter) -> str:
+        if verbatim:  # as typed: the most common original spelling, a tie to the first seen
+            return min(sp, key=lambda s: (-sp[s], seen[s]))
+        return sp.most_common(1)[0][0]
+
     words = [{
         "key": key,
-        "text": sp.most_common(1)[0][0],
+        "text": shown(sp),
         "count": sum(sp.values()),
         "names": names[key],
         "first": order[key],

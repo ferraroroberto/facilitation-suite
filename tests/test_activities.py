@@ -65,10 +65,18 @@ def test_word_cloud_terms_verbatim_keeps_each_answer_whole() -> None:
         "no agenda",                                                   # no stopwords in verbatim
     ))
     assert [(w["text"], w["count"]) for w in r["words"]] == [
-        ("saying yes to everything", 2), (sentence, 1), ("no agenda", 1)]
+        ("Saying yes to everything", 2), (sentence, 1), ("no agenda", 1)]  # a tie: the first seen spelling
     assert r["answers"] == 4
     apart = result_for("word_cloud", {"terms": "verbatim", "merge_variants": False}, _msgs("¡Sí!", "Sí", "sí"))
     assert sorted((w["text"], w["count"]) for w in apart["words"]) == [("Sí", 2), ("sí", 1)]
+
+
+def test_word_cloud_terms_verbatim_shows_the_most_common_original_casing() -> None:
+    r = result_for("word_cloud", {"terms": "verbatim"}, _msgs(
+        "i stop listening", "I stop listening", "I stop listening!",   # merged: the typed casing wins 2-1
+        "Reunión", "reunion", "REUNIONES",                              # merged with accents and a plural: a tie
+    ))
+    assert [(w["text"], w["count"]) for w in r["words"]] == [("I stop listening", 3), ("Reunión", 3)]
 
 
 def test_word_cloud_terms_words_always_splits() -> None:
