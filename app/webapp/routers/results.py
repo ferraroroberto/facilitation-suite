@@ -126,8 +126,10 @@ async def export_pdf(request: Request, sid: str) -> dict[str, Any]:
     out = folder / "exports" / PDF_FILE
     pages = await asyncio.to_thread(_print, session_html(folder, data), out)
     missing = [a["title"] for a in data["activities"] if not a["has_png"]]
-    logger.info("✅ session PDF for %s: %d slides + %d live results, %d pages", sid, data["slides"], data["captures"], pages)
+    logger.info("✅ session PDF for %s: %d slides + %d live results + %d quiz pages, %d pages", sid, data["slides"],
+                data["captures"], data["quiz_pages"], pages)
     return {"file": PDF_FILE, "pages": pages or None, "slides": data["slides"], "captures": data["captures"],
+            "quiz_pages": data["quiz_pages"],
             "missing_images": missing, **(_file_info(out) or {})}
 
 
@@ -144,7 +146,7 @@ def download_pdf(request: Request, sid: str) -> FileResponse:
 def download_xlsx(request: Request, sid: str) -> FileResponse:
     folder, session = _load(request, sid)
     data = load_results(folder, session)
-    if not data["activities"]:
+    if not data["activities"] and not data["quizzes"]:
         raise AppError(409, "nothing_to_export", "No activity was captured in this session yet")
     people = participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"))
     out = folder / "exports" / XLSX_FILE
@@ -152,7 +154,8 @@ def download_xlsx(request: Request, sid: str) -> FileResponse:
         build_report(data, people, out)
     except OSError as exc:
         raise AppError(500, "write_failed", f"Could not write {XLSX_FILE}: {exc}") from exc
-    logger.info("✅ Excel report for %s: %d activities, %d people", sid, len(data["activities"]), len(people))
+    logger.info("✅ Excel report for %s: %d activities, %d quiz games, %d people", sid, len(data["activities"]),
+                len(data["quizzes"]), len(people))
     return FileResponse(out, filename=XLSX_FILE,
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 

@@ -1,7 +1,8 @@
-// Results tab: every captured activity in the order it happened (left) and the
-// selected one (right) — the visual exactly as the stage showed it at the
-// stop, its top items, every answer with the person's name — plus the check
-// against Zoom's saved chat, the session PDF and the Excel report.
+// Results tab: every captured activity and quiz game in the order it happened
+// (left) and the selected one (right) — the visual exactly as the stage showed
+// it at the stop, its top items, every answer with the person's name; for a
+// quiz, its podium, leaderboard and each question's distribution — plus the
+// check against Zoom's saved chat, the session PDF and the Excel report.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
@@ -61,7 +62,8 @@ async function load() {
     listEl.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
     return;
   }
-  if (!data.activities.some((a) => a.id === selected)) selected = data.activities.length ? data.activities[0].id : null;
+  const keys = entries().map((e) => e.key);
+  if (!keys.includes(selected)) selected = keys.length ? keys[0] : null;
   render();
 }
 
@@ -144,23 +146,43 @@ async function check() {
 
 // ---- the activity list --------------------------------------------------------
 
+const quizKey = (id) => `quiz:${id}`;
+
+// Activities in their order, each quiz game slotted in before the first activity that started after it.
+function entries() {
+  const quizzes = [...data.quizzes];
+  const out = [];
+  const takeQuizzes = (before) => {
+    while (quizzes.length && (before == null || (quizzes[0].start_ms != null && quizzes[0].start_ms < before))) {
+      const q = quizzes.shift();
+      out.push({ key: quizKey(q.id), quiz: q });
+    }
+  };
+  data.activities.forEach((a) => {
+    if (a.start_ms != null) takeQuizzes(a.start_ms);
+    out.push({ key: a.id, activity: a });
+  });
+  takeQuizzes(null);
+  return out;
+}
+
 function renderList() {
   listEl.innerHTML = '';
-  if (!data.activities.length) {
+  if (!data.activities.length && !data.quizzes.length) {
     listEl.appendChild(emptyStateEl('chart-column', data.went_live
       ? 'No activity was captured in this session yet. Press Space on an activity during the session to capture answers.'
       : 'Results appear after a live session.'));
     return;
   }
-  data.activities.forEach((a) => {
+  entries().forEach(({ key, activity: a, quiz: q }) => {
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'result-row' + (a.id === selected ? ' selected' : '');
-    row.dataset.item = a.id;
-    row.innerHTML = `<span class="result-num">${a.number}</span>` +
-      `<span class="grow"><span class="row-title">${esc(a.title)}</span><span class="row-meta">${esc(a.summary)}</span></span>` +
+    row.className = 'result-row' + (key === selected ? ' selected' : '');
+    row.dataset.item = key;
+    row.innerHTML = `<span class="result-num">${a ? a.number : icon('crown')}</span>` +
+      `<span class="grow"><span class="row-title">${esc(a ? a.title : q.label)}</span><span class="row-meta">${esc(a ? a.summary : q.summary)}</span></span>` +
       icon('chevron-right');
-    row.addEventListener('click', () => select(a.id));
+    row.addEventListener('click', () => select(key));
     listEl.appendChild(row);
   });
 }
@@ -177,7 +199,9 @@ function select(id) {
 function renderDetail() {
   detailEl.innerHTML = '';
   const a = data.activities.find((x) => x.id === selected);
+  const q = data.quizzes.find((x) => quizKey(x.id) === selected);
   if (a) detailEl.appendChild(activityDetail(a));
+  if (q) detailEl.appendChild(quizDetail(q));
   if (data.pages.length || data.activities.length) detailEl.appendChild(pdfCard());
   if (data.pages.length || data.activities.length) detailEl.appendChild(exportActions());
 }
@@ -206,17 +230,51 @@ function activityDetail(a) {
   return wrap;
 }
 
+function seconds(ms) {
+  return ms == null ? '–' : `${(ms / 1000).toFixed(1)} s`;
+}
+
+function quizDetail(q) {
+  const wrap = document.createElement('div');
+  wrap.className = 'result-detail';
+  const played = q.start_ms ? `played ${new Date(q.start_ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '';
+  const asked = q.question_count < q.planned_questions ? `${q.question_count} of ${q.planned_questions} questions asked` : `${q.question_count} questions`;
+  const meta = [`${q.player_count} player${q.player_count === 1 ? '' : 's'}`, asked, played].filter(Boolean).join(' · ');
+  wrap.innerHTML = `<div class="detail-title"><h1>${esc(q.label)}</h1><p class="muted">${esc(meta)}</p></div>`;
+  const grid = document.createElement('div');
+  grid.className = 'result-cards';
+  grid.insertAdjacentHTML('beforeend', `<div class="card"><h3 class="card-title">Podium</h3>${q.podium.length ? `<div class="list">${
+    q.podium.map((r) => `<div class="list-row top-row"><span class="result-num">${r.rank}</span><span class="grow">${esc(r.name)}</span><b>${r.score}</b></div>`).join('')
+  }</div>` : '<p class="muted small">Nobody played.</p>'}</div>`);
+  grid.insertAdjacentHTML('beforeend', `<div class="card answers-card"><h3 class="card-title">Leaderboard</h3>${q.leaderboard.length ? `<div class="list">${
+    q.leaderboard.map((r) => `<div class="list-row quiz-rank-row"><span class="result-num">${r.rank}</span>` +
+      `<span class="grow"><span class="row-title">${esc(r.name)} <span class="chip">${esc(r.source)}</span></span>` +
+      `<span class="row-meta">${r.correct} of ${q.question_count} correct · avg ${esc(seconds(r.avg_ms))}</span></span><b>${r.score}</b></div>`).join('')
+  }</div>` : '<p class="muted small">No players.</p>'}</div>`);
+  wrap.appendChild(grid);
+  q.questions.forEach((x) => {
+    const top = Math.max(1, ...x.answers.map((o) => o.count));
+    wrap.insertAdjacentHTML('beforeend', `<div class="card quiz-question"><h3 class="card-title">${x.number} · ${esc(x.question)}</h3>` +
+      `<div class="list">${x.answers.map((o) => `<div class="quiz-bar-row${o.correct ? ' correct' : ''}">` +
+        `<span class="quiz-answer">${o.n} · ${esc(o.text)}${o.correct ? ` <span class="quiz-correct">${icon('circle-check')} correct</span>` : ''}</span>` +
+        `<span class="quiz-bar" aria-hidden="true"><span style="width:${Math.round((100 * o.count) / top)}%"></span></span><b>${o.count}</b></div>`).join('')}</div>` +
+      `<p class="small muted">${x.answered} of ${x.players} players answered</p></div>`);
+  });
+  return wrap;
+}
+
 function pdfCard() {
   const card = document.createElement('div');
   card.className = 'card pdf-card';
   const pdf = data.exports.pdf;
   const built = pdf ? ` · exported ${stamp(pdf.modified_ms)}${pdf.pages ? ` · ${pdf.pages} pages` : ''}` : '';
-  card.innerHTML = `<div class="pdf-head"><b>Session PDF</b><span class="muted small">${data.slides} slides + ${data.captures} live results, in the order they happened${esc(built)}</span></div>`;
+  const quizPages = data.quiz_pages ? ` + ${data.quiz_pages} quiz pages` : '';
+  card.innerHTML = `<div class="pdf-head"><b>Session PDF</b><span class="muted small">${data.slides} slides + ${data.captures} live results${quizPages}, in the order they happened${esc(built)}</span></div>`;
   const strip = document.createElement('div');
   strip.className = 'pdf-strip';
   strip.innerHTML = data.pages.map((p) => p.kind === 'slide'
     ? `<img class="pdf-tile" loading="lazy" alt="${esc(p.title)}" title="${esc(p.title)}" src="${base()}/slides/${encodeURIComponent(p.file)}">`
-    : `<button type="button" class="pdf-tile live" data-item="${esc(p.item_id)}" title="${esc(p.title)}">${esc(p.label)}${p.tile ? ` · ${esc(p.tile)}` : ''}</button>`).join('') +
+    : `<button type="button" class="pdf-tile live" data-item="${esc(p.game ? quizKey(p.game) : p.item_id)}" title="${esc(p.title)}">${esc(p.label)}${p.tile ? ` · ${esc(p.tile)}` : ''}</button>`).join('') +
     '<span class="pdf-tile appendix">Answers appendix</span>';
   strip.addEventListener('click', (e) => {
     const b = e.target.closest('[data-item]');
@@ -231,7 +289,7 @@ function exportActions() {
   const row = document.createElement('div');
   row.className = 'row-actions export-actions';
   row.innerHTML = `<button type="button" class="button-primary" data-pdf>${icon('download')} Export session PDF</button>` +
-    `<button type="button" class="button-surface" data-xlsx ${data.activities.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
+    `<button type="button" class="button-surface" data-xlsx ${data.activities.length || data.quizzes.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
   row.querySelector('[data-pdf]').addEventListener('click', exportPdf);
   row.querySelector('[data-xlsx]').addEventListener('click', () => download(`${base()}/exports/report.xlsx`, 'report.xlsx', 'Excel report saved in exports/'));
   return row;
