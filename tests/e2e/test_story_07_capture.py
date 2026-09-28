@@ -38,9 +38,13 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     own.click()
     expect(own).to_have_attribute("aria-checked", "true")
     expect(page.locator(".p-chips .chip.warn", has_text="Counting your messages")).to_be_visible()
+    mine = {"batch": "rehearsal", "messages": [{"sender": "You", "text": "rehearsal", "time": "18:41"}]}
+    assert page.request.post(f"{webapp.base_url}/api/chat/messages", data=mine).ok
+    expect(stage.locator(".wc-word", has_text="rehearsal")).to_be_visible()  # my own answer is on the stage
     own.click()
     expect(own).to_have_attribute("aria-checked", "false")
     expect(page.locator(".p-chips", has_text="Counting your messages")).to_have_count(0)
+    expect(stage.locator(".wc-word", has_text="rehearsal")).to_have_count(0)  # off: the live rule again
 
     resp = page.request.post(f"{webapp.base_url}/api/chat/simulate",
                              data={"kind": "burst", "count": 12, "answers": ["meetings", "perfectionism", "hello"]})
