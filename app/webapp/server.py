@@ -71,6 +71,7 @@ from src.live.hub import LiveError, LiveHub
 from src.logger import configure_logging
 from src.music.service import MusicService
 from src.obs.service import ObsService
+from src.quiz.service import QuizService
 from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -190,6 +191,11 @@ def _install_music(app: FastAPI) -> None:
     app.state.music = MusicService(app.state.live)
 
 
+def _install_quiz(app: FastAPI) -> None:
+    """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``)."""
+    app.state.quiz = QuizService(app.state.live)
+
+
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
@@ -204,6 +210,7 @@ def create_app() -> FastAPI:
     _install_chat(app)
     _install_obs(app)
     _install_music(app)
+    _install_quiz(app)
     _install_error_handlers(app)
     # Outermost: other devices need the phone-remote token before anything else runs.
     app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)

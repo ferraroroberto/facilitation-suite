@@ -128,6 +128,7 @@ def test_the_editor_offers_exactly_the_formats_choices() -> None:
     assert tuple(v for v, _ in opts["time_limit"]["choices"]) == TIME_LIMITS and opts["time_limit"]["default"] == 20
     assert tuple(v for v, _ in opts["points"]["choices"]) == POINTS and opts["points"]["default"] == "standard"
     lobby = json.loads((ACTIVITIES_DIR / "quiz_lobby" / "editor.json").read_text(encoding="utf-8"))
+    assert quiz["capture"] is False  # answers go to the game engine (#51), not a chat capture window
     assert lobby["capture"] is False and [o["key"] for o in lobby["options"]] == ["title", "accept_chat"]
     podium = json.loads((ACTIVITIES_DIR / "quiz_podium" / "editor.json").read_text(encoding="utf-8"))
     assert podium["capture"] is False
@@ -137,7 +138,7 @@ def test_the_lobby_is_titled_with_the_quiz_name(template: Path) -> None:
     session = Session(sections=[{"name": "S", "items": build_items("Planets", read_kahoot_xlsx(template))}])
     run = build_run(parse_session(dump_session(session)), None)["items"]
     assert [r["title"] for r in run][:2] == ["Planets", QUESTIONS[0][0]]
-    assert (run[0]["capture"], run[1]["capture"], run[-1]["capture"]) == (False, True, False)
+    assert (run[0]["capture"], run[1]["capture"], run[-1]["capture"]) == (False, False, False)  # the engine owns answers (#51)
 
 
 def test_import_into_an_existing_section_or_an_unknown_one(template: Path) -> None:

@@ -138,6 +138,9 @@ class LiveHub:
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
         # The live session was reset: services drop what they hold of the old run.
         self.reset_listeners: list[Callable[[], None]] = []
+        # A service that steps through the item on stage takes ``next`` while it has steps left
+        # (the quiz: question → reveal → leaderboard) by returning True; else the plan moves on.
+        self.next_handlers: list[Callable[[], bool]] = []
         # The camera zone of each OBS profile (Settings); the defaults until the server wires it.
         self.zones: Callable[[], dict[str, Any]] = lambda: {}
 
@@ -353,6 +356,8 @@ class LiveHub:
         self.commit()
 
     def next(self) -> None:
+        if any(take() for take in self.next_handlers):
+            return
         self.goto(self.index + 1)
 
     def prev(self) -> None:

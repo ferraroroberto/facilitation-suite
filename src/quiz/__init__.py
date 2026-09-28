@@ -1,1 +1,1 @@
-"""The live quiz (#34): its plan items and the Kahoot spreadsheet import (Step 2/8)."""
+"""The live quiz (#34): its plan items, the Kahoot spreadsheet import and the game engine."""
