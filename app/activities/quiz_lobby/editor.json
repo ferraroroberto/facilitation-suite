@@ -8,5 +8,6 @@
   "options": [
     {"key": "title", "label": "Quiz name", "kind": "text", "default": "", "placeholder": "Quiz"},
     {"key": "accept_chat", "label": "Answers typed in the chat count too", "kind": "switch", "default": true}
-  ]
+  ],
+  "samples": ["Alex", "Sam", "Jordan", "Casey", "Robin", "Jamie", "Taylor", "Morgan", "Avery", "Riley", "Quinn", "Drew"]
 }

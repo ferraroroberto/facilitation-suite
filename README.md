@@ -144,7 +144,7 @@ An item can carry **music**: a file, or a Spotify playlist, album, artist or tra
 
 **By hand:** the presenter's **Music** card (shown when the session has music, or Spotify is set up) plays any of the session's tracks — every item's, plus any other file in `audio/` — or a pasted Spotify link, with the item's own music picked when it comes on stage: **Play / Pause / Resume**, **Stop** (fades out over the track's fade-out), **Fade out** (a slow 8-second wind-down, then stop) and a volume slider. The phone remote has the same play/pause, stop and volume. The Stream Deck actions are `music_toggle` (with nothing playing: the item's music, else the last track), `music_stop`, `music_fade_out` and `music_volume/<0–100>`.
 
-**Which wins:** the latest command. An item's timer and leaving the item only act on music **that item started itself**: music you play by hand is never paused or stopped by a timer, and a timer start on an item with *with the timer* music replaces whatever plays (the same track already playing is taken over, not restarted). Pausing, resuming or changing the volume by hand keeps the item in charge; stopping ends it.
+**Which wins:** the latest command. An item's timer and leaving the item only act on music **that item started itself**: music you play by hand is never paused or stopped by a timer, and a timer start on an item with *with the timer* music replaces whatever plays (the same track already playing is taken over, not restarted). Pausing, resuming or changing the volume by hand keeps the item in charge; stopping ends it. The quiz's sound cues rank below both: they never interrupt an item's music or music played by hand (see *Quiz → Sound cues*).
 
 The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *error* — with the reason, e.g. no audio output device (speakers or headset disconnected) or a file missing from `audio/`; a music problem never stops the deck. The readiness list's **Music files** check (only when the session plays files) says whether every track is in the folder, on this PC and playable; its **Spotify** check (only when the session plays Spotify) says whether the login works and the desktop app on this PC is visible. Nothing of the music is saved: after a restart the app starts silent. Music starts and stops are logged (`facilitation-suite.log`, *sound is coming out* once the device plays) and appended to `live/events.jsonl`.
 
@@ -180,7 +180,7 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 ## Quiz
 
-A Kahoot-style quiz is planned as items (#34; players play on their phones — see *Quiz player* — while the stage's lobby, leaderboard and podium arrive in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
+A Kahoot-style quiz is planned as items (#34; players play on their phones — see *Quiz player* — and the stage shows the lobby, questions, reveals, leaderboards and podium — see *On the stage*). Three activity types, all in the Plan tab's activity **Type → More…** menu:
 
 - **Quiz lobby** starts a game; its **Quiz name** is the title on the stage. The game is the quiz questions after it, in plan order, up to the next quiz podium.
 - **Quiz question**: the question, **Answer 1–4** (two to four), **Correct answer(s)** (the answer numbers, as Kahoot writes them: `2`, or `1,3` for several), **Time limit** (5, 10, 20, 30, 60, 90, 120 or 240 s; 20 by default) and **Points** (standard, double or none).
@@ -222,6 +222,27 @@ The phone remote shows the same essentials on a quiz item — the phase, players
 **Chat fallback.** If the public link fails mid-session, say "type your answer in the chat": while a question is open, a Zoom chat message that is exactly `A`–`D`, `a`–`d` or `1`–`4` (optionally followed by punctuation — `B`, `b.`, `3!`) is that sender's answer, scored by the same engine (`src/quiz/chat.py`). The sender joins as a chat player on their first answer, with their Zoom name as the nickname (a phone player with the same name keeps it; the chat player gets `(2)`, so both stay distinct on the leaderboard). The first answer wins, as on a phone; a letter the question has no answer for (`D` on a three-answer question) is ignored; the response time is from the question opening to when the chat reader saw the message; messages outside an open question are ignored, and so are your own — unless **Count my own chat answers (rehearsal)** is on. The quiz lobby's **Answers typed in the chat count too** switch (on by default) turns it off for that game; while it is on, the stage says *Answer on your phone or type A–D in the chat* under an open question. Known trade-off: chat answers are visible to everyone in the chat, so people can copy.
 
 **Rehearse alone:** on a quiz question, the presenter's **Simulate answers** makes twelve simulated people type a random letter each through the chat simulator — the whole game, lobby to podium, runs without anyone else.
+
+**On the stage** (`app/activities/quiz/stage.js`, one renderer for the three types, in the session theme and fonts — never the fleet design):
+
+- **Lobby:** the join QR code, the public link and the PIN (`123 456`), the player count and the names popping in as they join. While phones cannot join, it says so instead of showing a QR that leads nowhere: *Joining by phone is not set up* (`quiz.public_url` empty) or *not available right now* (the player listener is down).
+- **Question:** *Question n of N*, the answers on tiles in the phones' colours **and** shapes with their letters A–D (so chat players know what to type), a countdown ring and seconds from the server's deadline (corrected for this screen's clock, within a tenth of a second), and *x / y answered*. Nothing on the stage marks the correct answer before the reveal: the renderer reads it only from the game's snapshot, which carries it only once the question has closed — never from the item's options.
+- **Reveal:** a bar per answer with its count, the correct one(s) marked with a check and the word *Correct* (never by colour alone), the other tiles dimmed.
+- **Leaderboard:** the top 5, each row sliding from where it stood before the question to its new rank, with the points just won.
+- **Podium:** 3rd, then 2nd, then 1st rise in turn.
+
+The answer colours match the phones (a session's `theme.css` can move them with `--st-quiz-1` … `--st-quiz-4`, and the podium's with `--st-podium-1` … `--st-podium-3`). With **reduced motion** set in the OS nothing pops, rises or slides. The Plan tab's and the presenter's previews, with no game running, draw the question as it opens and sample players (`samples` in the lobby's and podium's `editor.json`). Quiz items are not captures, so a capture freeze (and its PNG) does not apply to them; the session PDF draws the quiz from `live/quiz.jsonl` (see *Results*).
+
+**Sound cues** (optional, played on this PC through the app's music, like item music — never in a browser): put any of these in the session's `audio/` folder, as `.mp3`, `.wav`, `.ogg` or `.flac`, and the quiz plays them at its phase changes; without them it stays silent.
+
+| File | Plays |
+|---|---|
+| `audio/quiz-lobby.*` | on the lobby, looping until the first question |
+| `audio/quiz-countdown.*` | once, when a question opens |
+| `audio/quiz-reveal.*` | once, at the reveal |
+| `audio/quiz-podium.*` | once, on the podium |
+
+A cue still sounding fades out at the next phase without a cue of its own (the leaderboard) and when the stage leaves the quiz. **Item and presenter music always win:** while an item's music or music you played by hand is playing or paused, the cues are skipped and that music plays on untouched; pressing play, a timer's music or **Stop** replaces or ends a cue like any track. The presenter's Music card shows a cue as the track playing (pause, stop and volume work on it). Kahoot's own music is not reusable: bring royalty-free tracks or your own.
 
 ## Quiz player (public)
 

@@ -113,6 +113,8 @@ flowchart LR
   quizr --> qr["src/quiz/qr.py<br/>join QR SVG (public_url + /play?pin=)"]
   chathub -->|new messages| quizchat["src/quiz/chat.py<br/>ChatAnswers · A–D in the chat → chat players"]
   quizchat --> quizsvc
+  quizsvc -->|change_listeners · phase changes| quizcues["src/quiz/cues.py<br/>QuizCues · audio/quiz-lobby·countdown·reveal·podium"]
+  quizcues -->|cue() · end_cue() — never over item or ad-hoc music| music
   sessr --> store["src/sessions/store.py<br/>ledger · folders · session.yaml"]
   store --> model["src/sessions/model.py<br/>Pydantic schema v1"]
   sessr --> offline["src/sessions/offline.py<br/>OneDrive hydration + pin"]
