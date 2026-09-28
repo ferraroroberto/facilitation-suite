@@ -114,35 +114,37 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8765, help="the redirect URI's port (default 8765)")
     parser.add_argument("--no-browser", action="store_true", help="print the URL instead of opening the browser")
     args = parser.parse_args()
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8")  # the ✅/⚠️ lines on a Windows console
     configure_logging(to_file=False)
     client_id = get_value(CLIENT_ID_KEY)
     if not client_id:
-        print(f"❌ No {CLIENT_ID_KEY} in {env_path()} — create the Spotify developer app first (README → Music → Spotify setup).")
+        logger.error(f"❌ No {CLIENT_ID_KEY} in {env_path()} — create the Spotify developer app first (README → Music → Spotify setup).")
         return 1
     redirect_uri = f"http://127.0.0.1:{args.port}/callback"
     verifier, challenge = pkce_pair()
     state = secrets.token_urlsafe(16)
     url = authorize_url(client_id, redirect_uri, challenge, state)
-    print(f"ℹ️ Log in to Spotify and allow the app (redirect URI must be {redirect_uri}).")
+    logger.info(f"ℹ️ Log in to Spotify and allow the app (redirect URI must be {redirect_uri}).")
     if args.no_browser:
-        print(url)
+        logger.info("ℹ️ Open this address: %s", url)
     else:
         webbrowser.open(url)
     code = wait_for_code(args.port, state)
     set_value(REFRESH_KEY, exchange(client_id, code, redirect_uri, verifier))
-    print(f"✅ Refresh token saved to {env_path()}")
+    logger.info(f"✅ Refresh token saved to {env_path()}")
 
     client = SpotifyClient()
     try:
         me = client.call("GET", "/me")
         product = str(me.get("product") or "unknown")
-        print(f"{'✅' if product == 'premium' else '⚠️'} Account: {product}" + ("" if product == "premium" else " — playback control needs Premium"))
+        logger.info(f"{'✅' if product == 'premium' else '⚠️'} Account: {product}" + ("" if product == "premium" else " — playback control needs Premium"))
         devices = client.call("GET", "/me/player/devices").get("devices") or []
-        print("ℹ️ Devices Spotify sees: " + (", ".join(f"{d.get('name')} ({d.get('type')})" for d in devices) or "none — open the Spotify desktop app"))
+        logger.info("ℹ️ Devices Spotify sees: " + (", ".join(f"{d.get('name')} ({d.get('type')})" for d in devices) or "none — open the Spotify desktop app"))
         client.device()
-        print("✅ The desktop app on this PC is ready")
+        logger.info("✅ The desktop app on this PC is ready")
     except SpotifyError as exc:
-        print(f"⚠️ {exc.state}: {exc.detail}")
+        logger.warning(f"⚠️ {exc.state}: {exc.detail}")
     return 0
 
 
