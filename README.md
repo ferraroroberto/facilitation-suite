@@ -221,7 +221,7 @@ live/             chat.jsonl, events.jsonl, captures/ — append-only during the
 exports/          session.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 ```
 
-The Sessions tab creates, duplicates (plan, slides, roster, theme — never live data) and adds existing folders, and shows a readiness checklist. **Files offline** checks OneDrive's file attributes without downloading anything and can pin the folder ("Always keep on this device"). Unknown keys in `session.yaml` survive a load → save round-trip. No database ever lives in the session folder.
+The Sessions tab creates, duplicates (plan, slides, roster, theme — never live data) and adds existing folders, and shows a readiness checklist. **Files offline** checks OneDrive's file attributes without downloading anything and can pin the folder ("Always keep on this device"). Unknown keys in `session.yaml` survive a load → save round-trip. An item's `id` is letters, digits, `-` and `_` (up to 80 — it names the item's capture files); one written by hand outside that is made to fit on load (`act Q1` → `act-Q1`, logged ⚠️), and an empty or repeated one gets a fresh id. No database ever lives in the session folder.
 
 ## Layout
 

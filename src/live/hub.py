@@ -223,11 +223,12 @@ class LiveHub:
         self.broadcast(self.snapshot())
 
     def push_state(self) -> None:
-        """Another service's state changed (OBS, the reader): push a fresh snapshot."""
+        """Bump the revision and push a fresh snapshot without saving ``state.json`` —
+        something outside it changed (OBS, the reader, a capture, a write error clearing)."""
         self.rev += 1
         self._broadcast_state()
 
-    def _commit(self) -> None:
+    def commit(self) -> None:
         """After every mutation: bump the revision, persist, push to everyone."""
         self.rev += 1
         self._save_state()
@@ -255,18 +256,18 @@ class LiveHub:
         logger.info("✅ live: session %s is live (%d items, resumed at %d)", sid, len(self.items), self.index + 1)
         cur = self.current()
         # The item on stage when it goes live (the PDF order starts here; later moves are "item" events).
-        self._event("session_live", items=len(self.items), index=self.index, item_id=cur["id"] if cur else None,
+        self.event("session_live", items=len(self.items), index=self.index, item_id=cur["id"] if cur else None,
                     kind=cur["kind"] if cur else None)
         for fn in self.session_listeners:
             fn(sid)
         self.broadcast(self.plan_message())
-        self._commit()
+        self.commit()
 
     def deactivate(self) -> None:
         if self.session_id is None:
             return
         logger.info("ℹ️ live: session %s is no longer live", self.session_id)
-        self._event("session_closed")
+        self.event("session_closed")
         self._cancel_timer_handles()
         self.session_id, self.folder = None, None
         self.run = {"items": [], "sections": [], "planned_minutes": 0}
@@ -276,8 +277,7 @@ class LiveHub:
         for fn in self.session_listeners:
             fn(None)
         self.broadcast(self.plan_message())
-        self.rev += 1
-        self._broadcast_state()
+        self.push_state()
 
     def reset(self) -> None:
         """Start the live session over — the run so far is kept as ``live-<stamp>/``."""
@@ -301,13 +301,13 @@ class LiveHub:
         self.plan_rev += 1  # every view rebuilds (the presenter reloads its chat)
         logger.info("✅ live: session %s reset — the run so far is in %s", self.session_id, kept.name)
         cur = self.current()
-        self._event("session_live", items=len(self.items), index=0, item_id=cur["id"] if cur else None,
+        self.event("session_live", items=len(self.items), index=0, item_id=cur["id"] if cur else None,
                     kind=cur["kind"] if cur else None, reset=kept.name)
         if cur:
             for fn in self.item_listeners:
                 fn(prev, cur)
         self.broadcast(self.plan_message())
-        self._commit()
+        self.commit()
 
     def session_saved(self, sid: str) -> None:
         """Called from the Plan tab's save (a worker thread): reload if it is live."""
@@ -331,7 +331,7 @@ class LiveHub:
         self.index = found["index"] if found else min(self.index, max(0, len(self.items) - 1))
         logger.info("ℹ️ live: plan reloaded (%d items, at %d)", len(self.items), self.index + 1)
         self.broadcast(self.plan_message())
-        self._commit()
+        self.commit()
 
     # -------------------------------------------------------------- movement
 
@@ -348,10 +348,10 @@ class LiveHub:
         timer = cur.get("timer")
         if timer and timer.get("start") == "on_enter" and cur["id"] not in self.timers:
             self._timer_start(cur)
-        self._event("item", item_id=cur["id"], index=index, kind=cur["kind"])
+        self.event("item", item_id=cur["id"], index=index, kind=cur["kind"])
         for fn in self.item_listeners:
             fn(prev, cur)
-        self._commit()
+        self.commit()
 
     def next(self) -> None:
         self.goto(self.index + 1)
@@ -367,12 +367,12 @@ class LiveHub:
 
     def toggle_blackout(self) -> None:
         self.blackout = not self.blackout
-        self._event("blackout", on=self.blackout)
-        self._commit()
+        self.event("blackout", on=self.blackout)
+        self.commit()
 
     def toggle_names(self) -> None:
         self.names = not self.names
-        self._commit()
+        self.commit()
 
     # ---------------------------------------------------------------- clocks
 
@@ -387,14 +387,14 @@ class LiveHub:
         cur = self.current()
         if cur:
             self.section_entered = {cur["section_id"]: self.clock_started_at}
-        self._event("clock_start")
-        self._commit()
+        self.event("clock_start")
+        self.commit()
 
     def clock_reset(self) -> None:
         self.clock_started_at = None
         self.section_entered = {}
-        self._event("clock_reset")
-        self._commit()
+        self.event("clock_reset")
+        self.commit()
 
     # ---------------------------------------------------------------- timers
 
@@ -414,7 +414,7 @@ class LiveHub:
         if t.running_since is None:
             t.running_since = now_ms()
             self._schedule_end(item["id"])
-            self._event("timer_start", item_id=item["id"], remaining=round(t.remaining(now_ms())))
+            self.event("timer_start", item_id=item["id"], remaining=round(t.remaining(now_ms())))
             self._timer_heard("start", item)
 
     def _timer_heard(self, event: str, item: dict[str, Any]) -> None:
@@ -428,7 +428,7 @@ class LiveHub:
         t.elapsed += (now_ms() - t.running_since) / 1000
         t.running_since = None
         self._cancel_handle(item_id)
-        self._event("timer_pause", item_id=item_id, remaining=round(t.remaining(now_ms())))
+        self.event("timer_pause", item_id=item_id, remaining=round(t.remaining(now_ms())))
 
     def start_timer_for(self, item_id: str) -> None:
         """Start an item's timer from another service (capture start, step 7)."""
@@ -436,12 +436,12 @@ class LiveHub:
         if item and item.get("timer") and (item_id not in self.timers or self.timers[item_id].done
                                            or self.timers[item_id].running_since is None):
             self._timer_start(item)
-            self._commit()
+            self.commit()
 
     def pause_timer_for(self, item_id: str) -> None:
         if item_id in self.timers and self.timers[item_id].running_since is not None:
             self._timer_pause(item_id)
-            self._commit()
+            self.commit()
 
     def timer_toggle(self) -> None:
         item = self._timer_item()
@@ -450,7 +450,7 @@ class LiveHub:
             self._timer_pause(item["id"])
         else:
             self._timer_start(item)
-        self._commit()
+        self.commit()
 
     def timer_add_minute(self) -> None:
         item = self._timer_item()
@@ -466,18 +466,18 @@ class LiveHub:
             t.total += 60
         if t.running_since is not None:
             self._schedule_end(item["id"])
-        self._event("timer_add_minute", item_id=item["id"])
+        self.event("timer_add_minute", item_id=item["id"])
         if restarted:
             self._timer_heard("start", item)
-        self._commit()
+        self.commit()
 
     def timer_reset(self) -> None:
         item = self._timer_item()
         self._cancel_handle(item["id"])
         self.timers.pop(item["id"], None)
-        self._event("timer_reset", item_id=item["id"])
+        self.event("timer_reset", item_id=item["id"])
         self._timer_heard("reset", item)
-        self._commit()
+        self.commit()
 
     def _schedule_end(self, item_id: str) -> None:
         self._cancel_handle(item_id)
@@ -509,7 +509,7 @@ class LiveHub:
         t.elapsed, t.running_since, t.done = float(t.total), None, True
         end = (item.get("timer") or {}).get("end", "keep")
         logger.info("ℹ️ live: timer of %s ended (%s)", item_id, end)
-        self._event("timer_end", item_id=item_id, end=end)
+        self.event("timer_end", item_id=item_id, end=end)
         for fn in self.timer_end_listeners:
             fn(item, end)
         if end == "chime":
@@ -517,20 +517,22 @@ class LiveHub:
         if end == "advance" and self.current() is item and self.index < len(self.items) - 1:
             self.goto(self.index + 1)
             return
-        self._commit()
+        self.commit()
 
     # ------------------------------------------------------------ durability
 
     def _live_dir(self) -> Optional[Path]:
         return self.folder / "live" if self.folder is not None else None
 
-    def _write_failed(self, what: str, exc: OSError) -> None:
+    def write_failed(self, what: str, exc: OSError) -> None:
+        """A session-folder write failed: log it once and show it on the views (``write_error``)."""
         msg = f"Could not write {what} in the session folder — kept in memory"
         if self.write_error != msg:
             logger.error("❌ live: %s (%s)", msg, exc)
         self.write_error = msg
 
-    def _event(self, event: str, **fields: Any) -> None:
+    def event(self, event: str, **fields: Any) -> None:
+        """Append one timestamped record to the session's ``live/events.jsonl``."""
         live = self._live_dir()
         if live is None:
             return
@@ -540,7 +542,7 @@ class LiveHub:
             with open(live / EVENTS_FILE, "a", encoding="utf-8", newline="\n") as fh:
                 fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         except OSError as exc:
-            self._write_failed(EVENTS_FILE, exc)
+            self.write_failed(EVENTS_FILE, exc)
 
     def _save_state(self) -> None:
         live = self._live_dir()
@@ -555,7 +557,7 @@ class LiveHub:
         try:
             atomic_write_text(live / STATE_FILE, json.dumps(data, indent=1))
         except OSError as exc:
-            self._write_failed(STATE_FILE, exc)
+            self.write_failed(STATE_FILE, exc)
             if self.loop is not None and not self._state_retry:
                 self._state_retry = True
                 self.loop.call_later(2.0, self._retry_state)
@@ -570,8 +572,7 @@ class LiveHub:
         had = self.write_error
         self._save_state()
         if had != self.write_error:
-            self.rev += 1
-            self._broadcast_state()
+            self.push_state()
 
     def _restore_state(self) -> None:
         live = self._live_dir()

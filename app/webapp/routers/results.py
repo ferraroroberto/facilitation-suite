@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import subprocess
 import sys
 import tempfile
@@ -30,12 +29,12 @@ from src.results.collect import load_results, participation, read_jsonl
 from src.results.excel import build_report
 from src.results.pdf import session_html
 from src.results.reconcile import reconcile_file
+from src.sessions.model import ITEM_ID
 from src.sessions.store import SessionError, SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")
 
-ITEM_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 PDF_FILE, XLSX_FILE, RECONCILE_FILE = "session.pdf", "report.xlsx", "zoom-reconciliation.json"
 PDF_TIMEOUT_S = 300
@@ -88,7 +87,7 @@ def results(request: Request, sid: str) -> dict[str, Any]:
 def capture_png(request: Request, sid: str, item_id: str) -> FileResponse:
     folder, _ = _load(request, sid)
     path = folder / "live" / "captures" / f"{item_id}.png"
-    if not ITEM_ID.match(item_id) or not path.is_file():
+    if not ITEM_ID.fullmatch(item_id) or not path.is_file():
         raise AppError(404, "not_found", "No frozen image for that activity")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})
 
