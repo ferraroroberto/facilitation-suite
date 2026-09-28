@@ -141,6 +141,9 @@ class LiveHub:
         # A service that steps through the item on stage takes ``next`` while it has steps left
         # (the quiz: question → reveal → leaderboard) by returning True; else the plan moves on.
         self.next_handlers: list[Callable[[], bool]] = []
+        # The same for the Space key (the ``space`` action): a service that owns what Space means
+        # on the item on stage (the quiz: lock an open question) returns True; else capture/timer.
+        self.space_handlers: list[Callable[[], bool]] = []
         # The camera zone of each OBS profile (Settings); the defaults until the server wires it.
         self.zones: Callable[[], dict[str, Any]] = lambda: {}
 

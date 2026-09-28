@@ -18,10 +18,12 @@ surface's "next") steps ``question → reveal → leaderboard`` and only from
 ``leaderboard`` moves on to the next plan item; time up (plus
 ``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves. On a lobby, a
 podium and every other item ``next`` and ``prev`` behave exactly as before.
-``prev`` is never taken: it goes to the previous item. Leaving a question
-while it is still open locks it (answers only count while the stage shows the
-question); coming back shows its reveal or leaderboard again, never a second
-chance to answer.
+**Space** (the ``space`` action) on a question that is still open locks it
+(the same as ``quiz_lock``); anywhere else Space is the capture or the timer
+as before. ``prev`` is never taken: it goes to the previous item. Leaving a
+question while it is still open locks it (answers only count while the stage
+shows the question); coming back shows its reveal or leaderboard again, never
+a second chance to answer.
 
 **Durability.** Every join, resume, kick, answer and phase change is one
 record in ``live/quiz.jsonl`` (see ``engine.py``); phase changes also go to
@@ -61,12 +63,17 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
 - ``change_listeners`` — callables run after every change to a game (every
   record: a join, an answer, a phase…) and when the live session changes, so
   a player socket can push.
+- ``open_question()`` — the game, scope and question taking answers on
+  stage now; the chat fallback (``chat.py``) reads it.
 
 **Join PIN.** Every game gets a 6-digit PIN (a ``pin`` record right after
 its ``game`` record, so it survives a restart); ``state.quiz`` carries it
 with ``join_url`` (``quiz.public_url`` + ``/play?pin=…``, ``None`` while the
 public URL is not configured) and ``listener`` (the player listener is up).
 The server sets ``public_url`` and ``listener_up``.
+
+``state.quiz`` also carries ``accept_chat``: the lobby's "answers typed in
+the chat count too" switch for this game (default on).
 """
 
 from __future__ import annotations
@@ -199,6 +206,7 @@ class QuizService:
         live.session_listeners.append(self._on_session)
         live.reset_listeners.append(self._forget)
         live.next_handlers.append(self._on_next)
+        live.space_handlers.append(self._on_space)
         register(Action("quiz_lock", "Quiz: lock answers", lambda h, a: self.lock()))
         register(Action("quiz_kick", "Quiz: remove a player", lambda h, a: self.kick(str(a)), arg="id", stream_deck=False))
         register(Action("quiz_new_game", "Quiz: play again (a new game)", lambda h, a: self.new_game(), stream_deck=False))
@@ -232,7 +240,22 @@ class QuizService:
         if game is None:
             return {"quiz": None}
         return {"quiz": {**game.snapshot(scope.order, scope.questions), "join_url": self.join_url(game.pin),
-                         "listener": self.listener_up()}}
+                         "listener": self.listener_up(), "accept_chat": self.accepts_chat(scope)}}
+
+    def accepts_chat(self, scope: Scope) -> bool:
+        """The lobby's "answers typed in the chat count too" switch (default on)."""
+        lobby = self.live.item_by_id(scope.lobby_id) or {}
+        return bool(options_with_defaults(LOBBY, lobby.get("options") or {}).get("accept_chat", True))
+
+    def open_question(self) -> Optional[tuple[Game, Scope, QuizQuestion]]:
+        """The question on stage while it takes answers (its ``question`` phase, still open), else ``None``."""
+        cur, scope, game = self._current()
+        if cur is None or scope is None or game is None or cur["id"] not in scope.questions:
+            return None
+        run = game.runs.get(cur["id"])
+        if game.phase != "question" or game.item_id != cur["id"] or run is None or not run.open:
+            return None
+        return game, scope, scope.questions[cur["id"]]
 
     def game_on_stage(self) -> Optional[Game]:
         """The game of the quiz item on stage (``None`` off a quiz)."""
@@ -385,6 +408,13 @@ class QuizService:
         else:
             return False  # leaderboard: on to the next item
         self._changed()
+        return True
+
+    def _on_space(self) -> bool:
+        """The hub's Space: on a question that is still open, lock it and take the key."""
+        if self.open_question() is None:
+            return False
+        self.lock()
         return True
 
     def _on_item(self, prev: Optional[dict[str, Any]], cur: dict[str, Any]) -> None:

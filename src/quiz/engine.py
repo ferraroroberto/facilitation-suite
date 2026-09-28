@@ -330,7 +330,7 @@ class Game:
             "game_id": self.game_id, "lobby_id": self.lobby_id, "pin": self.pin, "phase": self.phase,
             "item_id": self.item_id, "question_index": order.index(self.item_id) if self.item_id in order else None,
             "question_count": len(order), "deadline_ms": None, "answered_count": 0,
-            "player_count": len(players), "players": [{"id": p.id, "name": p.name} for p in players],
+            "player_count": len(players), "players": [{"id": p.id, "name": p.name, "source": p.source} for p in players],
         }
         run, q = self.runs.get(self.item_id), questions.get(self.item_id)
         if run is not None and q is not None:

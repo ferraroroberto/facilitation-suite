@@ -204,6 +204,8 @@ export function createStage(host, opts = {}) {
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
+        // a quiz question takes chat answers too while its lobby accepts them (#54): shown while it is open
+        (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${ICON('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
         `<span class="st-spacer"></span><span class="st-count" data-count></span>` +
         `<span class="st-pill" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>` +
         `</div></div>`;
@@ -247,6 +249,11 @@ export function createStage(host, opts = {}) {
         pill.classList.toggle('done', !!t.done);
         pill.classList.toggle('paused', paused);
       }
+    }
+    const quizHint = canvas.querySelector('[data-quizhint]');
+    if (quizHint) {
+      const q = state.quiz;
+      quizHint.hidden = !(q && q.accept_chat && q.item_id === item.id && q.phase === 'question');
     }
     if (item.kind === 'activity') drawResult(ctx);
   }

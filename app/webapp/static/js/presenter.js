@@ -262,10 +262,10 @@ function drawNotes(cur) {
   if (copy) copy.addEventListener('click', () => copyText(cur.chat_prompt));
 }
 
-async function copyText(text) {
+async function copyText(text, done = 'Prompt copied — paste it in the Zoom chat') {
   try {
     await navigator.clipboard.writeText(text);
-    toast('Prompt copied — paste it in the Zoom chat');
+    toast(done);
   } catch (e) {
     toast('Could not copy — select the text instead', 'error');
   }
@@ -276,7 +276,8 @@ function drawItemCard(cur, s) {
   const body = card.querySelector('[data-body]');
   const t = cur && cur.timer;
   const cap = !!(cur && cur.capture);
-  card.querySelector('.p-label').textContent = cap ? 'Capture' : 'Timer';
+  const quiz = isQuiz(cur);
+  card.querySelector('.p-label').textContent = cap ? 'Capture' : quiz ? 'Quiz' : 'Timer';
   card.querySelector('.p-meta').textContent = cur ? oneLine(cur.title) : '';
   const key = `${cur ? cur.id : ''}|${t ? 1 : 0}|${cur && cur.kind === 'activity' ? 1 : 0}`;
   if (body.dataset.key !== key) {
@@ -289,7 +290,8 @@ function drawItemCard(cur, s) {
         `<button type="button" class="button-primary p-cap-btn" data-captoggle></button>`);
       body.querySelector('[data-captoggle]').addEventListener('click', () => live.send('capture_toggle'));
     }
-    if (!t && !cap) {
+    if (quiz) buildQuiz(body);
+    if (!t && !cap && !quiz) {
       body.innerHTML = `<p class="muted">No timer on this item. Timers are decided item by item in the Plan tab.</p>`;
     } else if (t) {
       const starts = { manual: 'you start it', on_enter: 'starts when the item opens', with_capture: 'starts with the capture' }[t.start];
@@ -328,7 +330,135 @@ function drawItemCard(cur, s) {
   const own = body.querySelector('[data-count-own]');
   if (own) setSwitch(own, !!s.count_own);
   if (cap) drawCapture(body, s.capture);
+  if (quiz) drawQuiz(body, s.quiz);
   if (t) tickItemTimer(cur, s);
+}
+
+// ------------------------------------------------------------------------ quiz
+
+// The host's side of a quiz (#54): phase, time left, players, the join PIN and
+// link, and the controls. "Next phase" is the plain `next` (the server steps a
+// question → reveal → leaderboard before it moves on); Space locks an open question.
+const QUIZ_TYPES = new Set(['quiz_lobby', 'quiz', 'quiz_podium']);
+const isQuiz = (it) => !!(it && it.kind === 'activity' && QUIZ_TYPES.has(it.type));
+
+function buildQuiz(body) {
+  body.insertAdjacentHTML('beforeend',
+    `<div class="p-cap-status"><span class="p-cap-dot" data-qdot></span><span class="grow" data-qphase></span><span class="p-quiz-left" data-qleft></span></div>` +
+    `<p class="small muted p-cap-counts" data-qcounts></p>` +
+    `<div class="p-quiz-join" data-qjoin></div>` +
+    `<button type="button" class="button-primary p-cap-btn" data-qnext></button>` +
+    `<div class="p-timer-actions">` +
+    `<button type="button" class="button-surface" data-qlock>${icon('square')} Lock answers<kbd>Space</kbd></button>` +
+    `<button type="button" class="button-surface" data-qnew>${icon('rotate-ccw')} New game</button></div>` +
+    `<p class="overline p-quiz-head">${icon('users')} Players</p><ul class="p-quiz-players" data-qplayers></ul>`);
+  body.querySelector('[data-qnext]').addEventListener('click', () => live.send('next'));
+  body.querySelector('[data-qlock]').addEventListener('click', () => live.send('quiz_lock'));
+  body.querySelector('[data-qnew]').addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'Start a new game?',
+      message: 'The quiz starts over from this lobby with no players. The game played so far is kept, and its results stay in the Results tab.',
+      actionLabel: 'New game',
+    });
+    if (ok) live.send('quiz_new_game');
+  });
+  body.querySelector('[data-qplayers]').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-kick]');
+    if (!b) return;
+    const ok = await confirmDialog({
+      title: `Remove ${b.dataset.name}?`,
+      message: 'They leave the game and the leaderboard, and their phone says so. This cannot be undone.',
+      actionLabel: 'Remove', danger: true,
+    });
+    if (ok) live.send('quiz_kick', b.dataset.kick);
+  });
+  body.querySelector('[data-qjoin]').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-qcopy]');
+    if (b) copyText(b.dataset.qcopy, 'Join link copied');
+  });
+  const line = document.createElement('div');
+  line.className = 'switch-line p-switch';
+  line.dataset.qown = '';
+  const label = 'Count my own chat answers (rehearsal)';
+  const sw = switchEl(!!(live.state && live.state.count_own), { label, onToggle: () => live.send('capture_count_own') });
+  sw.dataset.countOwn = '';
+  line.append(sw, Object.assign(document.createElement('span'), { textContent: label }));
+  body.appendChild(line);
+}
+
+function quizPhaseText(q) {
+  if (!q) return 'Not in a game — put a quiz lobby before it';
+  if (q.error) return `Cannot be played: ${q.error}`;
+  const n = q.question_index != null ? q.question_index + 1 : null;
+  return {
+    lobby: 'Lobby — players are joining',
+    question: `Question ${n} of ${q.question_count} — answers open`,
+    reveal: `Question ${n} of ${q.question_count} — answers locked`,
+    leaderboard: `Leaderboard after question ${n} of ${q.question_count}`,
+    podium: 'Podium — the game is over',
+  }[q.phase] || 'Waiting';
+}
+
+function quizNextLabel(q) {
+  if (!q || !q.phase) return 'Next';
+  if (q.phase === 'lobby') return 'Start the first question';
+  if (q.phase === 'question') return 'Reveal the answer';
+  if (q.phase === 'reveal') return 'Show the leaderboard';
+  if (q.phase === 'leaderboard') return q.question_index != null && q.question_index + 1 < q.question_count ? 'Next question' : 'On to the podium';
+  return 'Next';
+}
+
+function quizJoinHtml(q) {
+  // PIN and link come with the player page (#52); until then — or while quiz.public_url
+  // is empty — the card says so rather than showing nothing.
+  const pin = q && q.pin ? `${q.pin.slice(0, 3)} ${q.pin.slice(3)}` : '';
+  if (!pin) return `<span class="chip">Join · not configured</span><span class="small muted">No join PIN for this game yet.</span>`;
+  const url = q.join_url || '';
+  if (!url) return `<span class="p-quiz-pin">PIN <b>${esc(pin)}</b></span><span class="chip warn">Public link · not configured</span>` +
+    `<span class="small muted">Set quiz.public_url in the config.</span>`;
+  // The reachability chip is a slot: Step 8 of #34 checks the public link; until then it says so.
+  return `<span class="p-quiz-pin">PIN <b>${esc(pin)}</b></span>` +
+    `<span class="p-quiz-url" title="${esc(url)}">${esc(url)}</span>` +
+    `<button type="button" class="button-surface" data-qcopy="${esc(url)}">${icon('copy')} Copy link</button>` +
+    `<span class="chip" data-qreach>Reachability · not checked</span>`;
+}
+
+function drawQuiz(body, q) {
+  const phase = q && !q.error ? q.phase : null;
+  body.querySelector('[data-qdot]').className = `p-cap-dot ${phase === 'question' ? 'live' : phase ? 'stopped' : 'error'}`;
+  body.querySelector('[data-qphase]').textContent = quizPhaseText(q);
+  const answering = phase === 'question' || phase === 'reveal';
+  body.querySelector('[data-qcounts]').textContent = q && !q.error
+    ? `${q.player_count} player${q.player_count === 1 ? '' : 's'} joined${answering ? ` · ${q.answered_count} answered` : ''}` +
+      (q.accept_chat ? ' · chat answers on' : ' · chat answers off')
+    : '';
+  const join = body.querySelector('[data-qjoin]');
+  const joinHtml = q && !q.error ? quizJoinHtml(q) : '';
+  if (join.dataset.html !== joinHtml) { join.dataset.html = joinHtml; join.innerHTML = joinHtml; }
+  const next = body.querySelector('[data-qnext]');
+  const nextHtml = `${icon('skip-forward')} ${esc(quizNextLabel(q))}<kbd>→</kbd>`;
+  if (next.dataset.html !== nextHtml) { next.dataset.html = nextHtml; next.innerHTML = nextHtml; }
+  body.querySelector('[data-qlock]').disabled = phase !== 'question';
+  body.querySelector('[data-qnew]').hidden = phase !== 'lobby';
+  body.querySelector('[data-qown]').hidden = !(q && q.accept_chat);
+  const players = (q && q.players) || [];
+  const list = body.querySelector('[data-qplayers]');
+  const sig = JSON.stringify(players);
+  if (list.dataset.sig !== sig) {
+    list.dataset.sig = sig;
+    list.innerHTML = players.length ? players.map((p) =>
+      `<li><span class="grow">${esc(p.name)}</span>${p.source === 'chat' ? '<span class="chip">chat</span>' : ''}` +
+      `<button type="button" class="p-quiz-kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="Remove ${esc(p.name)}" title="Remove from the game">${icon('x')}</button></li>`).join('')
+      : `<li class="muted small">${phase === 'lobby' ? 'Nobody has joined yet.' : 'No players.'}</li>`;
+  }
+  tickQuiz(body, q);
+}
+
+function tickQuiz(body, q) {
+  const left = body.querySelector('[data-qleft]');
+  if (!left) return;
+  const open = q && q.phase === 'question' && q.deadline_ms;
+  left.textContent = open ? clock(Math.max(0, (q.deadline_ms - live.now()) / 1000)) : '';
 }
 
 function drawCapture(body, c) {
@@ -721,6 +851,17 @@ async function simulateAnswers() {
   const s = live.state;
   const cur = s && plan ? items()[s.index] : null;
   let answers = [];
+  if (cur && cur.kind === 'activity' && cur.type === 'quiz') {
+    // A quiz question: twelve simulated people each type one random letter of its answers (the chat fallback).
+    const o = cur.options || {};
+    const letters = ['A', 'B', 'C', 'D'].filter((_, i) => String(o[`answer_${i + 1}`] ?? '').trim());
+    answers = Array.from({ length: 12 }, () => letters[Math.floor(Math.random() * letters.length)]).filter(Boolean);
+    try {
+      await api('/api/chat/simulate', { method: 'POST', body: { kind: 'list', every_ms: 600, answers } });
+      toast(`Simulating ${answers.length} chat answers (${letters.join(', ')})`);
+    } catch (e) { toast(e.message, 'error'); }
+    return;
+  }
   if (cur && cur.kind === 'activity') {
     try {
       activityTypes = activityTypes || (await api('/api/activities')).types;
@@ -748,6 +889,7 @@ setInterval(() => {
   const ctx = { plan, state: s, now: live.now() };
   nowStage.update(ctx);
   if (cur && cur.timer) tickItemTimer(cur, s);
+  if (isQuiz(cur)) tickQuiz(root.querySelector('.p-item [data-body]'), s.quiz);
   drawTiming(cur, s);
   tickChatAge();
 }, 250);

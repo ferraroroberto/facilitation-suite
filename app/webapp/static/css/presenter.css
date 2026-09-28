@@ -218,3 +218,24 @@
 }
 /* "Next" is a glance, not a second stage: smaller, so three items fit under it. */
 .p-stage-next { width: 82%; }
+
+/* The quiz panel (#54): the same card, the host's controls for the game on stage. */
+.p-cap-status .grow { flex: 1; min-width: 0; }
+.p-quiz-left { font-family: var(--mono); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.p-quiz-join { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-sm); }
+.p-quiz-join .chip { display: inline-flex; min-height: 26px; padding: 0 10px; font-size: var(--font-body-sm); }
+.p-quiz-pin b { font-family: var(--mono); font-size: 1.15rem; letter-spacing: 0.04em; }
+.p-quiz-url { min-width: 0; flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); }
+.p-quiz-join .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.p-quiz-head { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-xs); }
+.p-quiz-players { list-style: none; margin: 0; padding: 0; }
+.p-quiz-players li { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; border-bottom: 1px solid var(--line-muted); }
+.p-quiz-players li.muted { border-bottom: 0; }
+.p-quiz-players .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-quiz-players .chip { display: inline-flex; min-height: 22px; padding: 0 8px; font-size: var(--font-caption); }
+.p-quiz-kick {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-md); background: none; color: var(--muted); cursor: pointer;
+}
+.p-quiz-kick:hover { color: var(--danger-text); background: var(--danger-soft); }
+.p-quiz-kick .icon { width: 18px; height: 18px; }

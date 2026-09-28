@@ -1,7 +1,8 @@
 // /remote — the phone in the facilitator's hand (epic §3.2): what is on stage,
 // what comes next, the session clock against the plan, and the same intents as
 // the keyboard — next/previous, capture, timer, blackout — as big buttons, plus
-// the music (play/pause, stop, volume) when the session has any.
+// the music (play/pause, stop, volume) when the session has any, and on a quiz
+// its phase, players, answers, time left and Lock (Next steps the quiz phases).
 // Chat reads the live Zoom chat (tap a message to hide it); Groups shows the
 // breakout rooms to read out. From another device it needs the pairing link
 // made in Settings on the PC (app/webapp/auth.py).
@@ -107,6 +108,9 @@ function buildShell() {
     '<div class="card r-next"><div class="grow"><div class="r-label" data-r-nextlabel></div><div class="r-next-title" data-r-next></div></div>' +
       '<div class="r-clock"><b data-r-elapsed></b><span data-r-drift></span></div></div>' +
     `<button type="button" class="button-primary r-capture" data-r-capture hidden></button>` +
+    '<div class="card r-quiz" data-r-quiz hidden><div class="r-quiz-top"><b data-r-qphase></b><span class="r-quiz-left" data-r-qleft></span></div>' +
+      '<div class="small muted" data-r-qcounts></div>' +
+      `<button type="button" class="button-primary r-capture" data-r-qlock>${icon('square')} Lock answers</button></div>` +
     '<div class="r-nav">' +
       `<button type="button" class="button-tint" data-r-prev>${icon('chevron-left')} Previous</button>` +
       `<button type="button" class="button-tint" data-r-nextbtn>Next ${icon('chevron-right')}</button></div>` +
@@ -124,6 +128,7 @@ function buildShell() {
   preview = createStage(livePane.querySelector('.r-stage'), { guides: false, blackout: true });
   const on = (sel, action) => livePane.querySelector(sel).addEventListener('click', () => live.send(action));
   on('[data-r-capture]', 'capture_toggle');
+  on('[data-r-qlock]', 'quiz_lock');
   on('[data-r-prev]', 'prev');
   on('[data-r-nextbtn]', 'next');
   on('[data-r-ttoggle]', 'timer_toggle');
@@ -169,8 +174,26 @@ function drawLive() {
   livePane.querySelector('[data-r-ttoggle]').hidden = !hasTimer;
   livePane.querySelector('[data-r-tplus]').hidden = !hasTimer;
   livePane.querySelector('[data-r-blackout]').classList.toggle('on', !!s.blackout);
+  drawQuiz(cur, s.quiz);
   drawMusic(s.music);
   tick();
+}
+
+const QUIZ_TYPES = new Set(['quiz_lobby', 'quiz', 'quiz_podium']);
+const QUIZ_PHASE = { lobby: 'Quiz lobby', question: 'Answers open', reveal: 'Answers locked', leaderboard: 'Leaderboard', podium: 'Podium' };
+
+/** A quiz on stage: its phase, players and answers, the join PIN, time left and Lock (Next steps the phases). */
+function drawQuiz(cur, q) {
+  const box = livePane.querySelector('[data-r-quiz]');
+  box.hidden = !(cur && cur.kind === 'activity' && QUIZ_TYPES.has(cur.type));
+  if (box.hidden) return;
+  const n = q && q.question_index != null ? ` · question ${q.question_index + 1} of ${q.question_count}` : '';
+  livePane.querySelector('[data-r-qphase]').textContent = !q ? 'Not in a game' : q.error ? 'Cannot be played' : `${QUIZ_PHASE[q.phase] || 'Quiz'}${n}`;
+  const pin = q && q.pin ? `PIN ${q.pin.slice(0, 3)} ${q.pin.slice(3)}` : 'Join · not configured';
+  const answering = q && (q.phase === 'question' || q.phase === 'reveal');
+  livePane.querySelector('[data-r-qcounts]').textContent = q && !q.error
+    ? `${q.player_count} player${q.player_count === 1 ? '' : 's'}${answering ? ` · ${q.answered_count} answered` : ''} · ${pin}` : '';
+  livePane.querySelector('[data-r-qlock]').disabled = !(q && q.phase === 'question');
 }
 
 /** Music: play/pause (the item's music when nothing plays), stop and the volume. */
@@ -210,6 +233,9 @@ function tick() {
   } else {
     tEl.textContent = '';
   }
+  const q = s.quiz;
+  livePane.querySelector('[data-r-qleft]').textContent = q && q.phase === 'question' && q.deadline_ms
+    ? clock(Math.max(0, (q.deadline_ms - now) / 1000)) : '';
   const t = timing(plan, s, cur, now);
   livePane.querySelector('[data-r-elapsed]').textContent = t ? hms(t.elapsed) : '--:--';
   const drift = livePane.querySelector('[data-r-drift]');
