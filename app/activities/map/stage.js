@@ -28,6 +28,8 @@ const MIN_SPAN = 14 * S; // never zoom closer than ~14° of longitude
 const CLUSTER_PX = 34;
 const EASE_MS = 900;
 const DOT = 16; // a dot's half size, plus a little air, for label placement
+const POP_GAP = 20; // the popover's offset from the pin's box
+const POP_EDGE = 12; // its least distance from the area's edges (stage.css caps its height to match)
 const SIDES = ['right', 'left', 'up', 'down', 'up-right', 'up-left', 'down-right', 'down-left'];
 
 let worldPaths = null;
@@ -198,17 +200,34 @@ function placeLabels(layer, groups, vb, width, height, avoid = []) {
   }
 }
 
+/**
+ * Who is at a pin: a popover just below and right of it, flipped above or to
+ * the left when it would pass the area's bottom or right edge (the area clips
+ * it), then kept inside with a small margin; a big group scrolls (stage.css
+ * caps its height). Maths in the area's own pixels: the stage may be scaled.
+ */
 function popover(host, g, el) {
   host.querySelectorAll('.mp-pop').forEach((p) => p.remove());
   const pop = document.createElement('div');
   pop.className = 'mp-pop';
   pop.innerHTML = g.members.map((p) => `<div><b>${esc(p.sender)}</b> — ${esc(p.name)}, ${esc(p.country_name)}</div>`).join('');
+  pop.style.left = '0px'; // measured at the origin, so an edge does not squeeze its width
+  pop.style.top = '0px';
+  host.appendChild(pop);
   const r = el.getBoundingClientRect();
   const hr = host.getBoundingClientRect();
   const scale = hr.width / host.offsetWidth || 1;
-  pop.style.left = `${(r.left - hr.left) / scale + 20}px`;
-  pop.style.top = `${(r.top - hr.top) / scale + 20}px`;
-  host.appendChild(pop);
+  const [pl, pt, pr, pb] = [r.left - hr.left, r.top - hr.top, r.right - hr.left, r.bottom - hr.top].map((v) => v / scale);
+  const w = pop.offsetWidth;
+  const h = pop.offsetHeight;
+  const W = host.clientWidth;
+  const H = host.clientHeight;
+  let left = pl + POP_GAP;
+  let top = pt + POP_GAP;
+  if (left + w > W - POP_EDGE) left = pr - POP_GAP - w;
+  if (top + h > H - POP_EDGE) top = pb - POP_GAP - h;
+  pop.style.left = `${Math.max(POP_EDGE, Math.min(left, W - POP_EDGE - w))}px`;
+  pop.style.top = `${Math.max(POP_EDGE, Math.min(top, H - POP_EDGE - h))}px`;
 }
 
 export function render(body, result, ctx) {
