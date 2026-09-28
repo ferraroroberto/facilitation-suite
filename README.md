@@ -180,7 +180,7 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 ## Quiz
 
-A Kahoot-style quiz is planned as items (#34; players' phones and the stage's lobby, leaderboard and podium arrive in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
+A Kahoot-style quiz is planned as items (#34; players play on their phones — see *Quiz player* — while the stage's lobby, leaderboard and podium arrive in later steps). Three activity types, all in the Plan tab's activity **Type → More…** menu:
 
 - **Quiz lobby** starts a game; its **Quiz name** is the title on the stage. The game is the quiz questions after it, in plan order, up to the next quiz podium.
 - **Quiz question**: the question, **Answer 1–4** (two to four), **Correct answer(s)** (the answer numbers, as Kahoot writes them: `2`, or `1,3` for several), **Time limit** (5, 10, 20, 30, 60, 90, 120 or 240 s; 20 by default) and **Points** (standard, double or none).
@@ -225,10 +225,10 @@ The phone remote shows the same essentials on a quiz item — the phase, players
 
 ## Quiz player (public)
 
-The quiz (in progress, #34) is the one part of the app strangers reach: players on their own phones, on mobile data, not on the tailnet. So it is a **separate, minimal app** — never `:8449`, never `RemoteAuth` loosened:
+The quiz (#34) is the one part of the app strangers reach: players on their own phones, on mobile data, not on the tailnet. So it is a **separate, minimal app** — never `:8449`, never `RemoteAuth` loosened:
 
 - The server starts a second listener, the player app (`app/player/`), on **`127.0.0.1:8451`** (`quiz.public_port`), loopback only whatever `host` says. It runs in the same process and event loop as the main app and stops with it.
-- It serves `/play` (for now a page that checks the connection), `/play/api/ping` and the `/play/ws` socket — nothing else: the presenter, the stage, the app, `/api/*`, `/ws`, `/static` and the OpenAPI docs are all `404` there. Only the player app may ever use port 8451.
+- It serves the player page `/play` (its own CSS and script under `/play/static/`), the player API `/play/api/…` and the `/play/ws` socket — nothing else: the presenter, the stage, the app, `/api/*`, `/ws`, `/static` and the OpenAPI docs are all `404` there. Only the player app may ever use port 8451. It calls the main app's one quiz engine directly (same process, same loop).
 - **Tailscale Funnel** publishes it on the public internet as `https://<this PC>.<tailnet>.ts.net:10000/play`. Funnel only serves on 443, 8443 and 10000, and on this PC the other two are taken: 443 by the tailnet-only LLM hub, 8443 by voice-transcriber (a Funnel there would capture its tailnet traffic). Likewise 8450 is parking-manager's, hence 8451. The `tailscale serve` entries on 443, 3000 and 8465 stay tailnet-only and untouched.
 - If 8451 is busy at start, the log says `❌ quiz player listener: 127.0.0.1:8451 is busy …` once, the public quiz is off, and the main app keeps serving. `quiz.public_port: 0` turns the listener off.
 
@@ -240,7 +240,17 @@ tailscale funnel --https=10000 off                          # stop publishing
 
 Never `tailscale funnel reset` — it clears the whole serve config, the tailnet-only entries included.
 
-Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net:10000`) — later steps show it to players as a QR code.
+Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net:10000`): the join QR code and link are built from it. While it is empty the presenter's chip says *Quiz · PIN … · public URL not configured* and the QR is a placeholder saying the same.
+
+**Playing on a phone.** Every game has a **6-digit PIN** (kept in `live/quiz.jsonl`, so it survives a restart; *play again* gets a new one). Players scan the QR code (`quiz.public_url` + `/play?pin=…`, the PIN filled in) or open `/play` and type the PIN, pick a nickname (a name already taken gets ` (2)`) and join. The phone then shows only what it needs: *You're in* in the lobby; on a question, two to four big tiles in four colours **and** four shapes (1 red triangle, 2 blue diamond, 3 amber circle, 4 green square — the stage uses the same) with the time left; after a tap *Sending…* until the server acknowledges the answer, then **✓ Locked in** — never before; *Too late* when the question closed first; at the reveal *Correct* (+points, rank) or *Not this time* or *No answer*; the rank and score on the leaderboard and podium; and *Removed* for a player the host kicked. The page works from 320 px wide, in light or dark (the ☾/☀ button), and never receives the correct answer before the reveal or anyone else's answers.
+
+- **Reconnect-safe.** The player's id and secret stay in the phone's browser storage: a reload, a locked phone or a Wi-Fi ↔ 4G switch resumes the same player and score. A PIN for another game starts a fresh join.
+- **Acked answers.** A tap is retried with backoff until the server answers; a retry never scores twice (the first answer stands).
+- **Live updates** come over the `/play/ws` socket; while it is down, or after it dropped twice within 30 s, the page polls every second and keeps trying the socket. `?transport=poll` forces polling (to test a network that blocks WebSockets).
+- **Rate limits per phone address** on join/resume (200 at once, then 5 a second), answers (600, then 20 a second) and wrong PINs (30, then one every 2 s) — generous enough for 60 players behind one office NAT. Funnel passes the phone's public IP in `X-Forwarded-For` (replacing anything the phone sent), which the listener trusts from `127.0.0.1` only.
+- The listener's own request lines stay out of the access log (the polling URL carries the player's secret, and 60 phones poll every second).
+
+`GET /api/quiz/qr.svg` (main app, behind `RemoteAuth`; `?pin=` for a given game) is the join QR of the game on stage; its `X-Quiz-QR` header says `ok` or `not-configured`. `state.quiz` carries `pin`, `join_url` (`null` while `quiz.public_url` is empty) and `listener` (the player listener is up).
 
 ## Phone remote
 

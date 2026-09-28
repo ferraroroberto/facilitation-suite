@@ -19,6 +19,8 @@ openpyxl>=3.1
 obsws-python>=1.7
 # Item music (src/music/): decodes mp3/wav/ogg/flac and plays to the default output (cp314 wheel, no system install).
 miniaudio>=1.71
+# The quiz's join QR code (src/quiz/qr.py) — pure Python, no Pillow needed for SVG.
+qrcode>=8.2
 # Frozen capture PNGs + the session PDF appendix render in headless Chromium.
 playwright>=1.45
 

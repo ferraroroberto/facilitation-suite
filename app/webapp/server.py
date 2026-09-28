@@ -9,12 +9,14 @@ Pages (``app/webapp/routers/pages.py``):
                        (``app/webapp/routers/live.py``, ``src/live/hub.py``)
     /api/chat/…      → the Zoom chat: the reader process posts here (loopback
                        only), views read it (``src/chat/``)
+    /api/quiz/…      → the quiz's join QR code (``app/webapp/routers/quiz.py``)
     GET /healthz     → liveness
     GET /api/version → build identity (git_sha captured at import, schema version)
 
 The lifespan also runs the **quiz player listener** — a second, separate app on
 ``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface Tailscale
-Funnel publishes. It shares this loop, never this app's routes.
+Funnel publishes. It shares this loop and the one ``QuizService``, never this
+app's routes.
 
 Static assets are served ``no-cache`` (revalidated by ETag on every load):
 the app runs on this PC and on a phone over the tailnet, so a stale asset
@@ -58,6 +60,7 @@ from app.webapp.routers import (
     groups,
     live,
     pages,
+    quiz,
     results,
     sessions,
     settings,
@@ -108,7 +111,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.live.bind(asyncio.get_running_loop())
     monitor = asyncio.create_task(app.state.chat.monitor())
     app.state.obs.start()
-    player = PlayerListener(cfg.quiz.public_port)
+    player = PlayerListener(cfg.quiz.public_port, app.state.quiz)
     app.state.player = player
     await player.start()  # optional: a busy port is logged, never fatal
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
@@ -204,8 +207,11 @@ def _install_music(app: FastAPI) -> None:
 def _install_quiz(app: FastAPI) -> None:
     """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``), plus its
     Zoom-chat fallback (``src/quiz/chat.py``; own messages count only in the capture's rehearsal mode)."""
-    app.state.quiz = QuizService(app.state.live)
-    app.state.quiz_chat = ChatAnswers(app.state.quiz, app.state.chat, count_own=lambda: app.state.capture.count_own)
+    service = QuizService(app.state.live)
+    service.public_url = lambda: app.state.config.quiz.public_url
+    service.listener_up = lambda: bool(getattr(app.state, "player", None) and app.state.player.running)
+    app.state.quiz = service
+    app.state.quiz_chat = ChatAnswers(service, app.state.chat, count_own=lambda: app.state.capture.count_own)
 
 
 def create_app() -> FastAPI:
@@ -240,6 +246,7 @@ def create_app() -> FastAPI:
     app.include_router(results.router)
     app.include_router(settings.router)
     app.include_router(actions.router)
+    app.include_router(quiz.router)
     return app
 
 

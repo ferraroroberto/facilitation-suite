@@ -1,8 +1,9 @@
 """The second listener: the player app on ``127.0.0.1:<quiz.public_port>`` (#49).
 
-Started inside the main app's lifespan as a task on the **same event loop**
-(so later steps can share the one ``LiveHub``), stopped when the main app
-stops. ``launcher.py`` and the tray stay as they are.
+Started inside the main app's lifespan as a task on the **same event loop**,
+with the main app's one ``QuizService`` (the player routes call it directly —
+no second engine), stopped when the main app stops. ``launcher.py`` and the
+tray stay as they are.
 
 - **Loopback only, always.** Whatever ``config.host`` says, this binds
   ``127.0.0.1``: the only way in from outside is Tailscale Funnel.
@@ -14,6 +15,11 @@ stops. ``launcher.py`` and the tray stay as they are.
   loopback bind sit silently beside someone else's ``0.0.0.0`` listener).
 - **Not the signal owner.** The main uvicorn server handles Ctrl+C / SIGTERM;
   this one never installs signal handlers.
+- **Out of the access log.** Its request lines are dropped (``QuietPlayerRequests``
+  on ``uvicorn.access``): 60 phones polling once a second would flood the log, and
+  the polling URL carries each player's secret. The logger is shared with the main
+  server, so this filters by path instead of uvicorn's ``access_log=False``, which
+  would empty that logger's handlers for the main app too.
 - ``public_port = 0`` turns it off (the unit tests do; e2e uses a free port).
 """
 
@@ -27,8 +33,10 @@ from collections.abc import Generator
 from typing import Optional
 
 import uvicorn
+from fastapi import FastAPI
 
-from app.player.app import create_player_app
+from app.player.app import PREFIX, create_player_app
+from src.quiz.service import QuizService
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +44,21 @@ HOST = "127.0.0.1"
 START_TIMEOUT_S = 5.0
 STOP_TIMEOUT_S = 5.0
 _EXCLUSIVE = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)  # Windows only
+ACCESS_LOGGER = "uvicorn.access"
+
+
+class QuietPlayerRequests(logging.Filter):
+    """Drop access-log lines for ``/play…`` (uvicorn's args: client, method, path, version, status)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) > 2 and str(args[2]).startswith(PREFIX))
+
+
+def quiet_player_requests() -> None:
+    lg = logging.getLogger(ACCESS_LOGGER)
+    if not any(isinstance(f, QuietPlayerRequests) for f in lg.filters):
+        lg.addFilter(QuietPlayerRequests())
 
 
 class _EmbeddedServer(uvicorn.Server):
@@ -71,8 +94,10 @@ def bind_player_socket(port: int) -> socket.socket:
 class PlayerListener:
     """Owns the player app's uvicorn server for the lifetime of the main app."""
 
-    def __init__(self, port: int) -> None:
+    def __init__(self, port: int, quiz: QuizService) -> None:
         self.port = port
+        self.quiz = quiz
+        self.app: Optional[FastAPI] = None
         self.server: Optional[_EmbeddedServer] = None
         self.task: Optional[asyncio.Task[None]] = None
 
@@ -94,12 +119,17 @@ class PlayerListener:
                 HOST, self.port, exc,
             )
             return False
+        self.app = create_player_app(self.quiz)
+        quiet_player_requests()
         config = uvicorn.Config(
-            create_player_app(),
+            self.app,
             lifespan="off",
             log_config=None,  # the process's logging is already configured; don't reset it
-            access_log=False,
-            proxy_headers=True,  # Funnel forwards from loopback with X-Forwarded-For
+            access_log=True,  # False would empty the shared uvicorn.access logger (see the module docstring)
+            # Funnel forwards from loopback with X-Forwarded-For = the phone's public IP (it replaces
+            # whatever the client sent); trusted from 127.0.0.1 only, so request.client is the phone.
+            proxy_headers=True,
+            forwarded_allow_ips="127.0.0.1",
             ws_ping_interval=20.0,
             ws_ping_timeout=20.0,
         )
@@ -127,6 +157,9 @@ class PlayerListener:
 
     async def stop(self) -> None:
         """Ask the server to finish; force it after ``STOP_TIMEOUT_S``."""
+        if self.app is not None:
+            self.app.state.detach()  # the quiz stops pushing to this app's sockets
+            self.app = None
         if self.server is None or self.task is None:
             return
         self.server.should_exit = True
