@@ -20,7 +20,9 @@ listener, which runs on the main app's loop), so every route is ``async``:
                               unknown_player | kicked, …, view}
     POST /play/api/answer     {player_id, secret, item_id, choice, elapsed_ms}
                               → the engine's ack {state: accepted | duplicate |
-                              too_late | not_open | unknown_player | kicked, …}
+                              too_late | not_open | unknown_player | kicked, …},
+                              or ``no_game`` while no session is live (after a
+                              restart, until the presenter goes live): retry it
     GET  /play/api/state      ?player_id&secret → the view message (polling)
     WS   /play/ws             → {"op": "hello", player_id, secret} in, the same
                               view message pushed on every change; {"op":
@@ -185,6 +187,8 @@ def create_player_app(quiz: QuizService) -> FastAPI:
     @app.post(f"{PREFIX}/api/answer")
     async def answer(request: Request, body: AnswerBody) -> dict[str, Any]:
         limit("answer", client_ip(request), ratelimit.ANSWER)
+        if quiz.live.session_id is None:  # after a restart, until the presenter goes live: retry, keep the identity
+            return {"state": "no_game", "item_id": body.item_id, "choice": None, "elapsed_ms": None, "now_ms": now_ms()}
         res = quiz.answer(body.player_id, body.secret, body.item_id, body.choice, body.elapsed_ms)
         return {**res.as_dict(), "now_ms": now_ms()}
 
