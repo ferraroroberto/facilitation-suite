@@ -92,6 +92,8 @@
   display: grid;
   gap: 6px;
   max-width: 520px;
+  max-height: calc(100% - 56px); /* 12px off each edge (stage.js POP_EDGE) + its own padding and border */
+  overflow-y: auto;
   padding: 14px 18px;
   border-radius: 16px;
   background: var(--st-chip-bg);

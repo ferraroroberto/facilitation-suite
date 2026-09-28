@@ -45,6 +45,27 @@ def test_people_land_on_the_map(page: Page, browser: Browser, webapp, shots) -> 
     stage.locator(".mp-area > .mp-pins .mp-pin", has_text="Morgan").first.click()
     expect(stage.locator(".mp-pop")).to_contain_text("Mexico City")
     area = stage.locator(".mp-area").bounding_box()
+
+    # the lowest and the rightmost pin (map or inset) open their popover inside the area, not clipped by its edge
+    pins = stage.locator(".mp-area .mp-pin")
+    extremes = prev = None
+    for _ in range(20):  # once the view has settled
+        extremes = stage.evaluate("""() => {
+          const r = [...document.querySelectorAll('.mp-area .mp-pin')].map((el, i) => [i, el.getBoundingClientRect()]).filter(([, b]) => b.width);
+          const lowest = r.reduce((a, b) => (b[1].bottom > a[1].bottom ? b : a));
+          const rightmost = r.reduce((a, b) => (b[1].right > a[1].right ? b : a));
+          return [lowest[0], rightmost[0], lowest[1].bottom, rightmost[1].right];
+        }""")
+        if extremes == prev:
+            break
+        prev = extremes
+        stage.wait_for_timeout(250)
+    for i in set(extremes[:2]):
+        pins.nth(i).click()
+        pop = stage.locator(".mp-pop").bounding_box()
+        assert (area["x"] <= pop["x"] and pop["x"] + pop["width"] <= area["x"] + area["width"]
+                and area["y"] <= pop["y"] and pop["y"] + pop["height"] <= area["y"] + area["height"]), (pop, area)
+
     stage.mouse.click(area["x"] + 8, area["y"] + 8)  # closes the popover — a click that only closes it does not go on
     expect(stage.locator(".mp-pop")).to_have_count(0)
     expect(page.locator(".p-sub")).to_contain_text("2 of 17")
