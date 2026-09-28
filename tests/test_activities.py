@@ -138,6 +138,45 @@ def test_capture_counts_only_inside_its_windows(svc) -> None:
     assert texts == ["reuniones", "perfeccionismo", "cansancio"]
 
 
+def test_own_messages_count_only_while_rehearsing(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-kryptonite")
+    assert live.snapshot()["state"]["count_own"] is False  # off by default
+    run_action(live, "capture_toggle")
+    _say(chat, ("You", "reuniones"), ("Ana", "silos"))
+    state = live.snapshot()["state"]["capture"]
+    assert state["answers"] == 1 and {w["key"] for w in state["result"]["words"]} == {"silos"}
+
+    run_action(live, "capture_count_own")  # rehearsal: my own typing counts, the earlier message too
+    snap = live.snapshot()["state"]
+    assert snap["count_own"] is True
+    assert snap["capture"]["answers"] == 2 and {w["key"] for w in snap["capture"]["result"]["words"]} == {"reuniones", "silos"}
+    run_action(live, "capture_toggle")  # the frozen result counts it as well
+    frozen = json.loads((folder / "live" / "captures" / "act-kryptonite.json").read_text(encoding="utf-8"))
+    assert [a["sender"] for a in frozen["answers"]] == ["You", "Ana"] and frozen["result"]["answers"] == 2
+
+    run_action(live, "capture_count_own")  # off again: back to the live rule
+    assert [m["text"] for m in cap.messages_for("act-kryptonite")] == ["silos"]
+
+
+def test_counting_own_messages_starts_off_after_a_restart_and_an_activation(svc) -> None:
+    live, _, cap, _ = svc
+    sid = live.session_id
+    run_action(live, "capture_count_own")
+    assert cap.count_own is True
+    live.deactivate()
+    live.activate(sid)  # activating a session: off
+    assert cap.count_own is False and live.snapshot()["state"]["count_own"] is False
+    run_action(live, "capture_count_own")
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_toggle")  # writes captures.json
+    assert "count_own" not in (live.folder / "live" / "captures.json").read_text(encoding="utf-8")  # never saved
+    live2 = LiveHub(SessionStore(load_config()))  # a restarted server: off
+    cap2 = CaptureService(live2, ChatHub(live2))
+    live2.activate(sid)
+    assert cap2.count_own is False
+
+
 def test_hide_and_unhide_a_message(svc) -> None:
     live, chat, cap, folder = svc
     _goto(live, "act-enemy")

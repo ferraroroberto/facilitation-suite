@@ -4,7 +4,9 @@ Epic §8. **Start** opens a window on the activity; every non-hidden
 participant message received while a window is open belongs to it until
 **Stop**. A stopped capture can be reopened (a new window; what arrived while
 it was stopped stays out). The facilitator's own messages ("You") never
-count. Hidden messages are excluded everywhere and can be un-hidden.
+count, unless the presenter's rehearsal switch (``count_own``) is on — it is
+never saved, so it starts off after a restart and on every session
+activation. Hidden messages are excluded everywhere and can be un-hidden.
 
 At every Stop the result is **frozen**: ``live/captures/<item>.json`` (every
 answer with its name and parsed value, plus the result) at once, and
@@ -55,6 +57,8 @@ class CaptureService:
         self.hidden: set[int] = set()
         # Places fixed by hand on the presenter (map): message id → GeoNames id.
         self.places: dict[int, str] = {}
+        # Rehearsal: the facilitator's own messages count. Deliberately not persisted.
+        self.count_own = False
         self._push_pending = False
         self._session: Optional[str] = None
         self.freeze_url: Optional[str] = None  # the server's own base URL, for the PNG
@@ -62,13 +66,15 @@ class CaptureService:
         live.item_listeners.append(self._on_item)
         live.timer_end_listeners.append(self._on_timer_end)
         live.timer_listeners.append(self._on_timer)
-        live.session_listeners.append(lambda sid: self._load())
+        live.session_listeners.append(self._on_session)
         live.reset_listeners.append(self._forget)
         chat.listeners.append(self._on_messages)
         register(Action("capture_toggle", "Capture start/stop", lambda h, a: self.toggle()))
         register(Action("space", "Space: the capture, else the timer", lambda h, a: self.space(), stream_deck=False))
         register(Action("hide_message", "Hide a chat message", lambda h, a: self.set_hidden(_int(a), True), arg="id", stream_deck=False))
         register(Action("unhide_message", "Show a hidden message", lambda h, a: self.set_hidden(_int(a), False), arg="id", stream_deck=False))
+        register(Action("capture_count_own", "Count my own chat messages (rehearsal) on/off",
+                        lambda h, a: self.toggle_count_own(), stream_deck=False))
 
     # ----------------------------------------------------------- queries
 
@@ -87,7 +93,7 @@ class CaptureService:
             return []
         out = []
         for m in self.chat.messages:
-            if m.get("own"):
+            if m.get("own") and not self.count_own:
                 continue
             t = m["received_at"]
             inside = any(s is not None and t >= s and (e is None or t < e) for s, e in wins)  # [start, stop)
@@ -103,7 +109,7 @@ class CaptureService:
     def state_fields(self) -> dict[str, Any]:
         self._load()
         cur = self.live.current()
-        out: dict[str, Any] = {"hidden": sorted(self.hidden), "capture": None}
+        out: dict[str, Any] = {"hidden": sorted(self.hidden), "count_own": self.count_own, "capture": None}
         if cur and cur.get("capture"):
             counted = self.messages_for(cur["id"])
             hidden_in = [m["id"] for m in self.messages_for(cur["id"], include_hidden=True) if m["id"] in self.hidden]
@@ -184,6 +190,13 @@ class CaptureService:
                     self._freeze(item)
         self.live.commit()
 
+    def toggle_count_own(self) -> None:
+        """The presenter's rehearsal switch: the facilitator's own messages count while on."""
+        self.count_own = not self.count_own
+        logger.info("ℹ️ capture: own messages %s", "count (rehearsal)" if self.count_own else "do not count")
+        self.live.event("count_own", on=self.count_own)
+        self.live.commit()
+
     def place(self, message_id: int, geonameid: str) -> None:
         """Fix an unplaced map answer by hand (the presenter's one-click fix)."""
         self.places[message_id] = geonameid
@@ -203,6 +216,10 @@ class CaptureService:
         if cur.get("kind") == "activity" and cur.get("type"):
             opts = options_with_defaults(cur["type"], cur.get("options") or {})
             self.live.names = bool(opts.get("show_names", False))
+
+    def _on_session(self, sid: Optional[str]) -> None:
+        self.count_own = False  # every activation starts with the live rule: own messages never count
+        self._load()
 
     def _on_timer(self, event: str, item: dict[str, Any]) -> None:
         if not item.get("capture"):
