@@ -7,6 +7,13 @@ flowchart LR
     stage["/stage (OBS display capture)"]
   end
   tray["tray.bat → app/tray/tray.py"] --> server
+  phones["players' phones (public internet, not the tailnet)"] -->|HTTPS · WS| funnel["Tailscale Funnel :8443<br/>&lt;this PC&gt;.&lt;tailnet&gt;.ts.net"]
+  funnel -->|"http://127.0.0.1:8450"| playerapp
+  subgraph player[Quiz player listener 127.0.0.1:8450 — app/player/ · same process + loop]
+    playerapp["app/player/app.py<br/>/play · /play/api/ping · WS /play/ws — nothing else"]
+  end
+  server -.->|lifespan starts / stops| listener["app/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
+  listener --> playerapp
   remotev -->|HTTPS · pairing cookie| gate["app/webapp/auth.py<br/>RemoteAuth — this PC always, others with the token"]
   gate --> server
   remotev <-->|WS snapshots / intents| liver

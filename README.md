@@ -188,6 +188,25 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 Every other device needs that token for everything (the app, the API, the live connection) — as a pairing cookie, an `Authorization: Bearer` header or `?token=`; without it, `401`. The pages and API stay open to this PC itself: loopback, or this PC reaching itself through its tailnet name (the connection comes from the same address it arrives on). The token lives in `config/config.json` → `remote.token` (gitignored), is never logged (request lines are redacted), and the native file picker, the chat reader's endpoints and the remote's own Settings stay PC-only even with it.
 
+## Quiz player (public)
+
+The quiz (in progress, #34) is the one part of the app strangers reach: players on their own phones, on mobile data, not on the tailnet. So it is a **separate, minimal app** — never `:8449`, never `RemoteAuth` loosened:
+
+- The server starts a second listener, the player app (`app/player/`), on **`127.0.0.1:8450`** (`quiz.public_port`), loopback only whatever `host` says. It runs in the same process and event loop as the main app and stops with it.
+- It serves `/play` (for now a page that checks the connection), `/play/api/ping` and the `/play/ws` socket — nothing else: the presenter, the stage, the app, `/api/*`, `/ws`, `/static` and the OpenAPI docs are all `404` there. Only the player app may ever use port 8450.
+- **Tailscale Funnel** publishes it on the public internet as `https://<this PC>.<tailnet>.ts.net:8443/play` (Funnel only serves on 443, 8443 and 10000; 443 is taken by the tailnet-only LLM hub). The `tailscale serve` entries on 443, 3000 and 8465 stay tailnet-only and untouched.
+- If 8450 is busy at start, the log says `❌ quiz player listener: 127.0.0.1:8450 is busy …` once, the public quiz is off, and the main app keeps serving. `quiz.public_port: 0` turns the listener off.
+
+```powershell
+tailscale funnel --bg --https=8443 http://127.0.0.1:8450   # publish (persists across reboots)
+tailscale funnel status                                     # what is public (8443 = "Funnel on")
+tailscale funnel --https=8443 off                           # stop publishing
+```
+
+Never `tailscale funnel reset` — it clears the whole serve config, the tailnet-only entries included.
+
+Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net:8443`) — later steps show it to players as a QR code.
+
 ## Results and exports
 
 The **Results** tab reads the session folder, so it works on any session once it has run (live or not): every captured activity in the order it happened, and for the selected one the visual exactly as the stage showed it at the stop, its top items (words, votes, countries) and every answer with the person's name and chat time — hidden ones struck through.
@@ -246,6 +265,7 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
+| `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8450; `0` = off) · `public_url`: its public Funnel address, empty until published (see *Quiz player*). Restart the tray after changing it |
 
 **`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere.
 
@@ -273,6 +293,7 @@ The Sessions tab creates, duplicates (plan, slides, roster, theme, music — nev
 ```
 app/
   webapp/            FastAPI server (server.py), routers/, static/ (app, presenter, stage)
+  player/            the public quiz player app on 127.0.0.1:8450 (only /play*; published by Tailscale Funnel)
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
