@@ -1,12 +1,279 @@
-/* A quiz question's answers: a 2×2 grid of tiles in four theme colours (Step 5 replaces it). */
-.stage-canvas .qz-answers { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-content: center; }
-.stage-canvas .qz-answer {
-  display: flex; align-items: center; gap: 28px; min-height: 150px; padding: 24px 32px;
-  border-radius: 20px; color: #ffffff; font-family: var(--st-answers-font); font-weight: var(--st-answers-weight); font-size: 44px; line-height: 1.2;
+/* The quiz on the stage (#53): lobby, question, reveal, leaderboard, podium.
+ * The session theme's look (--st-* fonts, ink and chips; the body's --st-font
+ * is the answers' lettering). The four answer colours are the phones' own
+ * (app/player/static/play.css), so a player finds the same tile on both; a
+ * theme can move them with --st-quiz-1..4 and the podium's with --st-podium-1..3. */
+
+.stage-canvas .qz-a1 { --qz: var(--st-quiz-1, #cf222e); }
+.stage-canvas .qz-a2 { --qz: var(--st-quiz-2, #0969da); }
+.stage-canvas .qz-a3 { --qz: var(--st-quiz-3, #9a6700); }
+.stage-canvas .qz-a4 { --qz: var(--st-quiz-4, #1a7f37); }
+.stage-canvas .qz-shape { width: 1em; height: 1em; flex: none; fill: currentColor; }
+.stage-canvas .qz-empty { margin: auto; font-family: var(--st-font); font-size: 48px; color: var(--st-muted); }
+
+/* ------------------------------------------------------------------ lobby */
+
+.stage-canvas .qz-lobby { position: absolute; inset: 0; display: flex; gap: 56px; align-items: flex-start; }
+.stage-canvas .qz-qr {
+  flex: none;
+  width: min(460px, 100%);
+  aspect-ratio: 1;
+  max-height: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  display: grid;
+  place-items: center;
 }
-.stage-canvas .qz-answer.c0 { background: var(--st-c1); }
-.stage-canvas .qz-answer.c1 { background: var(--st-c2); }
-.stage-canvas .qz-answer.c2 { background: var(--st-c3); }
-.stage-canvas .qz-answer.c3 { background: var(--st-c4); }
-.stage-canvas .qz-key { flex: none; font-family: var(--st-font); font-size: 64px; }
+.stage-canvas .qz-qr img { width: 100%; height: 100%; display: block; }
+.stage-canvas .qz-qr.off { background: var(--st-chip-bg); border: 4px dashed var(--st-chip-line); box-shadow: none; color: var(--st-muted); }
+.stage-canvas .qz-qr.off .icon { width: 120px; height: 120px; }
+.stage-canvas .qz-qr-sample { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 96px; font-weight: 800; }
+.stage-canvas .qz-side { flex: 1; min-width: 0; align-self: stretch; display: flex; flex-direction: column; gap: 18px; }
+.stage-canvas .qz-join p { margin: 0; }
+.stage-canvas .qz-label { font-family: var(--st-font); font-size: 32px; color: var(--st-muted); }
+.stage-canvas .qz-join .qz-url { margin-bottom: 18px; font-family: var(--st-font); font-weight: 700; font-size: 44px; line-height: 1.15; overflow-wrap: anywhere; }
+.stage-canvas .qz-pin {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 112px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.stage-canvas .qz-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 26px;
+  border-radius: 18px;
+  background: var(--st-chip-bg);
+  border: 3px solid var(--st-paused);
+  font-family: var(--st-font);
+  font-size: 40px;
+  line-height: 1.2;
+}
+.stage-canvas .qz-note .icon { width: 44px; height: 44px; flex: none; color: var(--st-paused-ink); }
+.stage-canvas .qz-count { margin: 18px 0 0; display: flex; align-items: center; gap: 14px; font-family: var(--st-font); font-size: 44px; font-weight: 700; }
+.stage-canvas .qz-count .icon { width: 44px; height: 44px; }
+.stage-canvas .qz-names {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 14px;
+  overflow: hidden;
+}
+.stage-canvas .qz-player {
+  padding: 8px 24px;
+  border-radius: 9999px;
+  background: var(--st-chip-bg);
+  border: 2px solid var(--st-chip-line);
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  font-size: 36px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.stage-canvas .qz-player.pop { animation: qz-pop 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.stage-canvas .qz-more { color: var(--st-muted); }
+
+/* --------------------------------------------------------------- question */
+
+.stage-canvas .qz-q, .stage-canvas .qz-reveal { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 24px; }
+.stage-canvas .qz-status { display: flex; align-items: center; gap: 28px; min-height: 120px; }
+.stage-canvas .qz-spacer { flex: 1; }
+.stage-canvas .qz-chip {
+  padding: 10px 26px;
+  border-radius: 9999px;
+  background: var(--st-chip-bg);
+  border: 2px solid var(--st-chip-line);
+  font-family: var(--st-font);
+  font-size: 34px;
+}
+.stage-canvas .qz-answered { display: inline-flex; align-items: center; gap: 10px; font-family: var(--st-font); font-size: 38px; color: var(--st-muted); }
+.stage-canvas .qz-answered b { color: var(--st-ink); }
+.stage-canvas .qz-answered .icon { width: 40px; height: 40px; }
+.stage-canvas .qz-clock { position: relative; flex: none; width: 124px; height: 124px; }
+.stage-canvas .qz-clock svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.stage-canvas .qz-track { fill: var(--st-chip-bg); stroke: var(--st-chip-line); stroke-width: 10; }
+.stage-canvas .qz-ring { fill: none; stroke: var(--st-ink); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+.stage-canvas .qz-clock.low .qz-ring { stroke: var(--st-c1); }
+.stage-canvas .qz-secs {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 50px;
+  font-weight: 800;
+}
+.stage-canvas .qz-clock.low .qz-secs { color: var(--st-c1); }
+
+.stage-canvas .qz-answers { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: 24px; }
+.stage-canvas .qz-tile {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 30px;
+  border-radius: 20px;
+  background: var(--qz);
+  color: #ffffff;
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  font-size: 48px;
+  line-height: 1.15;
+  overflow: hidden;
+  transition: opacity 0.4s ease;
+}
+.stage-canvas .qz-tile > .qz-shape { font-size: 60px; }
+.stage-canvas .qz-key { flex: none; font-family: var(--st-ui-font); font-size: 44px; font-weight: 800; -webkit-text-stroke: 0; opacity: 0.9; }
 .stage-canvas .qz-text { min-width: 0; overflow-wrap: anywhere; }
+.stage-canvas .qz-tile.wrong { opacity: 0.32; }
+.stage-canvas .qz-tile.correct { outline: 8px solid var(--st-ink); outline-offset: 4px; }
+.stage-canvas .qz-mark {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 22px 8px 16px;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #1f1f1f;
+  font-family: var(--st-ui-font);
+  -webkit-text-stroke: 0;
+  font-size: 34px;
+  font-weight: 800;
+}
+.stage-canvas .qz-mark .icon { width: 38px; height: 38px; stroke-width: 3; }
+
+/* ----------------------------------------------------------------- reveal */
+
+.stage-canvas .qz-bars { flex: none; height: 44%; display: flex; justify-content: center; align-items: stretch; gap: 48px; }
+.stage-canvas .qz-bar { width: 210px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 8px; }
+.stage-canvas .qz-bar-count { display: inline-flex; align-items: center; gap: 8px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 50px; font-weight: 800; }
+.stage-canvas .qz-bar-count .icon { width: 50px; height: 50px; stroke-width: 3; }
+.stage-canvas .qz-bar-fill {
+  width: 100%;
+  height: calc(var(--h) * (100% - 72px));
+  min-height: 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+  border-radius: 16px 16px 0 0;
+  background: var(--qz);
+  color: #ffffff;
+  font-size: 46px;
+  overflow: hidden; /* a short bar hides its shape rather than spill over the count */
+  transform-origin: bottom;
+  animation: qz-rise 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.stage-canvas .qz-bar.wrong .qz-bar-fill { opacity: 0.35; }
+
+/* ------------------------------------------------------------ leaderboard */
+
+/* The leaderboard takes the whole content area: the question above it steps aside. */
+.stage-canvas .st-content:has(> .st-body[data-qz-view="leaderboard"]) > .st-head { display: none; }
+.stage-canvas .qz-board { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 36px; }
+.stage-canvas .qz-board-title {
+  margin: 0;
+  font-family: var(--st-title-font);
+  -webkit-text-stroke: var(--st-title-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-title-weight);
+  text-transform: var(--st-title-case);
+  font-size: 80px;
+  line-height: 1.1;
+}
+.stage-canvas .qz-rows { --row: 124px; position: relative; width: min(1320px, 100%); height: calc(var(--rows) * var(--row)); margin: 0; padding: 0; list-style: none; }
+.stage-canvas .qz-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc((var(--to) - 1) * var(--row));
+  height: calc(var(--row) - 18px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding: 0 40px;
+  border-radius: 20px;
+  background: var(--st-chip-bg);
+  border: 2px solid var(--st-chip-line);
+  font-family: var(--st-font);
+  -webkit-text-stroke: var(--st-font-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-font-weight);
+  font-size: 52px;
+  animation: qz-move 0.9s cubic-bezier(0.3, 0.9, 0.3, 1) 0.8s both;
+}
+.stage-canvas .qz-row.first { background: var(--st-pill-bg); color: var(--st-pill-ink); border-color: var(--st-pill-bg); }
+.stage-canvas .qz-rank, .stage-canvas .qz-score { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-weight: 800; -webkit-text-stroke: 0; }
+.stage-canvas .qz-rank { width: 64px; }
+.stage-canvas .qz-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-canvas .qz-gain { font-size: 38px; opacity: 0.7; }
+
+/* ----------------------------------------------------------------- podium */
+
+.stage-canvas .qz-podium { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-end; gap: 36px; }
+.stage-canvas .qz-step { width: 400px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 16px; }
+.stage-canvas .qz-step.p1 { --at: 3.4s; --tall: 58%; --block: var(--st-podium-1, #c9a227); }
+.stage-canvas .qz-step.p2 { --at: 1.9s; --tall: 42%; --block: var(--st-podium-2, #8e969e); }
+.stage-canvas .qz-step.p3 { --at: 0.4s; --tall: 30%; --block: var(--st-podium-3, #b0703c); }
+.stage-canvas .qz-top { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 100%; animation: qz-fade 0.6s ease-out calc(var(--at) + 0.5s) both; }
+.stage-canvas .qz-top .icon { width: 72px; height: 72px; color: var(--block); stroke-width: 2.5; }
+.stage-canvas .qz-pname {
+  max-width: 100%;
+  font-family: var(--st-title-font);
+  -webkit-text-stroke: var(--st-title-stroke) currentColor;
+  paint-order: stroke fill;
+  font-weight: var(--st-title-weight);
+  font-size: 64px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.stage-canvas .qz-pscore { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 42px; font-weight: 700; color: var(--st-muted); }
+.stage-canvas .qz-block {
+  width: 100%;
+  height: var(--tall);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  padding-top: 18px;
+  border-radius: 20px 20px 0 0;
+  background: var(--block);
+  color: #ffffff;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 120px;
+  font-weight: 800;
+  transform-origin: bottom;
+  animation: qz-rise 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) var(--at) both;
+}
+
+/* ------------------------------------------------------------- animations */
+
+@keyframes qz-pop { from { transform: scale(0.4); opacity: 0; } }
+@keyframes qz-rise { from { transform: scaleY(0); } }
+@keyframes qz-fade { from { opacity: 0; transform: translateY(24px); } }
+@keyframes qz-move { from { transform: translateY(calc((var(--from) - var(--to)) * var(--row))); opacity: var(--o0, 1); } }
+
+/* A redraw of the same phase (a player removed) and reduced motion: no animation at all. */
+.stage-canvas .qz-still *, .stage-canvas .qz-still { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .stage-canvas [class*="qz-"] { animation: none !important; transition: none !important; }
+}

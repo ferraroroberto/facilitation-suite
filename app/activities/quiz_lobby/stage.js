@@ -1,6 +1,8 @@
-// A quiz lobby on the stage (minimal until Step 5 of #34): the quiz's name is
-// the title; the body stays empty until the join code and players arrive.
+// A quiz lobby on the stage (#53): the QR code, the join link and PIN, and the
+// players popping in as they join. Drawn by the quiz's renderer (quiz/stage.js).
 
-export function render(body) {
-  body.innerHTML = '';
+import { draw } from '/activities/quiz/stage.js';
+
+export function render(body, result, ctx) {
+  draw(body, ctx, 'quiz_lobby');
 }

@@ -15,9 +15,12 @@ export const H = 1080;
 const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
 // Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx)
-// (ctx.lang: the session's language) and optionally subtitle(item, lang) — a
-// line under the title; an optional stage.css is linked once. Loaded on first
-// use, then cached.
+// (ctx.lang: the session's language; ctx.quiz: the live quiz snapshot when it is
+// about this item, else null; ctx.now: the server's clock in ms; ctx.preview: a
+// presenter or Plan-tab preview, never the stage itself) and optionally
+// subtitle(item, lang) — a line under the title; an optional stage.css is
+// linked once. render runs again only when the result, the names switch or the
+// quiz snapshot change. Loaded on first use, then cached.
 const plugins = {};
 export function loadPlugin(type) {
   if (!plugins[type]) {
@@ -273,11 +276,14 @@ export function createStage(host, opts = {}) {
       sub.textContent = plugin.subtitle(item, lang);
       sub.hidden = !sub.textContent;
     }
-    const sig = JSON.stringify([result, names]);
+    // The live quiz game (#53) reaches only the item it is about: every other item gets null.
+    const q = ctx.state && ctx.state.quiz;
+    const quiz = q && q.item_id === item.id ? q : null;
+    const sig = JSON.stringify([result, names, quiz]);
     if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
     lastResult = sig;
     try {
-      plugin.render(body, result, { item, names, options: item.options || {}, lang });
+      plugin.render(body, result, { item, names, options: item.options || {}, lang, quiz, now: ctx.now, preview: !!opts.guides });
     } catch (e) {
       console.error('stage plug-in failed', item.type, e);
     }

@@ -1,6 +1,8 @@
 """Story 16: two phones play the quiz (#52) — they join with the PIN and a nickname,
 answer on the big tiles, see "Locked in" only once the server acked, survive a reload,
-and see their result. One phone is 320 px wide on the WebSocket, the other polls."""
+and see their result. One phone is 320 px wide on the WebSocket, the other polls.
+The stage (#53) follows along: names pop into the lobby, the question shows no correct
+answer and counts down from the server's deadline, the reveal marks it, the leaderboard ranks."""
 
 from __future__ import annotations
 
@@ -39,18 +41,31 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
 
     errors: list[str] = []
     ana, bo = _phone(browser, SMALL, errors), _phone(browser, PHONE, errors)
+    stage = _phone(browser, {"viewport": {"width": 1280, "height": 720}}, errors)  # what Zoom sees (#53)
     try:
+        stage.goto(f"{base}/stage")
+        # no public URL in this instance: the lobby says phones cannot join yet, instead of a dead QR
+        expect(stage.locator("[data-qz-note]")).to_contain_text("not set up")
         _join(ana, f"{webapp.player_url}/play?pin={pin}", "Ana")
         _join(bo, f"{webapp.player_url}/play?pin={pin}&transport=poll", "Bo")
         expect(ana.locator("body")).to_have_attribute("data-transport", "ws")
         expect(bo.locator("body")).to_have_attribute("data-transport", "poll")
         quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
         assert [p["name"] for p in quiz["players"]] == ["Ana", "Bo"]
+        expect(stage.locator(".qz-player")).to_have_text(["Ana", "Bo"])  # the names popped in
 
         assert page.request.post(f"{base}/api/actions/next").ok  # the first question
         for phone in (ana, bo):
             expect(phone.locator(".tile")).to_have_count(4)
             expect(phone.locator("[data-qindex]")).to_have_text("Question 1 of 2")
+        # the stage: four tiles, nothing marks the correct answer before the reveal (the plan it gets holds it)
+        expect(stage.locator(".qz-tile")).to_have_count(4)
+        expect(stage.locator("[data-qz-index]")).to_have_text("Question 1 of 2")
+        assert stage.locator("[data-correct], .qz-tile.correct, .qz-tile.wrong, .qz-bar").count() == 0
+        # its countdown is the server's deadline, on the server's clock, within half a second
+        live = page.request.get(f"{base}/api/live").json()
+        shown = int(stage.get_attribute("[data-qz-clock]", "data-left-ms"))
+        assert abs(shown - (live["state"]["quiz"]["deadline_ms"] - live["server_now"])) < 500
         # 320 px: the four tiles fit, nothing scrolls sideways
         assert ana.evaluate("document.documentElement.scrollWidth") <= 320
         assert ana.locator(".tile").first.bounding_box()["width"] >= 120
@@ -69,12 +84,18 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(bo.locator("[data-result]")).to_contain_text("Not this time")
         quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
         assert quiz["distribution"] == [1, 1, 0, 0] and quiz["answered_count"] == 2
+        # the reveal: bars per answer, the correct one marked by a check and a label, not by colour alone
+        expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "2")
+        expect(stage.locator(".qz-tile.correct [data-correct]")).to_have_text("Correct")
+        expect(stage.locator(".qz-bar-count")).to_have_text(["1", "1", "0", "0"])
 
         assert page.request.post(f"{base}/api/actions/next").ok  # leaderboard
         expect(ana.locator("[data-result]")).to_contain_text("#1")
         expect(bo.locator("[data-result]")).to_contain_text("#2")
+        expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo"])
         assert errors == []
     finally:
         ana.context.close()
         bo.context.close()
+        stage.context.close()
         page.request.post(f"{base}/api/live/deactivate")
