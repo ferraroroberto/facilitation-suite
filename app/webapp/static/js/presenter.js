@@ -113,6 +113,7 @@ function buildShell() {
       card('p-next', 'Next', '') +
       `<div class="p-side">` +
         card('p-item', 'Timer', '') +
+        card('p-music', `${icon('music')} Music`, '') +
         card('p-chat', 'Zoom chat', '', '<span class="p-age small muted" data-age></span>') +
       `</div>` +
       card('p-notes', 'Notes', '') +
@@ -147,6 +148,7 @@ function buildShell() {
     keysBtn.setAttribute('aria-expanded', String(!pop.hidden));
   });
   buildChat();
+  buildMusic();
 
   root.querySelector('[data-prev]').addEventListener('click', () => live.send('prev'));
   root.querySelector('[data-next]').addEventListener('click', () => live.send('next'));
@@ -224,6 +226,7 @@ function draw() {
   root.querySelector('[data-prev]').disabled = s.index <= 0;
   root.querySelector('[data-next]').disabled = s.index >= s.count - 1;
   drawItemCard(cur, s);
+  drawMusic(cur, s);
   drawTiming(cur, s);
   drawChips();
   markChat();
@@ -450,6 +453,13 @@ function drawChips() {
     const deck = la.source === 'streamdeck' || la.source === 'stream-deck';
     if (ago < 3600) chips.push(['ok', `${deck ? 'Stream Deck' : 'Buttons'} · ${la.action.replace(/_/g, ' ')}`, null, `Last press ${ago} s ago (${la.source})`]);
   }
+  const mu = s.music;
+  if (mu && (mu.tracks.length || mu.state !== 'idle')) {
+    const label = mu.track ? mu.track.label : '';
+    chips.push({ playing: ['ok', `Music · ${label}`, null, mu.owner ? 'With the item timer' : 'Played by hand'],
+      paused: ['warn', 'Music · paused', null, label], error: ['bad', 'Music · error', null, mu.detail] }[mu.state] ||
+      ['', 'Music · idle', null, 'Nothing playing']);
+  }
   if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
   if (s.write_error) chips.push(['bad', s.write_error]);
   const html = chips.map(([k, t, act, title]) => act
@@ -466,6 +476,81 @@ function drawChips() {
     if (retry) retry.addEventListener('click', () => api('/api/settings/obs/test', { method: 'POST' }).catch((e) => toast(e.message, 'error')));
   }
   drawChatFoot();
+}
+
+// ----------------------------------------------------------------------- music
+
+// The presenter's own music controls. Play starts the picked track by hand
+// (no timer touches it); the item's own music is picked when an item with
+// music comes on stage. The latest command wins (src/music/service.py).
+let musicPickFor = null; // the item the picker was last pre-selected for
+
+function buildMusic() {
+  const body = root.querySelector('.p-music [data-body]');
+  body.innerHTML =
+    `<div class="p-music-now"><span class="p-cap-dot" data-mdot></span><span class="p-music-title" data-mnow></span></div>` +
+    `<select class="select-native" data-mpick aria-label="Track to play"></select>` +
+    `<div class="p-timer-actions">` +
+    `<button type="button" class="button-primary" data-mtoggle></button>` +
+    `<button type="button" class="button-surface" data-mstop title="Stop (fades out)">${icon('square')} Stop</button>` +
+    `<button type="button" class="button-surface" data-mfade title="Fade out slowly, then stop">${icon('volume-x')} Fade out</button></div>` +
+    `<label class="p-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-mvol aria-label="Music volume"><output class="small" data-mvolout></output></label>` +
+    `<p class="small muted p-music-hint" data-mhint></p>`;
+  musicPickFor = null;
+  const pick = body.querySelector('[data-mpick]');
+  body.querySelector('[data-mtoggle]').addEventListener('click', () => {
+    const m = live.state && live.state.music;
+    if (m && (m.state === 'playing' || m.state === 'paused')) live.send('music_toggle');
+    else if (pick.value) live.send('music_play', pick.value);
+  });
+  body.querySelector('[data-mstop]').addEventListener('click', () => live.send('music_stop'));
+  body.querySelector('[data-mfade]').addEventListener('click', () => live.send('music_fade_out'));
+  const vol = body.querySelector('[data-mvol]');
+  vol.addEventListener('input', () => { body.querySelector('[data-mvolout]').textContent = `${vol.value}%`; });
+  vol.addEventListener('change', () => live.send('music_volume', vol.value));
+}
+
+function drawMusic(cur, s) {
+  const card = root.querySelector('.p-music');
+  const m = s.music;
+  const show = !!(m && (m.tracks.length || m.state !== 'idle'));
+  card.hidden = !show;
+  root.querySelector('.p-side').classList.toggle('with-music', show);
+  if (!show) return;
+  const body = card.querySelector('[data-body]');
+  const pick = body.querySelector('[data-mpick]');
+  const sig = JSON.stringify(m.tracks.map((t) => [t.n, t.label]));
+  if (pick.dataset.sig !== sig) {
+    pick.dataset.sig = sig;
+    pick.innerHTML = m.tracks.map((t) => `<option value="${t.n}">${esc(t.label)}${t.items.length ? '' : ' · audio/'}</option>`).join('');
+    musicPickFor = null;
+  }
+  if (cur && musicPickFor !== cur.id) {
+    musicPickFor = cur.id;
+    const own = m.tracks.find((t) => t.items.includes(cur.id));
+    if (own) pick.value = String(own.n);
+  }
+  const playing = m.state === 'playing';
+  const paused = m.state === 'paused';
+  body.querySelector('[data-mdot]').className = `p-cap-dot ${playing ? 'live' : paused ? 'paused' : m.state === 'error' ? 'error' : ''}`;
+  body.querySelector('[data-mnow]').textContent = m.track ? `${m.track.label}${paused ? ' · paused' : ''}` : m.state === 'error' ? 'Music error' : 'Nothing playing';
+  const btn = body.querySelector('[data-mtoggle]');
+  const label = playing ? `${icon('pause')} Pause` : paused ? `${icon('play')} Resume` : `${icon('play')} Play`;
+  if (btn.dataset.label !== label) { btn.dataset.label = label; btn.innerHTML = label; }
+  btn.disabled = !playing && !paused && !m.tracks.length;
+  body.querySelector('[data-mstop]').disabled = !playing && !paused;
+  body.querySelector('[data-mfade]').disabled = !playing;
+  const vol = body.querySelector('[data-mvol]');
+  if (document.activeElement !== vol) {
+    vol.value = String(m.volume);
+    body.querySelector('[data-mvolout]').textContent = `${m.volume}%`;
+  }
+  const owner = m.owner && items().find((it) => it.id === m.owner);
+  const hint = body.querySelector('[data-mhint]');
+  hint.textContent = m.state === 'error' ? m.detail
+    : owner ? `Follows the timer of “${oneLine(owner.title)}”.`
+      : playing || paused ? 'Played by hand — no timer touches it.' : 'Pick a track and press Play, or let an item’s timer start its music.';
+  hint.classList.toggle('warn', m.state === 'error');
 }
 
 // ------------------------------------------------------------------------ chat

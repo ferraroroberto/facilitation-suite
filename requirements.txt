@@ -17,6 +17,8 @@ comtypes>=1.4; sys_platform == "win32"
 openpyxl>=3.1
 # OBS scene switching (obs-websocket v5).
 obsws-python>=1.7
+# Item music (src/music/): decodes mp3/wav/ogg/flac and plays to the default output (cp314 wheel, no system install).
+miniaudio>=1.71
 # Frozen capture PNGs + the session PDF appendix render in headless Chromium.
 playwright>=1.45
 

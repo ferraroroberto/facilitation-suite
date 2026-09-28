@@ -13,8 +13,9 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.activities.registry import ACTIVITIES_DIR, editors
+from src.errors import DomainError
 from src.live.actions import run_action
-from src.live.hub import LiveError, LiveHub
+from src.live.hub import LiveHub
 from src.sessions.model import ITEM_ID
 from src.sessions.store import SessionError
 from src.sessions.theme import theme_css
@@ -144,7 +145,7 @@ async def live_socket(ws: WebSocket, role: str = "app") -> None:
             elif kind == "action":
                 try:
                     run_action(hub, str(msg.get("action") or ""), msg.get("arg"))
-                except LiveError as exc:
+                except DomainError as exc:  # LiveError, MusicError, …: refused, the socket stays up
                     client.push({"type": "error", "code": exc.code, "message": str(exc)})
     except WebSocketDisconnect:
         pass

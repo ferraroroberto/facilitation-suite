@@ -71,6 +71,7 @@ The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to re
 
 - an **OBS profile** (Camera strip / Camera PiP / Screen only; slides start with the detected one),
 - its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); a paused timer shows yellow on the stage, the presenter and the phone; on a slide it sits in a bottom corner over the slide (the left one when the camera takes the right),
+- its **music** (optional — see *Music*): a track from the session's `audio/` folder that plays with the item's timer or when the item opens,
 - **In this session** (off = skipped live, kept in the plan),
 - for a **breakout** (Add slide or activity → Breakout): its title, the round in the rooms (Pairs, Groups of 4 · A or B — the stage says it with the room count from the Groups tab) and its clock, ten minutes by default,
 - for activities: type, title (the name in the plan and on the presenter; the question when empty), question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options,
@@ -119,6 +120,32 @@ The presenter shows what is on stage, the next item and the three after it **by 
 
 The live position, clocks and timers are mirrored to `live/state.json` (a restarted server resumes where it was) and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; **Session details** sets the session's **language on the stage** (English or Español: the words the stage says by itself — the hint under activities, "Write your answer in the chat" / "Escribe tu respuesta en el chat", default titles such as "Break" / "Descanso", the breakout rounds and room counts) and, optionally, a hint of your own instead of the language's.
 
+## Music
+
+An item can carry **music**: a file on this PC played through this PC's own audio output (the app plays it itself, so it never depends on a browser tab; route the PC's audio into Zoom/OBS as you already do). In the Plan tab, the item's **Music** row: switch it on, **Choose file…** (mp3, wav, ogg or flac — m4a/AAC is not decoded; convert it first), then its volume, fade-in and fade-out seconds, **Starts** and **When leaving the item**, and **loop** (start over at the end). The file is **copied into the session folder** as `audio/<name>` (the way the roster is copied), so the session stays self-contained and *Files offline* covers it; a different file with the same name becomes `<name>-2`. In `session.yaml`:
+
+```yaml
+- kind: slide
+  slide_id: 105
+  timer: {seconds: 300, start: manual}
+  music:
+    path: audio/warm-up.mp3   # session-relative
+    volume: 70                # 0–100
+    fade_in_s: 3
+    fade_out_s: 3
+    loop: true
+    start: with_timer         # with_timer | on_enter | manual
+    on_leave: fade_out        # fade_out | keep_playing
+```
+
+**With the timer:** starting or resuming the item's timer fades the music in and plays it; pausing the timer fades it out and pauses it; **Reset**, or the timer reaching 00:00, fades it out and stops it. `on_enter` plays when the item comes on stage (its timer still pauses and stops it); `manual` plays only from the presenter. Leaving the item fades it out and stops it, unless it is set to **keep playing** (then its own timer, still running, stops it at 00:00). A file that ends by itself just stops, or starts over with loop on.
+
+**By hand:** the presenter's **Music** card (shown when the session has music) plays any of the session's tracks — every item's, plus any other file in `audio/` — with the item's own music picked when it comes on stage: **Play / Pause / Resume**, **Stop** (fades out over the track's fade-out), **Fade out** (a slow 8-second wind-down, then stop) and a volume slider. The phone remote has the same play/pause, stop and volume. The Stream Deck actions are `music_toggle` (with nothing playing: the item's music, else the last track), `music_stop`, `music_fade_out` and `music_volume/<0–100>`.
+
+**Which wins:** the latest command. An item's timer and leaving the item only act on music **that item started itself**: music you play by hand is never paused or stopped by a timer, and a timer start on an item with *with the timer* music replaces whatever plays (the same track already playing is taken over, not restarted). Pausing, resuming or changing the volume by hand keeps the item in charge; stopping ends it.
+
+The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *error* — with the reason, e.g. no audio output device (speakers or headset disconnected) or a file missing from `audio/`; a music problem never stops the deck. The readiness list's **Music files** check (only when the session plays files) says whether every track is in the folder, on this PC and playable. Nothing of the music is saved: after a restart the app starts silent. Music starts and stops are logged (`facilitation-suite.log`, *sound is coming out* once the device plays) and appended to `live/events.jsonl`.
+
 ## Activities and captures
 
 On an activity, **Space** (or the presenter's big button) starts the **capture**: every participant message that arrives from then on belongs to the activity, and the stage grows its visual live — a word cloud, scale bars with the average, cards, or a feed of bubbles. Space again stops it; a stopped capture can be reopened (what arrived while it was stopped stays out). Only one capture runs at a time. Your own messages ("You" in Zoom) never count — unless you turn on **Count my own messages (rehearsal)** under *Show names on stage* in the presenter's capture panel, for rehearsing alone by typing the answers yourself. While it's on, the presenter header shows a *Counting your messages* warning chip; it's never saved, so it is off again after a restart and whenever a session is made live. **Click a message** in the presenter's chat to hide it from the activity (a "can you hear me?"); click again to count it back.
@@ -139,7 +166,7 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 
 ## Phone remote
 
-`/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
+`/remote` on the phone: what is on stage (a live preview), what comes next, the session clock and how far off the plan it is, and big buttons for **Next / Previous**, **Start / Stop capture** (on an activity), the item **timer** (start/pause, +1 min) and **Blackout** — the same intents as the keyboard — plus the **music** (play/pause, stop, volume) when the session has any. **Chat** shows the Zoom chat (tap a message to hide it from the activity, tap again to count it back); **Groups** shows the breakout rooms of each round to read out.
 
 1. Set up HTTPS once (see *Run*).
 2. **Settings → Phone remote → Make the phone link**, **Copy the link**, send it to yourself and open it on the phone (on the tailnet). Opening it pairs that phone: the server sets a 30-day cookie and the token leaves the address bar.
@@ -175,7 +202,7 @@ OBS is never in the critical path: it runs on its own thread, reconnects by itse
 
 ## Stream Deck
 
-Every live control is one URL: `POST /api/actions/{action_id}` (or `/{action_id}/{arg}`), the same contract as home-automation's action alias, backed by the one intent list the keyboard and the presenter use (`src/live/actions.py`). **Settings → Stream Deck buttons** lists each button's URL with a Copy button: `next`, `prev`, `capture_toggle`, `timer_toggle`, `timer_add_minute`, `timer_reset`, `blackout`, `names_toggle`, `goto_section/<n>`, `obs_profile/<name>`. Calls from this PC need no token; any other device needs the phone-remote token (see *Phone remote*). A caller can name itself in `X-Automation-Source`; the presenter shows the last press as a chip. Once the app serves HTTPS, point the plugin at the tailnet name (`FACILITATION_SUITE_BASE_URL=https://<this PC>.<tailnet>.ts.net:8449` in its `.env`) — still no token, since it runs on this PC.
+Every live control is one URL: `POST /api/actions/{action_id}` (or `/{action_id}/{arg}`), the same contract as home-automation's action alias, backed by the one intent list the keyboard and the presenter use (`src/live/actions.py`). **Settings → Stream Deck buttons** lists each button's URL with a Copy button: `next`, `prev`, `capture_toggle`, `timer_toggle`, `timer_add_minute`, `timer_reset`, `blackout`, `names_toggle`, `goto_section/<n>`, `obs_profile/<name>`, `music_toggle`, `music_stop`, `music_fade_out`, `music_volume/<n>`. Calls from this PC need no token; any other device needs the phone-remote token (see *Phone remote*). A caller can name itself in `X-Automation-Source`; the presenter shows the last press as a chip. Once the app serves HTTPS, point the plugin at the tailnet name (`FACILITATION_SUITE_BASE_URL=https://<this PC>.<tailnet>.ts.net:8449` in its `.env`) — still no token, since it runs on this PC.
 
 The physical keys come from the fleet Stream Deck plugin (`fleet-config/stream-deck`, its `Call Action` key with `"app": "facilitation-suite"` — fleet-config#1006).
 
@@ -216,13 +243,14 @@ A session is a folder, by default `<session_root>\<workshop>\<session>\`:
 session.yaml      the plan (schema v1) — human-readable, safe to edit by hand
 slides/           slide PNGs + slides.json (titles, notes, fingerprints, detected OBS profile)
 roster.xlsx       participants (optional)
+audio/            music files the items play (optional; copied in from the Plan tab)
 groups.yaml       breakout groups (optional)
 theme.css         per-session stage theme override (optional; applied after the stage lettering)
 live/             chat.jsonl, events.jsonl, captures/ — append-only during the session
 exports/          session.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 ```
 
-The Sessions tab creates, duplicates (plan, slides, roster, theme — never live data) and adds existing folders, and shows a readiness checklist. **Files offline** checks OneDrive's file attributes without downloading anything and can pin the folder ("Always keep on this device"). Unknown keys in `session.yaml` survive a load → save round-trip. An item's `id` is letters, digits, `-` and `_` (up to 80 — it names the item's capture files); one written by hand outside that is made to fit on load (`act Q1` → `act-Q1`, logged ⚠️), and an empty or repeated one gets a fresh id. No database ever lives in the session folder.
+The Sessions tab creates, duplicates (plan, slides, roster, theme, music — never live data) and adds existing folders, and shows a readiness checklist. **Files offline** checks OneDrive's file attributes without downloading anything and can pin the folder ("Always keep on this device"). Unknown keys in `session.yaml` survive a load → save round-trip. An item's `id` is letters, digits, `-` and `_` (up to 80 — it names the item's capture files); one written by hand outside that is made to fit on load (`act Q1` → `act-Q1`, logged ⚠️), and an empty or repeated one gets a fresh id. No database ever lives in the session folder.
 
 ## Layout
 
@@ -232,7 +260,7 @@ app/
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, results/
+src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, gen_icons.py, build_sprite.py, gen_tailscale_cert.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)

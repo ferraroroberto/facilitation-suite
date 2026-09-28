@@ -5,7 +5,7 @@
 layer       = "working-web"
 icon        = "🎤"
 port        = ":8449"
-description = "<b>facilitation-suite</b> — one local app for live online workshops: a stage OBS captures, a presenter cockpit, Zoom-chat-driven activities read locally (no bot), breakout groups, per-item timers and session results."
+description = "<b>facilitation-suite</b> — one local app for live online workshops: a stage OBS captures, a presenter cockpit, Zoom-chat-driven activities read locally (no bot), breakout groups, per-item timers and music, and session results."
 
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.

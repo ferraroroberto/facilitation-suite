@@ -18,8 +18,8 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 
+from src.errors import DomainError
 from src.live.actions import catalog, run_action
-from src.live.hub import LiveError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/actions")
@@ -36,7 +36,7 @@ async def _run(request: Request, action_id: str, arg: Optional[str]) -> dict[str
     hub = request.app.state.live
     try:
         run_action(hub, action_id, arg)
-    except LiveError as exc:
+    except DomainError as exc:
         logger.info("ℹ️ action %s%s from %s refused: %s", action_id, f"/{arg}" if arg else "", source, exc)
         raise
     request.app.state.last_action = {"action": action_id, "arg": arg, "source": source, "at": int(time.time() * 1000)}

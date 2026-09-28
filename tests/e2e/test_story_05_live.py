@@ -19,6 +19,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(f"{webapp.base_url}/presenter?session={sid}")
     expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+    expect(page.locator(".p-music")).to_be_hidden()  # a session without music: no Music card, no chip
 
     stage_ctx = browser.new_context(viewport={"width": 1280, "height": 720})
     stage = stage_ctx.new_page()

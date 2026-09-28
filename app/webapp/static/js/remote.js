@@ -1,6 +1,7 @@
 // /remote — the phone in the facilitator's hand (epic §3.2): what is on stage,
 // what comes next, the session clock against the plan, and the same intents as
-// the keyboard — next/previous, capture, timer, blackout — as big buttons.
+// the keyboard — next/previous, capture, timer, blackout — as big buttons, plus
+// the music (play/pause, stop, volume) when the session has any.
 // Chat reads the live Zoom chat (tap a message to hide it); Groups shows the
 // breakout rooms to read out. From another device it needs the pairing link
 // made in Settings on the PC (app/webapp/auth.py).
@@ -113,6 +114,12 @@ function buildShell() {
       `<button type="button" class="button-surface" data-r-ttoggle hidden></button>` +
       `<button type="button" class="button-surface" data-r-tplus hidden>${icon('plus')} 1 min</button>` +
       `<button type="button" class="button-surface" data-r-blackout>${icon('eye-off')} Blackout</button></div>` +
+    '<div class="card r-music" data-r-music hidden>' +
+      '<div class="r-music-now"><span data-r-mnow></span></div>' +
+      '<div class="r-more">' +
+        `<button type="button" class="button-surface" data-r-mtoggle></button>` +
+        `<button type="button" class="button-surface" data-r-mstop>${icon('square')} Stop music</button></div>` +
+      `<label class="r-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-r-mvol aria-label="Music volume"></label></div>` +
     '<p class="small muted r-foot">The presenter on the PC does the same; this is for when you stand up or walk away from the keyboard.</p>');
   preview = createStage(livePane.querySelector('.r-stage'), { guides: false, blackout: true });
   const on = (sel, action) => livePane.querySelector(sel).addEventListener('click', () => live.send(action));
@@ -122,6 +129,10 @@ function buildShell() {
   on('[data-r-ttoggle]', 'timer_toggle');
   on('[data-r-tplus]', 'timer_add_minute');
   on('[data-r-blackout]', 'blackout');
+  on('[data-r-mtoggle]', 'music_toggle');
+  on('[data-r-mstop]', 'music_stop');
+  const vol = livePane.querySelector('[data-r-mvol]');
+  vol.addEventListener('change', () => live.send('music_volume', vol.value));
 }
 
 function drawLive() {
@@ -158,7 +169,25 @@ function drawLive() {
   livePane.querySelector('[data-r-ttoggle]').hidden = !hasTimer;
   livePane.querySelector('[data-r-tplus]').hidden = !hasTimer;
   livePane.querySelector('[data-r-blackout]').classList.toggle('on', !!s.blackout);
+  drawMusic(s.music);
   tick();
+}
+
+/** Music: play/pause (the item's music when nothing plays), stop and the volume. */
+function drawMusic(m) {
+  const box = livePane.querySelector('[data-r-music]');
+  box.hidden = !(m && (m.tracks.length || m.state !== 'idle'));
+  if (box.hidden) return;
+  const playing = m.state === 'playing';
+  const paused = m.state === 'paused';
+  livePane.querySelector('[data-r-mnow]').textContent = m.state === 'error' ? `Music error — ${m.detail}`
+    : m.track ? `Music · ${m.track.label}${paused ? ' · paused' : ''}` : 'Music · nothing playing';
+  const btn = livePane.querySelector('[data-r-mtoggle]');
+  const html = playing ? `${icon('pause')} Pause music` : `${icon('play')} ${paused ? 'Resume' : 'Play'} music`;
+  if (btn.dataset.html !== html) { btn.dataset.html = html; btn.innerHTML = html; }
+  livePane.querySelector('[data-r-mstop]').disabled = !playing && !paused;
+  const vol = livePane.querySelector('[data-r-mvol]');
+  if (document.activeElement !== vol) vol.value = String(m.volume);
 }
 
 /** The parts that move every half second: item timer, session clock, drift. */
