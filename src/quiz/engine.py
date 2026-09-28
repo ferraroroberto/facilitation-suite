@@ -14,6 +14,8 @@ Records (every one also carries ``game`` and ``at``, epoch ms):
   ``<lobby item id>-<run>``; a replay of the same quiz is run 2, 3, …).
 - ``{"op": "join", "player_id", "name", "secret", "key"}`` — ``key`` is the
   caller's optional idempotency key (a retried join returns the same player).
+- ``{"op": "pin", "pin"}`` — the game's 6-digit join PIN (written right after
+  ``game``; a game from an older file gets one the next time it is shown).
 - ``{"op": "resume", "player_id"}`` / ``{"op": "kick", "player_id"}``.
 - ``{"op": "phase", "phase", "item_id"}`` — the stage shows ``phase`` of
   ``item_id``; entering a question for the first time also carries
@@ -174,6 +176,7 @@ class Game:
     players: dict[str, Player] = field(default_factory=dict)
     answers: dict[tuple[str, str], Answer] = field(default_factory=dict)
     runs: dict[str, QuestionRun] = field(default_factory=dict)
+    pin: str = ""  # the 6-digit join PIN players type (a ``pin`` record)
 
     # ------------------------------------------------------------ records
 
@@ -192,6 +195,8 @@ class Game:
             if key not in self.answers:  # first one wins, on replay too
                 self.answers[key] = Answer(rec["player_id"], rec["item_id"], int(rec["choice"]),
                                            int(rec["elapsed_ms"]), at)
+        elif op == "pin":
+            self.pin = str(rec["pin"])
         elif op == "lock":
             run = self.runs.get(rec["item_id"])
             if run is not None and run.open:
@@ -315,8 +320,8 @@ class Game:
         the scores of a question appear only once it is closed (reveal and after)."""
         players = self.active()
         out: dict[str, Any] = {
-            "game_id": self.game_id, "lobby_id": self.lobby_id, "phase": self.phase, "item_id": self.item_id,
-            "question_index": order.index(self.item_id) if self.item_id in order else None,
+            "game_id": self.game_id, "lobby_id": self.lobby_id, "pin": self.pin, "phase": self.phase,
+            "item_id": self.item_id, "question_index": order.index(self.item_id) if self.item_id in order else None,
             "question_count": len(order), "deadline_ms": None, "answered_count": 0,
             "player_count": len(players), "players": [{"id": p.id, "name": p.name} for p in players],
         }

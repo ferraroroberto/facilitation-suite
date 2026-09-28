@@ -54,8 +54,18 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
   (also the actions ``quiz_kick/<id>``, ``quiz_lock``, ``quiz_new_game``).
 - ``player_view(player_id, secret) -> Optional[dict]`` — what that phone
   shows; ``None`` for an unknown player or a wrong secret.
-- ``change_listeners`` — callables run after every change to a game (a
-  join, an answer, a phase), so a player socket can push.
+- ``join_pin(pin, nickname, key=None) -> JoinResult`` — ``join`` into the
+  game with that PIN: ``wrong_pin`` when no game of the live session has it,
+  else ``join``'s own states (``no_game`` when that game is not on stage).
+- ``change_listeners`` — callables run after every change to a game (every
+  record: a join, an answer, a phase…) and when the live session changes, so
+  a player socket can push.
+
+**Join PIN.** Every game gets a 6-digit PIN (a ``pin`` record right after
+its ``game`` record, so it survives a restart); ``state.quiz`` carries it
+with ``join_url`` (``quiz.public_url`` + ``/play?pin=…``, ``None`` while the
+public URL is not configured) and ``listener`` (the player listener is up).
+The server sets ``public_url`` and ``listener_up``.
 """
 
 from __future__ import annotations
@@ -90,6 +100,8 @@ logger = logging.getLogger(__name__)
 QUIZ_FILE = "quiz.jsonl"
 PUSH_EVERY_S = 0.25  # joins and answers in a burst: at most four snapshot pushes a second
 LOBBY, QUESTION, PODIUM = "quiz_lobby", "quiz", "quiz_podium"
+WRONG_PIN = "wrong_pin"  # join_pin: no game of the live session has that PIN
+PIN_DIGITS = 6
 
 
 @dataclass
@@ -122,6 +134,8 @@ class QuizService:
         self.games: dict[str, Game] = {}
         self.latest: dict[str, str] = {}  # lobby id → its newest game id
         self.change_listeners: list[Callable[[], None]] = []
+        self.public_url: Callable[[], str] = lambda: ""  # quiz.public_url (set by the server)
+        self.listener_up: Callable[[], bool] = lambda: False  # the player listener serves (set by the server)
         self._session: Optional[str] = None
         self._scopes: tuple[Any, dict[str, Scope]] = (None, {})
         self._pending: list[dict[str, Any]] = []  # records not yet written to quiz.jsonl
@@ -186,7 +200,23 @@ class QuizService:
                              "error": scope.invalid[cur["id"]]}}
         if game is None:
             return {"quiz": None}
-        return {"quiz": game.snapshot(scope.order, scope.questions)}
+        return {"quiz": {**game.snapshot(scope.order, scope.questions), "join_url": self.join_url(game.pin),
+                         "listener": self.listener_up()}}
+
+    def game_on_stage(self) -> Optional[Game]:
+        """The game of the quiz item on stage (``None`` off a quiz)."""
+        return self._current()[2]
+
+    def join_url(self, pin: str) -> Optional[str]:
+        """``quiz.public_url`` + ``/play?pin=…``; ``None`` while the public URL is not configured."""
+        base = (self.public_url() or "").strip().rstrip("/")
+        return f"{base}/play?pin={pin}" if base and pin else None
+
+    def game_by_pin(self, pin: Any) -> Optional[Game]:
+        """The live session's game with that join PIN (any run, on stage or not)."""
+        self._load()
+        pin = "".join(str(pin or "").split())
+        return next((g for g in self.games.values() if g.pin == pin), None) if pin else None
 
     def player_view(self, player_id: str, secret: str) -> Optional[dict[str, Any]]:
         """What one phone shows now; ``None`` for an unknown player or a wrong secret."""
@@ -220,6 +250,13 @@ class QuizService:
         self._changed(soon=True)
         return JoinResult(JOINED, game.game_id, player_id, secret, name)
 
+    def join_pin(self, pin: Any, nickname: Any, key: Optional[str] = None) -> JoinResult:
+        """``join`` into the game with that PIN (see the module docstring)."""
+        game = self.game_by_pin(pin)
+        if game is None:
+            return JoinResult(WRONG_PIN)
+        return self.join(nickname, game.game_id, key)
+
     def resume(self, player_id: str, secret: str) -> JoinResult:
         """The same player again (a reopened tab, a locked phone, a network switch)."""
         game = self._game_of(player_id)
@@ -239,6 +276,14 @@ class QuizService:
         self._record(game, {"op": "kick", "player_id": player_id})
         logger.info("ℹ️ quiz %s: %s removed by the host", game.game_id, player_id)
         self._changed()
+
+    def _new_pin(self) -> str:
+        """A 6-digit PIN (no leading zero) no other game of the live session has."""
+        taken = {g.pin for g in self.games.values()}
+        while True:
+            pin = str(10 ** (PIN_DIGITS - 1) + secrets.randbelow(9 * 10 ** (PIN_DIGITS - 1)))
+            if pin not in taken:
+                return pin
 
     def _new_player_id(self) -> str:
         while True:
@@ -345,6 +390,8 @@ class QuizService:
             self._schedule_reveal(game, cur["id"], run.deadline_ms)
 
     def _phase(self, game: Game, phase: str, item_id: str, **extra: Any) -> None:
+        if not game.pin:  # a new game, or one from a file written before PINs
+            self._record(game, {"op": "pin", "pin": self._new_pin()})
         if (game.phase, game.item_id) == (phase, item_id):
             return  # already there (a session going live again)
         self._record(game, {"op": "phase", "phase": phase, "item_id": item_id, **extra})
@@ -396,17 +443,25 @@ class QuizService:
             self._enter(self.live.current())
         else:
             self._cancel_reveal()
+        self._notify()
 
     def _forget(self) -> None:
         """After a reset: no games (the old run, ``quiz.jsonl`` included, is set aside)."""
         self._cancel_reveal()
         self._session = None
         self._load()
+        self._notify()
+
+    def _notify(self) -> None:
+        """Run the change listeners (the player sockets); one failing never stops the game."""
+        for fn in self.change_listeners:
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 — a listener's bug must not break a join or an answer
+                logger.exception("❌ quiz: a change listener failed")
 
     def _changed(self, *, soon: bool = False) -> None:
         """Tell the views: at once (a phase), or coalesced within ``PUSH_EVERY_S`` (a burst of joins or answers)."""
-        for fn in self.change_listeners:
-            fn()
         if not soon or self.live.loop is None:
             self.live.push_state()
             return
@@ -454,6 +509,7 @@ class QuizService:
         """Apply one record to its game and append it to ``quiz.jsonl`` (kept in memory if the write fails)."""
         rec = {"game": game.game_id, "at": self.clock(), **rec}
         game.apply(rec)
+        self._notify()
         path = self._path()
         if path is None:
             return
