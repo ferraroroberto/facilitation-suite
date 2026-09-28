@@ -5,8 +5,8 @@
 layer       = "working-web"
 icon        = "🎤"
 port        = ":8449"
-description = "<b>facilitation-suite</b> — one local app for live online workshops: a stage OBS captures, a presenter cockpit, Zoom-chat-driven activities read locally (no bot), breakout groups, per-item timers and music, and session results. A separate quiz player listener (127.0.0.1:8450, /play only) is the one public surface, via Tailscale Funnel :8443."
-chips       = ["public: Funnel :8443 → :8450 /play"]
+description = "<b>facilitation-suite</b> — one local app for live online workshops: a stage OBS captures, a presenter cockpit, Zoom-chat-driven activities read locally (no bot), breakout groups, per-item timers and music, and session results. A separate quiz player listener (127.0.0.1:8451, /play only) is the one public surface, via Tailscale Funnel :10000."
+chips       = ["public: Funnel :10000 → :8451 /play"]
 
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.

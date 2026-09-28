@@ -30,7 +30,7 @@ CONFIG_PATH = CONFIG_DIR / "config.json"
 CONFIG_SAMPLE_PATH = CONFIG_DIR / "config.sample.json"
 DEFAULT_LEDGER_PATH = PROJECT_ROOT / "sessions.local.yaml"
 DEFAULT_PORT = 8449
-DEFAULT_PLAYER_PORT = 8450
+DEFAULT_PLAYER_PORT = 8451
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ class QuizConfig:
     """The public quiz player listener (#34, #49): a separate app on
     ``127.0.0.1:public_port`` that only Tailscale Funnel publishes. ``0`` turns
     it off (the tests do). ``public_url`` is the address players open, e.g.
-    ``https://<host>.<tailnet>.ts.net:8443`` — empty until Funnel is set up."""
+    ``https://<host>.<tailnet>.ts.net:10000`` — empty until Funnel is set up."""
 
     public_port: int = DEFAULT_PLAYER_PORT
     public_url: str = ""

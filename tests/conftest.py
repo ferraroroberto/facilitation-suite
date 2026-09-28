@@ -14,7 +14,7 @@ SAMPLE_CONFIG = REPO_ROOT / "config" / "config.sample.json"
 
 def write_test_config(path: Path, **overrides: object) -> Path:
     """A copy of the committed sample with ``overrides`` applied (OBS, the reader and
-    the quiz player listener off — a test never binds the real :8450)."""
+    the quiz player listener off — a test never binds the real :8451)."""
     cfg = json.loads(SAMPLE_CONFIG.read_text(encoding="utf-8"))
     cfg["obs"]["enabled"] = False
     cfg["reader"]["enabled"] = False

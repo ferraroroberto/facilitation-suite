@@ -6,7 +6,7 @@ temp copy of the sample config (OBS and the chat reader off),
 ``FS_ENV_PATH`` → an empty ``.env`` (no Spotify login), so a
 run never reads or writes the real config, ledger or session folders.
 The disposable instance always binds free ports (the app and the quiz player
-listener), so a running tray on :8449/:8450 never collides with it.
+listener), so a running tray on :8449/:8451 never collides with it.
 ``FS_E2E_LIVE=1`` is the one loudly-named opt-in to run the suite read-only
 against the live instance instead.
 
@@ -35,7 +35,7 @@ from tests.conftest import write_test_config
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
 LIVE_PORT = 8449
-LIVE_PLAYER_PORT = 8450
+LIVE_PLAYER_PORT = 8451
 LIVE_ENV = "FS_E2E_LIVE"
 LOOP_FACTORY = "app.webapp.event_loop:selector_loop_factory"
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0

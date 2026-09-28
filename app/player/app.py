@@ -1,7 +1,7 @@
 """The quiz player app — the only thing the public internet can reach (#34, #49).
 
-Served on ``127.0.0.1:<quiz.public_port>`` (default 8450) by
-``app/player/listener.py`` and published by Tailscale Funnel on :8443. It
+Served on ``127.0.0.1:<quiz.public_port>`` (default 8451) by
+``app/player/listener.py`` and published by Tailscale Funnel on :10000. It
 mounts **nothing** from the main :8449 app: no ``RemoteAuth`` bypass, no
 ``/api/*``, no ``/ws``, no presenter or stage, no shared static mount, and no
 OpenAPI docs. Every route lives under ``/play``; anything else is a 404.

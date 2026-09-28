@@ -121,7 +121,7 @@ def test_port_zero_turns_the_listener_off(client, caplog) -> None:
 def test_quiz_config_defaults_and_sample() -> None:
     from src.config import CONFIG_SAMPLE_PATH, AppConfig
 
-    assert AppConfig().quiz.public_port == 8450
+    assert AppConfig().quiz.public_port == 8451
     assert AppConfig().quiz.public_url == ""
     sample = json.loads(CONFIG_SAMPLE_PATH.read_text(encoding="utf-8"))
-    assert sample["quiz"] == {"public_port": 8450, "public_url": ""}
+    assert sample["quiz"] == {"public_port": 8451, "public_url": ""}
