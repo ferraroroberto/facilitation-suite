@@ -66,11 +66,16 @@ def stop_instance(proc: subprocess.Popen) -> None:
         log.close()
 
 
-def boot_instance(root: Path, **config: object) -> tuple[subprocess.Popen, Instance]:
-    """Start a disposable server under ``root``; returns (process, instance)."""
+def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
+                  **config: object) -> tuple[subprocess.Popen, Instance]:
+    """Start a disposable server under ``root``; returns (process, instance).
+
+    Free ports unless ``port`` / ``player_port`` are given (``scripts/quiz_bots.py``
+    restarts an instance on the same ports, as a crash-and-restart would).
+    """
     root.mkdir(parents=True, exist_ok=True)
-    port = _free_port()
-    player_port = _free_port()
+    port = port or _free_port()
+    player_port = player_port or _free_port()
     while player_port == port:
         player_port = _free_port()
     config.setdefault("quiz", {"public_port": player_port, "public_url": ""})
