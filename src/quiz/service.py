@@ -69,8 +69,11 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
 **Join PIN.** Every game gets a 6-digit PIN (a ``pin`` record right after
 its ``game`` record, so it survives a restart); ``state.quiz`` carries it
 with ``join_url`` (``quiz.public_url`` + ``/play?pin=…``, ``None`` while the
-public URL is not configured) and ``listener`` (the player listener is up).
-The server sets ``public_url`` and ``listener_up``.
+public URL is not configured), ``listener`` (the player listener is up) and
+``reach`` (the last public-link check, ``reach.py``: ``state`` ok |
+listener_down | funnel_unreachable | not_configured | unknown, ``label``,
+``detail``, ``checked_at``). The server sets ``public_url``, ``listener_up``
+and ``reach``.
 
 ``state.quiz`` also carries ``accept_chat``: the lobby's "answers typed in
 the chat count too" switch for this game (default on).
@@ -109,6 +112,7 @@ logger = logging.getLogger(__name__)
 QUIZ_FILE = "quiz.jsonl"
 PUSH_EVERY_S = 0.25  # joins and answers in a burst: at most four snapshot pushes a second
 LOBBY, QUESTION, PODIUM = "quiz_lobby", "quiz", "quiz_podium"
+QUIZ_TYPES = (LOBBY, QUESTION, PODIUM)
 WRONG_PIN = "wrong_pin"  # join_pin: no game of the live session has that PIN
 PIN_DIGITS = 6
 
@@ -196,6 +200,7 @@ class QuizService:
         self.change_listeners: list[Callable[[], None]] = []
         self.public_url: Callable[[], str] = lambda: ""  # quiz.public_url (set by the server)
         self.listener_up: Callable[[], bool] = lambda: False  # the player listener serves (set by the server)
+        self.reach: Callable[[], Optional[dict[str, Any]]] = lambda: None  # the public link check (``reach.py``)
         self._session: Optional[str] = None
         self._scopes: tuple[Any, dict[str, Scope]] = (None, {})
         self._pending: list[dict[str, Any]] = []  # records not yet written to quiz.jsonl
@@ -240,7 +245,8 @@ class QuizService:
         if game is None:
             return {"quiz": None}
         return {"quiz": {**game.snapshot(scope.order, scope.questions), "join_url": self.join_url(game.pin),
-                         "listener": self.listener_up(), "accept_chat": self.accepts_chat(scope)}}
+                         "listener": self.listener_up(), "accept_chat": self.accepts_chat(scope),
+                         "reach": self.reach()}}
 
     def accepts_chat(self, scope: Scope) -> bool:
         """The lobby's "answers typed in the chat count too" switch (default on)."""

@@ -375,6 +375,11 @@ function buildQuiz(body) {
   body.querySelector('[data-qjoin]').addEventListener('click', (e) => {
     const b = e.target.closest('[data-qcopy]');
     if (b) copyText(b.dataset.qcopy, 'Join link copied');
+    const check = e.target.closest('[data-qreachcheck]');
+    if (check) {
+      check.disabled = true; // the result arrives with the next state push; the button is redrawn then
+      api('/api/quiz/reach', { method: 'POST' }).catch((err) => toast(err.message, 'error')).finally(() => { check.disabled = false; });
+    }
   });
   const line = document.createElement('div');
   line.className = 'switch-line p-switch';
@@ -416,11 +421,21 @@ function quizJoinHtml(q) {
   const url = q.join_url || '';
   if (!url) return `<span class="p-quiz-pin">PIN <b>${esc(pin)}</b></span><span class="chip warn">Public link · not configured</span>` +
     `<span class="small muted">Set quiz.public_url in the config.</span>`;
-  // The reachability chip is a slot: Step 8 of #34 checks the public link; until then it says so.
   return `<span class="p-quiz-pin">PIN <b>${esc(pin)}</b></span>` +
     `<span class="p-quiz-url" title="${esc(url)}">${esc(url)}</span>` +
     `<button type="button" class="button-surface" data-qcopy="${esc(url)}">${icon('copy')} Copy link</button>` +
-    `<span class="chip" data-qreach>Reachability · not checked</span>`;
+    quizReachHtml(q.reach);
+}
+
+// The public-link check (src/quiz/reach.py), the same five states as the readiness list:
+// ok | listener_down | funnel_unreachable | not_configured | unknown — unknown is never shown as ok.
+const REACH_CHIP = { ok: 'ok', listener_down: 'warn', funnel_unreachable: 'warn', not_configured: 'warn', unknown: '' };
+
+function quizReachHtml(reach) {
+  const r = reach || { state: 'unknown', label: 'unknown', detail: 'Not checked yet' };
+  const when = r.checked_at ? ` · checked ${new Date(r.checked_at * 1000).toLocaleTimeString()}` : '';
+  return `<span class="chip ${REACH_CHIP[r.state] ?? ''}" data-qreach="${esc(r.state)}" title="${esc(r.detail + when)}">Reachability · ${esc(r.label)}</span>` +
+    `<button type="button" class="button-surface" data-qreachcheck>${icon('refresh-cw')} Check</button>`;
 }
 
 function drawQuiz(body, q) {

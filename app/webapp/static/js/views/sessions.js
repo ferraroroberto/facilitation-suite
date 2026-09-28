@@ -373,7 +373,7 @@ function fontCard(sid, s) {
 }
 
 function readyRow(c) {
-  const labels = { import: 'Import', pin: 'Keep on PC', test_reader: 'Test', confirm_zoom_update: 'Mark done' };
+  const labels = { import: 'Import', pin: 'Keep on PC', test_reader: 'Test', confirm_zoom_update: 'Mark done', check_quiz_reach: 'Check' };
   const btn = c.action && labels[c.action]
     ? `<button type="button" class="button-surface" data-action="${c.action}">${labels[c.action]}</button>` : '';
   return `<div class="list-row ready-row state-${c.state}">` +
@@ -391,6 +391,14 @@ async function readinessAction(sid, s, action) {
       setTimeout(renderDetail, 4000);
     } catch (e) { toast(e.message, 'error'); }
     return;
+  }
+  if (action === 'check_quiz_reach') {
+    toast('Checking the public quiz link…');
+    try {
+      const r = await api('/api/quiz/reach', { method: 'POST' });
+      toast(`Quiz public link: ${r.label}`, r.state === 'ok' ? 'info' : 'error');
+    } catch (e) { toast(e.message, 'error'); }
+    return renderDetail();
   }
   if (action === 'confirm_zoom_update') {
     const next = Object.assign({}, s, { checklist: Object.assign({}, s.checklist, { zoom_autoupdate_off: true }) });

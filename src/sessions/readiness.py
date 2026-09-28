@@ -22,6 +22,29 @@ def _check(key: str, label: str, state: str, detail: str, action: Optional[str] 
     return out
 
 
+def has_quiz(session: Session) -> bool:
+    """The plan plays a quiz (an included quiz lobby, question or podium)."""
+    from src.quiz.service import QUIZ_TYPES
+
+    return any(it.kind == "activity" and it.include and it.type in QUIZ_TYPES for it in session.all_items())
+
+
+# The public-link check's five states (src/quiz/reach.py) as checklist states: each keeps its own
+# name in ``reach`` and in the detail, and ``unknown`` stays ``unknown`` — never counted as ok.
+REACH_ROW = {"ok": "ok", "listener_down": "warn", "funnel_unreachable": "warn", "not_configured": "todo",
+             "unknown": "unknown"}
+
+
+def quiz_reach_check(reach: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """The "Quiz public URL reachable" row from the last check (``None``: the app has no checker)."""
+    reach = reach or {"state": "unknown", "label": "unknown", "detail": "Not checked yet"}
+    state = reach["state"] if reach.get("state") in REACH_ROW else "unknown"
+    detail = reach["detail"] if state == "ok" else f"{str(reach.get('label') or state).capitalize()} — {reach['detail']}"
+    row = _check("quiz_reach", "Quiz public URL reachable", REACH_ROW[state], detail, "check_quiz_reach")
+    row["reach"] = state
+    return row
+
+
 def build(folder: Path, session: Session, offline: OfflineReport, live: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
     live = live or {}
     checks: list[dict[str, Any]] = []
@@ -93,6 +116,9 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
         checks.append(music)
     if uses_spotify(session):
         checks.append(spotify_check(live.get("spotify")))
+
+    if has_quiz(session):
+        checks.append(quiz_reach_check(live.get("quiz_reach")))
 
     reader = live.get("reader")
     if reader and reader.get("tested"):
