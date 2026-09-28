@@ -243,3 +243,16 @@ def test_a_reimport_brings_the_slide_text_layer(tmp_path: Path) -> None:
     result = apply(folder, session, set())
     assert all(s["bg_file"] == f"slide-{s['slide_id']}-bg.png" for s in result["meta"]["slides"])
     assert (folder / "slides" / "slide-1-bg.png").is_file() and (folder / "slides" / "slide-2-bg.png").is_file()
+
+
+def test_a_corrupt_slides_json_is_logged_but_a_missing_one_is_silent(tmp_path: Path, caplog) -> None:
+    from src.importer.review import read_meta
+
+    path = tmp_path / "slides.json"
+    with caplog.at_level("ERROR", logger="src.importer.review"):
+        assert read_meta(path) is None
+    assert caplog.text == ""
+    path.write_text("{not json", encoding="utf-8")
+    with caplog.at_level("ERROR", logger="src.importer.review"):
+        assert read_meta(path) is None
+    assert "unreadable" in caplog.text

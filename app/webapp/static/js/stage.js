@@ -11,6 +11,13 @@ import { api } from '/static/js/ui.js';
 import { connectLive, bindKeys, clickToAdvance } from '/static/js/live.js';
 import { createStage, applyTheme } from '/static/js/stage-render.js';
 
+// The letterbox around the scaled canvas is the theme's own background, which
+// only the canvas can read (the theme scopes its variables under .stage-canvas).
+function syncLetterbox() {
+  const canvas = host.querySelector('.stage-canvas');
+  if (canvas) document.body.style.background = getComputedStyle(canvas).backgroundColor;
+}
+
 const host = document.getElementById('stage');
 const params = new URLSearchParams(location.search);
 const freezeId = params.get('freeze');
@@ -23,6 +30,7 @@ async function renderFrozen(id) {
   const stage = createStage(host);
   const [data, frozen] = await Promise.all([api('/api/live'), api(`/api/live/captures/${encodeURIComponent(id)}`)]);
   await applyTheme(data.plan); // the session font must be declared before the fonts are awaited
+  syncLetterbox();
   const ctx = { plan: data.plan, state: { timers: {}, blackout: false }, now: Date.now(), result: frozen.result, names: !!frozen.names };
   stage.render(frozen.item, ctx);
   await stage.ready();
@@ -41,7 +49,7 @@ function runLive() {
   const live = connectLive('stage', {
     onPlan(p) {
       plan = p;
-      applyTheme(p);
+      applyTheme(p).then(syncLetterbox);
       draw();
     },
     onState() { draw(); },

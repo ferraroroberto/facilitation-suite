@@ -7,7 +7,7 @@
   max-width: 100%;
   padding: 14px 26px;
   border-radius: 28px;
-  background: #ffffff;
+  background: var(--st-chip-bg);
   border: 2px solid var(--st-chip-line);
   font-size: calc(40px - var(--age) * 2px);
   opacity: calc(1 - var(--age) * 0.08);

@@ -3,7 +3,7 @@
 .stage-canvas .gr-room {
   display: flex; align-items: center; gap: calc(var(--size) * 0.7);
   padding: calc(var(--size) * 0.45) calc(var(--size) * 0.7);
-  border-radius: 20px; background: #ffffff; border: 2px solid var(--st-chip-line);
+  border-radius: 20px; background: var(--st-chip-bg); border: 2px solid var(--st-chip-line);
 }
 .stage-canvas .gr-n {
   flex: none; width: calc(var(--size) * 2); height: calc(var(--size) * 2); border-radius: 12px;

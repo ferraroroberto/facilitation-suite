@@ -247,3 +247,26 @@ def test_space_captures_else_runs_the_timer(svc) -> None:
     with pytest.raises(LiveError) as err:
         run_action(live, "space")
     assert err.value.code == "nothing_to_start"
+
+
+def test_an_unreadable_frozen_capture_and_a_parser_crash_are_logged(svc, monkeypatch, caplog) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Ana", "reuniones"))
+
+    def boom(message: dict[str, Any], options: dict[str, Any]) -> None:
+        raise ValueError("plug-in bug")
+
+    monkeypatch.setattr(parser("word_cloud"), "parse", boom)
+    with caplog.at_level("ERROR", logger="src.live.capture"):
+        run_action(live, "capture_toggle")  # stop -> freeze
+    assert "parse failed on message" in caplog.text
+    frozen = json.loads((folder / "live" / "captures" / "act-kryptonite.json").read_text(encoding="utf-8"))
+    assert [a["parsed"] for a in frozen["answers"]] == [None]  # unparsed, not a failed freeze
+
+    caplog.clear()
+    (folder / "live" / "captures" / "act-kryptonite.json").write_text("{not json", encoding="utf-8")
+    with caplog.at_level("WARNING", logger="src.live.capture"):
+        assert cap.frozen("act-kryptonite") is None
+    assert "frozen record unreadable" in caplog.text

@@ -47,8 +47,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.groups.roster import RosterError, load_groups
+from src.importer.review import read_meta
 from src.live.plan import build_run
-from src.sessions.readiness import slides_meta
 from src.sessions.store import SessionError, SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -246,7 +246,7 @@ class LiveHub:
         self._cancel_timer_handles()
         self.session_id, self.folder = sid, folder
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
-        self.run = build_run(session, slides_meta(folder), _rounds(folder), self.zones())
+        self.run = build_run(session, read_meta(folder / "slides" / "slides.json"), _rounds(folder), self.zones())
         self.plan_rev += 1
         self.index, self.blackout, self.names = 0, False, False
         self.clock_started_at, self.section_entered, self.timers = None, {}, {}
@@ -325,7 +325,7 @@ class LiveHub:
             return
         cur = self.current()
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
-        self.run = build_run(session, slides_meta(self.folder), _rounds(self.folder), self.zones())
+        self.run = build_run(session, read_meta(self.folder / "slides" / "slides.json"), _rounds(self.folder), self.zones())
         self.plan_rev += 1
         found = self.item_by_id(cur["id"]) if cur else None
         self.index = found["index"] if found else min(self.index, max(0, len(self.items) - 1))

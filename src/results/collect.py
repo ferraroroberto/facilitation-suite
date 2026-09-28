@@ -24,9 +24,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.activities.registry import editors, report_for, value_for
+from src.importer.review import read_meta
 from src.live.plan import build_run, one_line
 from src.sessions.model import Session
-from src.sessions.readiness import slides_meta
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
     """Everything the Results tab, the PDF and the Excel report read."""
     captures = frozen_captures(folder)
     events = read_jsonl(folder / "live" / "events.jsonl")
-    run = build_run(session, slides_meta(folder))
+    run = build_run(session, read_meta(folder / "slides" / "slides.json"))
     cap_dir = folder / "live" / "captures"
     acts = {iid: _activity(iid, fr, cap_dir / f"{iid}.png") for iid, fr in captures.items()}
     pages = timeline(events, run["items"], set(acts))

@@ -197,11 +197,11 @@ def write_demo_run(folder: Path, *, pngs: bool = True) -> dict[str, list[dict[st
     from datetime import UTC, datetime
 
     from src.activities.registry import options_with_defaults, parser, result_for
+    from src.importer.review import read_meta
     from src.live.plan import build_run
-    from src.sessions.readiness import slides_meta
 
     session = parse_session(PLAN)
-    run = build_run(session, slides_meta(folder))
+    run = build_run(session, read_meta(folder / "slides" / "slides.json"))
     live = folder / "live"
     (live / "captures").mkdir(parents=True, exist_ok=True)
     t = RUN_START_MS

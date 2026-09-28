@@ -7,10 +7,10 @@ and ``unknown`` is never counted as passing.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Optional
 
+from src.importer.review import read_meta
 from src.sessions.model import Session
 from src.sessions.offline import OfflineReport
 
@@ -22,19 +22,11 @@ def _check(key: str, label: str, state: str, detail: str, action: Optional[str] 
     return out
 
 
-def slides_meta(folder: Path) -> Optional[dict[str, Any]]:
-    path = folder / "slides" / "slides.json"
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-
-
 def build(folder: Path, session: Session, offline: OfflineReport, live: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
     live = live or {}
     checks: list[dict[str, Any]] = []
 
-    meta = slides_meta(folder)
+    meta = read_meta(folder / "slides" / "slides.json")
     if meta and meta.get("slides"):
         src = Path(str(meta.get("source") or "")).name or "PowerPoint"
         checks.append(_check("slides", "Slides", "ok", f"{len(meta['slides'])} from {src}"))
