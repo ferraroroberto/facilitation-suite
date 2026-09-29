@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
+from src.activities.registry import editors
 from src.importer.review import read_meta
 from src.sessions.model import Session
 from src.sessions.offline import OfflineReport
@@ -58,7 +59,9 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
 
     acts = [it for it in session.all_items() if it.kind == "activity"]
     skipped = [a for a in acts if not a.include]
-    unconfigured = [a for a in acts if a.include and a.type not in ("groups_reveal",) and not a.question.strip()]
+    types = editors()
+    unconfigured = [a for a in acts if a.include and types.get(a.type or "", {}).get("needs_question", True)
+                    and not a.question.strip()]
     if not acts:
         checks.append(_check("activities", "Activities", "todo", "No activities in the plan yet"))
     elif unconfigured:

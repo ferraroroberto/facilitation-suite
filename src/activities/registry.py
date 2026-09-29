@@ -1,7 +1,8 @@
 """Activity plug-ins (epic §8): one folder per type under ``app/activities/<type>/``.
 
 A plug-in folder holds ``editor.json`` (label, icon, the options the Plan
-editor shows, their defaults), and from step 7 ``parse.py`` (chat message →
+editor shows, their defaults; ``"needs_question": false`` for a type that
+shows no question, so readiness does not ask for one), and from step 7 ``parse.py`` (chat message →
 contribution, contributions → result) and ``stage.js`` / ``stage.css`` (render
 the result on the stage). From step 12 ``parse.py`` may also say how its result
 reads after the session: ``report(result)`` (the Results tab's summary line,
@@ -38,6 +39,7 @@ def editors() -> dict[str, dict[str, Any]]:
             logger.error("❌ activity %s: editor.json type %r does not match its folder — skipped", f.parent.name, spec.get("type"))
             continue
         spec.setdefault("capture", True)
+        spec.setdefault("needs_question", True)
         spec["has_stage"] = (f.parent / "stage.js").is_file()
         out[spec["type"]] = spec
     return dict(sorted(out.items(), key=lambda kv: kv[1].get("order", 99)))
