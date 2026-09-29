@@ -19,6 +19,7 @@ from src.music.spotify import (
     NOT_CONFIGURED,
     NOT_PREMIUM,
     OK,
+    REFRESH_KEY,
     TOKEN_EXPIRED,
     UNKNOWN,
     SpotifyBackend,
@@ -277,3 +278,125 @@ def test_the_login_asks_for_the_account_type_and_never_guesses_it() -> None:
     for missing in (None, ""):  # an old token without the scope: say so, claim nothing about Premium
         line = login.account_line(missing)
         assert "not checked" in line and "Premium" not in line and "premium" not in line
+
+
+# ---------------------------------------------------------------- #146: status right after a login save
+
+
+class FakeLogins:
+    """Spotify's token endpoint for a series of logins: a refresh token starting ``good`` works, any
+    other one was revoked. The Web API always sees this PC. Thread-safe (the pollers share it)."""
+
+    def __call__(self, method: str, url: str, headers: dict[str, str], body: Optional[bytes]) -> tuple[int, dict[str, str], bytes]:
+        if url.startswith("https://accounts.spotify.com"):
+            refresh = dict(urllib.parse.parse_qsl((body or b"").decode())).get("refresh_token", "")
+            if refresh.startswith("good"):
+                return 200, {}, json.dumps({"access_token": f"acc-{refresh}", "expires_in": 3600}).encode()
+            return 400, {}, b'{"error": "invalid_grant"}'
+        return 200, {}, json.dumps({"devices": [PC]}).encode()
+
+
+def test_a_status_poll_in_flight_across_a_login_save_never_caches_the_old_answer(isolated_env: Path) -> None:
+    """#146, the exact interleaving: a poll finds the old ``.env`` (no login yet), the login is saved
+    and the backend told to forget its answers, then the poll finishes — its pre-save answer must
+    not become the cached status the next check serves for 30 s."""
+    import threading
+
+    env = isolated_env / ".env"
+    env.write_text("SPOTIFY_CLIENT_ID=test-client\nSPOTIFY_DEVICE_NAME=studio-pc\n", encoding="utf-8")
+    read_old, saved = threading.Event(), threading.Event()
+
+    class SlowPoll(SpotifyClient):
+        def device(self) -> dict[str, Any]:
+            try:
+                return super().device()  # the poll's answer, from the .env it read …
+            finally:
+                if threading.current_thread().name == "poller":
+                    read_old.set()
+                    assert saved.wait(5)  # … reaches the backend only after the save landed
+
+    b = SpotifyBackend(lambda *e: None, client=SlowPoll(http=FakeLogins()))
+    poller = threading.Thread(target=b.status, name="poller")
+    poller.start()
+    assert read_old.wait(5)
+    set_value(REFRESH_KEY, "good-login")
+    b.forget_login()  # what MusicService.spotify_login_saved does
+    saved.set()
+    poller.join(5)
+    assert b.status()[0] == OK
+    assert b.configured()
+
+
+def test_status_right_after_each_save_is_the_new_state_under_concurrent_polling(isolated_env: Path) -> None:
+    """#146: saves flip the login between working and revoked while pollers keep asking (some forcing
+    a fresh check); a status asked the moment a save returns — before anyone calls ``forget_login`` —
+    is that save's state every time, never an answer or access token from before it."""
+    import threading
+
+    env = isolated_env / ".env"
+    env.write_text("SPOTIFY_CLIENT_ID=test-client\nSPOTIFY_DEVICE_NAME=studio-pc\n", encoding="utf-8")
+    b = SpotifyBackend(lambda *e: None, client=SpotifyClient(http=FakeLogins()))
+    assert b.status()[0] == NOT_CONFIGURED and not b.configured()
+    stop, errors = threading.Event(), []
+
+    def poll(n: int) -> None:
+        # Hundreds of checks a second across the pollers, far past any real page's rate. Not a
+        # zero-sleep spin: that starves a save's os.replace of any window to land in (#141's race,
+        # not this one) and the save itself fails before the status is even asked.
+        try:
+            while not stop.wait(0.002):
+                b.status(fresh=n % 2 == 0)
+                b.configured()
+        except Exception as exc:  # noqa: BLE001 — surfaced by the assert below
+            errors.append(exc)
+
+    pollers = [threading.Thread(target=poll, args=(n,), daemon=True) for n in range(6)]
+    for t in pollers:
+        t.start()
+    wrong = []
+    try:
+        for i in range(40):
+            good = i % 2 == 0
+            set_value(REFRESH_KEY, f"{'good' if good else 'revoked'}-{i}")
+            expected = OK if good else TOKEN_EXPIRED
+            got = (b.status()[0], b.configured())
+            if got != (expected, True):
+                wrong.append((i, expected, got))
+            time.sleep(0.01)  # the pollers cache this state again before the next save
+    finally:
+        stop.set()
+        for t in pollers:
+            t.join(5)
+    assert not errors
+    assert wrong == []
+
+
+def test_a_read_in_flight_across_a_save_never_overwrites_the_saved_cache(
+    isolated_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#146 in the ``.env`` helper: a read that took the old bytes off disk just before a save must
+    not store them over the cache the save just primed — the next read would serve the old token."""
+    import threading
+
+    from src import env_file
+
+    env = isolated_env / ".env"
+    env.write_text("SPOTIFY_CLIENT_ID=test-client\n", encoding="utf-8")
+    real_read_text = env_file._read_text
+    read_old, saved = threading.Event(), threading.Event()
+
+    def slow_read_text(path: Path) -> str:
+        text = real_read_text(path)
+        if threading.current_thread().name == "reader":
+            read_old.set()
+            assert saved.wait(5)
+        return text
+
+    monkeypatch.setattr(env_file, "_read_text", slow_read_text)
+    reader = threading.Thread(target=read_env, name="reader")
+    reader.start()
+    assert read_old.wait(5)
+    set_value(REFRESH_KEY, "good-login")
+    saved.set()
+    reader.join(5)
+    assert read_env().get(REFRESH_KEY) == "good-login"
