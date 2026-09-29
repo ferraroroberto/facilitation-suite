@@ -208,6 +208,25 @@ def test_activity_types_come_from_the_plugin_folders(client) -> None:
     assert types[-1]["capture"] is False
 
 
+def _activities_check(tmp_path: Path, items: list[dict]) -> dict:
+    from src.sessions import readiness
+    from src.sessions.offline import OfflineReport
+
+    session = parse_session({"schema": 1, "sections": [{"name": "S", "items": items}]})
+    return next(c for c in readiness.build(tmp_path, session, OfflineReport()) if c["key"] == "activities")
+
+
+def test_readiness_skips_types_without_a_question_but_still_warns_on_empty_ones(tmp_path: Path) -> None:
+    quiz = {"kind": "activity", "type": "quiz", "question": "2 + 2?", "options": {"answer_1": "4", "correct": "1"}}
+    frame = [{"kind": "activity", "type": "quiz_lobby"}, quiz, {"kind": "activity", "type": "quiz_podium"},
+             {"kind": "activity", "type": "groups_reveal"}]
+    assert _activities_check(tmp_path, frame)["state"] == "ok"  # #85: lobby and podium have no question by design
+
+    for empty in ({**quiz, "question": " "}, {"kind": "activity", "type": "word_cloud"}):
+        got = _activities_check(tmp_path, [*frame, empty])
+        assert (got["state"], got["detail"]) == ("warn", "1 without a question")
+
+
 def test_demo_fixture_is_a_valid_session(tmp_path: Path) -> None:
     from tests.fixtures.demo import build_demo_session
 
