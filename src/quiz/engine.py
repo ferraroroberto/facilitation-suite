@@ -340,6 +340,11 @@ class Game:
         active = {p.id for p in self.active()}
         return sum(1 for (pid, iid) in self.answers if iid == item_id and pid in active)
 
+    def all_answered(self, item_id: str) -> bool:
+        """Every active (non-kicked) player has answered ``item_id`` — never ``True`` with no players."""
+        n = len(self.active())
+        return n > 0 and self.answered(item_id) == n
+
     def snapshot(self, order: list[str], questions: dict[str, QuizQuestion]) -> dict[str, Any]:
         """The ``quiz`` field of the live snapshot. The correct answer, the distribution and
         the scores of a question appear only once it is closed (reveal and after)."""

@@ -86,6 +86,25 @@ def at_lobby_with(hub: LiveHub, quiz: QuizService, *names: str) -> list[Any]:
     return [quiz.join(n) for n in names]
 
 
+async def bound_rig(sid: str, clock: Clock) -> tuple[LiveHub, QuizService]:
+    """A rig whose hub is bound to the running loop, so ``call_later`` (the early-close and
+    time-up timers) actually schedules — unlike ``rig``/``make_rig``, which run with no loop."""
+    hub = LiveHub(SessionStore(load_config()))
+    quiz = QuizService(hub, clock=clock)
+    hub.bind(asyncio.get_running_loop())
+    hub.activate(sid)
+    return hub, quiz
+
+
+async def wait_for_phase(hub: LiveHub, phase: str, ceiling_s: float) -> bool:
+    """Poll ``state(hub)["phase"]`` up to ``ceiling_s``; ``True`` once it matches ``phase``."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + ceiling_s
+    while state(hub)["phase"] != phase and loop.time() < deadline:
+        await asyncio.sleep(0.01)
+    return state(hub)["phase"] == phase
+
+
 # ---- scoring (Kahoot's rule, see engine.py) ----
 
 Q20 = QuizQuestion("Q?", ["a", "b", "c", "d"], [2], 20, "standard")
@@ -136,6 +155,21 @@ def test_standings_streaks_and_ties() -> None:
     assert rows["pc"].score == 0 and rows["pc"].last_correct is None  # did not answer the last question
     g.apply({"op": "kick", "player_id": "pa", "at": T0})
     assert [s.player_id for s in g.standings(qs)] == ["pb", "pc", "pd"] and g.standings(qs)[0].rank == 1
+
+
+def test_all_answered_needs_every_active_player_and_never_fires_with_none() -> None:
+    g = Game("l-1", "l", 1)
+    assert g.all_answered("q1") is False  # no players at all
+    g.apply({"op": "join", "player_id": "pa", "name": "A", "secret": "s", "at": T0})
+    g.apply({"op": "join", "player_id": "pb", "name": "B", "secret": "s", "at": T0})
+    g.apply({"op": "phase", "phase": "question", "item_id": "q1", "deadline_ms": T0 + 99_999, "at": T0})
+    assert g.all_answered("q1") is False  # nobody has answered yet
+    g.apply({"op": "answer", "player_id": "pa", "item_id": "q1", "choice": 1, "elapsed_ms": 0, "at": T0})
+    assert g.all_answered("q1") is False  # pb hasn't
+    g.apply({"op": "kick", "player_id": "pb", "at": T0})
+    assert g.all_answered("q1") is True  # the only remaining active player has answered
+    g.apply({"op": "kick", "player_id": "pa", "at": T0})
+    assert g.all_answered("q1") is False  # 0 active players: never true
 
 
 def test_a_streak_counts_consecutive_correct_answers_and_scores_nothing() -> None:
@@ -382,6 +416,127 @@ def test_lock_and_time_up_reveal(rig: tuple[LiveHub, QuizService], clock: Clock)
     assert state(hub)["phase"] == "question"
     quiz.time_up("qz-lobby-1", "qz-2")
     assert state(hub)["phase"] == "reveal"
+
+
+# ---- closing early when everyone has answered (#105) ----
+
+def test_closes_early_once_every_active_player_has_answered(
+    quiz_session: tuple[str, Path], clock: Clock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.quiz.service.EARLY_CLOSE_MS", 50)  # keep the test fast; the grace itself is unit-tested
+    sid, _ = quiz_session
+
+    async def run() -> str:
+        hub, quiz = await bound_rig(sid, clock)
+        a, b = at_lobby_with(hub, quiz, "Ana", "Bo")
+        hub.next()  # question 1, open
+        quiz.answer(a.player_id, a.secret, "qz-1", 2)
+        assert not await wait_for_phase(hub, "reveal", 0.2)  # one of two answered: still open
+        quiz.answer(b.player_id, b.secret, "qz-1", 1)  # the last active player answers
+        await wait_for_phase(hub, "reveal", 2.0)
+        return state(hub)["phase"]
+
+    assert asyncio.run(run()) == "reveal"
+
+
+def test_the_option_off_leaves_the_question_open_for_everyone_answering(
+    quiz_session: tuple[str, Path], clock: Clock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.quiz.service.EARLY_CLOSE_MS", 50)
+    sid, folder = quiz_session
+    raw = yaml.safe_load((folder / SESSION_FILE).read_text(encoding="utf-8"))
+    lobby = next(it for sec in raw["sections"] for it in sec["items"] if it.get("id") == "qz-lobby")
+    lobby.setdefault("options", {})["close_when_all_answered"] = False
+    (folder / SESSION_FILE).write_text(yaml.safe_dump(raw, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    async def run() -> str:
+        hub, quiz = await bound_rig(sid, clock)
+        a, b = at_lobby_with(hub, quiz, "Ana", "Bo")
+        hub.next()
+        quiz.answer(a.player_id, a.secret, "qz-1", 2)
+        quiz.answer(b.player_id, b.secret, "qz-1", 1)
+        assert not await wait_for_phase(hub, "reveal", 0.3)  # well past the (patched) grace: still open
+        return state(hub)["phase"]
+
+    assert asyncio.run(run()) == "question"
+
+
+def test_a_kicked_hold_out_lets_the_rest_close_early(
+    quiz_session: tuple[str, Path], clock: Clock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.quiz.service.EARLY_CLOSE_MS", 50)
+    sid, _ = quiz_session
+
+    async def run() -> str:
+        hub, quiz = await bound_rig(sid, clock)
+        a, b, c = at_lobby_with(hub, quiz, "Ana", "Bo", "Cy")
+        hub.next()
+        quiz.answer(a.player_id, a.secret, "qz-1", 2)
+        quiz.answer(b.player_id, b.secret, "qz-1", 1)  # Cy never answers
+        assert not await wait_for_phase(hub, "reveal", 0.2)
+        quiz.kick(c.player_id)  # the only hold-out removed: everyone left has answered
+        await wait_for_phase(hub, "reveal", 2.0)
+        return state(hub)["phase"]
+
+    assert asyncio.run(run()) == "reveal"
+
+
+def test_a_chat_player_counts_towards_closing_early(
+    quiz_session: tuple[str, Path], clock: Clock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.quiz.service.EARLY_CLOSE_MS", 50)
+    sid, _ = quiz_session
+
+    async def run() -> str:
+        hub, quiz = await bound_rig(sid, clock)
+        goto_id(hub, "qz-lobby")
+        a = quiz.join("Ana")
+        chatter = quiz.join("Zed", source="chat")
+        hub.next()
+        quiz.answer(a.player_id, a.secret, "qz-1", 2)
+        quiz.answer_trusted(chatter.player_id, "qz-1", 1)  # the chat fallback: no secret
+        await wait_for_phase(hub, "reveal", 2.0)
+        return state(hub)["phase"]
+
+    assert asyncio.run(run()) == "reveal"
+
+
+def test_no_players_never_closes_early(
+    quiz_session: tuple[str, Path], clock: Clock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.quiz.service.EARLY_CLOSE_MS", 50)
+    sid, _ = quiz_session
+
+    async def run() -> str:
+        hub, quiz = await bound_rig(sid, clock)
+        goto_id(hub, "qz-lobby")
+        hub.next()  # question 1, open — nobody ever joined
+        assert not await wait_for_phase(hub, "reveal", 0.3)
+        return state(hub)["phase"]
+
+    assert asyncio.run(run()) == "question"
+
+
+def test_replaying_after_a_restart_keeps_an_early_close(
+    quiz_session: tuple[str, Path], clock: Clock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.quiz.service.EARLY_CLOSE_MS", 50)
+    sid, _ = quiz_session
+
+    async def run() -> None:
+        hub, quiz = await bound_rig(sid, clock)
+        a, b = at_lobby_with(hub, quiz, "Ana", "Bo")
+        hub.next()
+        quiz.answer(a.player_id, a.secret, "qz-1", 2)
+        quiz.answer(b.player_id, b.secret, "qz-1", 1)
+        assert await wait_for_phase(hub, "reveal", 2.0)
+
+    asyncio.run(run())
+
+    hub2, quiz2 = make_rig(sid, clock)  # a fresh server on the same session folder
+    assert state(hub2)["phase"] == "reveal" and state(hub2)["correct"] == [2]
+    late = quiz2.join("Cy")  # joins after the early close: never got a chance to answer
+    assert quiz2.answer(late.player_id, late.secret, "qz-1", 2).state == "too_late"  # exactly as today
 
 
 def test_a_new_game_and_a_session_reset(rig: tuple[LiveHub, QuizService]) -> None:
