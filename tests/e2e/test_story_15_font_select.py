@@ -54,7 +54,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.add_init_script(f"localStorage.setItem('facilitation-suite.session', '{sid}')")
     # the native file dialog cannot open under test: answer the picker with the font
     page.route("**/api/pick", lambda route: route.fulfill(json={"path": str(font)}))
-    page.goto(webapp.base_url + "/")
+    page.goto(webapp.base_url + f"/#sessions/{sid}")  # the session open full screen (#150)
 
     # -- Sessions → Stage font: choose it, thicken its lines
     card = page.locator(".font-card")
