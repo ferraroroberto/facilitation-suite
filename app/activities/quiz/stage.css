@@ -256,12 +256,16 @@
 
 /* ----------------------------------------------------------------- podium */
 
+/* One place per Next (#89): every place keeps its spot from the start, a place not
+   revealed yet is invisible (not .shown), and the one just revealed rises (.rise). */
 .stage-canvas .qz-podium { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-end; gap: 36px; }
 .stage-canvas .qz-step { width: 400px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 16px; }
-.stage-canvas .qz-step.p1 { --at: 3.4s; --tall: 58%; --block: var(--st-podium-1, #c9a227); }
-.stage-canvas .qz-step.p2 { --at: 1.9s; --tall: 42%; --block: var(--st-podium-2, #8e969e); }
-.stage-canvas .qz-step.p3 { --at: 0.4s; --tall: 30%; --block: var(--st-podium-3, #b0703c); }
-.stage-canvas .qz-top { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 100%; animation: qz-fade 0.6s ease-out calc(var(--at) + 0.5s) both; }
+.stage-canvas .qz-step:not(.shown) { visibility: hidden; }
+.stage-canvas .qz-step.p1 { --tall: 58%; --block: var(--st-podium-1, #c9a227); }
+.stage-canvas .qz-step.p2 { --tall: 42%; --block: var(--st-podium-2, #8e969e); }
+.stage-canvas .qz-step.p3 { --tall: 30%; --block: var(--st-podium-3, #b0703c); }
+.stage-canvas .qz-top { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 100%; }
+.stage-canvas .qz-step.rise .qz-top { animation: qz-fade 0.6s ease-out 0.5s both; }
 .stage-canvas .qz-top .icon { width: 72px; height: 72px; color: var(--block); stroke-width: 2.5; }
 .stage-canvas .qz-pname {
   max-width: 100%;
@@ -288,8 +292,8 @@
   font-size: 120px;
   font-weight: 800;
   transform-origin: bottom;
-  animation: qz-rise 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) var(--at) both;
 }
+.stage-canvas .qz-step.rise .qz-block { animation: qz-rise 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
 
 /* ------------------------------------------------------------- animations */
 

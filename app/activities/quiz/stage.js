@@ -6,7 +6,8 @@
 //                count), then its reveal (distribution bars, the correct answer
 //                marked with a check and a label — never by colour alone), then
 //                the leaderboard (top 5, rank changes animated)
-//   quiz_podium  3rd, then 2nd, then 1st
+//   quiz_podium  3rd, then 2nd, then 1st — one place per Next (#89): the server's
+//                podium_step says how many are shown; each rises as it is revealed
 //
 // Everything live comes from ctx.quiz, the server's snapshot for this item. The
 // correct answer only exists there once the question has closed; it is never
@@ -365,13 +366,35 @@ function leaderboard(body, { q, w, fresh }) {
 
 // ------------------------------------------------------------------- podium
 
-function podium(body, { ctx, q, w, fresh, redraw }) {
+// Every place is laid out from the start (2nd, 1st, 3rd, so none moves when another
+// appears); a place not revealed yet is invisible. A place revealed since the last
+// draw rises (.rise); those already shown when the podium is drawn afresh (a stage
+// reloaded mid-podium), or redrawn (a player removed), stand still.
+function podium(body, { ctx, q, w, st, fresh, redraw }) {
   const board = q ? q.leaderboard || [] : ctx.preview ? sampleBoard('quiz_podium', redraw) : [];
   const places = [2, 1, 3].map((rank) => board.find((p) => p.rank === rank)).filter(Boolean);
-  body.innerHTML = `<div class="qz-podium${fresh ? '' : ' qz-still'}">` + places.map((p) =>
-    `<div class="qz-step p${p.rank}" data-rank="${p.rank}"><div class="qz-top">` +
-    (p.rank === 1 ? ICON('crown') : '') +
-    `<span class="qz-pname">${esc(p.name)}</span><span class="qz-pscore">${p.score}</span></div>` +
-    `<div class="qz-block"><span>${p.rank}</span></div></div>`).join('') +
-    (board.length ? '' : `<p class="qz-empty">${esc(q || ctx.preview ? w.no_players : w.starting)}</p>`) + '</div>';
+  const count = places.length;
+  // A preview (no game) shows every place; a game shows as many as the server's step, 3rd first.
+  const step = q ? Math.min(Number(q.podium_step) || 0, count) : count;
+  const shown = new Set(places.filter((p) => p.rank > count - step).map((p) => p.rank));
+  const sig = JSON.stringify([places.map((p) => [p.id, p.name, p.score]), board.length, !!(q || ctx.preview)]);
+  if (fresh || st.sig !== sig) {
+    body.innerHTML = '<div class="qz-podium">' + places.map((p) =>
+      `<div class="qz-step p${p.rank}" data-rank="${p.rank}"><div class="qz-top">` +
+      (p.rank === 1 ? ICON('crown') : '') +
+      `<span class="qz-pname">${esc(p.name)}</span><span class="qz-pscore">${p.score}</span></div>` +
+      `<div class="qz-block"><span>${p.rank}</span></div></div>`).join('') +
+      (board.length ? '' : `<p class="qz-empty">${esc(q || ctx.preview ? w.no_players : w.starting)}</p>`) + '</div>';
+    if (fresh) st.shown = shown; // drawn afresh: what is shown already stands still
+    st.sig = sig;
+  }
+  for (const el of body.querySelectorAll('.qz-step')) {
+    const rank = Number(el.dataset.rank);
+    const on = shown.has(rank);
+    el.classList.toggle('shown', on);
+    el.setAttribute('aria-hidden', String(!on));
+    if (!on) el.classList.remove('rise');
+    else if (!st.shown.has(rank)) el.classList.add('rise'); // revealed by this step
+  }
+  st.shown = shown;
 }

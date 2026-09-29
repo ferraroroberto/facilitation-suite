@@ -24,9 +24,12 @@ Records (every one also carries ``game`` and ``at``, epoch ms):
 - ``{"op": "lock", "item_id"}`` — a question closes without the stage
   showing its reveal (the presenter moved away mid-question).
 - ``{"op": "answer", "player_id", "item_id", "choice", "elapsed_ms", "client_ms"}``.
+- ``{"op": "podium", "item_id", "step"}`` — the podium shows ``step`` places (#89):
+  3rd, then 2nd, then 1st, one per ``next``; entering the podium phase starts at 0.
 
 Phases: ``lobby → question → reveal → leaderboard → (next question) … →
-podium``. A question is **open** from its ``question`` record until its
+podium`` (whose places are revealed one ``next`` at a time, ``podium_step``).
+A question is **open** from its ``question`` record until its
 ``reveal`` (time up, answers locked, or the presenter's ``next``) or a
 ``lock``; only an open question takes answers, and a question opens once.
 
@@ -65,6 +68,7 @@ from typing import Any, Optional
 from src.quiz.model import ANSWERS, QuizError, QuizQuestion
 
 PHASES = ("lobby", "question", "reveal", "leaderboard", "podium")
+PODIUM_PLACES = 3  # the podium shows the top three (fewer with fewer players)
 POSSIBLE = {"standard": 1000, "double": 2000, "none": 0}
 FULL_POINTS_MS = 500  # Kahoot: an answer inside the first half second scores the full points
 GRACE_MS = 1500  # an answer sent before 00:00 still counts if it reaches the server this late
@@ -183,6 +187,7 @@ class Game:
     answers: dict[tuple[str, str], Answer] = field(default_factory=dict)
     runs: dict[str, QuestionRun] = field(default_factory=dict)
     pin: str = ""  # the 6-digit join PIN players type (a ``pin`` record)
+    podium_step: int = 0  # how many podium places are shown, 3rd first (a ``podium`` record)
 
     # ------------------------------------------------------------ records
 
@@ -208,8 +213,13 @@ class Game:
             run = self.runs.get(rec["item_id"])
             if run is not None and run.open:
                 run.closed_at = at
+        elif op == "podium":
+            if self.phase == "podium" and self.item_id == rec["item_id"]:
+                self.podium_step = max(0, min(int(rec["step"]), PODIUM_PLACES))
         elif op == "phase" and rec.get("phase") in PHASES:
             phase, item_id = rec["phase"], rec["item_id"]
+            if phase == "podium" and (self.phase, self.item_id) != (phase, item_id):
+                self.podium_step = 0  # the podium entered afresh: nothing shown yet
             run = self.runs.get(item_id)
             if phase == "question" and run is None:
                 run = self.runs[item_id] = QuestionRun(item_id, at, int(rec["deadline_ms"]))
@@ -309,6 +319,14 @@ class Game:
             s.rank = n
         return out
 
+    def podium_places(self) -> int:
+        """How many places the podium reveals: the top three, or every active player when fewer."""
+        return min(PODIUM_PLACES, len(self.active()))
+
+    def podium_shown(self) -> int:
+        """How many podium places are shown now (``podium_step``, never more than there are places)."""
+        return min(self.podium_step, self.podium_places())
+
     def distribution(self, item_id: str) -> list[int]:
         """How many active players picked each answer (``ANSWERS`` slots)."""
         active = {p.id for p in self.active()}
@@ -340,6 +358,8 @@ class Game:
                 out.update(distribution=self.distribution(self.item_id), correct=list(q.correct))
         if self.phase in ("leaderboard", "podium"):
             out["leaderboard"] = [s.as_dict() for s in self.standings(questions)]
+        if self.phase == "podium":
+            out.update(podium_step=self.podium_shown(), podium_places=self.podium_places())
         return out
 
     def player_view(self, player_id: str, order: list[str], questions: dict[str, QuizQuestion]) -> dict[str, Any]:
