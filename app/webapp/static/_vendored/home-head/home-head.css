@@ -13,7 +13,7 @@
  * vertically centered.
  */
 
-.home-head {
+.card.home-head {
   display: flex;
   align-items: center;
   gap: var(--gap);

@@ -12,7 +12,7 @@ The fleet's canonical **home-head**: a home-only header card rendered as **one r
 ## How to vendor
 
 1. Copy this `home-head/` folder **verbatim** into your app's static dir (`app/webapp/static/_vendored/home-head/`). Do **not** edit `home-head.css` per-app.
-2. Link the CSS **after** `card.css` (see "Load order" below):
+2. Link both stylesheets (order does not matter — see "Load order" below):
    ```html
    <link rel="stylesheet" href="/static/_vendored/card/card.css">
    <link rel="stylesheet" href="/static/_vendored/home-head/home-head.css">
@@ -34,14 +34,14 @@ The fleet's canonical **home-head**: a home-only header card rendered as **one r
 </div>
 ```
 
-- It is a **`.card` modifier** (`class="card home-head"`) — `.card` supplies the surface (fill, hairline border, radius); `.home-head` supplies the row layout and overrides the card's padding to the 52px `0 14px` geometry.
+- It is a **`.card` modifier** (`class="card home-head"`) — `.card` supplies the surface (fill, hairline border, radius); `.card.home-head` supplies the row layout and overrides the card's padding to the 52px `0 14px` geometry.
 - `.home-title` is the leading glyph + bold title, kept on one line. `.home-title .icon` is title-size (`--icon-title`, 18px), muted.
 - `.status` is **optional** — an inline muted line that takes the remaining width and ellipsizes, so a long status can never wrap the row or shove the toggle off-screen. Omit the span entirely if the header carries no status.
 - `.home-toggle` is the icon-only theme toggle, a 34px square with a subtle-contrast fill (`--close-bg`) — the same recipe as the modal's `.detail-close`, never a bare floating glyph. It is pinned right (`margin-left: auto`) even when no `.status` is present. Swapping its glyph (sun ⇄ moon) and persisting the theme is the caller's job per design.md's "Theme switching" contract — this component owns the button's look, not the theme logic.
 
 ## Load order
 
-`home-head.css` overrides the card's own padding with a **single-class** rule (`.home-head { padding: 0 14px }`) at the same specificity as `.card { padding: … }`, so it must be **linked after `card.css`** — exactly the source-order convention the `disclosure` card uses for its `.card--collapsible` padding-zeroing. If your own stylesheet also sets padding on `.home-head`, keep it after this file or use a higher-specificity selector.
+`home-head.css` overrides the card's own padding with the two-class rule `.card.home-head { padding: 0 14px }`, which beats `.card { padding: … }` on specificity regardless of link order — the same load-order-independent form the `disclosure` card uses for its `.card.card--collapsible` padding-zeroing. If your own stylesheet also sets padding on `.home-head`, match or exceed that specificity (e.g. `.card.home-head` too) rather than relying on source order.
 
 ## Required design tokens
 
@@ -56,7 +56,7 @@ The fleet's canonical **home-head**: a home-only header card rendered as **one r
 | `--ink` | `#1f2328` | title text |
 | `--muted` | `#656d76` | status + toggle glyph |
 | `--font-body` | `1rem` | title text size |
-| `--font-label` | `0.92rem` | status text size |
+| `--font-label` | `0.875rem` | status text size |
 
 ## Don't diverge
 
