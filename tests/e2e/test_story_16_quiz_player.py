@@ -8,7 +8,8 @@ every line of every tile. The reveal, the leaderboard (that corner camera) and t
 strip) keep their content out of the camera's box (#88). The phones show that 120-character
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
 light and dark, and after the reveal the right answer's text. The podium reveals one place per
-Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on. Switched to Spanish on the leaderboard,
+Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on; a phone shows its own place only once it is
+revealed (#147). Switched to Spanish on the leaderboard,
 the stage and a reloaded phone say it in Spanish (#91). A stage reloaded on a lobby that already has
 players shows every name (#111). The presenter's Sounds chip (#102) shows on the lobby, naming a
 cue-file/device state — never blank."""
@@ -212,9 +213,16 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         shown = stage.locator(".qz-step.shown .qz-pname")  # laid out 2nd, 1st, 3rd
         expect(stage.locator(".qz-step")).to_have_count(3)
         expect(shown).to_have_count(0)  # nothing yet: each Next reveals one place
-        for names in (["Cy"], ["Bo", "Cy"], ["Bo", "Ana", "Cy"]):  # 3rd, then 2nd, then 1st
+        # a phone learns its place only once the stage reveals it (#147), in the session's language
+        for phone in (ana, bo):
+            expect(phone.locator("[data-result]")).to_have_text("Espera al podio…")
+        for names, ana_says, bo_says in ((["Cy"], "Espera al podio…", "Espera al podio…"),
+                                         (["Bo", "Cy"], "Espera al podio…", "#2"),
+                                         (["Bo", "Ana", "Cy"], "#1", "#2")):  # 3rd, then 2nd, then 1st
             assert page.request.post(f"{base}/api/actions/next").ok
             expect(shown).to_have_text(names)
+            expect(ana.locator("[data-result]")).to_have_text(ana_says)
+            expect(bo.locator("[data-result]")).to_have_text(bo_says)
         strip = next(it for it in items if it["id"] == "pq-podium")["zone"]
         assert strip and stage.evaluate(IN_CAMERA, strip) == []
         assert page.request.post(f"{base}/api/actions/next").ok  # the fourth Next moves on
