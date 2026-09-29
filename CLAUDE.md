@@ -22,7 +22,8 @@ One local app for running a live online workshop: a **stage** (full-screen on th
 ## UX surface
 *The design-conformance gate the `/issue-{start,finish,yolo}` skills read (convention: `project-scaffolding#83`).*
 
-- design spec applies: yes (the app and the presenter; the stage follows the session theme)
+- design spec applies: yes
+- scope note: the app and the presenter; the stage follows the session theme
 - paths:
   - app/webapp/static/**/*.css
   - app/webapp/static/**/*.{js,html}
