@@ -196,6 +196,14 @@
 .p-thumb.current .p-thumb-img { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .p-thumb.current .p-thumb-n { color: var(--accent-text); font-weight: 700; }
 
+/* Phone width (#98): the header's chips and icon buttons wrap onto their own
+   rows instead of squeezing the title to nothing and pushing the page wide.
+   The cockpit cards are already one column below 1100px (no change needed). */
+@media (max-width: 520px) {
+  .p-top { flex-wrap: wrap; }
+  .p-chips { flex: 1 1 100%; justify-content: flex-start; }
+}
+
 /* Wide, fine pointer: the mock-up's three-column cockpit, one viewport high. */
 @media (min-width: 1100px) and (pointer: fine) {
   .presenter { height: 100vh; min-height: 0; }
