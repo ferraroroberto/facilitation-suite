@@ -12,13 +12,128 @@ const STORE = 'facilitation-suite.play';
 const THEME = 'facilitation-suite.play.theme';
 const POLL_MS = 1000;
 const FLAKY_WINDOW_MS = 30000;
-const SHAPES = { 1: 'triangle', 2: 'diamond', 3: 'circle', 4: 'square' };
-// The texts of the question screen and the result's right answer (#90), in one place to localise.
+// Every word the phone says, in the game's language (#91): the view's `lang` once joined, the
+// live session's (/play/api/ping) before. play.html's own words carry data-t="<key>" (and
+// data-t-placeholder / data-t-label). tests/test_quiz_language.py checks both languages have
+// every key used here and there. The texts the facilitator wrote (questions, answers) are as typed.
 const TEXT = {
-  tile: (n, shapeName, text) => `Answer ${n} (${shapeName})${text ? `: ${text}` : ''}`,
-  rightOne: 'The answer',
-  rightMany: 'The answers',
+  en: {
+    title: 'Quiz',
+    loading: 'Loading…',
+    theme: 'Switch light or dark',
+    conn_offline: 'Offline',
+    conn_reconnecting: 'Reconnecting…',
+    conn_connected: 'Connected',
+    conn_live: 'Live',
+    conn_online: 'Online',
+    conn_checking: 'Connecting…',
+    pin_label: 'Game PIN',
+    nickname_label: 'Nickname',
+    nickname_placeholder: 'Your name',
+    join: 'Join',
+    joining: 'Joining…',
+    pin_digits: 'The game PIN has 6 digits.',
+    pick_nickname: 'Pick a nickname.',
+    wrong_pin: 'No game has that PIN — check the number on the screen.',
+    no_game: "That game isn't open right now — wait for the host.",
+    closed: 'That game has ended.',
+    unreachable: "Can't reach the quiz — check your connection and try again.",
+    too_many: 'Too many tries — wait a moment and try again.',
+    failed: 'That did not work — try again.',
+    no_quiz: 'No quiz is running right now — keep this page open.',
+    gone: 'You are no longer in this game — join again.',
+    in_lobby: "You're in! Watch the screen — the quiz starts soon.",
+    watch: 'Watch the screen.',
+    question: (i, n) => `Question ${i} of ${n}`,
+    question_plain: 'Question',
+    shape: { 1: 'triangle', 2: 'diamond', 3: 'circle', 4: 'square' },
+    tile: (n, shapeName, text) => `Answer ${n} (${shapeName})${text ? `: ${text}` : ''}`,
+    seconds: (s) => `${s} s`,
+    times_up: "Time's up",
+    locked: 'Locked in',
+    watch_answer: 'Watch the screen for the answer.',
+    too_late: 'Too late',
+    too_late_detail: 'Time was up before your answer arrived.',
+    not_sent: 'Not sent',
+    refused: 'That answer was refused.',
+    sending: 'Sending…',
+    retrying: 'Sending… (retrying)',
+    keep_open: 'Keep this page open.',
+    correct: 'Correct',
+    not_this_time: 'Not this time',
+    no_answer: 'No answer',
+    right_one: 'The answer',
+    right_many: 'The answers',
+    gained: (n) => `+${n} points`,
+    points: (n) => `${n} points`,
+    streak: (n) => `streak ${n}`,
+    score: 'Score',
+    final_score: 'Final score',
+    leaderboard: 'Leaderboard',
+    game_over: 'Game over',
+    removed: 'Removed',
+    removed_detail: 'The host removed you from this game.',
+  },
+  es: {
+    title: 'Quiz',
+    loading: 'Cargando…',
+    theme: 'Cambiar a modo claro u oscuro',
+    conn_offline: 'Sin conexión',
+    conn_reconnecting: 'Reconectando…',
+    conn_connected: 'Conectado',
+    conn_live: 'En directo',
+    conn_online: 'En línea',
+    conn_checking: 'Conectando…',
+    pin_label: 'PIN del juego',
+    nickname_label: 'Apodo',
+    nickname_placeholder: 'Tu nombre',
+    join: 'Entrar',
+    joining: 'Entrando…',
+    pin_digits: 'El PIN del juego tiene 6 cifras.',
+    pick_nickname: 'Elige un apodo.',
+    wrong_pin: 'Ningún juego tiene ese PIN: revisa el número de la pantalla.',
+    no_game: 'Ese juego aún no está abierto: espera a que empiece.',
+    closed: 'Ese juego ya ha terminado.',
+    unreachable: 'No hay conexión con el quiz: revisa tu conexión y vuelve a intentarlo.',
+    too_many: 'Demasiados intentos: espera un momento y vuelve a intentarlo.',
+    failed: 'No ha funcionado: vuelve a intentarlo.',
+    no_quiz: 'Ahora mismo no hay ningún quiz en marcha: deja esta página abierta.',
+    gone: 'Ya no estás en este juego: vuelve a entrar.',
+    in_lobby: '¡Ya estás dentro! Mira la pantalla: el quiz empieza enseguida.',
+    watch: 'Mira la pantalla.',
+    question: (i, n) => `Pregunta ${i} de ${n}`,
+    question_plain: 'Pregunta',
+    shape: { 1: 'triángulo', 2: 'rombo', 3: 'círculo', 4: 'cuadrado' },
+    tile: (n, shapeName, text) => `Respuesta ${n} (${shapeName})${text ? `: ${text}` : ''}`,
+    seconds: (s) => `${s} s`,
+    times_up: '¡Se acabó el tiempo!',
+    locked: '¡Respuesta registrada!',
+    watch_answer: 'Mira la pantalla para ver la respuesta.',
+    too_late: 'Demasiado tarde',
+    too_late_detail: 'Se acabó el tiempo antes de que llegara tu respuesta.',
+    not_sent: 'No enviada',
+    refused: 'No se ha aceptado esa respuesta.',
+    sending: 'Enviando…',
+    retrying: 'Enviando… (reintentando)',
+    keep_open: 'Deja esta página abierta.',
+    correct: '¡Correcto!',
+    not_this_time: 'Esta vez no',
+    no_answer: 'Sin respuesta',
+    right_one: 'La respuesta correcta',
+    right_many: 'Las respuestas correctas',
+    gained: (n) => `+${n} puntos`,
+    points: (n) => `${n} puntos`,
+    streak: (n) => `racha de ${n}`,
+    score: 'Puntuación',
+    final_score: 'Puntuación final',
+    leaderboard: 'Clasificación',
+    game_over: 'Fin del juego',
+    removed: 'Fuera del juego',
+    removed_detail: 'Te han sacado de este juego.',
+  },
 };
+let lang = 'en';
+let T = TEXT.en;
 // Kahoot allows 120-character questions and 75-character answers: the longer the text, the
 // smaller the step, so a 320 px phone shows every word (the tiles grow; nothing is clipped).
 const answerSize = (answers) => { const n = Math.max(0, ...answers.map((a) => a.length)); return n > 45 ? 's' : n > 20 ? 'm' : 'l'; };
@@ -78,7 +193,10 @@ function setConn() {
   let state = online === false ? 'offline' : polling ? 'polling' : wsOpen ? 'online' : 'checking';
   if (!me && online) state = 'online'; // not joined yet: the ping answered, that is all there is
   el.dataset.state = state;
-  el.textContent = { offline: me ? 'Reconnecting…' : 'Offline', polling: 'Connected', online: me ? 'Live' : 'Online', checking: 'Connecting…' }[state];
+  el.textContent = {
+    offline: me ? T.conn_reconnecting : T.conn_offline, polling: T.conn_connected,
+    online: me ? T.conn_live : T.conn_online, checking: T.conn_checking,
+  }[state];
   document.body.dataset.transport = wsOpen && !polling ? 'ws' : polling ? 'poll' : 'none';
 }
 
@@ -173,36 +291,30 @@ function showJoin(error) {
   (pin.value ? $('#nickname') : pin).focus({ preventScroll: true });
 }
 
-const JOIN_REFUSED = {
-  wrong_pin: 'No game has that PIN — check the number on the screen.',
-  no_game: "That game isn't open right now — wait for the host.",
-  closed: 'That game has ended.',
-};
-
 async function join(ev) {
   ev.preventDefault();
   const pin = $('#pin').value.replace(/\D/g, '');
   const nickname = $('#nickname').value.trim();
-  if (pin.length !== 6) return showJoin('The game PIN has 6 digits.');
-  if (!nickname) return showJoin('Pick a nickname.');
+  if (pin.length !== 6) return showJoin(T.pin_digits);
+  if (!nickname) return showJoin(T.pick_nickname);
   const btn = $('#joinBtn');
   btn.disabled = true;
-  btn.textContent = 'Joining…';
+  btn.textContent = T.joining;
   const key = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2); // the same key on every retry
   try {
     for (let attempt = 0; ; attempt++) {
       let r = null;
       try { r = await post('/play/api/join', { pin, nickname, key }); } catch { r = null; }
       if (r === null || r.status >= 500) {
-        if (attempt >= 5) return showJoin("Can't reach the quiz — check your connection and try again.");
+        if (attempt >= 5) return showJoin(T.unreachable);
         await sleep(Math.min(4000, 500 * 2 ** attempt));
         continue;
       }
       clock(r.data);
-      if (r.status === 429) return showJoin('Too many tries — wait a moment and try again.');
-      if (!r.ok) return showJoin(r.data?.error?.code === 'bad_nickname' ? 'Pick a nickname.' : 'That did not work — try again.');
+      if (r.status === 429) return showJoin(T.too_many);
+      if (!r.ok) return showJoin(r.data?.error?.code === 'bad_nickname' ? T.pick_nickname : T.failed);
       const d = r.data;
-      if (d.state !== 'joined') return showJoin(JOIN_REFUSED[d.state] || 'That did not work — try again.');
+      if (d.state !== 'joined') return showJoin({ wrong_pin: T.wrong_pin, no_game: T.no_game, closed: T.closed }[d.state] || T.failed);
       save({ player_id: d.player_id, secret: d.secret, pin, name: d.name, game_id: d.game_id });
       if (d.view) onView(d.view);
       startTransport();
@@ -210,7 +322,7 @@ async function join(ev) {
     }
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Join';
+    btn.textContent = T.join;
   }
 }
 
@@ -226,7 +338,7 @@ async function resume() {
         return startTransport();
       }
       if (d.state === 'kicked') return render('kicked');
-      if (d.state === 'no_game') { showWait('No quiz is running right now — keep this page open.'); return startTransport(); }
+      if (d.state === 'no_game') { showWait(T.no_quiz); return startTransport(); }
       save(null); // unknown: this game is gone (or it was another game) — join again
       return showJoin();
     }
@@ -253,9 +365,10 @@ function onView(m) {
   if (m.state === 'unknown_player') {
     save(null);
     stopTick();
-    return showJoin('You are no longer in this game — join again.');
+    return showJoin(T.gone);
   }
-  if (m.state === 'no_game') return showWait('No quiz is running right now — keep this page open.');
+  if (m.state === 'no_game') return showWait(T.no_quiz);
+  if (m.view && m.view.lang) setLang(m.view.lang);
   msg = m;
   draw();
 }
@@ -287,18 +400,18 @@ function draw() {
   stopTick();
   if ((v.phase === 'question' || v.phase === 'reveal') && question) return drawResult(v);
   if (v.phase === 'leaderboard' || v.phase === 'podium') return drawStanding(v);
-  showWait(v.phase === 'lobby' ? "You're in! Watch the screen — the quiz starts soon." : 'Watch the screen.');
+  showWait(v.phase === 'lobby' ? T.in_lobby : T.watch);
 }
 
 function drawTiles(v) {
   const box = $('[data-tiles]');
   const texts = v.tiles.map((n) => answerText(v, n));
-  const sig = JSON.stringify([v.item_id, v.tiles, texts]);
+  const sig = JSON.stringify([v.item_id, v.tiles, texts, lang]);
   if (box.dataset.sig !== sig) {
     box.dataset.sig = sig;
     box.dataset.size = answerSize(texts);
     box.innerHTML = v.tiles.map((n, i) =>
-      `<button type="button" class="tile" data-choice="${n}" aria-label="${esc(TEXT.tile(n, SHAPES[n], texts[i]))}">${shape(n)}`
+      `<button type="button" class="tile" data-choice="${n}" aria-label="${esc(T.tile(n, T.shape[n], texts[i]))}">${shape(n)}`
       + `${texts[i] ? `<span class="tile-text">${esc(texts[i])}</span>` : ''}</button>`).join('');
     box.querySelectorAll('.tile').forEach((b) => b.addEventListener('click', () => answer(v.item_id, Number(b.dataset.choice))));
   }
@@ -307,7 +420,7 @@ function drawTiles(v) {
   qtext.dataset.size = questionSize(qtext.textContent);
   qtext.hidden = !v.question;
   box.querySelectorAll('.tile').forEach((b) => { b.disabled = false; });
-  $('[data-qindex]').textContent = v.question_index != null ? `Question ${v.question_index + 1} of ${v.question_count}` : 'Question';
+  $('[data-qindex]').textContent = v.question_index != null ? T.question(v.question_index + 1, v.question_count) : T.question_plain;
   render('question');
   if (!(v.item_id in shownAt)) shownAt[v.item_id] = performance.now();
   startTick(v);
@@ -322,20 +435,20 @@ function drawLocked(v, mine) {
   const acked = v.answer || mine.state === 'accepted' || mine.state === 'duplicate';
   if (acked) {
     st.dataset.kind = 'ok';
-    st.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> Locked in`;
-    $('[data-locked-text]').textContent = 'Watch the screen for the answer.';
+    st.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> ${esc(T.locked)}`;
+    $('[data-locked-text]').textContent = T.watch_answer;
   } else if (mine.state === 'too_late') {
     st.dataset.kind = 'bad';
-    st.textContent = 'Too late';
-    $('[data-locked-text]').textContent = 'Time was up before your answer arrived.';
+    st.textContent = T.too_late;
+    $('[data-locked-text]').textContent = T.too_late_detail;
   } else if (mine.state === 'error') {
     st.dataset.kind = 'bad';
-    st.textContent = 'Not sent';
-    $('[data-locked-text]').textContent = mine.message || 'That answer was refused.';
+    st.textContent = T.not_sent;
+    $('[data-locked-text]').textContent = T.refused; // the server's reason is in English: the phone says its own
   } else {
     st.dataset.kind = 'wait';
-    st.textContent = mine.retrying ? 'Sending… (retrying)' : 'Sending…';
-    $('[data-locked-text]').textContent = 'Keep this page open.';
+    st.textContent = mine.retrying ? T.retrying : T.sending;
+    $('[data-locked-text]').textContent = T.keep_open;
   }
   render('locked');
   startTick(v);
@@ -347,20 +460,20 @@ function drawResult(v) {
   const a = v.answer;
   if (a && a.correct === true) {
     title.dataset.kind = 'ok';
-    title.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> Correct`;
-    detail.textContent = v.last_points != null ? `+${v.last_points} points · ${standing(v)}` : standing(v);
+    title.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> ${esc(T.correct)}`;
+    detail.textContent = v.last_points != null ? `${T.gained(v.last_points)} · ${standing(v)}` : standing(v);
   } else if (a && a.correct === false) {
     title.dataset.kind = 'bad';
-    title.textContent = 'Not this time';
+    title.textContent = T.not_this_time;
     detail.textContent = standing(v);
   } else if (a) {
     title.dataset.kind = '';
-    title.textContent = "Time's up";
-    detail.textContent = 'Watch the screen for the answer.';
+    title.textContent = T.times_up;
+    detail.textContent = T.watch_answer;
   } else {
     const late = pending && pending.item_id === v.item_id && pending.state === 'too_late';
     title.dataset.kind = 'bad';
-    title.textContent = late ? 'Too late' : 'No answer';
+    title.textContent = late ? T.too_late : T.no_answer;
     detail.textContent = standing(v);
   }
   drawRight(v);
@@ -372,26 +485,26 @@ function drawRight(v) {
   const box = $('[data-right]');
   const nums = Array.isArray(v.correct) && Array.isArray(v.tiles) ? v.correct.filter((n) => v.tiles.includes(n)) : [];
   box.hidden = nums.length === 0;
-  box.innerHTML = nums.length === 0 ? '' : `<p class="play-right-label">${nums.length > 1 ? TEXT.rightMany : TEXT.rightOne}</p>`
+  box.innerHTML = nums.length === 0 ? '' : `<p class="play-right-label">${esc(nums.length > 1 ? T.right_many : T.right_one)}</p>`
     + nums.map((n) => `<p class="play-right-item" data-choice="${n}"><span class="play-badge play-badge-sm" data-choice="${n}">${shape(n)}</span>`
-      + `<span class="play-right-text">${esc(answerText(v, n) || TEXT.tile(n, SHAPES[n], ''))}</span></p>`).join('');
+      + `<span class="play-right-text">${esc(answerText(v, n) || T.tile(n, T.shape[n], ''))}</span></p>`).join('');
 }
 
 function drawStanding(v) {
   const title = $('[data-result]');
   title.dataset.kind = '';
   const final = v.phase === 'podium';
-  title.innerHTML = v.rank ? `${v.rank === 1 ? '<svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg> ' : ''}#${v.rank}` : (final ? 'Game over' : 'Leaderboard');
-  $('[data-result-detail]').textContent = `${final ? 'Final score' : 'Score'}: ${fmt(v.score || 0)} points${v.streak > 1 ? ` · streak ${v.streak}` : ''}`;
+  title.innerHTML = v.rank ? `${v.rank === 1 ? '<svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg> ' : ''}#${v.rank}` : esc(final ? T.game_over : T.leaderboard);
+  $('[data-result-detail]').textContent = `${final ? T.final_score : T.score}: ${T.points(fmt(v.score || 0))}${v.streak > 1 ? ` · ${T.streak(v.streak)}` : ''}`;
   drawRight({});
   render('result');
 }
 
 function standing(v) {
-  return v.rank ? `#${v.rank} · ${fmt(v.score || 0)} points` : '';
+  return v.rank ? `#${v.rank} · ${T.points(fmt(v.score || 0))}` : '';
 }
 
-const fmt = (n) => Number(n).toLocaleString();
+const fmt = (n) => Number(n).toLocaleString(lang);
 
 // ------------------------------------------------------------------ timer
 
@@ -399,7 +512,7 @@ function startTick(v) {
   const left = () => Math.max(0, Math.ceil((v.deadline_ms - (Date.now() + offset)) / 1000));
   const draw1 = () => {
     const s = left();
-    $('[data-left]').textContent = s > 0 ? `${s} s` : "Time's up";
+    $('[data-left]').textContent = s > 0 ? T.seconds(s) : T.times_up;
     $('[data-timer]').toggleAttribute('data-low', s <= 5);
   };
   stopTick();
@@ -433,12 +546,12 @@ async function answer(itemId, choice) {
       online = true;
       Object.assign(mine, { choice: r.data.choice || choice, state: r.data.state, retrying: false });
       if (r.data.state === 'kicked') return render('kicked');
-      if (r.data.state === 'unknown_player') { save(null); return showJoin('You are no longer in this game — join again.'); }
+      if (r.data.state === 'unknown_player') { save(null); return showJoin(T.gone); }
       if (r.data.state === 'not_open' && pending === mine) { pending = null; return draw(); } // not asked yet: wait
       return redraw();
     }
     if (r && r.status === 422) {
-      Object.assign(mine, { state: 'error', message: r.data?.error?.message });
+      mine.state = 'error';
       return redraw();
     }
     // offline, a proxy error, 429 or a restart (no_game until it is live again): the same answer until acked
@@ -457,18 +570,42 @@ $('[data-theme-toggle]').addEventListener('click', () => {
   try { localStorage.setItem(THEME, next); } catch { /* this tab only */ }
 });
 
+// ------------------------------------------------------------------ language
+
+// Say everything in `l` (en | es; English when unknown): the page's own words now, the drawn
+// screens on their next draw (onView sets the language before it draws).
+function setLang(l) {
+  const next = TEXT[l] ? l : 'en';
+  if (next === lang) return;
+  lang = next;
+  T = TEXT[lang];
+  document.documentElement.lang = lang;
+  document.title = T.title;
+  document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
+  document.querySelectorAll('[data-t-placeholder]').forEach((el) => { el.placeholder = T[el.dataset.tPlaceholder]; });
+  document.querySelectorAll('[data-t-label]').forEach((el) => { el.setAttribute('aria-label', T[el.dataset.tLabel]); });
+  setConn();
+}
+
 // ------------------------------------------------------------------ start
 
 $('#joinForm').addEventListener('submit', join);
 $('#pin').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^\d ]/g, ''); });
 
-fetch('/play/api/ping', { cache: 'no-store' })
-  .then((r) => { online = r.ok; })
+const pinged = fetch('/play/api/ping', { cache: 'no-store' })
+  .then(async (r) => {
+    online = r.ok;
+    const d = r.ok ? await r.json().catch(() => null) : null;
+    if (d && d.lang) setLang(d.lang); // before joining: the language of the game on stage
+  })
   .catch(() => { online = false; })
   .finally(setConn);
 
-if (me && (!urlPin || urlPin === me.pin)) resume();
-else {
-  if (me) save(null); // a new game's PIN: the old identity belongs to another game
-  showJoin();
-}
+// The first screen waits for the ping (a moment at most), so it opens in the game's language.
+Promise.race([pinged, sleep(1500)]).then(() => {
+  if (me && (!urlPin || urlPin === me.pin)) resume();
+  else {
+    if (me) save(null); // a new game's PIN: the old identity belongs to another game
+    showJoin();
+  }
+});

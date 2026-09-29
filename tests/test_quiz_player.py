@@ -221,6 +221,28 @@ def test_an_answer_while_no_session_is_live_is_retried_not_refused(game) -> None
     assert phone.answer(ana, "pq-1", 2)["state"] == "accepted"
 
 
+def test_the_phone_speaks_the_session_language(game) -> None:
+    """#91: the ping says the live session's language (the join screen, before a view), and every
+    view carries it as ``lang``; changing the session's language changes both."""
+    main, base = game
+    phone = Phone(base)
+    assert phone.call("GET", "/play/api/ping")[1]["lang"] == "en"
+    ana = phone.join(quiz_state(main)["pin"], "Ana")
+    assert ana["view"]["view"]["lang"] == "en"
+
+    sid = main.get("/api/live").json()["plan"]["session"]["id"]
+    session = main.get(f"/api/sessions/{sid}").json()["session"]
+    assert main.put(f"/api/sessions/{sid}", json={"session": {**session, "language": "es"}}).status_code == 200
+    deadline = time.monotonic() + 5
+    while main.get("/api/live").json()["plan"]["run"].get("language") != "es":  # the live plan reloads on the loop
+        assert time.monotonic() < deadline, "the live plan never reloaded"
+        time.sleep(0.05)
+    assert phone.call("GET", "/play/api/ping")[1]["lang"] == "es"
+    assert phone.state(ana)["view"]["lang"] == "es"
+    back = phone.call("POST", "/play/api/resume", {k: ana[k] for k in ("player_id", "secret")})[1]
+    assert back["view"]["view"]["lang"] == "es"
+
+
 def test_the_socket_pushes_each_phone_its_own_view(game) -> None:
     main, base = game
     phone = Phone(base)

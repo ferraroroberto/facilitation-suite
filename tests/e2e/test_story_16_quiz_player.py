@@ -8,7 +8,8 @@ every line of every tile. The reveal, the leaderboard (that corner camera) and t
 strip) keep their content out of the camera's box (#88). The phones show that 120-character
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
 light and dark, and after the reveal the right answer's text. The podium reveals one place per
-Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on."""
+Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on. Switched to Spanish on the leaderboard,
+the stage and a reloaded phone say it in Spanish (#91)."""
 
 from __future__ import annotations
 
@@ -152,6 +153,19 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(bo.locator("[data-result]")).to_contain_text("#2")
         expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo", "Cy"])
         assert stage.evaluate(IN_CAMERA, zone) == []  # rank 1's score beside the camera, not under it (#88)
+
+        # the session switched to Spanish (#91): after a reload the stage and the phone both speak it
+        session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
+        assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": {**session, "language": "es"}}).ok
+        for _ in range(50):
+            if page.request.get(f"{base}/api/live").json()["plan"]["run"].get("language") == "es":
+                break
+            page.wait_for_timeout(100)
+        stage.reload()
+        ana.reload()
+        expect(stage.locator(".qz-board-title")).to_have_text("Clasificación")
+        expect(ana.locator("[data-result-detail]")).to_contain_text("Puntuación")
+        assert ana.evaluate("document.documentElement.lang") == "es"
 
         assert page.request.post(f"{base}/api/actions/goto/{podium}").ok
         shown = stage.locator(".qz-step.shown .qz-pname")  # laid out 2nd, 1st, 3rd
