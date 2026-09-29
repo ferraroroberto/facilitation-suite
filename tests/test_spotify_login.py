@@ -161,3 +161,19 @@ def test_the_script_uses_the_shared_login() -> None:
     script = importlib.import_module("scripts.spotify_login")
     assert script.Callback is spotify_login.Callback and script.exchange is spotify_login.exchange
     assert spotify_login.DEFAULT_PORT == 8765  # the redirect URI registered in the Spotify app
+
+
+def test_saving_the_token_waits_for_a_reader_holding_env_open(isolated_env: Path) -> None:
+    """The page's status polls read .env while the login writes it: Windows refuses to replace an
+    open file, so the write waits a moment instead of failing the login."""
+    import threading
+
+    set_value("SPOTIFY_CLIENT_ID", CLIENT_ID)
+    env = isolated_env / ".env"
+    held = env.open("rb")
+    threading.Timer(0.1, held.close).start()
+    try:
+        set_value(REFRESH_KEY, "fresh-token")
+    finally:
+        held.close()
+    assert read_env()[REFRESH_KEY] == "fresh-token" and read_env()["SPOTIFY_CLIENT_ID"] == CLIENT_ID

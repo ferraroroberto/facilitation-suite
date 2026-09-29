@@ -66,8 +66,8 @@ def session_id(path: Path) -> str:
 REPLACE_WAITS = (0.02, 0.05, 0.1, 0.25)
 
 
-def _replace(tmp: str, path: Path) -> None:
-    """``os.replace``, tried again while another process (OneDrive) holds ``path`` open."""
+def replace_held(tmp: str | Path, path: Path) -> None:
+    """``os.replace``, tried again while another program (OneDrive) or thread holds ``path`` open."""
     for attempt, wait in enumerate(REPLACE_WAITS, start=1):
         try:
             os.replace(tmp, path)
@@ -86,7 +86,7 @@ def atomic_write_text(path: Path, text: str) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
-        _replace(tmp, path)
+        replace_held(tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)
