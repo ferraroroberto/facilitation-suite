@@ -1,7 +1,10 @@
 """Story 6: rehearse with simulated chat — a 50-message burst goes through the
 reader process and the server and lands on the presenter, none lost. Then a
 quiz (#54): the presenter's Quiz card, chat answers scored as quiz answers,
-Space locking the question, removing a player, and the phone remote."""
+Space locking the question, removing a player, and the phone remote. On the first slide
+with the chat full, and with the quiz question open, the cockpit fits a 1920x1080 second
+monitor and the 1920x911 the stage chip reports (#149): no page scroll, the Zoom chat in
+view with at least five messages, and "Then" listing up to four items with no scrollbar."""
 
 from __future__ import annotations
 
@@ -14,6 +17,30 @@ from playwright.sync_api import Browser, Page, expect
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session, demo_person
 from tests.fixtures.quiz_run import add_quiz_section
+
+# The presenter at a wide viewport (#149): how far the page scrolls, how many chat messages
+# are whole in view, how many items "Then" lists and how far the Next card's body overflows.
+COCKPIT_FIT = """() => {
+  const doc = document.documentElement, next = document.querySelector('.p-next [data-body]');
+  const box = document.querySelector('.p-msgs').getBoundingClientRect();
+  const bottom = Math.min(box.bottom, innerHeight);
+  const inView = [...document.querySelectorAll('.p-msg')].filter((m) => {
+    const r = m.getBoundingClientRect();
+    return r.top >= box.top - 1 && r.bottom <= bottom + 1;
+  }).length;
+  return { page: doc.scrollHeight - doc.clientHeight, chat: inView,
+    then: document.querySelectorAll('.p-then li').length, overflow: next.scrollHeight - next.clientHeight };
+}"""
+
+
+def _cockpit_fits(page: Page, then: int) -> None:
+    """At 1920x1080 and 1920x911: no page scroll, five chat messages or more in view, and "Then"
+    listing ``then`` items without overflowing the Next card (#149); back to 1440x900 after."""
+    for height in (1080, 911):
+        page.set_viewport_size({"width": 1920, "height": height})
+        fit = page.evaluate(COCKPIT_FIT)
+        assert fit["page"] <= 0 and fit["chat"] >= 5 and fit["then"] == then and fit["overflow"] <= 1, (height, fit)
+    page.set_viewport_size({"width": 1440, "height": 900})
 
 
 def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, webapp, shots) -> None:
@@ -36,6 +63,7 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     expect(page.locator("[data-keypop]")).to_be_visible()
     page.locator("[data-keys]").click()
     shot(page, shots / "story-06-chat-1-presenter.png")
+    _cockpit_fits(page, then=4)  # #149: the first slide, 50 messages in the chat
 
     # ---- #54: a quiz, answered from the Zoom chat ----
     base = webapp.base_url
@@ -62,6 +90,7 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     expect(card.locator("[data-qcounts]")).to_contain_text("2 players joined · 2 answered")
     expect(card.locator(".p-quiz-players li .chip")).to_have_count(2)  # both marked "chat"
     shot(page, shots / "story-06-chat-2-quiz.png")
+    _cockpit_fits(page, then=3)  # #149: a quiz question live (the plan's last three items under "Then")
 
     page.keyboard.press(" ")  # Space locks the open question
     expect(card.locator("[data-qphase]")).to_have_text("Question 1 of 4 — answers locked")
