@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.webapp.errors import is_local
+from tests.conftest import write_test_config
 
 PHONE = ("100.64.0.9", 5000)
 
@@ -103,6 +104,23 @@ def test_no_https_no_link(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -
         body = pc.post("/api/settings/remote/token").json()["remote"]
         assert body["enabled"] and body["https"] is False and body["link"] is None
         assert body["base_url"].startswith("http://127.0.0.1:")
+
+
+def test_loopback_bind_offers_no_pairing_link(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With ``host: 127.0.0.1`` a phone can never reach the listener, however good the cert on
+    disk — the payload must say the card is unavailable instead of handing out a dead tailnet
+    link (#101), the same bind check ``WebappManager.public_url`` already makes (#39)."""
+    from app.webapp.routers import settings as settings_router
+    from app.webapp.server import create_app
+
+    write_test_config(isolated_env / "config.json", session_root=str(isolated_env / "sessions"), host="127.0.0.1")
+    monkeypatch.setattr(settings_router, "cert_hostname", lambda: "pc.example.ts.net")  # a cert exists on disk…
+    with TestClient(create_app(), client=("127.0.0.1", 50000), base_url="https://127.0.0.1:8449") as pc:  # …and this instance answers over https
+        body = pc.post("/api/settings/remote/token").json()["remote"]
+        assert body["enabled"] is True
+        assert body["bind_loopback"] is True
+        assert body["link"] is None
+        assert "ts.net" not in body["base_url"]
 
 
 def test_the_request_log_never_shows_the_token() -> None:
