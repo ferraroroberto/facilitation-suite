@@ -21,6 +21,14 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     expect(page.locator(".p-sub")).to_contain_text("1 of 17")
     expect(page.locator(".p-music")).to_be_hidden()  # a session without music: no Music card, no chip
 
+    # #98: the header wraps at phone width instead of pushing the page sideways
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.wait_for_timeout(50)
+    scroll_width = page.evaluate("document.documentElement.scrollWidth")
+    client_width = page.evaluate("document.documentElement.clientWidth")
+    assert scroll_width <= client_width, f"presenter scrolls sideways at 390px ({scroll_width} > {client_width})"
+    page.set_viewport_size({"width": 1440, "height": 900})
+
     stage_ctx = browser.new_context(viewport={"width": 1280, "height": 720})
     stage = stage_ctx.new_page()
     stage.on("pageerror", lambda e: errors.append(str(e)))

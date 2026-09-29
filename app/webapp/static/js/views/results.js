@@ -274,7 +274,8 @@ function pdfCard() {
   strip.className = 'pdf-strip';
   strip.innerHTML = data.pages.map((p) => p.kind === 'slide'
     ? `<img class="pdf-tile" loading="lazy" alt="${esc(p.title)}" title="${esc(p.title)}" src="${base()}/slides/${encodeURIComponent(p.file)}">`
-    : `<button type="button" class="pdf-tile live" data-item="${esc(p.game ? quizKey(p.game) : p.item_id)}" title="${esc(p.title)}">${esc(p.label)}${p.tile ? ` · ${esc(p.tile)}` : ''}</button>`).join('') +
+    : `<button type="button" class="pdf-tile live" data-item="${esc(p.game ? quizKey(p.game) : p.item_id)}" title="${esc(p.title)}">` +
+      `<span class="pdf-tile-text">${esc(p.label)}${p.tile ? ` · ${esc(p.tile)}` : ''}</span></button>`).join('') +
     '<span class="pdf-tile appendix">Answers appendix</span>';
   strip.addEventListener('click', (e) => {
     const b = e.target.closest('[data-item]');
