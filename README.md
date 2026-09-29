@@ -201,8 +201,9 @@ A Kahoot-style quiz is planned as items (#34; players play on their phones — s
 
 - **Phases.** Entering a question opens it with a deadline of its time limit. **Next** then steps *question → reveal* (the answers lock; the answer distribution and the correct answer show) *→ leaderboard*, and only from the leaderboard moves on to the next item.
 - **Time up** reveals by itself, and so does `quiz_lock` or **Space** while the question is open (lock answers now). Once revealed, Space is back to the item's timer, if it has one.
-- **Previous** always goes to the previous item. A question left while it is still open is locked. Coming back to it shows its reveal again, never a second chance to answer.
-- **Other items.** On every other item, including the lobby and the podium, next and previous work as before.
+- **Previous** goes to the previous item (on the podium, see below). A question left while it is still open is locked. Coming back to it shows its reveal again, never a second chance to answer.
+- **Podium.** Each **Next** reveals one place: 3rd, then 2nd, then 1st (with fewer than three players, only the places that exist), and the Next after 1st moves on to the following item. **Previous** hides the last place revealed, and with none shown goes to the previous item. The step is written to `live/quiz.jsonl`, so a restart keeps it; coming back to the podium from the item after it shows it as it was left, and reaching it from the game's last leaderboard starts it over.
+- **Other items.** On every other item, including the lobby, next and previous work as before.
 - **Answers** come from phones (see *Quiz player*) and from the Zoom chat (below). A quiz question never opens a capture window, and the Space key does not start one.
 - **Scoring** follows Kahoot's published rule: a correct answer scores `round(1000 × (1 − (response time / time limit) / 2))`, full points inside the first half second, ×2 for **double**, 0 for **none**. A wrong or missing answer scores 0.
 - **Response time** runs from when the buttons appeared on that phone, clamped to how long the server has been asking.
@@ -213,7 +214,7 @@ Every join, answer, kick and phase change is appended to `live/quiz.jsonl`, and 
 
 **Running it.** On a quiz item the presenter's side card becomes **Quiz**: the phase (lobby, question *n* of *N* with its time left, answers locked, leaderboard, podium), players joined and answered, the join **PIN** and public link with a **Copy link** button (or *not configured* while the player page or `quiz.public_url` is not set up), the public link's **Reachability** chip with a **Check** button (see *Running a quiz*), and the controls:
 
-- **Next phase** (→) is the same `next` as everywhere: on the lobby it opens the first question, then *reveal → leaderboard → next question*, and from the last leaderboard on to the podium. There is no separate "next phase" action, because `next` already is one.
+- **Next phase** (→) is the same `next` as everywhere: on the lobby it opens the first question, then *reveal → leaderboard → next question*, from the last leaderboard on to the podium, and there *Show 3rd → Show 2nd → Show 1st* (the phase line says which place shows). There is no separate "next phase" action, because `next` already is one.
 - **Lock answers** (Space) reveals the question now (`quiz_lock`).
 - **New game**, on the lobby only and after a confirmation, plays the quiz again with no players (`quiz_new_game`); the game so far is kept.
 - The **player list** marks chat players and has a remove button per player (after a confirmation; `quiz_kick/<id>`).
@@ -230,7 +231,7 @@ The phone remote shows the same essentials on a quiz item — the phase, players
 - **Question:** *Question n of N*, the answers on tiles in the phones' colours **and** shapes with their letters A–D (so chat players know what to type), a countdown ring and seconds from the server's deadline (corrected for this screen's clock, within a tenth of a second), and *x / y answered*. An answer too long for its tile (Kahoot allows 75 characters) steps the answers' size down until every line shows. Nothing on the stage marks the correct answer before the reveal: the renderer reads it only from the game's snapshot, which carries it only once the question has closed — never from the item's options.
 - **Reveal:** a bar per answer with its count, the correct one(s) marked with a check and a *Correct* tab on the tile's frame (never by colour alone), the other tiles dimmed. The bars move up into the band a corner camera keeps free under the title (beside the camera, never under it), so the tiles keep room for three lines of a 75-character answer.
 - **Leaderboard:** the top 5, each row sliding from where it stood before the question to its new rank, with the points just won. Under a corner camera the board narrows beside the camera, never under it.
-- **Podium:** 3rd, then 2nd, then 1st rise in turn.
+- **Podium:** one place per **Next** — 3rd, then 2nd, then 1st — each rising as it is revealed. Every place keeps its spot from the start, so nothing shifts when the next one appears.
 
 The answer colours match the phones (a session's `theme.css` can move them with `--st-quiz-1` … `--st-quiz-4`, and the podium's with `--st-podium-1` … `--st-podium-3`). With **reduced motion** set in the OS nothing pops, rises or slides. The Plan tab's and the presenter's previews, with no game running, draw the question as it opens and sample players (`samples` in the lobby's and podium's `editor.json`). Quiz items are not captures, so a capture freeze (and its PNG) does not apply to them; the session PDF draws the quiz from `live/quiz.jsonl` (see *Results*).
 
@@ -241,7 +242,7 @@ The answer colours match the phones (a session's `theme.css` can move them with 
 | `audio/quiz-lobby.*` | on the lobby, looping until the first question |
 | `audio/quiz-countdown.*` | once, when a question opens |
 | `audio/quiz-reveal.*` | once, at the reveal |
-| `audio/quiz-podium.*` | once, on the podium |
+| `audio/quiz-podium.*` | once, when the podium reveals 1st place |
 
 A cue still sounding fades out at the next phase without a cue of its own (the leaderboard) and when the stage leaves the quiz. **Item and presenter music always win:** while an item's music or music you played by hand is playing or paused, the cues are skipped and that music plays on untouched; pressing play, a timer's music or **Stop** replaces or ends a cue like any track. The presenter's Music card shows a cue as the track playing (pause, stop and volume work on it). Kahoot's own music is not reusable: bring royalty-free tracks or your own.
 
