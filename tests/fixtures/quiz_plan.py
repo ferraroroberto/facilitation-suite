@@ -26,6 +26,8 @@ LONG_ANSWERS: dict[str, str] = {
     "answer_3": "Organizar reuniones rápidas de alineación sin agenda ni acta posterior útil",
     "answer_4": "Esperar a que el líder técnico apruebe cada cambio pequeño antes de avanzar",
 }
+# A 120-character question with accents and "¿" (#90): the phone shows every word of it above the tiles.
+LONG_QUESTION = "¿Qué práctica ayuda más a que un equipo distribuido confíe en las decisiones que se tomaron sin reunirse todos a la vez?"
 
 
 def add_quiz_section(folder: Path, section: dict[str, Any] = PLAYER_QUIZ, at: int = 1) -> None:
