@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pytest
 import yaml
@@ -313,6 +313,62 @@ def test_next_and_prev_on_every_other_item_are_unchanged(rig: tuple[LiveHub, Qui
             assert hub.index == expected, (it["id"], move)
 
 
+def podium_steps(hub: LiveHub) -> tuple[str, Optional[int], Optional[int]]:
+    q = state(hub) or {}
+    return hub.current()["id"], q.get("podium_step"), q.get("podium_places")
+
+
+def test_the_podium_reveals_3rd_2nd_and_1st_one_next_at_a_time(rig: tuple[LiveHub, QuizService]) -> None:
+    hub, quiz = rig
+    at_lobby_with(hub, quiz, "Ana", "Bo", "Cy", "Di")
+    goto_id(hub, "qz-podium")
+    assert podium_steps(hub) == ("qz-podium", 0, 3)  # nothing shown yet
+    seen = []
+    for _ in range(4):
+        run_action(hub, "next")
+        seen.append(podium_steps(hub))
+    # 3rd, 2nd, 1st — then the 4th next moves on (qz-orphan is outside any game)
+    assert seen == [("qz-podium", 1, 3), ("qz-podium", 2, 3), ("qz-podium", 3, 3), ("qz-orphan", None, None)]
+    run_action(hub, "prev")  # back from the next item: the podium as it was left, every place shown
+    assert podium_steps(hub) == ("qz-podium", 3, 3)
+    for step in (2, 1, 0):  # prev hides one place at a time …
+        run_action(hub, "prev")
+        assert podium_steps(hub) == ("qz-podium", step, 3)
+    run_action(hub, "prev")  # … and with none shown goes to the previous item
+    assert hub.current()["id"] == "qz-3"
+    run_action(hub, "next"), run_action(hub, "next"), run_action(hub, "next")  # reveal, leaderboard, podium
+    assert podium_steps(hub) == ("qz-podium", 0, 3)  # entered afresh from the game: nothing shown
+    records = read_jsonl(hub.folder / "live" / QUIZ_FILE)
+    assert [r["step"] for r in records if r["op"] == "podium"] == [1, 2, 3, 2, 1, 0]
+
+
+@pytest.mark.parametrize(("players", "places"), [(0, 0), (1, 1), (2, 2), (3, 3), (5, 3)])
+def test_the_podium_steps_only_the_places_that_exist(rig: tuple[LiveHub, QuizService], players: int,
+                                                     places: int) -> None:
+    hub, quiz = rig
+    at_lobby_with(hub, quiz, *[f"P{n}" for n in range(players)])
+    goto_id(hub, "qz-podium")
+    for step in range(1, places + 1):
+        hub.next()
+        assert podium_steps(hub) == ("qz-podium", step, places)
+    hub.next()
+    assert hub.current()["id"] == "qz-orphan"
+
+
+def test_a_player_removed_on_the_podium_never_leaves_a_step_beyond_the_places(rig: tuple[LiveHub, QuizService]) -> None:
+    hub, quiz = rig
+    a, b, _ = at_lobby_with(hub, quiz, "Ana", "Bo", "Cy")
+    goto_id(hub, "qz-podium")
+    hub.next(), hub.next(), hub.next()
+    quiz.kick(a.player_id)
+    assert podium_steps(hub) == ("qz-podium", 2, 2)
+    hub.prev()
+    assert podium_steps(hub) == ("qz-podium", 1, 2)
+    quiz.kick(b.player_id)
+    hub.next()  # the only place left is shown already: on to the next item
+    assert hub.current()["id"] == "qz-orphan"
+
+
 def test_lock_and_time_up_reveal(rig: tuple[LiveHub, QuizService], clock: Clock) -> None:
     hub, quiz = rig
     goto_id(hub, "qz-lobby")
@@ -376,6 +432,20 @@ def test_a_restart_replays_quiz_jsonl_to_the_same_scores_and_phase(quiz_session:
     assert board["Bo"]["rank"] == 2 and board["Ana"]["streak"] == 2 and board["Bo"]["streak"] == 1
 
 
+def test_a_restart_in_the_middle_of_the_podium_keeps_its_step(quiz_session: tuple[str, Path], clock: Clock) -> None:
+    sid, _ = quiz_session
+    hub, quiz = make_rig(sid, clock)
+    at_lobby_with(hub, quiz, "Ana", "Bo", "Cy")
+    goto_id(hub, "qz-podium")
+    hub.next(), hub.next()  # 3rd and 2nd shown
+    hub2, _ = make_rig(sid, clock)  # a fresh server on the same session folder
+    assert podium_steps(hub2) == ("qz-podium", 2, 3)
+    hub2.next()
+    assert podium_steps(hub2) == ("qz-podium", 3, 3)
+    hub2.next()
+    assert hub2.current()["id"] == "qz-orphan"
+
+
 def test_a_question_whose_time_ran_out_during_the_restart_is_revealed(quiz_session: tuple[str, Path], clock: Clock) -> None:
     sid, _ = quiz_session
     hub, quiz = make_rig(sid, clock)
@@ -400,7 +470,10 @@ def test_the_time_up_reveal_is_scheduled_on_the_loop_after_a_restart(quiz_sessio
         hub2.bind(asyncio.get_running_loop())
         hub2.activate(sid)
         assert state(hub2)["phase"] == "question"
-        await asyncio.sleep(0.3)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5.0  # generous ceiling; the reveal is due ~50 ms out
+        while state(hub2)["phase"] != "reveal" and loop.time() < deadline:
+            await asyncio.sleep(0.01)
         return state(hub2)["phase"]
 
     assert asyncio.run(restart()) == "reveal"

@@ -400,8 +400,18 @@ function quizPhaseText(q) {
     question: `Question ${n} of ${q.question_count} — answers open`,
     reveal: `Question ${n} of ${q.question_count} — answers locked`,
     leaderboard: `Leaderboard after question ${n} of ${q.question_count}`,
-    podium: 'Podium — the game is over',
+    podium: quizPodiumText(q),
   }[q.phase] || 'Waiting';
+}
+
+// The podium reveals one place per Next (#89): 3rd, 2nd, then 1st (fewer with fewer players).
+const PLACE = ['1st', '2nd', '3rd'];
+const podiumLeft = (q) => (q.podium_places || 0) - (q.podium_step || 0); // places still hidden
+
+function quizPodiumText(q) {
+  if (!q.podium_places) return 'Podium — no players';
+  if (!q.podium_step) return 'Podium — no place shown yet';
+  return `Podium — ${PLACE[podiumLeft(q)]} shown`;
 }
 
 function quizNextLabel(q) {
@@ -410,6 +420,7 @@ function quizNextLabel(q) {
   if (q.phase === 'question') return 'Reveal the answer';
   if (q.phase === 'reveal') return 'Show the leaderboard';
   if (q.phase === 'leaderboard') return q.question_index != null && q.question_index + 1 < q.question_count ? 'Next question' : 'On to the podium';
+  if (q.phase === 'podium' && podiumLeft(q) > 0) return `Show ${PLACE[podiumLeft(q) - 1]}`;
   return 'Next';
 }
 

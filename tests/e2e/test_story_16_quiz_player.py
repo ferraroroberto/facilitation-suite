@@ -7,7 +7,8 @@ The first question has four 75-character answers under a corner camera (#84): th
 every line of every tile. The reveal, the leaderboard (that corner camera) and the podium (a camera
 strip) keep their content out of the camera's box (#88). The phones show that 120-character
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
-light and dark, and after the reveal the right answer's text."""
+light and dark, and after the reveal the right answer's text. The podium reveals one place per
+Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on."""
 
 from __future__ import annotations
 
@@ -89,6 +90,9 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
         assert [p["name"] for p in quiz["players"]] == ["Ana", "Bo"]
         expect(stage.locator(".qz-player")).to_have_text(["Ana", "Bo"])  # the names popped in
+        # a third player, straight through the player API, who never answers: the podium's 3rd (#89)
+        cy = page.request.post(f"{webapp.player_url}/play/api/join", data={"pin": pin, "nickname": "Cy"})
+        assert cy.ok and cy.json()["state"] == "joined"
 
         assert page.request.post(f"{base}/api/actions/next").ok  # the first question
         for phone in (ana, bo):
@@ -146,13 +150,20 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         assert page.request.post(f"{base}/api/actions/next").ok  # leaderboard
         expect(ana.locator("[data-result]")).to_contain_text("#1")
         expect(bo.locator("[data-result]")).to_contain_text("#2")
-        expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo"])
+        expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo", "Cy"])
         assert stage.evaluate(IN_CAMERA, zone) == []  # rank 1's score beside the camera, not under it (#88)
 
         assert page.request.post(f"{base}/api/actions/goto/{podium}").ok
-        expect(stage.locator(".qz-step .qz-pname")).to_have_text(["Bo", "Ana"])  # 2nd, 1st
+        shown = stage.locator(".qz-step.shown .qz-pname")  # laid out 2nd, 1st, 3rd
+        expect(stage.locator(".qz-step")).to_have_count(3)
+        expect(shown).to_have_count(0)  # nothing yet: each Next reveals one place
+        for names in (["Cy"], ["Bo", "Cy"], ["Bo", "Ana", "Cy"]):  # 3rd, then 2nd, then 1st
+            assert page.request.post(f"{base}/api/actions/next").ok
+            expect(shown).to_have_text(names)
         strip = next(it for it in items if it["id"] == "pq-podium")["zone"]
         assert strip and stage.evaluate(IN_CAMERA, strip) == []
+        assert page.request.post(f"{base}/api/actions/next").ok  # the fourth Next moves on
+        assert page.request.get(f"{base}/api/live").json()["state"]["index"] == podium  # 0-based: the item after
         assert errors == []
     finally:
         ana.context.close()

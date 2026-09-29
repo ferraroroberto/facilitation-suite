@@ -87,7 +87,9 @@ function roundLabel(it) {
   return choice ? choice[1] : round || '';
 }
 
-function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8)}`; }
+// Math.random() can hex-encode to fewer than 6 digits (even "" at exactly 0) — pad so the
+// suffix is always 6 characters.
+function newId(prefix) { return `${prefix}-${Math.random().toString(16).slice(2, 8).padEnd(6, '0')}`; }
 
 /** A timer's length as the Plan tab shows and edits it: "m:ss" ("5:00"), read back by parseTimer. */
 function fmtTimer(sec) {
