@@ -210,9 +210,12 @@
 
 /* ------------------------------------------------------------ leaderboard */
 
-/* The leaderboard takes the whole content area: the question above it steps aside. */
+/* The leaderboard takes the whole content area: the question above it steps aside.
+   With a corner camera it narrows beside the camera (--st-head-right, as the reveal's
+   bars) rather than start below it: five rows do not fit under the camera at full size,
+   and beside it they keep their size. A camera strip is already outside the content area. */
 .stage-canvas .st-content:has(> .st-body[data-qz-view="leaderboard"]) > .st-head { display: none; }
-.stage-canvas .qz-board { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 36px; }
+.stage-canvas .qz-board { position: absolute; inset: 0; right: var(--st-head-right, 0px); display: flex; flex-direction: column; align-items: center; gap: 36px; }
 .stage-canvas .qz-board-title {
   margin: 0;
   font-family: var(--st-title-font);

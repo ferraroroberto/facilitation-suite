@@ -22,6 +22,11 @@
 // the band a corner camera keeps free under the title (beside the camera), so the
 // tiles keep room for three lines; a tile whose text still does not fit steps its
 // size down (fitTiles). The lobby shows the names that fit in full rows, then "+N more".
+//
+// The camera (#88): every phase stays out of the item's camera zone. A camera strip is
+// outside the content area already; under a corner camera the lobby, question and podium
+// start below it (the head's --st-head-min), the reveal's bars and the leaderboard sit
+// beside it (--st-head-right, stage.css).
 
 import { esc } from '/static/js/ui.js';
 

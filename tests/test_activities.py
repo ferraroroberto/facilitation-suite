@@ -291,6 +291,15 @@ def test_a_reset_starts_over_and_keeps_the_run_aside(svc) -> None:
     assert [m["text"] for m in cap.messages_for("act-kryptonite")] == ["focus"]
 
 
+def test_a_reset_switches_off_counting_own_messages(svc) -> None:
+    live, _, cap, _ = svc
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_count_own")  # rehearsing: turn it on
+    assert cap.count_own is True
+    run_action(live, "session_reset")  # "Start the session over" — real run: back off
+    assert cap.count_own is False and live.snapshot()["state"]["count_own"] is False
+
+
 def test_one_capture_at_a_time(svc) -> None:
     live, _, cap, _ = svc
     _goto(live, "act-enemy")
