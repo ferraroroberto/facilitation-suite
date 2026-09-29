@@ -13,7 +13,14 @@ from openpyxl import load_workbook
 from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import shot
-from tests.fixtures.demo import RUN_ANSWERS, RUN_HIDDEN, build_demo_session, demo_person, zoom_saved_chat
+from tests.fixtures.demo import (
+    LONG_TOP_ANSWER,
+    RUN_ANSWERS,
+    RUN_HIDDEN,
+    build_demo_session,
+    demo_person,
+    zoom_saved_chat,
+)
 
 
 def _state(page: Page, base: str) -> dict:
@@ -82,12 +89,17 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     expect(pane.locator(".result-detail h1")).to_contain_text("kryptonite")
     expect(pane.locator(".result-detail .muted").first).to_contain_text("8 answers from")
     expect(pane.locator(".result-detail .muted").first).to_contain_text("1 hidden")
-    expect(pane.locator(".top-row").first).to_contain_text("meetings")
+    # #99: a 60-char verbatim answer is the top result — full text in the detail's
+    # top row (readable without hovering), and still whole in the PDF strip's tile
+    # (CSS clamps it to 2 lines with an ellipsis; the DOM text is never truncated)
+    expect(pane.locator(".top-row").first).to_contain_text(LONG_TOP_ANSWER)
     expect(pane.locator(".hidden-answer")).to_contain_text("hello")
     img = pane.locator(".result-visual img")
     expect(img).to_be_visible()
     page.wait_for_function("img => img.complete && img.naturalWidth === 1920", arg=img.element_handle())
     expect(pane.locator(".pdf-tile.live")).to_have_count(6)
+    kryptonite_tile = pane.locator('.pdf-tile.live[data-item="act-kryptonite"] .pdf-tile-text')
+    expect(kryptonite_tile).to_contain_text(LONG_TOP_ANSWER)
     expect(pane.locator(".pdf-head")).to_contain_text("10 slides + 6 live results")
     shot(page, shots / "story-12-results-1-desktop.png")
 
