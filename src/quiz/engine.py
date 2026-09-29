@@ -343,8 +343,10 @@ class Game:
         return out
 
     def player_view(self, player_id: str, order: list[str], questions: dict[str, QuizQuestion]) -> dict[str, Any]:
-        """What one phone shows: the phase, which tiles to draw, its own answer — and only after
-        the question closes, whether it was right, its points and its rank."""
+        """What one phone shows: the phase, the question and its tiles (``tiles`` = the answer
+        numbers, ``answers`` = their texts in the same order — both are on the stage already),
+        its own answer — and only after the question closes, the ``correct`` answer numbers,
+        whether its answer was right, its points and its rank."""
         p = self.players[player_id]
         out: dict[str, Any] = {
             "game_id": self.game_id, "player_id": p.id, "name": p.name, "kicked": p.kicked,
@@ -355,11 +357,14 @@ class Game:
         run, q = self.runs.get(self.item_id), questions.get(self.item_id)
         if run is not None and q is not None:
             ans = self.answers.get((p.id, self.item_id))
-            out.update(deadline_ms=run.deadline_ms, open=run.open,
-                       tiles=[n for n in range(1, ANSWERS + 1) if q.answers[n - 1]],
+            tiles = [n for n in range(1, ANSWERS + 1) if q.answers[n - 1]]
+            out.update(deadline_ms=run.deadline_ms, open=run.open, question=q.question, tiles=tiles,
+                       answers=[q.answers[n - 1] for n in tiles],
                        answer={"choice": ans.choice, "elapsed_ms": ans.elapsed_ms} if ans else None)
-            if not run.open and ans is not None:
-                out["answer"]["correct"] = ans.choice in q.correct
+            if not run.open:
+                out["correct"] = list(q.correct)
+                if ans is not None:
+                    out["answer"]["correct"] = ans.choice in q.correct
         if self.phase != "question":
             mine = next((s for s in self.standings(questions) if s.player_id == p.id), None)
             if mine is not None:
