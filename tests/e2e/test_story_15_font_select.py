@@ -57,10 +57,10 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.goto(webapp.base_url + f"/#sessions/{sid}")  # the session open full screen (#150)
 
     # -- Sessions → Stage font: choose it, thicken its lines
-    card = page.locator(".font-card")
-    expect(card.locator(".card-head-meta")).to_have_text("Patrick Hand (theme)")
+    card = page.locator(".session-settings-card")
+    expect(card.locator("[data-lettering]")).to_have_text("Patrick Hand (theme)")
     card.get_by_role("button", name="Font file…").click()
-    expect(card.locator(".card-head-meta")).to_have_text(font.name)
+    expect(card.locator("[data-lettering]")).to_have_text(font.name)
     _until(lambda: (_saved(folder).get("font") or {}).get("file") == str(font))
     card.locator("input[type=range]").fill("2")
     expect(card.locator("output")).to_have_text("2 px")
@@ -76,7 +76,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     expect(card.locator(".st-hint")).not_to_have_css("font-family", "\"Session Font\", \"Patrick Hand\", system-ui, sans-serif")
     card.locator(".role-row[data-role=answers] [data-role-caps=true]").click()
     _until(lambda: _saved(folder)["font"].get("roles") == {"answers": {"caps": True}})
-    expect(page.locator(".font-card .font-sample-words")).to_have_css("text-transform", "uppercase")
+    expect(page.locator(".session-settings-card .font-sample-words")).to_have_css("text-transform", "uppercase")
 
     # -- Plan: the stage preview draws the question in the session font, lines thickened
     page.click("#tabPlan")
