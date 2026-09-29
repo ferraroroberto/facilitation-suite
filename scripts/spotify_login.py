@@ -27,6 +27,7 @@ import threading
 import urllib.parse
 import webbrowser
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -109,6 +110,16 @@ def exchange(client_id: str, code: str, redirect_uri: str, verifier: str) -> str
     return str(data["refresh_token"])
 
 
+def account_line(product: Optional[str]) -> str:
+    """The login's account line. No ``product`` (a token without ``user-read-private``)
+    is "not checked" — never read as "not Premium"."""
+    if not product:
+        return "ℹ️ Account: not checked (Spotify did not say the account type)"
+    if product == "premium":
+        return "✅ Account: premium"
+    return f"⚠️ Account: {product} — playback control needs Premium"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8765, help="the redirect URI's port (default 8765)")
@@ -137,8 +148,7 @@ def main() -> int:
     client = SpotifyClient()
     try:
         me = client.call("GET", "/me")
-        product = str(me.get("product") or "unknown")
-        logger.info(f"{'✅' if product == 'premium' else '⚠️'} Account: {product}" + ("" if product == "premium" else " — playback control needs Premium"))
+        logger.info(account_line(me.get("product")))
         devices = client.call("GET", "/me/player/devices").get("devices") or []
         logger.info("ℹ️ Devices Spotify sees: " + (", ".join(f"{d.get('name')} ({d.get('type')})" for d in devices) or "none — open the Spotify desktop app"))
         client.device()

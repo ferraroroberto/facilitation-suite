@@ -257,3 +257,18 @@ def test_a_pasted_spotify_link_plays_by_hand(isolated_env: Path) -> None:
     assert made["spotify"].calls[-1] == ("play", "Spotify playlist 37i9dQ", 80, 2.0) and music.owner is None
     with pytest.raises(MusicError):
         run_action(hub, "music_play", "https://example.com/nope")
+
+
+def test_the_login_asks_for_the_account_type_and_never_guesses_it() -> None:
+    import importlib
+
+    from src.music.spotify import SCOPES
+
+    login = importlib.import_module("scripts.spotify_login")
+    assert "user-read-private" in SCOPES.split()  # GET /me only returns ``product`` with this scope (#109)
+    assert login.account_line("premium") == "✅ Account: premium"
+    free = login.account_line("free")
+    assert free.startswith("⚠️ Account: free") and "needs Premium" in free
+    for missing in (None, ""):  # an old token without the scope: say so, claim nothing about Premium
+        line = login.account_line(missing)
+        assert "not checked" in line and "Premium" not in line and "premium" not in line
