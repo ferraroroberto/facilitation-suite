@@ -17,7 +17,11 @@ any scope is shown as a plain item.
 (``question``, deadline = now + its time limit). Then ``next`` (every control
 surface's "next") steps ``question → reveal → leaderboard`` and only from
 ``leaderboard`` moves on to the next plan item; time up (plus
-``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves. On the
+``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves — and so does
+every active player answering, about ``EARLY_CLOSE_MS`` after the last one
+does, while the lobby's "end questions when everyone has answered" option is
+on (default; #105). All three share the one reveal path (``time_up``), so a
+lock is a lock whatever brought it forward. On the
 **podium** (#89) ``next`` reveals one place at a time — 3rd, 2nd, then 1st
 (only the places that exist with fewer than three players) — and only once
 1st shows moves on; ``prev`` hides the last place shown, and with none shown
@@ -129,6 +133,7 @@ LOBBY, QUESTION, PODIUM = "quiz_lobby", "quiz", "quiz_podium"
 QUIZ_TYPES = (LOBBY, QUESTION, PODIUM)
 WRONG_PIN = "wrong_pin"  # join_pin: no game of the live session has that PIN
 PIN_DIGITS = 6
+EARLY_CLOSE_MS = 1000  # grace after the last active player answers, before an early reveal (#105)
 
 
 @dataclass
@@ -218,7 +223,8 @@ class QuizService:
         self._session: Optional[str] = None
         self._scopes: tuple[Any, dict[str, Scope]] = (None, {})
         self._pending: list[dict[str, Any]] = []  # records not yet written to quiz.jsonl
-        self._reveal: Optional[Any] = None  # the time-up handle of the open question
+        self._reveal: Optional[Any] = None  # the pending reveal handle of the open question (time-up or early close)
+        self._reveal_at: Optional[int] = None  # when that handle is due to fire (clock ms)
         self._push_pending = False
         live.extra_state.append(self.state_fields)
         live.item_listeners.append(self._on_item)
@@ -267,6 +273,11 @@ class QuizService:
         """The lobby's "answers typed in the chat count too" switch (default on)."""
         lobby = self.live.item_by_id(scope.lobby_id) or {}
         return bool(options_with_defaults(LOBBY, lobby.get("options") or {}).get("accept_chat", True))
+
+    def closes_early(self, scope: Scope) -> bool:
+        """The lobby's "end questions when everyone has answered" switch (default on, #105)."""
+        lobby = self.live.item_by_id(scope.lobby_id) or {}
+        return bool(options_with_defaults(LOBBY, lobby.get("options") or {}).get("close_when_all_answered", True))
 
     def open_question(self) -> Optional[tuple[Game, Scope, QuizQuestion]]:
         """The question on stage while it takes answers (its ``question`` phase, still open), else ``None``."""
@@ -365,6 +376,8 @@ class QuizService:
             raise QuizError(404, "unknown_player", f"No player {player_id!r} in a quiz")
         self._record(game, {"op": "kick", "player_id": player_id})
         logger.info("ℹ️ quiz %s: %s removed by the host", game.game_id, player_id)
+        if game.item_id:  # removing the last hold-out can leave everyone else answered
+            self._maybe_close_early(game, game.item_id)
         self._changed()
 
     def _new_pin(self) -> str:
@@ -407,6 +420,7 @@ class QuizService:
                                          trusted=trusted)
         if rec is not None:
             self._record(game, rec)
+            self._maybe_close_early(game, item_id)
             self._changed(soon=True)
         return result
 
@@ -529,25 +543,53 @@ class QuizService:
     # ------------------------------------------------------------- time up
 
     def _schedule_reveal(self, game: Game, item_id: str, deadline_ms: int) -> None:
+        self._set_reveal(game, item_id, deadline_ms + GRACE_MS)
+
+    def _maybe_close_early(self, game: Game, item_id: str) -> None:
+        """Once every active player has answered ``item_id`` and the lobby's "end questions when
+        everyone has answered" option is on (default), reveal it ``EARLY_CLOSE_MS`` from now —
+        reusing the same reveal path as time-up and ``quiz_lock`` (#105). Never brings the reveal
+        *later* than whatever is already scheduled (the deadline, or an earlier early close)."""
+        if self.live.loop is None or game.item_id != item_id:
+            return
+        run = game.runs.get(item_id)
+        if run is None or not run.open:
+            return
+        scope = self.scopes().get(item_id)
+        if scope is None or not self.closes_early(scope) or not game.all_answered(item_id):
+            return
+        fire_at = self.clock() + EARLY_CLOSE_MS
+        if self._reveal_at is not None and self._reveal_at <= fire_at:
+            return  # already due at least this soon
+        self._set_reveal(game, item_id, fire_at)
+
+    def _set_reveal(self, game: Game, item_id: str, fire_at: int) -> None:
         self._cancel_reveal()
         if self.live.loop is None:
             return
-        delay = max(0.0, (deadline_ms + GRACE_MS - self.clock()) / 1000)
+        self._reveal_at = fire_at
+        delay = max(0.0, (fire_at - self.clock()) / 1000)
         self._reveal = self.live.loop.call_later(delay, self.time_up, game.game_id, item_id)
 
     def _cancel_reveal(self) -> None:
         if self._reveal is not None:
             self._reveal.cancel()
             self._reveal = None
+        self._reveal_at = None
 
     def time_up(self, game_id: str, item_id: str) -> None:
-        """The question's time (plus the grace) ran out: reveal it if it is still open on stage."""
-        self._reveal = None
+        """The scheduled reveal is due: the question's time (plus the grace) ran out, or every
+        active player answered early and the reveal was brought forward. Reveal it if it is
+        still open on stage."""
+        self._reveal, self._reveal_at = None, None
         game = self.games.get(game_id)
         run = game.runs.get(item_id) if game else None
         if game is None or run is None or not run.open or game.item_id != item_id:
             return
-        logger.info("ℹ️ quiz %s: time up on %s", game_id, item_id)
+        if self.clock() < run.deadline_ms:
+            logger.info("ℹ️ quiz %s: %s closed early — every player answered", game_id, item_id)
+        else:
+            logger.info("ℹ️ quiz %s: time up on %s", game_id, item_id)
         self._phase(game, "reveal", item_id)
         self._changed()
 
