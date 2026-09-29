@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import AppError, require_local
+from src import defaults
+from src import library as stage_library
 from src.importer.review import read_meta
 from src.music import library
 from src.quiz.importer import import_kahoot
@@ -65,8 +67,9 @@ def list_sessions(request: Request) -> dict[str, Any]:
 def create_session(request: Request, body: NewSession) -> dict[str, Any]:
     st = store(request)
     try:
+        look = defaults.load(request.app.state.config)  # a new session starts from the global defaults (#110)
         entry = st.create(body.title, body.workshop, body.folder or body.title, date=body.date,
-                          duration_minutes=body.duration_minutes, root=body.root)
+                          duration_minutes=body.duration_minutes, root=body.root, theme=look.theme, font=look.font)
     except OSError as exc:
         logger.error("❌ create session failed: %s", exc)
         raise AppError(500, "folder_error", "The session folder could not be created") from exc
@@ -129,6 +132,10 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
             "offline": offline.as_dict(),
         },
         "readiness": readiness.build(folder, session, offline, facts),
+        # The stage look (theme + lettering) against Settings → Stage defaults (#110).
+        "look": {"uses_defaults": defaults.uses_defaults(session, defaults.load(request.app.state.config)),
+                 "themes": stage_library.themes(request.app.state.config),
+                 "fonts": stage_library.fonts(request.app.state.config)},
     }
 
 
@@ -151,10 +158,25 @@ def put_session(request: Request, sid: str, body: dict[str, Any]) -> dict[str, A
     return {"session": dump_session(session)}
 
 
+@router.post("/{sid}/look/reset")
+def reset_look(request: Request, sid: str) -> dict[str, Any]:
+    """The session's stage theme and lettering back to Settings → Stage defaults (items keep their own)."""
+    st = store(request)
+    session = defaults.apply(st.load(sid), defaults.load(request.app.state.config))
+    st.save(sid, session)
+    logger.info("ℹ️ session %s: stage look reset to the defaults", sid)
+    hub = getattr(request.app.state, "live", None)
+    if hub is not None:
+        hub.session_saved(sid)
+    return session_payload(request, sid)
+
+
 @router.get("/{sid}/theme.css", include_in_schema=False)
 def session_theme(request: Request, sid: str) -> Response:
     """The session's stage font and its own ``theme.css``, for the plan's stage previews."""
-    css = theme_css(store(request).load(sid), store(request).folder(sid), f"/api/sessions/{sid}/font")
+    session = store(request).load(sid)
+    css = theme_css(session, store(request).folder(sid), f"/api/sessions/{sid}/font",
+                    stage_library.library_theme_css(request.app.state.config, session.theme))
     return Response(css, media_type="text/css", headers={"Cache-Control": "no-cache"})
 
 
