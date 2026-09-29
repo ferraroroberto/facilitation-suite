@@ -294,7 +294,10 @@ function tick(st) {
   const limitMs = st.limit * 1000;
   const left = st.deadline ? Math.max(0, Math.min(limitMs, st.deadline - (Date.now() + st.offset))) : limitMs;
   el.dataset.leftMs = String(Math.round(left));
-  el.querySelector('[data-qz-secs]').textContent = String(Math.ceil(left / 1000));
+  const secs = String(Math.ceil(left / 1000));
+  const secsEl = el.querySelector('[data-qz-secs]');
+  secsEl.textContent = secs;
+  secsEl.classList.toggle('qz-secs-3', secs.length >= 3); // 120/240 s limits (Kahoot allows both, #93)
   el.querySelector('.qz-ring').style.strokeDashoffset = String(RING * (1 - left / limitMs));
   el.classList.toggle('low', !!st.deadline && left <= 5000);
 }

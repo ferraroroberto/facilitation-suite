@@ -45,6 +45,31 @@ IN_CAMERA = """(z) => {
 PHONE_FIT = """() => ({ width: document.documentElement.scrollWidth,
   clipped: [...document.querySelectorAll('.tile, [data-qtext]')].filter((e) =>
     e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1).map((e) => e.dataset.choice || 'question') })"""
+# The reveal's bars: which shape icons spill outside their bar, even at 0 votes (a bar at its
+# floor height, #93) — must be empty. getBoundingClientRect, not scrollHeight: overflow:hidden on
+# the bar does not grow its scrollHeight for a flex child that overflows it.
+BAR_ICON_CLIPPED = """() => [...document.querySelectorAll('.qz-bar')].filter((b) => {
+  const fill = b.querySelector('.qz-bar-fill'), shape = b.querySelector('.qz-shape');
+  const f = fill.getBoundingClientRect(), s = shape.getBoundingClientRect();
+  return s.top < f.top - 1 || s.bottom > f.bottom + 1 || s.left < f.left - 1 || s.right > f.right + 1;
+}).map((b) => b.dataset.bar)"""
+# The countdown ring's digits (a Range around the text, not the centring box, which always fills
+# the ring) stay clear of the ring's own stroke even at 3 digits (a 120/240 s limit, #93): every
+# corner of the text is within the circle's radius, minus half the stroke's width.
+COUNTDOWN_FITS = """() => {
+  const clock = document.querySelector('.qz-clock');
+  const svg = clock.querySelector('svg'), track = clock.querySelector('.qz-track');
+  const secs = clock.querySelector('[data-qz-secs]');
+  const sr = svg.getBoundingClientRect(), scale = sr.width / 120; // the viewBox is 0 0 120 120
+  const cx = sr.left + 60 * scale, cy = sr.top + 60 * scale;
+  const strokeW = parseFloat(getComputedStyle(track).strokeWidth) * scale;
+  const inradius = 54 * scale - strokeW / 2;
+  const range = document.createRange();
+  range.selectNodeContents(secs);
+  const t = range.getBoundingClientRect();
+  const corners = [[t.left, t.top], [t.right, t.top], [t.left, t.bottom], [t.right, t.bottom]];
+  return corners.every(([x, y]) => Math.hypot(x - cx, y - cy) <= inradius);
+}"""
 
 
 def _phone(browser: Browser, spec: dict, errors: list[str]) -> Page:
@@ -67,6 +92,7 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
     section = copy.deepcopy(PLAYER_QUIZ)
     first = section["items"][1]
     first["options"].update(LONG_ANSWERS)
+    first["options"]["time_limit"] = 240  # a 3-digit countdown (Kahoot allows up to 240s, #93)
     first["question"] = LONG_QUESTION
     first["profile"] = "camera_pip"  # a camera box in the top-right corner, as in a real session
     section["items"][-1]["profile"] = "camera_strip"  # the podium beside a camera strip
@@ -111,6 +137,9 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         live = page.request.get(f"{base}/api/live").json()
         shown = int(stage.get_attribute("[data-qz-clock]", "data-left-ms"))
         assert abs(shown - (live["state"]["quiz"]["deadline_ms"] - live["server_now"])) < 500
+        # the 240 s limit's 3-digit countdown fits inside the ring, not spilling past its edge (#93)
+        expect(stage.locator("[data-qz-secs]")).to_have_text("240")
+        assert stage.evaluate(COUNTDOWN_FITS)
         # 320 px: the four tiles fit, nothing scrolls sideways
         assert ana.evaluate("document.documentElement.scrollWidth") <= 320
         assert ana.locator(".tile").first.bounding_box()["width"] >= 120
@@ -142,6 +171,8 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "2")
         expect(stage.locator(".qz-tile.correct [data-correct]")).to_have_text("Correct")
         expect(stage.locator(".qz-bar-count")).to_have_text(["1", "1", "0", "0"])
+        # every bar's shape icon shows whole, even at 0 votes (a bar at its floor height, #93)
+        assert stage.evaluate(BAR_ICON_CLIPPED) == []
         # every line of every 75-character answer shows, none under the camera (#84)
         stage.evaluate("document.fonts.ready")
         try:
