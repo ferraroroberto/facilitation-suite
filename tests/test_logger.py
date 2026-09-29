@@ -10,6 +10,7 @@ from then on (proven live: a leftover server from another session held the file 
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -112,3 +113,37 @@ def test_records_survive_and_rotation_resumes_when_an_outside_process_holds_the_
             done.touch()
         if proc.poll() is None:
             proc.wait(timeout=10)
+
+
+def test_the_blocked_warning_does_not_trigger_runaway_recursive_rollover_attempts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The blocked-rotation warning is itself a log record; once the handler sits on the root
+    logger (as ``configure_logging()`` puts it), it must not re-enter its own ``doRollover()``
+    through that warning call (#120: it used to — reentrant emit() saw the blocked state and the
+    stream not yet settled, retried the doomed rollover, and recursed until it flooded the log
+    with duplicate warnings and eventually raised ``RecursionError``).
+
+    ``os.replace`` is mocked to always fail so the block is deterministic and needs no external
+    holder process, unlike the #100 regression test above.
+    """
+    path = tmp_path / "recursive.log"
+    path.write_text("x" * 3000, encoding="utf-8")  # already past maxBytes: the very first emit is due
+    handler = _make_handler(path)
+    root = logging.getLogger()
+    saved_level = root.level
+    # addHandler (not replacing root.handlers) so pytest's own caplog handler on root stays put.
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    monkeypatch.setattr(os, "replace", lambda *_a, **_k: (_ for _ in ()).throw(PermissionError("blocked")))
+    try:
+        with caplog.at_level(logging.WARNING, logger="src.logger"):
+            logging.getLogger("app").info("trigger")
+        handler.flush()
+    finally:
+        root.removeHandler(handler)
+        root.setLevel(saved_level)
+        handler.close()
+
+    warnings = [r for r in caplog.records if r.name == "src.logger" and r.levelno == logging.WARNING]
+    assert len(warnings) == 1, f"expected exactly one warning, got {len(warnings)}: {[w.getMessage() for w in warnings]}"
