@@ -31,6 +31,10 @@ CONFIG_SAMPLE_PATH = CONFIG_DIR / "config.sample.json"
 DEFAULT_LEDGER_PATH = PROJECT_ROOT / "sessions.local.yaml"
 DEFAULT_PORT = 8449
 DEFAULT_PLAYER_PORT = 8451
+# Light/dark for the facilitator's screens — the app, the presenter and the
+# phone remote, never the stage or /play (they follow the session theme): one
+# value for every open page on every device (#92).
+APPEARANCES = ("system", "light", "dark")
 
 
 @dataclass(frozen=True)
@@ -91,6 +95,7 @@ class AppConfig:
     # Default parent folder for new sessions: <session_root>/<workshop>/<session>.
     session_root: str = ""
     stage_display: int = 2
+    appearance: str = "system"  # one of APPEARANCES
     obs: ObsConfig = field(default_factory=ObsConfig)
     reader: ReaderConfig = field(default_factory=ReaderConfig)
     remote: RemoteConfig = field(default_factory=RemoteConfig)
@@ -177,6 +182,10 @@ def load_config() -> AppConfig:
             logger.error("❌ config: cannot read %s (%s) — trying the next source", candidate, exc)
             continue
         cfg = _build(AppConfig, raw)
-        return AppConfig(**{**cfg.__dict__, "source": str(candidate)})
+        appearance = cfg.appearance
+        if appearance not in APPEARANCES:
+            logger.warning("⚠️ config: appearance %r is not one of %s — using system", appearance, ", ".join(APPEARANCES))
+            appearance = "system"
+        return AppConfig(**{**cfg.__dict__, "appearance": appearance, "source": str(candidate)})
     logger.warning("⚠️ config: no config file found — running on code defaults")
     return AppConfig()

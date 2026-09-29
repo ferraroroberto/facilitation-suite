@@ -39,7 +39,7 @@ Never activate the venv; invoke its interpreter directly.
 
 Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11) on the display OBS captures — at `http://127.0.0.1:8449/` until HTTPS is set up (below), then at `https://<this PC>.<tailnet>.ts.net:8449/` (the tray's **Open** uses it). This PC never needs a token either way.
 
-The header's moon/sun button switches light and dark, and **Settings → Text size** (Small / Default / Large) scales the app's text; both are remembered per device (`facilitation-suite.theme` / `.textsize` in the browser's storage). The stage keeps its own look and sizes.
+**Light or dark is one setting for all your screens**: the moon/sun button in the app's header, the presenter or the phone remote — or **Settings → Appearance** (System / Light / Dark) — switches the app, the presenter and the phone remote on every open device at once, within a second and without a reload. *System* follows each device's own OS setting. It is kept in `config/config.json` (`appearance`) and pushed with the live state; each browser also caches it (`facilitation-suite.theme`) so a page opens in the right theme with no flash. **Settings → Text size** (Small / Default / Large) scales the app's text on this device only (`facilitation-suite.textsize`). The stage keeps the session's look and sizes, and the players' `/play` page its own light/dark button.
 
 **HTTPS (for the phone remote):** `& .venv\Scripts\python.exe scripts\gen_tailscale_cert.py` writes a Tailscale certificate (a real Let's Encrypt leaf for this PC's tailnet name) to `webapp/certificates/`; after `tray.bat --restart` the server speaks HTTPS only, on the tailnet name. The leaf lasts ~90 days and renews itself at every start (`--check`), so there is no date to remember.
 
@@ -383,6 +383,7 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `port` | server port (8449) |
 | `session_root` | default parent folder for new sessions (`<root>\<workshop>\<session>\`) |
 | `stage_display` | which display the stage window goes on (informational) |
+| `appearance` | `system` (default), `light` or `dark` for the app, the presenter and the phone remote — set from any sun/moon button or Settings → Appearance |
 | `obs` | obs-websocket host / port / password (the password stays in this file only), `enabled` = scene switching on/off |
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |

@@ -1,7 +1,8 @@
 """Story 14: the phone remote — what is on stage, what is next, the session
 clock; Next, Start capture (the timer starts with it), answers counting up,
 blackout; the chat to hide a message from; the breakout rooms to read out;
-and what an unpaired phone sees."""
+one light/dark for the presenter, the phone and the app (#92); and what an
+unpaired phone sees."""
 
 from __future__ import annotations
 
@@ -82,6 +83,46 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     assert _state(page, base)["blackout"] is True
     page.locator("[data-r-blackout]").click()
     expect(sub).not_to_contain_text("blackout")
+
+    # #92: one light/dark for every facilitator screen, whatever the browser or device
+    appearance = f"{base}/api/settings/appearance"
+    assert page.request.put(appearance, data={"appearance": "dark"}).ok
+    desk = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme="light")
+    try:
+        presenter, app_tab, stage, play = (desk.new_page() for _ in range(4))
+        presenter.goto(f"{base}/presenter")
+        app_tab.goto(f"{base}/")
+        stage.goto(f"{base}/stage")
+        play.goto(f"{webapp.player_url}/play")
+        screens = (presenter, app_tab, page)
+        for p in screens:  # the OS says light; the server's dark wins over the pre-paint guess
+            expect(p.locator("html")).to_have_attribute("data-theme", "dark")
+        # the presenter's sun/moon switches the phone and an app tab in another browser, no reload
+        presenter.locator(".p-top [data-theme-toggle]").click()
+        for p in screens:
+            expect(p.locator("html")).to_have_attribute("data-theme", "light", timeout=1500)
+        presenter.locator(".p-top [data-theme-toggle]").click()
+        expect(app_tab.locator("html")).to_have_attribute("data-theme", "dark", timeout=1500)
+        # a reload paints the chosen theme first: no flash of the OS's light
+        app_tab.add_init_script("""
+          window.__themes = [];
+          new MutationObserver(() => window.__themes.push(document.documentElement.dataset.theme))
+            .observe(document, { attributes: true, attributeFilter: ['data-theme'], subtree: true });""")
+        app_tab.reload()
+        expect(app_tab.locator("#paneSessions .home-head")).to_have_count(1)
+        app_tab.wait_for_timeout(1000)  # the live snapshot has arrived by now
+        assert set(app_tab.evaluate("window.__themes")) == {"dark"}
+        # `system` follows each device's own OS setting, live
+        assert page.request.put(appearance, data={"appearance": "system"}).ok
+        expect(app_tab.locator("html")).to_have_attribute("data-theme", "light", timeout=1500)
+        app_tab.emulate_media(color_scheme="dark")
+        expect(app_tab.locator("html")).to_have_attribute("data-theme", "dark")
+        expect(presenter.locator("html")).to_have_attribute("data-theme", "light")
+        # the stage keeps the session's look and /play the player's own choice
+        assert stage.evaluate("document.documentElement.dataset.theme") is None
+        expect(play.locator("html")).to_have_attribute("data-theme", "light")
+    finally:
+        desk.close()
 
     # a phone that has not opened the pairing link is told how to pair
     stranger = browser.new_context(viewport=PHONE)

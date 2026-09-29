@@ -35,9 +35,12 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     expect(page.locator("#paneSettings")).to_be_visible()
 
     before = page.evaluate("document.documentElement.dataset.theme")
-    page.locator("#paneSettings [data-theme-toggle]").click()
+    with page.expect_response("**/api/settings/appearance"):  # #92: it sets the global appearance
+        page.locator("#paneSettings [data-theme-toggle]").click()
     after = page.evaluate("document.documentElement.dataset.theme")
     assert before != after
+    # put it back for the stories after this one
+    assert page.request.put(webapp.base_url + "/api/settings/appearance", data={"appearance": "system"}).ok
     assert errors == []
 
     # #49/#52: the quiz player page answers beside the app on its own (free) port.
