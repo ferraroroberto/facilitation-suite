@@ -229,6 +229,7 @@ def _install_quiz(app: FastAPI) -> None:
     service = QuizService(app.state.live)
     service.public_url = lambda: app.state.config.quiz.public_url
     service.listener_up = lambda: bool(getattr(app.state, "player", None) and app.state.player.running)
+    service.output_device = app.state.music.output_device  # the Sounds chip's device state (#102)
     app.state.quiz = service
     live = app.state.live
 

@@ -34,7 +34,9 @@ cue like any track: the cue is forgotten. The presenter's pause, stop and
 volume act on a cue as on any track.
 
 States (the presenter's chip): ``idle``, ``playing``, ``paused``, ``error``
-(the detail says why).
+(the detail says why). ``output_device()`` (#102) is a separate, lightweight
+check — whether this PC has an audio output device at all — used by the
+quiz's Sounds chip alongside its cue-file inventory (``src/quiz/cues.py``).
 
 **After a restart** (#95): what plays or is paused — its source, position,
 volume, fades and owner (the item whose timer drives it, or none: ad hoc) — is
@@ -186,6 +188,23 @@ class MusicService:
             backend.forget_login()
         if self.live.loop is not None:
             self.live.loop.call_soon_threadsafe(self.live.push_state)
+
+    def output_device(self) -> tuple[str, str]:
+        """Whether this PC has an audio output device (#102): ``ok`` | ``none`` | ``unknown``.
+
+        Only enumerates devices (miniaudio, a few ms) — never opens one, so this
+        never makes a sound. ``unknown`` when the enumeration itself fails; never
+        reported as ``ok``."""
+        try:
+            import miniaudio
+
+            names = [d.get("name", "") for d in miniaudio.Devices().get_playbacks()]
+        except Exception as exc:  # noqa: BLE001 — a query failure is "unknown", never "no device"
+            logger.warning("⚠️ music: the output-device check failed (%s)", exc)
+            return "unknown", f"Could not check for an audio output device ({exc})"
+        if not names:
+            return "none", "No audio output device on this PC — are the speakers or headset connected?"
+        return "ok", names[0]
 
     # ------------------------------------------------------------- actions
 

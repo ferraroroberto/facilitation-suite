@@ -9,11 +9,13 @@ strip) keep their content out of the camera's box (#88). The phones show that 12
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
 light and dark, and after the reveal the right answer's text. The podium reveals one place per
 Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on. Switched to Spanish on the leaderboard,
-the stage and a reloaded phone say it in Spanish (#91)."""
+the stage and a reloaded phone say it in Spanish (#91). The presenter's Sounds chip (#102) shows
+on the lobby, naming a cue-file/device state — never blank."""
 
 from __future__ import annotations
 
 import copy
+import re
 
 from playwright.sync_api import Browser, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
@@ -76,6 +78,10 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
     podium = next(n for n, it in enumerate(items) if it["id"] == "pq-podium") + 1
     assert page.request.post(f"{base}/api/actions/goto/{lobby}").ok
     pin = page.request.get(f"{base}/api/live").json()["state"]["quiz"]["pin"]
+
+    # #102: the Sounds chip names a real state (never blank) whatever this machine's audio setup is
+    page.goto(f"{base}/presenter?session={sid}")
+    expect(page.locator("[data-qsound] .chip")).to_have_text(re.compile(r"Sounds ·|No audio output device"))
 
     errors: list[str] = []
     ana, bo = _phone(browser, SMALL, errors), _phone(browser, PHONE, errors)
