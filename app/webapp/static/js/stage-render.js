@@ -147,14 +147,34 @@ export function createStage(host, opts = {}) {
   let lastResult;
   let lang = 'en';
 
+  // A hidden host (a collapsed section, an inactive tab) measures 0 for every fit step
+  // (fitSlideText, the quiz/word-cloud/… plug-ins' own layout), so a preview drawn while
+  // hidden never shrinks its text or lays out its words — until something else redraws it.
+  // One host-level 0→visible transition re-runs whatever fit step the current item needs.
+  let wasVisible = host.clientWidth > 0 && host.clientHeight > 0;
   function fit() {
     const w = host.clientWidth;
     const h = host.clientHeight || (w * H) / W;
     const s = Math.min(w / W, h / H) || 0;
     canvas.style.transform = `translate(${(w - W * s) / 2}px, ${(h - H * s) / 2}px) scale(${s})`;
+    const visible = w > 0 && h > 0;
+    if (visible && !wasVisible) refit();
+    wasVisible = visible;
   }
   new ResizeObserver(fit).observe(host);
   fit();
+
+  /**
+   * Redraw the current item from scratch, now that the host has a real size: a plug-in's own
+   * fresh/unchanged cache (e.g. the quiz renderer's, keyed by its DOM node) is keyed to the old,
+   * mis-fit body, so a fresh body — the same rebuild a new item selection already gets — is the
+   * one change that reliably re-runs every fit step (fitSlideText, a plug-in's own layout).
+   */
+  function refit() {
+    if (!item || !lastCtx) return;
+    build(item, lastCtx);
+    update(lastCtx);
+  }
 
   function stageTimer(it, state) {
     if (!it || !it.timer || it.timer.show_on === 'presenter') return null;

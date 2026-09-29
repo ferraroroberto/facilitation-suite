@@ -3,9 +3,10 @@
 Three activity types, one plug-in folder each under ``app/activities/``:
 
 - ``quiz_lobby`` (no capture) starts a game. Options: ``title`` (the quiz's
-  name) and ``accept_chat`` (answers typed in the Zoom chat count too, Step 6).
-  The game is the ``quiz`` items that follow it in plan order, up to the next
-  ``quiz_podium``.
+  name), ``accept_chat`` (answers typed in the Zoom chat count too, Step 6)
+  and ``close_when_all_answered`` (reveal early once every active player has
+  answered, #105). The game is the ``quiz`` items that follow it in plan
+  order, up to the next ``quiz_podium``.
 - ``quiz`` is one question: ``Item.question`` plus the options ``answer_1`` …
   ``answer_4`` (2–4 non-empty), ``correct`` (1-based and comma-separated, as
   Kahoot writes it: ``"2"`` or ``"1,3"``), ``time_limit`` (seconds, one of
