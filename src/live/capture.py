@@ -5,8 +5,9 @@ participant message received while a window is open belongs to it until
 **Stop**. A stopped capture can be reopened (a new window; what arrived while
 it was stopped stays out). The facilitator's own messages ("You") never
 count, unless the presenter's rehearsal switch (``count_own``) is on — it is
-never saved, so it starts off after a restart and on every session
-activation. Hidden messages are excluded everywhere and can be un-hidden.
+never saved, so it starts off after a restart, on every session activation,
+and on "Start the session over". Hidden messages are excluded everywhere and
+can be un-hidden.
 
 At every Stop the result is **frozen**: ``live/captures/<item>.json`` (every
 answer with its name and parsed value, plus the result) at once, and
@@ -273,9 +274,11 @@ class CaptureService:
             logger.warning("⚠️ %s unreadable (%s) — captures start empty", STATE_FILE, exc)
 
     def _forget(self) -> None:
-        """After a reset: nothing captured, hidden or placed (the old run is set aside)."""
+        """After a reset: nothing captured, hidden or placed (the old run is set aside), and the
+        rehearsal switch is back off — a "Start the session over" is a real run, not a rehearsal."""
         self._session = None
         self._load()
+        self.count_own = False
 
     def _save(self) -> None:
         d = self._dir()
