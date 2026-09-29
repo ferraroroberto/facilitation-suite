@@ -157,6 +157,7 @@ Spotify is driven through its official Web API, on the **Spotify desktop app of 
 2. In the app's **Settings**, copy the **Client ID** into `.env` at the repo root: `SPOTIFY_CLIENT_ID=<client id>`. (No client secret: the login uses PKCE.)
 3. Open the Spotify desktop app on this PC, logged in to the same account.
 4. Run `& .\.venv\Scripts\python.exe scripts\spotify_login.py`: the browser asks you to allow the app; the script writes `SPOTIFY_REFRESH_TOKEN` to `.env` and prints the account type and the devices Spotify sees (it ends with *The desktop app on this PC is ready*). No restart needed. Another port: `--port 8766` (and that redirect URI in the dashboard).
+   A login made before the account-type permission was added (it printed *Account: unknown* or *not checked*) still plays, but **re-run the login once** so it can read the account type; it then prints *Account: premium*.
 5. The app plays on the `Computer` device named like this PC; if Spotify shows it under another name, set `SPOTIFY_DEVICE_NAME=<name>` in `.env`.
 
 Fades step Spotify's volume twice a second; a stop fades out, pauses (Spotify has no stop) and puts the app's volume back where it was. The chip and the readiness list keep the failures apart: **not set up** (no client id or login in `.env`, or a wrong client id), **login expired** (revoked or expired — run the login again), **not open on this PC** (open the desktop app), **Premium needed**, and **unknown** when Spotify could not be reached or is rate-limiting — never counted as ready.
