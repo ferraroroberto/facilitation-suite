@@ -140,6 +140,10 @@ def test_join_answer_ack_and_the_result(game) -> None:
     assert view["state"] == "ok" and view["view"]["phase"] == "question" and view["view"]["open"] is True
     assert view["view"]["tiles"] == [1, 2, 3, 4] and view["view"]["answer"] is None
     assert view["view"]["deadline_ms"] > view["now_ms"]
+    # The texts the stage shows, so a phone can play without watching it (#90) — in tile order.
+    assert view["view"]["question"] == "How many sides has a triangle?"
+    assert view["view"]["answers"] == ["Two", "Three", "Four", "Five"]
+    assert other.state(retried)["view"]["answers"] == ["Two", "Three", "Four", "Five"]  # a phone that never answers
 
     first = phone.answer(ana, "pq-1", 2, elapsed_ms=250)
     assert first["state"] == "accepted" and first["choice"] == 2
@@ -155,11 +159,18 @@ def test_join_answer_ack_and_the_result(game) -> None:
 
     assert main.post("/api/actions/next").status_code == 200  # reveal
     v = phone.state(ana)["view"]
-    assert v["phase"] == "reveal" and v["answer"]["correct"] is True
+    assert v["phase"] == "reveal" and v["answer"]["correct"] is True and v["correct"] == [2]
     assert (v["score"], v["rank"], v["last_points"]) == (1000, 1, 1000)  # counted once despite the retry
     lost = other.state(ana2)["view"]
-    assert lost["answer"]["correct"] is False and lost["score"] == 0
+    assert lost["answer"]["correct"] is False and lost["score"] == 0 and lost["correct"] == [2]
+    assert other.state(retried)["view"]["correct"] == [2]  # no answer: the phone still learns the right one
     assert other.answer(retried, "pq-1", 2)["state"] == "too_late"  # locked: a distinct state, not dropped
+
+    main.post("/api/actions/next")  # leaderboard
+    goto(main, "pq-2")  # two answers: two tiles, two texts, and again no correct answer while it is open
+    two = phone.state(ana)["view"]
+    assert (two["question"], two["tiles"], two["answers"]) == ("Is a square a rectangle?", [1, 2], ["Yes", "No"])
+    assert "correct" not in _keys(two)
 
     for body in phone.seen + other.seen:  # never the plan's options or other players' answers
         assert "options" not in _keys(body) and "distribution" not in _keys(body) and "players" not in _keys(body)

@@ -246,13 +246,14 @@ def test_the_correct_answer_is_absent_until_the_reveal(rig: tuple[LiveHub, QuizS
         assert "score" not in view
     assert snap["deadline_ms"] == T0 + 20_000 and snap["question_index"] == 0 and snap["question_count"] == 3
     assert mine["tiles"] == [1, 2, 3, 4] and mine["answer"] == {"choice": 2, "elapsed_ms": 1000}
+    assert mine["question"] == "Which planet is the red one?" and mine["answers"] == ["Venus", "Mars", "Jupiter", "Saturn"]
     assert quiz.player_view(a.player_id, "wrong") is None
 
     hub.next()  # reveal
     snap, mine = state(hub), quiz.player_view(a.player_id, a.secret)
     assert snap["phase"] == "reveal" and snap["correct"] == [2] and snap["distribution"] == [0, 1, 0, 0]
     assert "leaderboard" not in snap
-    assert mine["answer"]["correct"] is True and mine["score"] == 975 and mine["rank"] == 1
+    assert mine["answer"]["correct"] is True and mine["correct"] == [2] and mine["score"] == 975 and mine["rank"] == 1
     hub.next()  # leaderboard
     board = state(hub)["leaderboard"]
     assert board == [{"id": a.player_id, "name": "Ana", "score": 975, "rank": 1, "correct": 1, "streak": 1,
