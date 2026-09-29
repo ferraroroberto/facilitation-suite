@@ -29,6 +29,10 @@ SCHEMA_VERSION = 1
 # Every id the app generates fits (``slide-<SlideID>``, ``act-``/``brk-``/``bko-``
 # + hex); so does a hand-written one like ``act-Q1``. Use ``fullmatch``.
 ITEM_ID = re.compile(r"[A-Za-z0-9_-]{1,80}")
+# Windows reserved device names: a file named exactly this (any case, whatever the
+# extension) cannot be created on Windows — ``live/captures/con.json`` would fail.
+_WINDOWS_RESERVED = frozenset({"con", "prn", "aux", "nul"} |
+                               {f"com{d}" for d in "123456789"} | {f"lpt{d}" for d in "123456789"})
 
 Profile = Literal["camera_strip", "camera_pip", "screen_only"]
 Language = Literal["en", "es"]
@@ -221,12 +225,18 @@ def _slug(text: str) -> str:
 
 
 def _valid_item_id(item_id: str) -> str:
-    """A hand-edited id outside ``ITEM_ID`` made fit, the same way on every load
-    (``"act Q1"`` → ``"act-Q1"``); ``""`` when nothing is left of it."""
-    if not item_id or ITEM_ID.fullmatch(item_id):
+    """A hand-edited id outside ``ITEM_ID`` (or a Windows reserved device name —
+    ``con``/``prn``/``aux``/``nul``/``com1``-``com9``/``lpt1``-``lpt9``, any case)
+    made fit, the same way on every load (``"act Q1"`` → ``"act-Q1"``,
+    ``"con"`` → ``"con-x"``); ``""`` when nothing is left of it."""
+    if not item_id:
+        return item_id
+    if ITEM_ID.fullmatch(item_id) and item_id.lower() not in _WINDOWS_RESERVED:
         return item_id
     ascii_id = unicodedata.normalize("NFKD", item_id).encode("ascii", "ignore").decode("ascii")
     fixed = re.sub(r"[^A-Za-z0-9_-]+", "-", ascii_id).strip("-")[:80]
+    if fixed.lower() in _WINDOWS_RESERVED:
+        fixed = f"{fixed}-x"
     logger.warning("⚠️ session plan: item id %r is not valid — using %r until the plan is saved",
                    item_id, fixed or "a new id")
     return fixed
