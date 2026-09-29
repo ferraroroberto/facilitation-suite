@@ -21,6 +21,11 @@ wrong client id), ``token_expired`` (the refresh token was revoked or
 expired — log in again), ``no_device`` (the desktop app is not open on this
 PC), ``not_premium``, ``ok`` — and ``unknown`` when it could not be
 established (Spotify unreachable, rate-limited, a 5xx), never folded into ok.
+
+The cached status, "configured" answer and access token each remember the
+``.env`` generation they were computed from (``src.env_file.generation``): a
+save (a new login, a rotated token) makes them stale at once, even when a
+check that started before the save finishes after it (#146).
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any, Optional
 
+from src.env_file import generation as env_generation
 from src.env_file import get_value, set_value
 from src.music.backend import EventSink, MusicError, Track
 
@@ -128,11 +134,13 @@ class SpotifyClient:
     """The access token (refreshed from ``.env``) and the Web API calls. Thread-safe."""
 
     def __init__(self, http: Http = urllib_http, env: Callable[[str], str] = get_value,
-                 save: Callable[[str, str], Any] = set_value) -> None:
-        self.http, self.env, self.save = http, env, save
+                 save: Callable[[str, str], Any] = set_value,
+                 generation: Callable[[], int] = env_generation) -> None:
+        self.http, self.env, self.save, self.generation = http, env, save, generation
         self._lock = threading.Lock()
         self._token = ""
         self._expires = 0.0
+        self._token_gen = -1  # the .env generation the access token was refreshed from
 
     def configured(self) -> bool:
         return bool(self.env(CLIENT_ID_KEY) and self.env(REFRESH_KEY))
@@ -150,6 +158,7 @@ class SpotifyClient:
         return status, hdrs, parse_json(raw)
 
     def _refresh(self) -> None:
+        gen = self.generation()  # before reading .env: a save from here on makes this token stale
         cid, refresh = self.env(CLIENT_ID_KEY), self.env(REFRESH_KEY)
         if not cid or not refresh:
             raise SpotifyError(NOT_CONFIGURED)
@@ -158,9 +167,11 @@ class SpotifyClient:
         if status == 200 and data.get("access_token"):
             self._token = str(data["access_token"])
             self._expires = time.monotonic() + float(data.get("expires_in") or 3600)
+            self._token_gen = gen
             new = str(data.get("refresh_token") or "")
             if new and new != refresh:
                 self.save(REFRESH_KEY, new)  # PKCE refresh tokens rotate: keep the new one
+                self._token_gen = self.generation()  # our own save: the token we hold stays good
                 logger.info("ℹ️ spotify: refresh token rotated and saved to .env")
             return
         error = str(data.get("error") or "")
@@ -172,7 +183,7 @@ class SpotifyClient:
 
     def token(self) -> str:
         with self._lock:
-            if not self._token or time.monotonic() > self._expires - 60:
+            if not self._token or time.monotonic() > self._expires - 60 or self._token_gen != self.generation():
                 self._refresh()
             return self._token
 
@@ -235,10 +246,10 @@ class SpotifyBackend:
         self.volume_now: Optional[int] = None  # what Spotify's volume was last set to
         self.restore_volume: Optional[int] = None  # the app's own volume before the music started
         self.play_id = 0
-        self._status: tuple[str, str, float] = ("", "", 0.0)
+        self._status: tuple[str, str, float, int] = ("", "", 0.0, -1)  # state, detail, when, .env generation
         self.checked_at: Optional[float] = None  # wall clock of the last status check (Settings → Music)
         self.status_device = ""  # the device the last status check found
-        self._configured: tuple[bool, float] = (False, -CONFIGURED_TTL_S)
+        self._configured: tuple[bool, float, int] = (False, -CONFIGURED_TTL_S, -1)
 
     # ---------------------------------------------------------------- interface
 
@@ -269,18 +280,26 @@ class SpotifyBackend:
             self._thread.join(timeout=3)
 
     def configured(self) -> bool:
-        """``.env`` holds a client id and a refresh token (re-read every few seconds)."""
-        ok, at = self._configured
-        if time.monotonic() - at >= CONFIGURED_TTL_S:
+        """``.env`` holds a client id and a refresh token (re-read every few seconds, and after a save)."""
+        gen = self.client.generation()
+        ok, at, seen = self._configured
+        if time.monotonic() - at >= CONFIGURED_TTL_S or seen != gen:
             ok = self.client.configured()
-            self._configured = (ok, time.monotonic())
+            self._configured = (ok, time.monotonic(), gen)
         return ok
 
     def status(self, *, fresh: bool = False) -> tuple[str, str]:
-        """(state, detail) for the readiness list: token valid and the desktop app visible."""
-        state, detail, at = self._status
+        """(state, detail) for the readiness list: token valid and the desktop app visible.
+
+        A cached answer is reused for ``STATUS_TTL_S`` unless ``.env`` was saved since it was
+        computed; an answer is stored with the generation its check started from, so a check
+        that straddles a save is asked again next time (#146)."""
+        gen = self.client.generation()
+        state, detail, at, seen = self._status
         if not fresh and state and time.monotonic() - at < STATUS_TTL_S:
-            return state, detail
+            if seen == gen:
+                return state, detail
+            logger.info("ℹ️ spotify: .env was saved since the last status check (%s): checking again", state)
         device = ""
         try:
             dev = self.client.device()
@@ -288,15 +307,15 @@ class SpotifyBackend:
             state, detail = OK, f"Logged in · the desktop app on {device or 'this PC'} is ready"
         except SpotifyError as exc:
             state, detail = exc.state, exc.detail
-        self._status = (state, detail, time.monotonic())
+        self._status = (state, detail, time.monotonic(), gen)
         self.checked_at, self.status_device = time.time(), device
         return state, detail
 
     def forget_login(self) -> None:
         """A new login was saved to ``.env``: drop the cached token and answers."""
         self.client.forget()
-        self._status = ("", "", 0.0)
-        self._configured = (False, -CONFIGURED_TTL_S)
+        self._status = ("", "", 0.0, -1)
+        self._configured = (False, -CONFIGURED_TTL_S, -1)
         self.device = None
 
     # ------------------------------------------------------------------ worker
@@ -318,10 +337,11 @@ class SpotifyBackend:
             if transition:
                 with self._count_lock:
                     self._transitions -= 1
+            gen = self.client.generation()
             try:
                 fn()
             except SpotifyError as exc:
-                self._status = (exc.state, exc.detail, time.monotonic())
+                self._status = (exc.state, exc.detail, time.monotonic(), gen)
                 logger.warning("⚠️ spotify: %s (%s)", exc.state, exc.detail)
                 self._emit("error", self.play_id, exc.detail)
             except Exception as exc:  # noqa: BLE001 — never a dead worker
@@ -363,13 +383,14 @@ class SpotifyBackend:
         """``carry_on`` (a resume after a restart): the desktop app keeps its own position — play on
         from there instead of starting the track or playlist over."""
         self.play_id = play_id
+        gen = self.client.generation()
         self.device = self.client.device()  # the app may have been reopened since
         if self.restore_volume is None:
             self.restore_volume = self.device.get("volume_percent")
         self._volume(0 if fade_in_s > 0 else volume)
         self.client.call("PUT", "/me/player/play", body=None if carry_on else play_body(track.ref),
                          query={"device_id": self.device["id"]})
-        self._status = (OK, "Playing", time.monotonic())
+        self._status = (OK, "Playing", time.monotonic(), gen)
         logger.info("ℹ️ spotify: %s %s on %s (volume %d, fade in %.1f s)", "carry on with" if carry_on else "play",
                     track.ref, self.device.get("name"), volume, fade_in_s)
         self._emit("playing", play_id, f"{track.label} on {self.device.get('name', 'Spotify')}")

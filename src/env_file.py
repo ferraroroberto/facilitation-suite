@@ -6,6 +6,8 @@ file is gitignored and never logged; ``set_value`` keeps every other line as
 it was and writes atomically. A read is cached for a fraction of a second
 (#141) — a save made through this module invalidates it at once, but an edit
 made outside the app (by hand, or another process) can take that long to show.
+``generation()`` counts this process's saves, so a cache built on ``.env``
+elsewhere can tell whether a save landed since it was computed (#146).
 """
 
 from __future__ import annotations
@@ -32,6 +34,11 @@ READ_RETRY_WAITS = (0.005, 0.01, 0.02, 0.05, 0.1)
 _CACHE_TTL_S = 0.2
 _cache_lock = threading.Lock()
 _cache: dict[Path, tuple[float, dict[str, str]]] = {}
+# Bumped by every save (#146). Anything computed from ``.env`` — this module's read cache, the
+# Spotify status and access token — remembers the generation it started from and is not served
+# once a save has landed since: a read or a status check still in flight when a login is saved
+# otherwise stores its pre-save answer over the fresh one.
+_generation = 0
 
 
 def _read_text(path: Path) -> str:
@@ -58,9 +65,11 @@ def _parse_all(text: str) -> dict[str, str]:
     return dict(kv for kv in map(_parse, text.splitlines()) if kv)
 
 
-def _cache_store(path: Path, parsed: dict[str, str]) -> None:
+def generation() -> int:
+    """How many saves this process has made to ``.env``: an answer computed from ``.env`` under an
+    older generation predates a save and must not be served as current."""
     with _cache_lock:
-        _cache[path] = (time.monotonic(), parsed)
+        return _generation
 
 
 def read_env(path: Optional[Path] = None) -> dict[str, str]:
@@ -69,11 +78,14 @@ def read_env(path: Optional[Path] = None) -> dict[str, str]:
         hit = _cache.get(path)
         if hit is not None and time.monotonic() - hit[0] < _CACHE_TTL_S:
             return hit[1]
+        started = _generation
     try:
         parsed = _parse_all(_read_text(path))
     except FileNotFoundError:
         parsed = {}
-    _cache_store(path, parsed)
+    with _cache_lock:
+        if _generation == started:  # a save landed mid-read: these bytes may predate it, never cache them
+            _cache[path] = (time.monotonic(), parsed)
     return parsed
 
 
@@ -84,6 +96,7 @@ def get_value(key: str, path: Optional[Path] = None) -> str:
 
 def set_value(key: str, value: str, path: Optional[Path] = None) -> Path:
     """Set ``key`` in ``.env`` (replacing its line, or appending one)."""
+    global _generation
     path = path or env_path()
     try:
         lines = _read_text(path).splitlines()
@@ -105,5 +118,7 @@ def set_value(key: str, value: str, path: Optional[Path] = None) -> Path:
     text = "\n".join(out) + "\n"
     tmp.write_text(text, encoding="utf-8")
     replace_held(tmp, path)  # a reader (the app's own status check) may hold it open for a moment
-    _cache_store(path, _parse_all(text))  # a read right after this save must see it, not the old cache
+    with _cache_lock:  # a read right after this save must see it, not the old cache
+        _generation += 1
+        _cache[path] = (time.monotonic(), _parse_all(text))
     return path
