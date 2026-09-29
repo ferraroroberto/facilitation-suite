@@ -1,6 +1,8 @@
 """Story 4: plan the session — edit an activity, give it its own timer, notes and a
 title, break its question over two lines, keep its answers verbatim, duplicate it, reorder, skip, fold the
-sections, add one with a breakout card in it, save."""
+sections, add one with a breakout card in it, save. A preview drawn while its host has zero size (a
+collapsed section, an inactive tab) is re-fit once it becomes visible (#103): a word cloud's words and a
+quiz's answer tiles."""
 
 from __future__ import annotations
 
@@ -11,22 +13,58 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session
+from tests.fixtures.quiz_plan import LONG_ANSWERS, add_quiz_section
+
+# On the stage (matches test_story_16_quiz_player.py's CLIPPED): a tile whose text overflows its box.
+CLIPPED = """() => [...document.querySelectorAll('.qz-tile')].filter((t) => {
+  const x = t.querySelector('.qz-text'), a = t.getBoundingClientRect(), b = x.getBoundingClientRect();
+  return t.scrollHeight > t.clientHeight + 1 || b.top < a.top - 1 || b.bottom > a.bottom + 1;
+}).map((t) => t.dataset.choice)"""
+
+
+def _hide_and_rebuild(page: Page, field) -> None:
+    """Zero the stage preview's host — as a collapsed section's or an inactive tab's [hidden]
+    pane leaves it — and rebuild it through the real edit -> markDirty -> updatePreview path
+    while it stays hidden (a bump and, still hidden, its revert — so `field`'s saved value is
+    unchanged), then reveal it again."""
+    page.evaluate("""() => {
+        const frame = document.querySelector('.preview-frame');
+        frame.dataset.savedDisplay = frame.style.display;
+        frame.style.display = 'none';
+    }""")
+    field.evaluate("""(el) => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        const was = el.value;
+        setter.call(el, `${was} `);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        setter.call(el, was);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }""")
+    page.evaluate("""() => {
+        const frame = document.querySelector('.preview-frame');
+        frame.style.display = frame.dataset.savedDisplay || '';
+    }""")
 
 
 def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "plan-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    add_quiz_section(folder, {
+        "id": "sec-refit", "name": "Refit check", "minutes": 5,
+        "items": [{"kind": "activity", "id": "act-refit-quiz", "type": "quiz", "question": "Refit?",
+                   "options": {**LONG_ANSWERS, "correct": "1", "time_limit": 20}}],
+    }, at=5)  # appended after "Closing" — doesn't shift any of the other sections' positions
     page.set_viewport_size({"width": 1440, "height": 900})
     page.add_init_script(f"localStorage.setItem('facilitation-suite.session', '{sid}')")
     page.goto(webapp.base_url + "/")
     page.click("#tabPlan")
-    expect(page.locator(".sec-row")).to_have_count(5)
+    expect(page.locator(".sec-row")).to_have_count(6)
 
     # fold every section, open them again
     page.locator("[data-fold=collapse]").click()
     expect(page.locator(".item-row")).to_have_count(0)
     page.locator("[data-fold=expand]").click()
-    expect(page.locator(".item-row")).to_have_count(18)
+    expect(page.locator(".item-row")).to_have_count(19)
 
     # the closing word cloud: a title, a question on two lines, font size, its own 90 s timer, notes
     page.locator(".item-row", has_text="What do you take away today?").click()
@@ -71,14 +109,34 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     expect(page.locator(".preview-frame [data-clock]")).to_have_text("10:00")
     page.locator(".item-row", has_text="Take-home word").first.click()
     expect(page.locator(".preview-frame .wc-word").first).to_be_visible()  # sample answers drawn
+
+    # #103: a preview drawn while its host has zero size never lays out — until it is opened
+    # again. Rebuild the word cloud (and, for a quiz, its answer tiles) while its host is hidden:
+    # once revealed, every word — and every tile's text — must already be there and fit, with no
+    # further action.
+    word_count = page.locator(".preview-frame .wc-word").count()
+    assert word_count > 0
+    _hide_and_rebuild(page, page.locator(".ed-row", has_text="Title").locator("input").first)
+    expect(page.locator(".preview-frame .wc-word")).to_have_count(word_count)
+
+    page.locator(".item-row", has_text="Refit?").first.click()
+    expect(page.locator(".preview-frame .qz-tile")).to_have_count(4)
+    assert page.evaluate(CLIPPED) == []
+    _hide_and_rebuild(page, page.locator(".ed-row", has_text="Title").locator("input").first)
+    expect(page.locator(".preview-frame .qz-tile")).to_have_count(4)
+    assert page.evaluate(CLIPPED) == []
+
+    page.locator(".item-row", has_text="Take-home word").first.click()
+    expect(page.locator(".preview-frame .wc-word").first).to_be_visible()
     shot(page, shots / "story-04-plan-1-desktop.png")
     page.locator(".ed-save").click()
     expect(page.locator(".dirty-bar")).to_have_count(0)
 
     saved = yaml.safe_load((Path(folder) / "session.yaml").read_text(encoding="utf-8"))
-    assert [s["name"] for s in saved["sections"]] == ["Welcome", "Personal readme", "Break", "Working agreement", "Energiser", "Closing"]
+    assert [s["name"] for s in saved["sections"]] == [
+        "Welcome", "Personal readme", "Break", "Working agreement", "Energiser", "Closing", "Refit check"]
     assert [(i["kind"], i["options"], i["timer"]["seconds"]) for i in saved["sections"][4]["items"]] == [("breakout", {"round": "g4a"}, 600)]
-    closing = saved["sections"][-1]["items"]
+    closing = saved["sections"][-2]["items"]
     assert [i.get("slide_id") or i["id"] for i in closing][:2] == [110, "act-takeaway"]
     assert closing[0]["include"] is False
     act, copy = closing[1], closing[2]
