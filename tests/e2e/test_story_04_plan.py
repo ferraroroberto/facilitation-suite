@@ -2,7 +2,7 @@
 title, break its question over two lines, keep its answers verbatim, duplicate it, reorder, skip, fold the
 sections, add one with a breakout card in it, save. A preview drawn while its host has zero size (a
 collapsed section, an inactive tab) is re-fit once it becomes visible (#103): a word cloud's words and a
-quiz's answer tiles."""
+quiz's answer tiles. Picking another OBS profile re-lays a quiz preview out around its camera box (#148)."""
 
 from __future__ import annotations
 
@@ -20,6 +20,19 @@ CLIPPED = """() => [...document.querySelectorAll('.qz-tile')].filter((t) => {
   const x = t.querySelector('.qz-text'), a = t.getBoundingClientRect(), b = x.getBoundingClientRect();
   return t.scrollHeight > t.clientHeight + 1 || b.top < a.top - 1 || b.bottom > a.bottom + 1;
 }).map((t) => t.dataset.choice)"""
+# In the Plan tab's preview: the quiz pieces (the question's own lines, the status row, the tiles)
+# that reach into the dashed camera box of the item's profile (#148) — must be empty.
+UNDER_GUIDE = """() => {
+  const guide = document.querySelector('.preview-frame .st-guide');
+  if (!guide) return [];
+  const g = guide.getBoundingClientRect(), out = [];
+  for (const e of document.querySelectorAll('.preview-frame :is(.st-question, .qz-status > :not([hidden]), .qz-tile)')) {
+    let rects = [e.getBoundingClientRect()];
+    if (e.matches('.st-question')) { const r = document.createRange(); r.selectNodeContents(e); rects = [...r.getClientRects()]; }
+    if (rects.some((r) => r.width > 0 && r.left < g.right && r.right > g.left && r.top < g.bottom && r.bottom > g.top)) out.push(e.className);
+  }
+  return out;
+}"""
 
 
 def _hide_and_rebuild(page: Page, field) -> None:
@@ -125,6 +138,11 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     _hide_and_rebuild(page, page.locator(".ed-row", has_text="Title").locator("input").first)
     expect(page.locator(".preview-frame .qz-tile")).to_have_count(4)
     assert page.evaluate(CLIPPED) == []
+    # #148: picking another OBS profile re-lays the quiz preview out around that profile's camera box
+    for label, profile in (("Camera strip", "camera_strip"), ("Camera PiP", "camera_pip"), ("Screen only", "screen_only")):
+        page.locator("#panePlan .ed-row", has_text="OBS profile").locator(".range-tab", has_text=label).click()
+        expect(page.locator(".preview-frame .st-item")).to_have_attribute("data-profile", profile)
+        page.wait_for_function(f"() => ({UNDER_GUIDE})().length === 0 && ({CLIPPED})().length === 0")
 
     page.locator(".item-row", has_text="Take-home word").first.click()
     expect(page.locator(".preview-frame .wc-word").first).to_be_visible()
