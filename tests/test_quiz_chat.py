@@ -214,7 +214,8 @@ def test_the_quiz_actions_are_listed() -> None:
 # ---- a whole game, rehearsed alone through the simulator's script ----
 
 def test_a_three_question_game_rehearsed_through_the_simulator(rig: Rig, clock: Clock) -> None:
-    """Lobby → three questions (question, reveal, leaderboard each) → podium, every answer from the
+    """Lobby → three questions (question, reveal, leaderboard each — the last one's reveal goes straight
+    on, #158) → podium, every answer from the
     simulator's own ``list`` script — what the presenter's "Simulate answers" sends on a quiz item."""
     goto_id(rig.hub, "qz-lobby")
     phases = [state(rig.hub)["phase"]]
@@ -228,12 +229,11 @@ def test_a_three_question_game_rehearsed_through_the_simulator(rig: Rig, clock: 
         phases.append(state(rig.hub)["phase"])
         rig.hub.next()  # reveal
         phases.append(state(rig.hub)["phase"])
-        rig.hub.next()  # leaderboard
+        rig.hub.next()  # leaderboard — after the last question, the podium
         phases.append(state(rig.hub)["phase"])
-    rig.hub.next()  # the podium
     snap = state(rig.hub)
     assert snap["phase"] == "podium" and rig.hub.current()["id"] == "qz-podium"
-    assert phases == ["lobby"] + ["question", "reveal", "leaderboard"] * 3
+    assert phases == ["lobby"] + ["question", "reveal", "leaderboard"] * 2 + ["question", "reveal", "podium"]
     assert snap["player_count"] == 8 and {p["source"] for p in snap["players"]} == {"chat"}
     assert {p["name"] for p in snap["players"]} == set(SIM_PEOPLE[:8])
     game = rig.quiz.games["qz-lobby-1"]

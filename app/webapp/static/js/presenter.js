@@ -347,7 +347,8 @@ function drawItemCard(cur, s) {
 
 // The host's side of a quiz (#54): phase, time left, players, the join PIN and
 // link, and the controls. "Next phase" is the plain `next` (the server steps a
-// question → reveal → leaderboard before it moves on); Space locks an open question.
+// question → reveal → leaderboard before it moves on — the last one before a podium
+// skips its leaderboard, #158); Space locks an open question.
 const QUIZ_TYPES = new Set(['quiz_lobby', 'quiz', 'quiz_podium']);
 const isQuiz = (it) => !!(it && it.kind === 'activity' && QUIZ_TYPES.has(it.type));
 
@@ -426,10 +427,12 @@ function quizPodiumText(q) {
 
 function quizNextLabel(q) {
   if (!q || !q.phase) return 'Next';
+  const last = q.question_index != null && q.question_index + 1 >= q.question_count;
   if (q.phase === 'lobby') return 'Start the first question';
   if (q.phase === 'question') return 'Reveal the answer';
-  if (q.phase === 'reveal') return 'Show the leaderboard';
-  if (q.phase === 'leaderboard') return q.question_index != null && q.question_index + 1 < q.question_count ? 'Next question' : 'On to the podium';
+  // The last question before a podium goes straight to it: no leaderboard to spoil it (#158).
+  if (q.phase === 'reveal') return last && q.podium_follows ? 'On to the podium' : 'Show the leaderboard';
+  if (q.phase === 'leaderboard') return !last ? 'Next question' : q.podium_follows ? 'On to the podium' : 'Next';
   if (q.phase === 'podium' && podiumLeft(q) > 0) return `Show ${PLACE[podiumLeft(q) - 1]}`;
   return 'Next';
 }
