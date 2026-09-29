@@ -272,6 +272,28 @@ def test_an_invalid_hand_edited_id_is_made_to_fit_the_same_way_every_load(item_i
     assert "is not valid" in caplog.text
 
 
+@pytest.mark.parametrize(("item_id", "fixed"), [
+    ("con", "con-x"), ("CON", "CON-x"), ("Nul", "Nul-x"), ("prn", "prn-x"), ("aux", "aux-x"),
+    ("com1", "com1-x"), ("COM9", "COM9-x"), ("lpt1", "lpt1-x"), ("LPT9", "LPT9-x"),
+])
+def test_a_windows_reserved_device_name_is_repaired_on_load(item_id: str, fixed: str, caplog) -> None:
+    # con/prn/aux/nul/com1-9/lpt1-9 name real Windows devices: `live/captures/con.json` cannot be
+    # created on Windows no matter the case, so ensure_ids has to repair it like any other bad id.
+    raw = {"sections": [{"items": [{"kind": "activity", "id": item_id}]}]}
+    with caplog.at_level("WARNING", logger="src.sessions.model"):
+        assert parse_session(raw).all_items()[0].id == fixed
+    assert ITEM_ID.fullmatch(fixed)
+    assert "is not valid" in caplog.text
+
+
+def test_a_windows_reserved_name_is_only_flagged_as_the_whole_id() -> None:
+    # "conf"/"act-con" merely contain "con" — only the bare device name is reserved.
+    session = parse_session({"sections": [{"items": [
+        {"kind": "activity", "id": "conf"}, {"kind": "activity", "id": "act-con"}]}]})
+    ids = [it.id for it in session.all_items()]
+    assert ids == ["conf", "act-con"]
+
+
 def test_an_id_with_nothing_valid_left_gets_a_new_one_and_the_session_still_opens() -> None:
     session = parse_session({"sections": [{"items": [
         {"kind": "activity", "id": "!!!"}, {"kind": "activity", "id": "act Q1"}, {"kind": "activity", "id": "act-Q1"}]}]})
