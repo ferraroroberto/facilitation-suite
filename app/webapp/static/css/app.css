@@ -559,7 +559,12 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .result-cards .card { display: grid; gap: 4px; align-content: start; }
 .top-row, .answer-row { min-height: var(--row-sm); padding: 8px 0; gap: var(--space-md); }
 .top-row .grow { overflow-wrap: anywhere; }
-.answers-card .list { max-height: 420px; overflow-y: auto; }
+/* #121: with max-height + overflow-y on the grid container, Chromium's implicit
+   auto-row sizing doesn't expand a row to its actual (wrapped-text) content
+   height, so a long answer paints past its row's box into the next one.
+   grid-auto-rows: min-content restores per-row auto-sizing while keeping the
+   scroll container. */
+.answers-card .list { max-height: 420px; overflow-y: auto; grid-auto-rows: min-content; }
 .answer-name { width: 34%; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .answer-row .grow { overflow-wrap: anywhere; }
 .hidden-answer .grow { color: var(--muted); text-decoration: line-through; }

@@ -132,4 +132,27 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     page.set_viewport_size({"width": 390, "height": 844})
     page.reload()
     expect(pane.locator(".result-row")).to_have_count(6)
+
+    # #121: a long verbatim answer wraps to several lines in "Answers, with
+    # names" at phone width — each row must grow to fit it, not overlap the
+    # row after it (LONG_TOP_ANSWER appears 3 times among act-kryptonite's
+    # answers, so this also covers two long rows back to back).
+    pane.locator(".result-row", has_text="kryptonite").click()
+    answer_rows = pane.locator(".answers-card .list .answer-row")
+    expect(answer_rows).to_have_count(9)
+    # Measure every row + its text span in one atomic JS call — reading each
+    # box over a separate round trip is racy against the browser's own layout
+    # and paint timing.
+    measurements = pane.locator(".answers-card .list").evaluate(
+        "list => Array.from(list.querySelectorAll('.answer-row')).map(row => ({"
+        "  rowHeight: row.getBoundingClientRect().height,"
+        "  textHeight: row.querySelector('.grow').getBoundingClientRect().height,"
+        "}))"
+    )
+    assert len(measurements) == 9
+    for i, m in enumerate(measurements):
+        assert m["textHeight"] <= m["rowHeight"] + 1, (
+            f"answer row {i}'s wrapped text (height={m['textHeight']}) "
+            f"overflows its row box (height={m['rowHeight']}) — it will paint over the next row"
+        )
     shot(page, shots / "story-12-results-2-phone.png")
