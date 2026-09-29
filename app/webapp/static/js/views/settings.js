@@ -125,11 +125,15 @@ function remoteCard() {
   const r = data.remote;
   const card = document.createElement('div');
   card.className = 'card settings-card';
-  const state = !r.https ? ['warn', 'needs HTTPS'] : r.enabled ? ['ok', 'on'] : ['', 'off'];
+  const state = r.bind_loopback ? ['warn', 'unavailable'] : !r.https ? ['warn', 'needs HTTPS'] : r.enabled ? ['ok', 'on'] : ['', 'off'];
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('smartphone')} Phone remote</h3><span class="chip ${state[0]}">${state[1]}</span></div>` +
     '<p class="small muted settings-note">Next, previous, capture, timer and blackout from your phone, over Tailscale. Open the link once on the phone: it pairs that phone. ' +
     'Other devices never get in without it; this PC never needs it.</p>';
+  if (r.bind_loopback) {
+    card.insertAdjacentHTML('beforeend', '<p class="small settings-note">This PC only accepts connections from itself (<code>config.json</code> → <code>"host": "127.0.0.1"</code>) — a phone can\'t reach it. Set <code>host</code> to <code>"0.0.0.0"</code> and restart the tray.</p>');
+    return card;
+  }
   if (!r.https) {
     card.insertAdjacentHTML('beforeend', '<p class="small settings-note">HTTPS is not set up on this PC yet: run <code>scripts/gen_tailscale_cert.py</code> (a Tailscale certificate), then restart the tray.</p>');
     return card;

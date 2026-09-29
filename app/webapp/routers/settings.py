@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
-from app.webapp.errors import AppError, is_local, require_local
+from app.webapp.errors import LOOPBACK_HOSTS, AppError, is_local, require_local
 from src import defaults, library
 from src import settings as settings_file
 from src.certs import cert_hostname
@@ -77,14 +77,21 @@ class SettingsPatch(BaseModel):
 
 def remote_payload(request: Request) -> dict[str, Any]:
     """Whether the phone remote is on, the app's base URL (the tailnet name over
-    HTTPS once a cert is in place), and — for this PC only — the pairing link."""
+    HTTPS once a cert is in place), and — for this PC only — the pairing link.
+
+    A loopback bind (``config.host`` 127.0.0.1 / ::1 / localhost) never hands out
+    that link: no other device can reach a listener bound to loopback only,
+    however good the cert on disk (#101) — the same bind check ``public_url``
+    already makes for the tray's Open link (#39)."""
     token = request.app.state.config.remote.token
+    loopback = request.app.state.config.host in LOOPBACK_HOSTS
     # Only a server that really speaks HTTPS gives out an https link (a dev or test instance may not).
-    host = cert_hostname() if request.url.scheme == "https" else None
+    cert_host = cert_hostname() if request.url.scheme == "https" else None
+    host = cert_host if not loopback else None
     port = (request.scope.get("server") or ("", request.app.state.config.port))[1]
     base = f"https://{host}:{port}" if host else f"{request.url.scheme}://127.0.0.1:{port}"
     link = f"{base}/remote?token={token}" if token and host and is_local(request.scope) else None
-    return {"enabled": bool(token), "https": bool(host), "base_url": base, "link": link}
+    return {"enabled": bool(token), "https": bool(cert_host), "bind_loopback": loopback, "base_url": base, "link": link}
 
 
 def payload(request: Request) -> dict[str, Any]:
