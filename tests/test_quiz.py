@@ -129,7 +129,8 @@ def test_the_editor_offers_exactly_the_formats_choices() -> None:
     assert tuple(v for v, _ in opts["points"]["choices"]) == POINTS and opts["points"]["default"] == "standard"
     lobby = json.loads((ACTIVITIES_DIR / "quiz_lobby" / "editor.json").read_text(encoding="utf-8"))
     assert quiz["capture"] is False  # answers go to the game engine (#51), not a chat capture window
-    assert lobby["capture"] is False and [o["key"] for o in lobby["options"]] == ["title", "accept_chat"]
+    assert lobby["capture"] is False
+    assert [o["key"] for o in lobby["options"]] == ["title", "accept_chat", "close_when_all_answered"]
     podium = json.loads((ACTIVITIES_DIR / "quiz_podium" / "editor.json").read_text(encoding="utf-8"))
     assert podium["capture"] is False
 
