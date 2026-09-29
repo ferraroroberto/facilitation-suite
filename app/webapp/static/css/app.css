@@ -558,6 +558,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 @media (min-width: 720px) { .result-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); } .result-cards.single { grid-template-columns: minmax(0, 1fr); } }
 .result-cards .card { display: grid; gap: 4px; align-content: start; }
 .top-row, .answer-row { min-height: var(--row-sm); padding: 8px 0; gap: var(--space-md); }
+.top-row .grow { overflow-wrap: anywhere; }
 .answers-card .list { max-height: 420px; overflow-y: auto; }
 .answer-name { width: 34%; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .answer-row .grow { overflow-wrap: anywhere; }
@@ -584,6 +585,10 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .pdf-tile.live, .pdf-tile.appendix {
   display: flex; align-items: center; justify-content: center; text-align: center; padding: 2px 6px;
   font: inherit; font-size: 11px; font-weight: 600; line-height: 1.25; color: var(--ink); overflow: hidden;
+}
+.pdf-tile-text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere;
 }
 .pdf-tile.live { border: 2px solid var(--accent); background: var(--card); cursor: pointer; }
 .pdf-tile.live:hover { background: var(--accent-soft); }
