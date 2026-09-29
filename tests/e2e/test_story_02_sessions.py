@@ -1,7 +1,10 @@
 """Story 2: create a session folder from the app, see it in the ledger with its readiness list; it
-starts from Settings → Stage defaults, can override them and reset to them (#110)."""
+starts from Settings → Stage defaults, can override them and reset to them (#110). An opened
+session takes the whole pane; X, Esc and Back return to the list, /#sessions/<id> reopens it (#150)."""
 
 from __future__ import annotations
+
+import re
 
 import yaml
 from playwright.sync_api import Page, expect
@@ -22,8 +25,12 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     dlg.locator("[name=date]").fill("2026-10-27T18:00")
     dlg.locator(".detail-save-btn").click()
 
-    expect(page.locator(".session-row.selected .row-title")).to_have_text("Workshop · cohort A")
+    # the new session opens full screen: the list is gone, the nav stays, the URL deep-links it
     expect(page.locator(".detail-title h1")).to_have_text("Workshop · cohort A")
+    expect(page.locator(".sessions-list")).to_be_hidden()
+    expect(page.locator("#tabSessions")).to_be_visible()
+    expect(page).to_have_url(re.compile(r"/#sessions/[0-9a-f]+$"))
+    deep_link = page.url
     expect(page.locator(".ready-row")).to_have_count(8)
     expect(page.locator(".status-line.ok")).to_contain_text("files on this PC")
     session_yaml = webapp.root / "sessions" / "demo-workshop" / "cohort-a" / "session.yaml"
@@ -49,3 +56,24 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     saved = yaml.safe_load(session_yaml.read_text(encoding="utf-8"))["font"]
     assert saved["family"] == "Georgia" and saved["weight"] == 700
     assert page.request.put(defaults, data={"stage": {"font": None}}).ok  # the theme's lettering for the stories after this
+
+    # #150: X closes to the list (the session stays selected), Esc and Back do too, a deep link reopens it
+    page.locator("[data-close-session]").click()
+    expect(page.locator(".sessions-detail")).to_be_hidden()
+    expect(page.locator(".session-row.selected .row-title")).to_have_text("Workshop · cohort A")
+    expect(page).to_have_url(webapp.base_url + "/")
+    page.locator(".session-row.selected").click()
+    expect(page.locator(".ready-row")).to_have_count(8)
+    page.keyboard.press("Escape")
+    expect(page.locator(".sessions-list")).to_be_visible()
+    page.locator(".session-row.selected").click()
+    expect(page.locator(".sessions-detail")).to_be_visible()
+    page.go_back()
+    expect(page.locator(".sessions-list")).to_be_visible()
+    expect(page.locator(".sessions-detail")).to_be_hidden()
+    page.click("#tabPlan")
+    expect(page.locator("#panePlan .home-head .status")).to_have_text("0 sections · 0:00")  # the selected session
+    page.goto(deep_link)
+    page.reload()
+    expect(page.locator(".detail-title h1")).to_have_text("Workshop · cohort A")
+    expect(page.locator(".sessions-list")).to_be_hidden()
