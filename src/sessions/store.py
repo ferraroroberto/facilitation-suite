@@ -31,9 +31,9 @@ from typing import Any, Optional
 
 import yaml
 
-from src.config import AppConfig, ledger_path
+from src.config import AppConfig, ledger_path, session_root
 from src.errors import DomainError
-from src.sessions.model import Session, dump_session, parse_session
+from src.sessions.model import Session, StageFont, dump_session, parse_session
 
 logger = logging.getLogger(__name__)
 
@@ -169,18 +169,20 @@ class SessionStore:
         return Path(self.entry(sid).path)
 
     def default_root(self) -> Path:
-        root = self.config.session_root.strip()
-        return Path(root) if root else Path.home() / "facilitation-sessions"
+        return session_root(self.config)
 
     def create(self, title: str, workshop: str, folder_name: str, *, date: Optional[datetime] = None,
-               duration_minutes: int = 120, root: Optional[str] = None) -> LedgerEntry:
+               duration_minutes: int = 120, root: Optional[str] = None,
+               theme: str = "default", font: Optional[StageFont] = None) -> LedgerEntry:
+        """A new session folder; ``theme`` and ``font`` are its starting look (the global defaults)."""
         base = Path(root) if root else self.default_root()
         folder = base / _slug_folder(workshop or "workshop") / _slug_folder(folder_name or title)
         if (folder / SESSION_FILE).exists():
             raise SessionError(409, "session_exists", "That folder already holds a session — add it instead")
         for sub in SUBDIRS:
             (folder / sub).mkdir(parents=True, exist_ok=True)
-        session = Session(title=title or "Untitled session", date=date, duration_minutes=duration_minutes)
+        session = Session(title=title or "Untitled session", date=date, duration_minutes=duration_minutes,
+                          theme=theme, font=font.model_copy(deep=True) if font else None)
         self._save_to(folder, session)
         logger.info("✅ created session folder %s", session_id(folder))
         return self._add_to_ledger(title or folder.name, folder)

@@ -197,7 +197,14 @@ async function loadRounds() {
   }
 }
 
+// The fades a newly switched-on music item starts with: Settings → Music (#110).
+let musicDefaults = { fade_in_s: 2, fade_out_s: 2 };
+function loadMusicDefaults() {
+  api('/api/settings/defaults').then((d) => { musicDefaults = d.music; }).catch(() => { /* keep the last known */ });
+}
+
 export function show() {
+  loadMusicDefaults();
   if (ctx.reviewFor && ctx.reviewFor === ctx.sessionId) { load(); return; }
   if (!st.dirty) load();
 }
@@ -1194,7 +1201,8 @@ function musicField(it) {
   const on = !!(it.music && it.music.enabled !== false);
   wrap.appendChild(switchRow(on, on ? '' : 'No music on this item', (next) => {
     if (next) {
-      it.music = Object.assign({ source: 'file', path: '', volume: 80, fade_in_s: 2, fade_out_s: 2, loop: false, start: 'with_timer', on_leave: 'fade_out' },
+      it.music = Object.assign({ source: 'file', path: '', volume: 80, fade_in_s: musicDefaults.fade_in_s, fade_out_s: musicDefaults.fade_out_s,
+        loop: false, start: 'with_timer', on_leave: 'fade_out' },
         it.music || {}, { enabled: true });
     } else if (it.music) {
       it.music.enabled = false;

@@ -1,5 +1,6 @@
 """Settings shared by every session: OBS connection and profiles, the chat reader, the phone remote,
-and the appearance (light/dark) of the facilitator's screens."""
+the appearance (light/dark) of the facilitator's screens, the defaults new sessions start from with
+the stage library (#110), and the Spotify account (status and the Connect button, this PC only)."""
 
 from __future__ import annotations
 
@@ -9,12 +10,19 @@ import secrets
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, Field
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import AppError, is_local, require_local
+from src import defaults, library
 from src import settings as settings_file
 from src.certs import cert_hostname
 from src.config import profiles
+from src.env_file import get_value
+from src.music.spotify import CLIENT_ID_KEY, REFRESH_KEY
+from src.music.spotify_login import LoginError
+from src.sessions.model import StageFont
+from src.sessions.theme import FONT_TYPES, lettering_css, stage_font_file
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +48,25 @@ class ReaderPatch(BaseModel):
 
 class AppearanceBody(BaseModel):
     appearance: Literal["system", "light", "dark"]  # src.config.APPEARANCES
+
+
+class StageDefaultsPatch(BaseModel):
+    theme: Optional[str] = Field(None, min_length=1, max_length=120)
+    font: Optional[dict[str, Any]] = None  # a session.yaml ``font`` block; null = the theme's lettering
+
+
+class MusicDefaultsPatch(BaseModel):
+    fade_in_s: Optional[float] = Field(None, ge=0, le=defaults.MAX_FADE_S)
+    fade_out_s: Optional[float] = Field(None, ge=0, le=defaults.MAX_FADE_S)
+
+
+class DefaultsPatch(BaseModel):
+    stage: Optional[StageDefaultsPatch] = None
+    music: Optional[MusicDefaultsPatch] = None
+
+
+class LibraryFile(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
 
 
 class SettingsPatch(BaseModel):
@@ -162,3 +189,106 @@ def remote_off(request: Request) -> dict[str, Any]:
     request.app.state.config = settings_file.update({"remote": {"token": ""}})
     logger.info("ℹ️ phone remote switched off")
     return payload(request)
+
+
+# ---------------------------------------------------------------- defaults (#110)
+
+DEFAULT_FONT_URL = "/api/settings/defaults/font"
+DEFAULT_FAMILY = "Default Font"
+
+
+def defaults_payload(request: Request) -> dict[str, Any]:
+    cfg = request.app.state.config
+    return {**defaults.payload(defaults.load(cfg)), "library": library.payload(cfg)}
+
+
+@router.get("/defaults")
+def get_defaults(request: Request) -> dict[str, Any]:
+    """What new sessions start from (stage theme + lettering, music fades) and the stage library."""
+    return defaults_payload(request)
+
+
+@router.put("/defaults")
+def put_defaults(request: Request, body: DefaultsPatch) -> dict[str, Any]:
+    """Change the defaults. Only new sessions take them; an existing session keeps its own look."""
+    require_local(request, "Defaults can only be changed on this PC")
+    cfg = request.app.state.config
+    now = defaults.load(cfg)
+    theme, font, fade_in, fade_out = now.theme, now.font, now.fade_in_s, now.fade_out_s
+    if body.stage is not None:
+        if body.stage.theme is not None:
+            if not library.known_theme(cfg, body.stage.theme):
+                raise AppError(422, "unknown_theme", f"No stage theme {body.stage.theme!r}")
+            theme = body.stage.theme
+        if "font" in body.stage.model_fields_set:
+            try:
+                font = defaults.normal_font(StageFont.model_validate(body.stage.font)) if body.stage.font else None
+            except ValidationError as exc:
+                raise AppError(422, "invalid_font", "The lettering is not valid", str(exc)) from exc
+    if body.music is not None:
+        fade_in = body.music.fade_in_s if body.music.fade_in_s is not None else fade_in
+        fade_out = body.music.fade_out_s if body.music.fade_out_s is not None else fade_out
+    new = defaults.Defaults(theme=theme, font=font, fade_in_s=fade_in, fade_out_s=fade_out)
+    request.app.state.config = settings_file.update({"defaults": defaults.to_config(new)}, replace=("defaults",))
+    return defaults_payload(request)
+
+
+@router.post("/library/{kind}")
+def add_to_library(request: Request, kind: Literal["font", "theme"], body: LibraryFile) -> dict[str, Any]:
+    """Copy a font file or a stage theme (.css) on this PC into the stage library."""
+    require_local(request, "The stage library can only be changed on this PC")
+    added = library.add(request.app.state.config, kind, body.path)
+    return {**defaults_payload(request), "added": {"name": added.name, "path": str(added)}}
+
+
+@router.get("/defaults/font.css", include_in_schema=False)
+def default_font_css(request: Request) -> Response:
+    """The default lettering as CSS for Settings' own sample only (never a stage canvas)."""
+    font = defaults.load(request.app.state.config).font
+    css = lettering_css(font, DEFAULT_FONT_URL, scope=".stage-canvas.defaults-sample",
+                       family=DEFAULT_FAMILY, complete=True)
+    return Response(css, media_type="text/css", headers={"Cache-Control": "no-cache"})
+
+
+@router.get("/defaults/font", include_in_schema=False)
+def default_font(request: Request) -> FileResponse:
+    path = stage_font_file(defaults.load(request.app.state.config).font)
+    if path is None:
+        raise AppError(404, "font_not_found", "The default lettering has no font file on this PC")
+    return FileResponse(path, media_type=FONT_TYPES[path.suffix.lower()], headers={"Cache-Control": "max-age=31536000, immutable"})
+
+
+# ---------------------------------------------------------------- Spotify (#110)
+
+
+def spotify_payload(request: Request, account: dict[str, Any]) -> dict[str, Any]:
+    """The account for Settings → Music: states and names only — never the client id or a token."""
+    return {**account, "client_id_set": bool(get_value(CLIENT_ID_KEY)), "logged_in": bool(get_value(REFRESH_KEY)),
+            "login": request.app.state.spotify_login.snapshot()}
+
+
+@router.get("/spotify")
+async def get_spotify(request: Request) -> dict[str, Any]:
+    """The Spotify account's state (asks Spotify at most every 30 s, in a worker thread)."""
+    account = await asyncio.to_thread(request.app.state.music.spotify_account)
+    return spotify_payload(request, account)
+
+
+@router.post("/spotify/check")
+async def check_spotify(request: Request) -> dict[str, Any]:
+    """Ask Spotify now."""
+    account = await asyncio.to_thread(request.app.state.music.spotify_account, fresh=True)
+    return spotify_payload(request, account)
+
+
+@router.post("/spotify/connect")
+async def connect_spotify(request: Request) -> dict[str, Any]:
+    """Start the Spotify login on this PC: the browser opens Spotify's consent page; the page
+    polls GET /api/settings/spotify until ``login.state`` is ``done`` or ``failed``."""
+    require_local(request, "Spotify can only be connected on this PC")
+    try:
+        await asyncio.to_thread(request.app.state.spotify_login.start)
+    except LoginError as exc:
+        raise AppError(409, "spotify_login", str(exc)) from exc
+    account = {"state": "unknown", "detail": "Waiting for the Spotify login", "device": "", "checked_at": None}
+    return spotify_payload(request, account)

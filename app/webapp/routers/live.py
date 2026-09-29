@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.webapp.errors import AppError
 from src.activities.registry import ACTIVITIES_DIR, editors
 from src.errors import DomainError
+from src.library import library_theme_css
 from src.live.actions import run_action
 from src.live.hub import LiveHub
 from src.sessions.model import ITEM_ID
@@ -107,7 +108,9 @@ def session_theme(request: Request) -> Response:
     css = ""
     if sid is not None and folder is not None:
         try:
-            css = theme_css(request.app.state.store.load(sid), folder, f"/api/sessions/{sid}/font")
+            session = request.app.state.store.load(sid)
+            css = theme_css(session, folder, f"/api/sessions/{sid}/font",
+                            library_theme_css(request.app.state.config, session.theme))
         except SessionError as exc:
             logger.warning("⚠️ live theme without the session's font: %s", exc)
     return Response(css, media_type="text/css", headers={"Cache-Control": "no-cache"})

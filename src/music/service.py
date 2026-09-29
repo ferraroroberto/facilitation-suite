@@ -147,6 +147,24 @@ class MusicService:
             return "unknown", "Spotify playback is not set up in this app"
         return backend.status()
 
+    def spotify_account(self, *, fresh: bool = False) -> dict[str, Any]:
+        """Settings → Music: the account's state (asks Spotify, cached 30 s unless ``fresh``), the
+        device it plays on and when that was checked. Never the client id or a token."""
+        backend = self.backends.get("spotify")
+        if backend is None or not hasattr(backend, "status"):
+            return {"state": "unknown", "detail": "Spotify playback is not set up in this app", "device": "", "checked_at": None}
+        state, detail = backend.status(fresh=fresh)
+        return {"state": state, "detail": detail, "device": getattr(backend, "status_device", ""),
+                "checked_at": getattr(backend, "checked_at", None)}
+
+    def spotify_login_saved(self) -> None:
+        """A new Spotify login is in ``.env``: forget the old token and answers, tell the pages."""
+        backend = self.backends.get("spotify")
+        if backend is not None and hasattr(backend, "forget_login"):
+            backend.forget_login()
+        if self.live.loop is not None:
+            self.live.loop.call_soon_threadsafe(self.live.push_state)
+
     # ------------------------------------------------------------- actions
 
     def toggle(self) -> None:

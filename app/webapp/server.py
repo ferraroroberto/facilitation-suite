@@ -78,6 +78,7 @@ from src.live.capture import CaptureService
 from src.live.hub import LiveError, LiveHub
 from src.logger import configure_logging
 from src.music.service import MusicService
+from src.music.spotify_login import Login as SpotifyLogin
 from src.obs.service import ObsService
 from src.quiz.chat import ChatAnswers
 from src.quiz.cues import QuizCues
@@ -206,6 +207,8 @@ def _install_obs(app: FastAPI) -> None:
 def _install_music(app: FastAPI) -> None:
     """Music on this PC's audio output, synced to item timers (``src/music/``)."""
     app.state.music = MusicService(app.state.live)
+    # Settings → Music → Connect Spotify: the same PKCE login as scripts/spotify_login.py (#110).
+    app.state.spotify_login = SpotifyLogin(on_saved=app.state.music.spotify_login_saved)
 
 
 def _install_quiz(app: FastAPI) -> None:

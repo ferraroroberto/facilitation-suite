@@ -1,6 +1,7 @@
 """Spotify through the official Web API, playing on the Spotify desktop app of this PC.
 
-Setup is one login (``scripts/spotify_login.py``, PKCE — no client secret):
+Setup is one login (Settings → Music → Connect Spotify, or
+``scripts/spotify_login.py``; PKCE — no client secret):
 ``.env`` then holds ``SPOTIFY_CLIENT_ID`` and ``SPOTIFY_REFRESH_TOKEN``
 (never the repo, never ``config.json``). A refresh token Spotify rotates is
 written back to ``.env``. Controlling playback needs a **Premium** account and
@@ -57,8 +58,8 @@ CONFIGURED_TTL_S = 10.0
 OK, NOT_CONFIGURED, TOKEN_EXPIRED, NO_DEVICE, NOT_PREMIUM, UNKNOWN = (
     "ok", "not_configured", "token_expired", "no_device", "not_premium", "unknown")
 MESSAGES = {
-    NOT_CONFIGURED: "Spotify is not set up — put SPOTIFY_CLIENT_ID in .env and run scripts/spotify_login.py",
-    TOKEN_EXPIRED: "The Spotify login expired or was revoked — run scripts/spotify_login.py again",
+    NOT_CONFIGURED: "Spotify is not set up — put SPOTIFY_CLIENT_ID in .env, then Settings → Music → Connect Spotify",
+    TOKEN_EXPIRED: "The Spotify login expired or was revoked — Settings → Music → Reconnect Spotify",
     NO_DEVICE: "Spotify is not open on this PC — open the Spotify desktop app (same account) and try again",
     NOT_PREMIUM: "Spotify Premium is needed to control playback from the app",
 }
@@ -136,6 +137,11 @@ class SpotifyClient:
     def configured(self) -> bool:
         return bool(self.env(CLIENT_ID_KEY) and self.env(REFRESH_KEY))
 
+    def forget(self) -> None:
+        """Drop the access token: the next call refreshes from ``.env`` (a new login)."""
+        with self._lock:
+            self._token, self._expires = "", 0.0
+
     def _send(self, method: str, url: str, headers: dict[str, str], body: Optional[bytes]) -> tuple[int, dict[str, str], dict[str, Any]]:
         try:
             status, hdrs, raw = self.http(method, url, headers, body)
@@ -161,7 +167,7 @@ class SpotifyClient:
         if error == "invalid_grant":
             raise SpotifyError(TOKEN_EXPIRED)
         if error == "invalid_client":
-            raise SpotifyError(NOT_CONFIGURED, "SPOTIFY_CLIENT_ID in .env is not a valid Spotify app — check it, then run scripts/spotify_login.py")
+            raise SpotifyError(NOT_CONFIGURED, "SPOTIFY_CLIENT_ID in .env is not a valid Spotify app — check it, then Settings → Music → Connect Spotify")
         raise SpotifyError(UNKNOWN, f"Spotify's login service answered {status} {error}".strip())
 
     def token(self) -> str:
@@ -230,6 +236,8 @@ class SpotifyBackend:
         self.restore_volume: Optional[int] = None  # the app's own volume before the music started
         self.play_id = 0
         self._status: tuple[str, str, float] = ("", "", 0.0)
+        self.checked_at: Optional[float] = None  # wall clock of the last status check (Settings → Music)
+        self.status_device = ""  # the device the last status check found
         self._configured: tuple[bool, float] = (False, -CONFIGURED_TTL_S)
 
     # ---------------------------------------------------------------- interface
@@ -273,13 +281,23 @@ class SpotifyBackend:
         state, detail, at = self._status
         if not fresh and state and time.monotonic() - at < STATUS_TTL_S:
             return state, detail
+        device = ""
         try:
             dev = self.client.device()
-            state, detail = OK, f"Logged in · the desktop app on {dev.get('name', 'this PC')} is ready"
+            device = str(dev.get("name") or "")
+            state, detail = OK, f"Logged in · the desktop app on {device or 'this PC'} is ready"
         except SpotifyError as exc:
             state, detail = exc.state, exc.detail
         self._status = (state, detail, time.monotonic())
+        self.checked_at, self.status_device = time.time(), device
         return state, detail
+
+    def forget_login(self) -> None:
+        """A new login was saved to ``.env``: drop the cached token and answers."""
+        self.client.forget()
+        self._status = ("", "", 0.0)
+        self._configured = (False, -CONFIGURED_TTL_S)
+        self.device = None
 
     # ------------------------------------------------------------------ worker
 

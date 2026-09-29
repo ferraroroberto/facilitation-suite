@@ -1,13 +1,19 @@
-// Settings — shared by every session: OBS (connection + the three profiles:
-// scene and camera zone), the chat reader, the phone remote, the Stream Deck
-// buttons, the appearance (light/dark, every device), this device's text size
-// and the credits.
+// Settings — everything common to every presentation, in five sections (#110):
+// Appearance (light/dark on every device, this device's text size), Stage
+// defaults (the theme and lettering new sessions start from, and the stage
+// library of fonts and themes), Music (the Spotify account and the default
+// fades), Live tools (OBS, the chat reader, the Stream Deck buttons, the phone
+// remote) and About (build, credits). Each section has a deep link,
+// /#settings/<section> (the presenter's music chip opens /#settings/music).
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
 import { bindTextSize } from '/static/_vendored/text-size/text-size.js';
+import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
 import { APP, api, esc, pageHead, setStatus, toast, currentAppearance, onAppearance, setAppearance } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
+import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
+import { words } from '/static/js/stage-words.js';
 
 const CREDITS = [
   ['GeoNames', 'https://www.geonames.org', 'the map\'s cities and countries (cities15000), licensed CC BY 4.0'],
@@ -23,9 +29,31 @@ const OBS_CHIP = {
   off: ['', 'Switching off'],
 };
 
+export const SECTIONS = [
+  ['appearance', 'sun', 'Appearance'],
+  ['stage', 'palette', 'Stage defaults'],
+  ['music', 'music', 'Music'],
+  ['live', 'plug', 'Live tools'],
+  ['about', 'book-open', 'About'],
+];
+const SPOTIFY_CHIP = {
+  ok: ['ok', 'Connected'],
+  not_configured: ['warn', 'Not set up'],
+  token_expired: ['bad', 'Login expired'],
+  no_device: ['warn', 'Not open on this PC'],
+  not_premium: ['bad', 'Premium needed'],
+  unknown: ['', 'Unknown'],
+};
+const LOGIN_POLL_MS = 1500;
+
 let root;
 let head;
 let data = null;
+let defs = null; // GET /api/settings/defaults: the defaults and the stage library
+let spotify = null; // GET /api/settings/spotify (null until it answers)
+let build = null; // GET /api/version, once
+let wanted = null; // the section a deep link asked for, until it is drawn
+let loginTimer = null;
 
 export async function mount(el) {
   root = el;
@@ -35,14 +63,33 @@ export async function mount(el) {
 
 export function show() { load(); }
 
+/** A deep link, /#settings/<section>: the next drawing of the page scrolls to that section. */
+export function focusSection(name) {
+  wanted = SECTIONS.some(([k]) => k === name) ? name : null;
+}
+
+function scrollToWanted() {
+  const el = wanted && root ? root.querySelector(`[data-section="${wanted}"]`) : null;
+  if (!el) return;
+  wanted = null;
+  // clear of a tab bar floating at the top (a narrow window); the rail and a bottom bar leave the top free
+  const nav = document.querySelector('.tabs').getBoundingClientRect();
+  const clear = (nav.top < 40 && nav.bottom < window.innerHeight / 3 ? nav.bottom : 0) + 12;
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - clear });
+}
+
 async function load() {
   try {
-    data = await api('/api/settings');
+    [data, defs] = await Promise.all([api('/api/settings'), api('/api/settings/defaults')]);
   } catch (e) {
     toast(e.message, 'error');
     return;
   }
   render();
+  loadSpotify();
+  if (!build) {
+    api('/api/version').then((v) => { build = v; paintAbout(); }).catch(() => { build = { failed: true }; paintAbout(); });
+  }
 }
 
 function zoneThumb(zone) {
@@ -50,17 +97,28 @@ function zoneThumb(zone) {
   return `<span class="zone-thumb" aria-hidden="true">${z}</span>`;
 }
 
+function section(key, cards) {
+  const [, glyph, title] = SECTIONS.find(([k]) => k === key);
+  const el = document.createElement('section');
+  el.className = 'settings-section';
+  el.dataset.section = key;
+  el.id = `settings-${key}`;
+  el.setAttribute('aria-labelledby', `settings-${key}-title`);
+  el.innerHTML = `<h2 class="settings-section-title" id="settings-${key}-title">${icon(glyph)}${esc(title)}</h2>`;
+  cards.forEach((c) => el.appendChild(c));
+  return el;
+}
+
 function render() {
   root.innerHTML = '';
   root.appendChild(head);
   setStatus(head, 'Shared by every session');
-  root.appendChild(obsCard());
-  root.appendChild(readerCard());
-  root.appendChild(remoteCard());
-  root.appendChild(streamDeckCard());
-  root.appendChild(appearanceCard());
-  root.appendChild(textSizeCard());
-  root.appendChild(creditsCard());
+  root.appendChild(section('appearance', [appearanceCard(), textSizeCard()]));
+  root.appendChild(section('stage', [themeCard(), letteringCard(), libraryCard()]));
+  root.appendChild(section('music', [spotifyCard(), musicDefaultsCard()]));
+  root.appendChild(section('live', [obsCard(), readerCard(), streamDeckCard(), remoteCard()]));
+  root.appendChild(section('about', [aboutCard(), creditsCard()]));
+  scrollToWanted();
 }
 
 function remoteCard() {
@@ -249,7 +307,7 @@ function appearanceCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
   card.innerHTML =
-    `<div class="card-head"><h3 class="card-title">${icon('sun')} Appearance</h3></div>` +
+    `<div class="card-head"><h3 class="card-title">${icon('sun')} Light and dark</h3></div>` +
     '<nav class="range-tabs" id="appearanceControl" aria-label="Appearance">' +
     APPEARANCE_CHOICES.map(([v, l]) => `<button type="button" class="range-tab" data-appearance="${v}">${l}</button>`).join('') +
     '</nav>' +
@@ -286,6 +344,220 @@ function textSizeCard() {
     '<p class="small muted settings-note">For this app on this device; the stage keeps its own sizes.</p>';
   bindTextSize(card.querySelector('#textSizeControl'), APP);
   return card;
+}
+
+// ---- Stage defaults (#110) -----------------------------------------------------
+
+async function saveDefaults(patch, message = 'Default saved — new sessions start from it') {
+  try {
+    defs = await api('/api/settings/defaults', { method: 'PUT', body: patch });
+    toast(message);
+    return true;
+  } catch (e) { toast(e.message, 'error'); return false; }
+}
+
+function themeCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('presentation')} Stage theme</h3></div>` +
+    `<div class="font-rows"><label class="font-row"><span class="small">New sessions</span>` +
+    `<select class="select-native" aria-label="Default stage theme" data-default-theme>${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
+    '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (Sessions → Stage lettering, where “Reset to default” takes the current one).</p>';
+  card.querySelector('[data-default-theme]').addEventListener('change', async (e) => {
+    if (await saveDefaults({ stage: { theme: e.target.value } })) render();
+  });
+  return card;
+}
+
+/** The default lettering: the session editor on a sample of its own (its CSS never reaches a stage). */
+function letteringCard() {
+  const font = defs.stage.font;
+  const card = document.createElement('div');
+  card.className = 'card settings-card defaults-font-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('type')} Stage lettering</h3>` +
+    `<span class="card-head-meta">${esc(letteringLabel(font))}</span></div>` +
+    '<p class="small muted settings-note">The title font and the text font every new session starts from, and which one each kind of text uses. A session can change its own; an item can set exceptions in the Plan tab.</p>' +
+    fontEditorHtml(font, { hint: words('en').chat_hint, sampleClass: 'defaults-sample', library: defs.library.fonts });
+  linkDefaultsFont(font);
+  wireFontEditor(card, {
+    current: () => defs.stage.font,
+    save: (next) => saveDefaults({ stage: { font: next } }),
+    redraw: render,
+    pickFile: async () => {
+      try {
+        const picked = await api('/api/pick', { method: 'POST', body: { kind: 'font' } });
+        if (!picked.path) return '';
+        defs = await api('/api/settings/library/font', { method: 'POST', body: { path: picked.path } });
+        return defs.added.path; // the library's copy, never the file where it was picked
+      } catch (e) { toast(e.message, 'error'); return ''; }
+    },
+  });
+  return card;
+}
+
+/** The default lettering's CSS for the sample (fetched again when it changes). */
+function linkDefaultsFont(font) {
+  const href = `/api/settings/defaults/font.css?v=${encodeURIComponent(JSON.stringify(font || {}))}`;
+  let link = document.querySelector('link[data-defaults-font]');
+  if (link && link.getAttribute('href') === href) return;
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.dataset.defaultsFont = '';
+    document.head.appendChild(link);
+  }
+  link.href = href;
+}
+
+function libraryCard() {
+  const lib = defs.library;
+  const own = lib.themes.filter((t) => t.source === 'library');
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  const row = (glyph, title, meta) => `<div class="list-row library-row"><span class="settings-ico">${icon(glyph)}</span>` +
+    `<span class="grow"><span class="row-title">${esc(title)}</span><span class="row-meta">${esc(meta)}</span></span></div>`;
+  const rows = [...lib.fonts.map((f) => row('type', f.name, 'Font')), ...own.map((t) => row('palette', t.label, 'Stage theme'))];
+  const n = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('folder')} Stage library</h3>` +
+    `<span class="card-head-meta">${n(lib.fonts.length, 'font')} · ${n(own.length, 'theme')}</span></div>` +
+    (rows.length ? `<div class="list">${rows.join('')}</div>`
+      : '<p class="small muted settings-note">Nothing here yet. Add a font file or a stage theme to offer it to every session.</p>') +
+    `<p class="small muted settings-note">Your own files, kept next to your sessions and never in the app’s folder: <code class="library-path">${esc(lib.path)}</code></p>` +
+    `<div class="row-actions settings-actions"><button type="button" class="button-surface" data-add="font">${icon('plus')} Add font…</button>` +
+    `<button type="button" class="button-surface" data-add="theme">${icon('plus')} Add stage theme…</button></div>`;
+  card.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', async () => {
+    const kind = b.dataset.add;
+    try {
+      const picked = await api('/api/pick', { method: 'POST', body: { kind } });
+      if (!picked.path) return;
+      defs = await api(`/api/settings/library/${kind}`, { method: 'POST', body: { path: picked.path } });
+      toast(`${defs.added.name} is in the library`);
+      render();
+    } catch (e) { toast(e.message, 'error'); }
+  }));
+  return card;
+}
+
+// ---- Music (#110) ----------------------------------------------------------------
+
+async function loadSpotify(fresh = false) {
+  try {
+    spotify = await api(fresh ? '/api/settings/spotify/check' : '/api/settings/spotify', fresh ? { method: 'POST' } : {});
+  } catch (e) {
+    spotify = { state: 'unknown', detail: e.message, device: '', checked_at: null, client_id_set: true, logged_in: false, login: { state: 'idle' } };
+  }
+  paintSpotify();
+  pollLogin();
+}
+
+function paintSpotify() {
+  const old = root && root.querySelector('[data-spotify-card]');
+  if (old) old.replaceWith(spotifyCard());
+}
+
+/** While the browser login is open: ask again every moment until it is saved or failed. */
+function pollLogin() {
+  clearTimeout(loginTimer);
+  if (!spotify || spotify.login.state !== 'waiting') return;
+  loginTimer = setTimeout(async () => {
+    try { spotify = await api('/api/settings/spotify'); } catch (e) { /* asked again next time */ }
+    if (spotify.login.state === 'done') {
+      toast('Spotify connected');
+      loadSpotify(true);
+      return;
+    }
+    if (spotify.login.state === 'failed') toast(spotify.login.detail, 'error');
+    paintSpotify();
+    pollLogin();
+  }, LOGIN_POLL_MS);
+}
+
+function whenText(ts) {
+  if (!ts) return 'Not checked yet';
+  return new Date(ts * 1000).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function spotifyCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.dataset.spotifyCard = '';
+  const sp = spotify;
+  const [kind, label] = sp ? (SPOTIFY_CHIP[sp.state] || ['bad', sp.state]) : ['', 'Checking…'];
+  const waiting = !!sp && sp.login.state === 'waiting';
+  const fact = (name, value) => `<div class="list-row deck-row"><span class="deck-label">${name}</span><span class="grow small">${esc(value)}</span></div>`;
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('music')} Spotify</h3>` +
+    `<span class="chip ${kind}" data-spotify-state><span class="dot"></span>${esc(label)}</span></div>` +
+    (sp ? `<div class="list">${fact('Account', sp.detail)}${fact('Plays on', sp.device || 'The Spotify desktop app on this PC')}${fact('Last check', whenText(sp.checked_at))}</div>` : '') +
+    (waiting ? `<p class="status-line unknown" data-login-line>${icon('refresh-cw')} ${esc(sp.login.detail)}. This card updates by itself.</p>` : '') +
+    (sp && sp.login.state === 'failed' ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
+    (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (README → Spotify setup).</p>' : '') +
+    '<p class="small muted settings-note">Music plays on the Spotify desktop app of this PC (a Premium account). Connecting opens Spotify’s login in the browser; the login is saved on this PC only.</p>' +
+    `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-connect${!sp || !sp.client_id_set || waiting ? ' disabled' : ''}>${icon('link')} ${sp && sp.logged_in ? 'Reconnect Spotify' : 'Connect Spotify'}</button>` +
+    `<button type="button" class="button-surface" data-check${sp ? '' : ' disabled'}>${icon('refresh-cw')} Check now</button></div>`;
+  card.querySelector('[data-connect]').addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    try {
+      spotify = await api('/api/settings/spotify/connect', { method: 'POST' });
+      toast('Log in to Spotify in the browser window that opened');
+    } catch (err) { toast(err.message, 'error'); }
+    paintSpotify();
+    pollLogin();
+  });
+  card.querySelector('[data-check]').addEventListener('click', (e) => {
+    e.currentTarget.disabled = true;
+    loadSpotify(true);
+  });
+  return card;
+}
+
+function musicDefaultsCard() {
+  const m = defs.music;
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('volume-2')} New music items</h3></div>` +
+    `<div class="list"><button type="button" class="list-row settings-row" data-fades>` +
+    `<span class="settings-ico">${icon('sliders-horizontal')}</span><span class="grow"><span class="row-title">Fades</span>` +
+    `<span class="row-meta">In ${m.fade_in_s} s · out ${m.fade_out_s} s</span></span>${icon('chevron-right')}</button></div>` +
+    '<p class="small muted settings-note">What an item’s music starts with when you switch it on in the Plan tab; each item can change its own.</p>';
+  card.querySelector('[data-fades]').addEventListener('click', async () => {
+    const v = await formDialog({
+      title: 'Fades for new music',
+      fields: [
+        { name: 'fade_in_s', label: 'Fade in (s)', type: 'number', value: m.fade_in_s, step: '0.5', min: 0, max: 60, required: true },
+        { name: 'fade_out_s', label: 'Fade out (s)', type: 'number', value: m.fade_out_s, step: '0.5', min: 0, max: 60, required: true },
+      ],
+    });
+    if (!v) return;
+    if (await saveDefaults({ music: { fade_in_s: Number(v.fade_in_s), fade_out_s: Number(v.fade_out_s) } }, 'Fades saved for new music items')) render();
+  });
+  return card;
+}
+
+// ---- About -----------------------------------------------------------------------
+
+function aboutCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('monitor')} This app</h3></div>` +
+    `<p class="small settings-note" data-build>${esc(buildLine())}</p>`;
+  return card;
+}
+
+function buildLine() {
+  if (!build) return 'Build: …';
+  if (build.failed) return 'Build: unknown';
+  return buildReadoutText(build.git_sha, build.captured_at);
+}
+
+function paintAbout() {
+  const line = root && root.querySelector('[data-build]');
+  if (line) line.textContent = buildLine();
 }
 
 function creditsCard() {

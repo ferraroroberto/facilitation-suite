@@ -601,9 +601,11 @@ function drawChips() {
   const mu = s.music;
   if (mu && (mu.tracks.length || mu.spotify || mu.state !== 'idle')) {
     const label = mu.track ? mu.track.label : '';
-    chips.push({ playing: ['ok', `Music · ${label}`, null, mu.owner ? 'With the item timer' : 'Played by hand'],
-      paused: ['warn', 'Music · paused', null, label], error: ['bad', 'Music · error', null, mu.detail] }[mu.state] ||
-      ['', 'Music · idle', null, 'Nothing playing']);
+    // Links to Settings → Music (the Spotify account, the default fades) in the app's own window (#110).
+    const settings = 'href:/#settings/music';
+    chips.push({ playing: ['ok', `Music · ${label}`, settings, mu.owner ? 'With the item timer' : 'Played by hand'],
+      paused: ['warn', 'Music · paused', settings, label], error: ['bad', 'Music · error', settings, mu.detail] }[mu.state] ||
+      ['', 'Music · idle', settings, 'Nothing playing']);
   }
   const qz = s.quiz;
   if (qz && qz.pin) {
@@ -615,9 +617,11 @@ function drawChips() {
   }
   if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
   if (s.write_error) chips.push(['bad', s.write_error]);
-  const html = chips.map(([k, t, act, title]) => act
-    ? `<button type="button" class="chip ${k}" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`
-    : `<span class="chip ${k}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</span>`).join('');
+  const html = chips.map(([k, t, act, title]) => act && act.startsWith('href:')
+    ? `<a class="chip ${k}" href="${esc(act.slice(5))}" target="fs-app" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</a>`
+    : act
+      ? `<button type="button" class="chip ${k}" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`
+      : `<span class="chip ${k}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</span>`).join('');
   if (box.dataset.html !== html) {
     box.dataset.html = html;
     box.innerHTML = html;
