@@ -13,6 +13,16 @@ const THEME = 'facilitation-suite.play.theme';
 const POLL_MS = 1000;
 const FLAKY_WINDOW_MS = 30000;
 const SHAPES = { 1: 'triangle', 2: 'diamond', 3: 'circle', 4: 'square' };
+// The texts of the question screen and the result's right answer (#90), in one place to localise.
+const TEXT = {
+  tile: (n, shapeName, text) => `Answer ${n} (${shapeName})${text ? `: ${text}` : ''}`,
+  rightOne: 'The answer',
+  rightMany: 'The answers',
+};
+// Kahoot allows 120-character questions and 75-character answers: the longer the text, the
+// smaller the step, so a 320 px phone shows every word (the tiles grow; nothing is clipped).
+const answerSize = (answers) => { const n = Math.max(0, ...answers.map((a) => a.length)); return n > 45 ? 's' : n > 20 ? 'm' : 'l'; };
+const questionSize = (q) => (q.length > 80 ? 's' : q.length > 40 ? 'm' : 'l');
 
 const $ = (sel) => document.querySelector(sel);
 const main = $('.play');
@@ -254,6 +264,14 @@ function shape(n) {
   return `<svg aria-hidden="true"><use href="#s-${n}"/></svg>`;
 }
 
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// The answer text of tile n ('' when the server sent none).
+function answerText(v, n) {
+  const i = Array.isArray(v.answers) ? v.tiles.indexOf(n) : -1;
+  return i >= 0 ? v.answers[i] || '' : '';
+}
+
 function draw() {
   const v = msg && msg.view;
   if (!v) return;
@@ -274,13 +292,20 @@ function draw() {
 
 function drawTiles(v) {
   const box = $('[data-tiles]');
-  const sig = `${v.item_id}:${v.tiles.join(',')}`;
+  const texts = v.tiles.map((n) => answerText(v, n));
+  const sig = JSON.stringify([v.item_id, v.tiles, texts]);
   if (box.dataset.sig !== sig) {
     box.dataset.sig = sig;
-    box.innerHTML = v.tiles.map((n) =>
-      `<button type="button" class="tile" data-choice="${n}" aria-label="Answer ${n} (${SHAPES[n]})">${shape(n)}</button>`).join('');
+    box.dataset.size = answerSize(texts);
+    box.innerHTML = v.tiles.map((n, i) =>
+      `<button type="button" class="tile" data-choice="${n}" aria-label="${esc(TEXT.tile(n, SHAPES[n], texts[i]))}">${shape(n)}`
+      + `${texts[i] ? `<span class="tile-text">${esc(texts[i])}</span>` : ''}</button>`).join('');
     box.querySelectorAll('.tile').forEach((b) => b.addEventListener('click', () => answer(v.item_id, Number(b.dataset.choice))));
   }
+  const qtext = $('[data-qtext]');
+  qtext.textContent = v.question || '';
+  qtext.dataset.size = questionSize(qtext.textContent);
+  qtext.hidden = !v.question;
   box.querySelectorAll('.tile').forEach((b) => { b.disabled = false; });
   $('[data-qindex]').textContent = v.question_index != null ? `Question ${v.question_index + 1} of ${v.question_count}` : 'Question';
   render('question');
@@ -338,7 +363,18 @@ function drawResult(v) {
     title.textContent = late ? 'Too late' : 'No answer';
     detail.textContent = standing(v);
   }
+  drawRight(v);
   render('result');
+}
+
+// The right answer(s) under the result — shape and text, so a phone alone tells the whole story.
+function drawRight(v) {
+  const box = $('[data-right]');
+  const nums = Array.isArray(v.correct) && Array.isArray(v.tiles) ? v.correct.filter((n) => v.tiles.includes(n)) : [];
+  box.hidden = nums.length === 0;
+  box.innerHTML = nums.length === 0 ? '' : `<p class="play-right-label">${nums.length > 1 ? TEXT.rightMany : TEXT.rightOne}</p>`
+    + nums.map((n) => `<p class="play-right-item" data-choice="${n}"><span class="play-badge play-badge-sm" data-choice="${n}">${shape(n)}</span>`
+      + `<span class="play-right-text">${esc(answerText(v, n) || TEXT.tile(n, SHAPES[n], ''))}</span></p>`).join('');
 }
 
 function drawStanding(v) {
@@ -347,6 +383,7 @@ function drawStanding(v) {
   const final = v.phase === 'podium';
   title.innerHTML = v.rank ? `${v.rank === 1 ? '<svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg> ' : ''}#${v.rank}` : (final ? 'Game over' : 'Leaderboard');
   $('[data-result-detail]').textContent = `${final ? 'Final score' : 'Score'}: ${fmt(v.score || 0)} points${v.streak > 1 ? ` · streak ${v.streak}` : ''}`;
+  drawRight({});
   render('result');
 }
 

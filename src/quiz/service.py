@@ -56,7 +56,10 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
 - ``kick(player_id)``, ``lock()``, ``new_game()`` — the host's controls
   (also the actions ``quiz_kick/<id>``, ``quiz_lock``, ``quiz_new_game``).
 - ``player_view(player_id, secret) -> Optional[dict]`` — what that phone
-  shows; ``None`` for an unknown player or a wrong secret.
+  shows; ``None`` for an unknown player or a wrong secret. On a question it
+  carries ``question``, ``tiles`` (the answer numbers) and ``answers`` (their
+  texts, in tile order) — all shown on the stage anyway; ``correct`` (the
+  answer numbers) and ``answer.correct`` only once the question has closed.
 - ``join_pin(pin, nickname, key=None) -> JoinResult`` — ``join`` into the
   game with that PIN: ``wrong_pin`` when no game of the live session has it,
   else ``join``'s own states (``no_game`` when that game is not on stage).

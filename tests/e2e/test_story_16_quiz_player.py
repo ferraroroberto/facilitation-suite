@@ -4,7 +4,9 @@ and see their result. One phone is 320 px wide on the WebSocket, the other polls
 The stage (#53) follows along: names pop into the lobby, the question shows no correct
 answer and counts down from the server's deadline, the reveal marks it, the leaderboard ranks.
 The first question has four 75-character answers under a corner camera (#84): the reveal shows
-every line of every tile and keeps the tiles and bars out of the camera's box."""
+every line of every tile and keeps the tiles and bars out of the camera's box. The phones show
+that 120-character question and the four answers' texts in their tiles (#90), every word of them
+at 320 and 390 px, light and dark, and after the reveal the right answer's text."""
 
 from __future__ import annotations
 
@@ -14,7 +16,7 @@ from playwright.sync_api import Browser, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 from tests.fixtures.demo import build_demo_session
-from tests.fixtures.quiz_plan import LONG_ANSWERS, PLAYER_QUIZ, add_quiz_section
+from tests.fixtures.quiz_plan import LONG_ANSWERS, LONG_QUESTION, PLAYER_QUIZ, add_quiz_section
 
 SMALL = {"viewport": {"width": 320, "height": 568}, "has_touch": True, "is_mobile": True}
 PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
@@ -33,6 +35,10 @@ IN_CAMERA = """(z) => {
     return l < cam.r && l + r.width / s > cam.l && t < cam.b && t + r.height / s > cam.t;
   }).map((e) => e.className);
 }"""
+# On a phone: how wide the page is, and which tiles (or the question) cut their text (#90).
+PHONE_FIT = """() => ({ width: document.documentElement.scrollWidth,
+  clipped: [...document.querySelectorAll('.tile, [data-qtext]')].filter((e) =>
+    e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1).map((e) => e.dataset.choice || 'question') })"""
 
 
 def _phone(browser: Browser, spec: dict, errors: list[str]) -> Page:
@@ -55,6 +61,7 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
     section = copy.deepcopy(PLAYER_QUIZ)
     first = section["items"][1]
     first["options"].update(LONG_ANSWERS)
+    first["question"] = LONG_QUESTION
     first["profile"] = "camera_pip"  # a camera box in the top-right corner, as in a real session
     add_quiz_section(folder, section)
     assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
@@ -93,6 +100,13 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         # 320 px: the four tiles fit, nothing scrolls sideways
         assert ana.evaluate("document.documentElement.scrollWidth") <= 320
         assert ana.locator(".tile").first.bounding_box()["width"] >= 120
+        # the question and every answer's text, whole, on both phones, in light and in dark (#90)
+        for phone, width in ((ana, 320), (bo, 390)):
+            expect(phone.locator("[data-qtext]")).to_have_text(LONG_QUESTION)
+            expect(phone.locator(".tile .tile-text")).to_have_text(list(LONG_ANSWERS.values()))
+            for theme in ("light", "dark"):
+                phone.evaluate("(t) => { document.documentElement.dataset.theme = t; }", theme)
+                assert phone.evaluate(PHONE_FIT) == {"width": width, "clipped": []}, (width, theme)
 
         ana.locator('.tile[data-choice="2"]').click()  # right
         bo.locator('.tile[data-choice="1"]').click()  # wrong
@@ -106,6 +120,8 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(ana.locator("[data-result]")).to_contain_text("Correct")
         expect(ana.locator("[data-result-detail]")).to_contain_text("points · #1")
         expect(bo.locator("[data-result]")).to_contain_text("Not this time")
+        for phone in (ana, bo):  # the right answer's text, next to the result
+            expect(phone.locator("[data-right] .play-right-text")).to_have_text([LONG_ANSWERS["answer_2"]])
         quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
         assert quiz["distribution"] == [1, 1, 0, 0] and quiz["answered_count"] == 2
         # the reveal: bars per answer, the correct one marked by a check and a label, not by colour alone
