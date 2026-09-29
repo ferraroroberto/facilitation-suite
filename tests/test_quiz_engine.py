@@ -403,6 +403,63 @@ def test_a_player_removed_on_the_podium_never_leaves_a_step_beyond_the_places(ri
     assert hub.current()["id"] == "qz-orphan"
 
 
+def ranked_game(hub: LiveHub, quiz: QuizService, clock: Clock, players: int) -> list[Any]:
+    """``players`` who all answer question 1 right, each a second slower than the one before:
+    the join order is the final ranking (1st, 2nd, …)."""
+    joined = at_lobby_with(hub, quiz, *[f"P{n}" for n in range(1, players + 1)])
+    hub.next()  # question 1
+    for n, p in enumerate(joined):
+        clock.t = T0 + 1000 * (n + 1)
+        assert quiz.answer(p.player_id, p.secret, "qz-1", 2).state == "accepted"
+    return joined
+
+
+def ranks(quiz: QuizService, joined: list[Any]) -> list[Optional[int]]:
+    """Each player's rank as their phone gets it (``None`` when the view carries none)."""
+    return [quiz.player_view(p.player_id, p.secret).get("rank") for p in joined]
+
+
+def test_a_phone_learns_its_podium_place_only_once_the_stage_reveals_it(rig: tuple[LiveHub, QuizService],
+                                                                        clock: Clock) -> None:
+    """#147: the podium reveals 3rd, 2nd, 1st one Next at a time; each phone gets its own place
+    only at that step — 4th and below once every place is shown — and Prev hides it again."""
+    hub, quiz = rig
+    joined = ranked_game(hub, quiz, clock, 5)
+    goto_id(hub, "qz-podium")
+    views = [quiz.player_view(p.player_id, p.secret) for p in joined]
+    assert all("rank" not in v and v["rank_pending"] is True for v in views)  # step 0: nobody knows
+    expected = {
+        1: [None, None, 3, None, None],  # 3rd
+        2: [None, 2, 3, None, None],  # 2nd
+        3: [1, 2, 3, 4, 5],  # 1st: the podium is complete, so everyone else learns theirs
+    }
+    for step in (1, 2, 3):
+        run_action(hub, "next")
+        assert state(hub)["podium_step"] == step
+        assert ranks(quiz, joined) == expected[step], step
+    for step in (2, 1, 0):  # Prev hides a place again on the phone
+        run_action(hub, "prev")
+        assert ranks(quiz, joined) == expected.get(step, [None] * 5), step
+    assert quiz.player_view(joined[0].player_id, joined[0].secret)["rank_pending"] is True
+
+
+def test_the_last_question_gives_no_final_rank_before_the_podium(rig: tuple[LiveHub, QuizService],
+                                                                  clock: Clock) -> None:
+    """#147: the reveal and leaderboard of the last question would tell a phone its final place;
+    they carry none (an earlier question still does)."""
+    hub, quiz = rig
+    joined = ranked_game(hub, quiz, clock, 2)
+    hub.next()  # question 1's reveal: not the last question, the rank is shown as before
+    assert ranks(quiz, joined) == [1, 2]
+    goto_id(hub, "qz-3")  # the last question
+    hub.next()  # its reveal
+    assert ranks(quiz, joined) == [None, None]
+    hub.next()  # its leaderboard
+    views = [quiz.player_view(p.player_id, p.secret) for p in joined]
+    assert state(hub)["phase"] == "leaderboard" and [v.get("rank") for v in views] == [None, None]
+    assert all(v["rank_pending"] is True and v["score"] > 0 for v in views)
+
+
 def test_lock_and_time_up_reveal(rig: tuple[LiveHub, QuizService], clock: Clock) -> None:
     hub, quiz = rig
     goto_id(hub, "qz-lobby")

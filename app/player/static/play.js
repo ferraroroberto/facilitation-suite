@@ -71,6 +71,7 @@ const TEXT = {
     final_score: 'Final score',
     leaderboard: 'Leaderboard',
     game_over: 'Game over',
+    wait_podium: 'Wait for the podium…',
     removed: 'Removed',
     removed_detail: 'The host removed you from this game.',
   },
@@ -128,6 +129,7 @@ const TEXT = {
     final_score: 'Puntuación final',
     leaderboard: 'Clasificación',
     game_over: 'Fin del juego',
+    wait_podium: 'Espera al podio…',
     removed: 'Fuera del juego',
     removed_detail: 'Te han sacado de este juego.',
   },
@@ -461,7 +463,7 @@ function drawResult(v) {
   if (a && a.correct === true) {
     title.dataset.kind = 'ok';
     title.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> ${esc(T.correct)}`;
-    detail.textContent = v.last_points != null ? `${T.gained(v.last_points)} · ${standing(v)}` : standing(v);
+    detail.textContent = [v.last_points != null ? T.gained(v.last_points) : '', standing(v)].filter(Boolean).join(' · ');
   } else if (a && a.correct === false) {
     title.dataset.kind = 'bad';
     title.textContent = T.not_this_time;
@@ -494,7 +496,9 @@ function drawStanding(v) {
   const title = $('[data-result]');
   title.dataset.kind = '';
   const final = v.phase === 'podium';
-  title.innerHTML = v.rank ? `${v.rank === 1 ? '<svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg> ' : ''}#${v.rank}` : esc(final ? T.game_over : T.leaderboard);
+  // A place the stage has not revealed yet never reaches the phone (#147): it waits for the podium.
+  title.innerHTML = v.rank ? `${v.rank === 1 ? '<svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg> ' : ''}#${v.rank}`
+    : esc(v.rank_pending ? T.wait_podium : final ? T.game_over : T.leaderboard);
   $('[data-result-detail]').textContent = `${final ? T.final_score : T.score}: ${T.points(fmt(v.score || 0))}${v.streak > 1 ? ` · ${T.streak(v.streak)}` : ''}`;
   drawRight({});
   render('result');
