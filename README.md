@@ -151,7 +151,7 @@ The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *err
 
 ### Spotify setup (once)
 
-Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`.
+Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`. `.env.example` (committed) lists the keys; copy it to `.env` before starting.
 
 1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard), log in with the Premium account and **Create app**: any name and description, **Redirect URI** `http://127.0.0.1:8765/callback` (exactly — Spotify only accepts the loopback address, not `localhost`), API **Web API**. Save.
 2. In the app's **Settings**, copy the **Client ID** into `.env` at the repo root: `SPOTIFY_CLIENT_ID=<client id>`. (No client secret: the login uses PKCE.)
@@ -390,7 +390,7 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 | `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see *Quiz player*). Restart the tray after changing it |
 
-**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere.
+**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere. `.env.example` (committed) documents the same keys with placeholder values — copy it to `.env` and fill in real values, never commit `.env` itself.
 
 The **ledger** `sessions.local.yaml` (gitignored; example in `sessions.example.yaml`) lists session names and folders only. Each session lives in its own folder with its own `session.yaml`.
 
