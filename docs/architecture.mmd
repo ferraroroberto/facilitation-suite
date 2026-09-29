@@ -37,6 +37,7 @@ flowchart LR
   hub --> livefiles[("live/state.json · live/events.jsonl")]
   sessr -->|plan saved| hub
   presenter <-->|WS snapshots / intents| liver
+  appv -->|"WS snapshots (appearance)"| liver
   stage <-->|WS snapshots / intents| liver
   presenter --> themes[("themes/*.css + session theme.css")]
   zoom["Zoom · popped-out Meeting chat"] -->|MSAA walk every 0.5 s| reader["src/chat/reader.py<br/>own process · diff by order · simulator"]
@@ -73,7 +74,7 @@ flowchart LR
   spotbk --> envfile
   sessr -->|Plan tab picker · readiness| musiclib["src/music/library.py<br/>copy into audio/ · Music files check"]
   musiclib --> audiofiles
-  appv --> settingsr["routers/settings.py<br/>OBS connection · profiles · reader"]
+  appv --> settingsr["routers/settings.py<br/>OBS connection · profiles · reader · appearance"]
   settingsr --> settingsf["src/settings.py → config/config.json"]
   settingsr --> obs
   deck["Stream Deck · fleet plugin (fleet-config#1006)"] -->|POST /api/actions/id| actionsr["routers/actions.py<br/>home-automation's action contract"]

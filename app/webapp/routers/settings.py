@@ -1,11 +1,12 @@
-"""Settings shared by every session: OBS connection and profiles, the chat reader, the phone remote."""
+"""Settings shared by every session: OBS connection and profiles, the chat reader, the phone remote,
+and the appearance (light/dark) of the facilitator's screens."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import secrets
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
@@ -37,6 +38,10 @@ class ReaderPatch(BaseModel):
     enabled: Optional[bool] = None
 
 
+class AppearanceBody(BaseModel):
+    appearance: Literal["system", "light", "dark"]  # src.config.APPEARANCES
+
+
 class SettingsPatch(BaseModel):
     obs: Optional[ObsPatch] = None
     profiles: Optional[dict[str, ProfilePatch]] = None
@@ -66,6 +71,7 @@ def payload(request: Request) -> dict[str, Any]:
         "profiles": profiles(cfg),
         "reader": {"enabled": cfg.reader.enabled, "window_title": cfg.reader.window_title, "poll_ms": cfg.reader.poll_ms},
         "stage_display": cfg.stage_display,
+        "appearance": cfg.appearance,
         "source": cfg.source,
     }
 
@@ -109,6 +115,22 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
         if "profiles" in patch and hub.session_id:
             hub.session_saved(hub.session_id)  # new zones on the stage
     return payload(request)
+
+
+@router.get("/appearance")
+def get_appearance(request: Request) -> dict[str, Any]:
+    """The saved appearance. Open pages get the same value in the live snapshot (on connect and on
+    every change); this is for a page that needs it without the socket."""
+    return {"appearance": request.app.state.config.appearance}
+
+
+@router.put("/appearance")
+async def put_appearance(request: Request, body: AppearanceBody) -> dict[str, Any]:
+    """Light, dark or the OS's choice for the app, the presenter and the phone remote, on every
+    device at once. Not PC-only: the paired phone's own sun/moon button sets it too."""
+    request.app.state.config = await asyncio.to_thread(settings_file.update, {"appearance": body.appearance})
+    request.app.state.live.push_state()  # on the loop: every open page switches now
+    return {"appearance": request.app.state.config.appearance}
 
 
 @router.post("/obs/test")

@@ -245,6 +245,8 @@ def create_app() -> FastAPI:
     app.state.live = LiveHub(store)
     app.state.last_action = None  # the latest /api/actions press (the presenter's Stream Deck chip)
     app.state.live.extra_state.append(lambda: {"last_action": app.state.last_action})
+    # Light/dark for the app, the presenter and the remote (#92): every open page follows it.
+    app.state.live.extra_state.append(lambda: {"appearance": app.state.config.appearance})
     _install_chat(app)
     _install_obs(app)
     _install_music(app)

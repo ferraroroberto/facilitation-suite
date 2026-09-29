@@ -1,11 +1,12 @@
 // Settings — shared by every session: OBS (connection + the three profiles:
 // scene and camera zone), the chat reader, the phone remote, the Stream Deck
-// buttons, this device's text size and the credits.
+// buttons, the appearance (light/dark, every device), this device's text size
+// and the credits.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
 import { bindTextSize } from '/static/_vendored/text-size/text-size.js';
-import { APP, api, esc, pageHead, setStatus, toast } from '/static/js/ui.js';
+import { APP, api, esc, pageHead, setStatus, toast, currentAppearance, onAppearance, setAppearance } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
 
 const CREDITS = [
@@ -57,6 +58,7 @@ function render() {
   root.appendChild(readerCard());
   root.appendChild(remoteCard());
   root.appendChild(streamDeckCard());
+  root.appendChild(appearanceCard());
   root.appendChild(textSizeCard());
   root.appendChild(creditsCard());
 }
@@ -239,6 +241,37 @@ function readerCard() {
   card.appendChild(note);
   return card;
 }
+
+const APPEARANCE_CHOICES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
+
+/** Light/dark for the app, the presenter and the phone remote — one value for every device (#92). */
+function appearanceCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.innerHTML =
+    `<div class="card-head"><h3 class="card-title">${icon('sun')} Appearance</h3></div>` +
+    '<nav class="range-tabs" id="appearanceControl" aria-label="Appearance">' +
+    APPEARANCE_CHOICES.map(([v, l]) => `<button type="button" class="range-tab" data-appearance="${v}">${l}</button>`).join('') +
+    '</nav>' +
+    '<p class="small muted settings-note">For the app, the presenter and the phone remote, on every device at once — the sun/moon buttons set it too. System follows each device\'s own setting. The stage keeps the session\'s look.</p>';
+  card.querySelector('#appearanceControl').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-appearance]');
+    if (b) setAppearance(b.dataset.appearance);
+  });
+  paintAppearanceControl(currentAppearance(), card);
+  return card;
+}
+
+/** Mark the chosen appearance (also when it changes on another page or device). */
+function paintAppearanceControl(value, scope = root) {
+  if (!scope) return;
+  scope.querySelectorAll('#appearanceControl [data-appearance]').forEach((b) => {
+    const on = b.dataset.appearance === value;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+onAppearance((value) => paintAppearanceControl(value));
 
 /** The zoom-lock escape (design.md Layout "Text size"): vendored text-size control, per device. */
 function textSizeCard() {

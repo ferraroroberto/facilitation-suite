@@ -47,7 +47,8 @@ TOKEN_URL = "https://accounts.spotify.com/api/token"
 CLIENT_ID_KEY = "SPOTIFY_CLIENT_ID"
 REFRESH_KEY = "SPOTIFY_REFRESH_TOKEN"
 DEVICE_KEY = "SPOTIFY_DEVICE_NAME"
-SCOPES = "user-read-playback-state user-modify-playback-state"
+# user-read-private: GET /me returns the account type (``product``) only with it (#109)
+SCOPES = "user-read-playback-state user-modify-playback-state user-read-private"
 STEP_S = 0.5  # one volume request per half second while fading
 TIMEOUT_S = 5.0
 STATUS_TTL_S = 30.0  # the readiness check reuses a recent answer

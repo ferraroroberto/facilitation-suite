@@ -5,7 +5,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
-import { api, esc, oneLine, toast, currentTheme, setTheme, fmtMinutes } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, fmtMinutes } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
 import { connectLive, bindKeys, clickToAdvance, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
@@ -27,7 +27,10 @@ const live = connectLive('presenter', {
     buildShell();
     draw();
   },
-  onState() { if (plan && plan.active) draw(); },
+  onState(s) {
+    followAppearance(s.appearance);
+    if (plan && plan.active) draw();
+  },
   onMessage(msg) {
     if (msg.type === 'error') toast(msg.message, 'error');
     if (msg.type === 'chime') chime();
@@ -104,7 +107,7 @@ function buildShell() {
       `<div class="p-chips" data-chips></div>` +
       `<button type="button" class="p-icon-btn" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
       `<button type="button" class="p-icon-btn" data-blackout title="Blackout (B)" aria-label="Blackout">${icon('eye-off')}</button>` +
-      `<button type="button" class="p-icon-btn" data-theme title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
+      `<button type="button" class="p-icon-btn" data-theme-toggle title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
       `<button type="button" class="p-icon-btn" data-reset title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
       `<button type="button" class="p-icon-btn" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button>` +
     `</header>` +
@@ -153,10 +156,7 @@ function buildShell() {
   root.querySelector('[data-prev]').addEventListener('click', () => live.send('prev'));
   root.querySelector('[data-next]').addEventListener('click', () => live.send('next'));
   root.querySelector('[data-blackout]').addEventListener('click', () => live.send('blackout'));
-  root.querySelector('[data-theme]').addEventListener('click', (e) => {
-    setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
-    e.currentTarget.innerHTML = icon(currentTheme() === 'dark' ? 'sun' : 'moon');
-  });
+  root.querySelector('[data-theme-toggle]').addEventListener('click', toggleTheme); // every screen, not just this one
   root.querySelector('[data-reset]').addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: 'Start the session over?',

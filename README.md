@@ -39,7 +39,7 @@ Never activate the venv; invoke its interpreter directly.
 
 Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11) on the display OBS captures — at `http://127.0.0.1:8449/` until HTTPS is set up (below), then at `https://<this PC>.<tailnet>.ts.net:8449/` (the tray's **Open** uses it). This PC never needs a token either way.
 
-The header's moon/sun button switches light and dark, and **Settings → Text size** (Small / Default / Large) scales the app's text; both are remembered per device (`facilitation-suite.theme` / `.textsize` in the browser's storage). The stage keeps its own look and sizes.
+**Light or dark is one setting for all your screens**: the moon/sun button in the app's header, the presenter or the phone remote — or **Settings → Appearance** (System / Light / Dark) — switches the app, the presenter and the phone remote on every open device at once, within a second and without a reload. *System* follows each device's own OS setting. It is kept in `config/config.json` (`appearance`) and pushed with the live state; each browser also caches it (`facilitation-suite.theme`) so a page opens in the right theme with no flash. **Settings → Text size** (Small / Default / Large) scales the app's text on this device only (`facilitation-suite.textsize`). The stage keeps the session's look and sizes, and the players' `/play` page its own light/dark button.
 
 **HTTPS (for the phone remote):** `& .venv\Scripts\python.exe scripts\gen_tailscale_cert.py` writes a Tailscale certificate (a real Let's Encrypt leaf for this PC's tailnet name) to `webapp/certificates/`; after `tray.bat --restart` the server speaks HTTPS only, on the tailnet name. The leaf lasts ~90 days and renews itself at every start (`--check`), so there is no date to remember.
 
@@ -151,12 +151,13 @@ The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *err
 
 ### Spotify setup (once)
 
-Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`.
+Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`. `.env.example` (committed) lists the keys; copy it to `.env` before starting.
 
 1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard), log in with the Premium account and **Create app**: any name and description, **Redirect URI** `http://127.0.0.1:8765/callback` (exactly — Spotify only accepts the loopback address, not `localhost`), API **Web API**. Save.
 2. In the app's **Settings**, copy the **Client ID** into `.env` at the repo root: `SPOTIFY_CLIENT_ID=<client id>`. (No client secret: the login uses PKCE.)
 3. Open the Spotify desktop app on this PC, logged in to the same account.
 4. Run `& .\.venv\Scripts\python.exe scripts\spotify_login.py`: the browser asks you to allow the app; the script writes `SPOTIFY_REFRESH_TOKEN` to `.env` and prints the account type and the devices Spotify sees (it ends with *The desktop app on this PC is ready*). No restart needed. Another port: `--port 8766` (and that redirect URI in the dashboard).
+   A login made before the account-type permission was added (it printed *Account: unknown* or *not checked*) still plays, but **re-run the login once** so it can read the account type; it then prints *Account: premium*.
 5. The app plays on the `Computer` device named like this PC; if Spotify shows it under another name, set `SPOTIFY_DEVICE_NAME=<name>` in `.env`.
 
 Fades step Spotify's volume twice a second; a stop fades out, pauses (Spotify has no stop) and puts the app's volume back where it was. The chip and the readiness list keep the failures apart: **not set up** (no client id or login in `.env`, or a wrong client id), **login expired** (revoked or expired — run the login again), **not open on this PC** (open the desktop app), **Premium needed**, and **unknown** when Spotify could not be reached or is rate-limiting — never counted as ready.
@@ -384,13 +385,14 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `port` | server port (8449) |
 | `session_root` | default parent folder for new sessions (`<root>\<workshop>\<session>\`) |
 | `stage_display` | which display the stage window goes on (informational) |
+| `appearance` | `system` (default), `light` or `dark` for the app, the presenter and the phone remote — set from any sun/moon button or Settings → Appearance |
 | `obs` | obs-websocket host / port / password (the password stays in this file only), `enabled` = scene switching on/off |
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 | `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see *Quiz player*). Restart the tray after changing it |
 
-**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere.
+**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere. `.env.example` (committed) documents the same keys with placeholder values — copy it to `.env` and fill in real values, never commit `.env` itself.
 
 The **ledger** `sessions.local.yaml` (gitignored; example in `sessions.example.yaml`) lists session names and folders only. Each session lives in its own folder with its own `session.yaml`.
 
