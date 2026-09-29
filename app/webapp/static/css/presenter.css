@@ -47,7 +47,16 @@
 
 /* ---- cards ------------------------------------------------------------ */
 .p-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
-.p-side { display: grid; gap: var(--gap); align-content: start; }
+/* The wide layout's columns (#149). Narrower they dissolve and the cards stack in the
+   order the phone and tablet always had: now, next, item, music, chat, notes, timing. */
+.p-col { display: contents; }
+.p-now { order: 1; }
+.p-next { order: 2; }
+.p-item { order: 3; }
+.p-music { order: 4; }
+.p-chat { order: 5; }
+.p-notes { order: 6; }
+.p-timing { order: 7; }
 .p-card { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
 .p-head {
   display: flex;
@@ -72,7 +81,7 @@
 .p-caption { margin: 0; }
 .p-then-label { margin-top: var(--space-xs); padding-bottom: 4px; border-bottom: 1px solid var(--line); }
 .p-then { list-style: none; margin: 0; padding: 0; }
-.p-then li { display: flex; gap: var(--space-md); align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line-muted); }
+.p-then li { display: flex; gap: var(--space-md); align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line-muted); }
 .p-then-n { color: var(--muted); width: 2ch; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
 .p-then-t { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p-then-k { color: var(--muted); font-size: var(--font-body-sm); flex: none; }
@@ -86,7 +95,7 @@
 
 .p-timer { display: flex; align-items: baseline; gap: var(--space-sm); }
 .p-now .p-stage { cursor: pointer; }
-.p-timer-clock { font-family: var(--mono); font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.p-timer-clock { font-family: var(--mono); font-size: var(--font-heading-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
 .p-timer-clock.done { color: var(--danger-text); }
 .p-timer-clock.paused { color: var(--attention-text); background: var(--attention-soft); border-radius: var(--radius-sm); padding: 0 6px; }
 .p-timer-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
@@ -107,10 +116,11 @@
 .p-cap-dot.paused { background: var(--attention); }
 .p-cap-dot.error { background: var(--danger); }
 .p-music-now { display: flex; align-items: center; gap: 8px; font-weight: 700; min-width: 0; }
-.p-music-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.p-music-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 130px; }
 .p-music .select-native { width: 100%; }
 .p-music .p-timer-actions .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
-.p-music-vol { display: flex; align-items: center; gap: var(--space-sm); }
+/* The volume shares the "now playing" row (#149); the title keeps room for "Nothing playing". */
+.p-music-vol { display: flex; align-items: center; gap: var(--space-sm); flex: 0 1 160px; min-width: 120px; font-weight: 400; }
 .p-music-vol .icon { width: 18px; height: 18px; color: var(--muted); flex: none; }
 .p-music-vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .p-music-vol output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
@@ -140,7 +150,7 @@
 .p-chat .p-body { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 0; gap: 0; }
 .p-age { margin-left: auto; flex: none; }
 .p-msgs { list-style: none; margin: 0; padding: 0 var(--space-md); flex: 1; min-height: 120px; overflow-y: auto; }
-.p-msg { padding: 8px 0; border-bottom: 1px solid var(--line-muted); }
+.p-msg { padding: 6px 0; border-bottom: 1px solid var(--line-muted); }
 .p-msg-top { display: flex; align-items: center; gap: 6px; font-size: var(--font-body-sm); }
 .p-msg-top b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p-msg-time { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
@@ -158,10 +168,13 @@
 .p-keylist dt { width: 120px; flex: none; }
 .p-keylist dd { margin: 0; color: var(--muted); font-size: var(--font-body-sm); }
 
-.p-clock { display: flex; align-items: baseline; gap: var(--space-sm); }
-.p-clock-big { font-family: var(--mono); font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Timing is compact (#149): the clock and its one button on a row, the section on the next. */
+.p-clock { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
+.p-clock-big { font-family: var(--mono); font-size: var(--font-heading-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
 .p-clock-of { color: var(--muted); font-size: var(--font-body-sm); }
-.p-sec-name { font-weight: 700; margin-top: var(--space-xs); }
+.p-clock .p-clock-start, .p-clock .p-clock-reset { margin-left: auto; }
+.p-sec { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--space-sm); }
+.p-sec-name { font-weight: 700; }
 .p-sec-left { color: var(--muted); }
 .p-sec-left b { color: var(--ink); font-family: var(--mono); }
 .p-sec-left b.over { color: var(--danger-text); }
@@ -169,7 +182,6 @@
 .p-bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
 .p-bar span.over { background: var(--danger); }
 .p-clock-start { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.p-clock-reset { justify-self: start; }
 
 /* ---- filmstrip -------------------------------------------------------- */
 .p-strip { display: flex; align-items: center; gap: var(--space-sm); padding: 10px var(--space-sm); }
@@ -206,27 +218,49 @@
   .p-chips { flex: 1 1 100%; justify-content: flex-start; }
 }
 
-/* Wide, fine pointer: the mock-up's three-column cockpit, one viewport high. */
+/* Wide, fine pointer: the cockpit is one viewport high, in columns that each size
+   their own cards (#149) — now · notes · timing, next · music, the item card, the chat.
+   The cards that hold a picture or a list (now, next, chat) take what is left; notes,
+   timing and music take what their content needs (notes up to a cap, then they
+   scroll); the item card is content-sized and its player list scrolls when long. */
 @media (min-width: 1100px) and (pointer: fine) {
   .presenter { height: 100vh; min-height: 0; }
+  /* Up to 1499px: three columns, the chat under the item card with a floor of its own. */
   .p-grid {
     grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, auto) minmax(240px, 1fr);
     min-height: 0;
   }
-  .p-now { grid-column: 1; grid-row: 1; }
-  .p-next { grid-column: 2; grid-row: 1; }
-  .p-side { grid-column: 3; grid-row: 1 / span 2; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
-  .p-side.with-music { grid-template-rows: auto auto minmax(0, 1fr); }
-  .p-side .p-chat { min-height: 180px; }
-  .p-side .p-item { max-height: 64vh; }
-  .p-notes { grid-column: 1; grid-row: 2; }
-  .p-timing { grid-column: 2; grid-row: 2; }
+  .p-col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; min-height: 0; }
+  .p-col-stage { grid-column: 1; grid-row: 1 / -1; }
+  .p-col-next { grid-column: 2; grid-row: 1 / -1; }
+  .p-side { grid-column: 3; grid-row: 1; }
+  .p-col-chat { grid-column: 3; grid-row: 2; }
+  .p-now, .p-next, .p-chat { flex: 1 1 0; }
+  .p-notes { flex: 0 1 auto; max-height: 26%; }
+  .p-timing, .p-music { flex: none; }
+  .p-item { flex: 0 1 auto; min-height: 160px; }
+  .p-now .p-body, .p-next .p-body { flex: 1; }
   /* The live preview takes the largest 16:9 box its card body allows. */
-  .p-now .p-body { flex: 1; display: grid; place-items: center; overflow: hidden; container-type: size; }
+  .p-now .p-body { display: grid; place-items: center; overflow: hidden; container-type: size; }
   .p-now .p-stage { width: min(100cqw, 100cqh * 16 / 9); height: auto; }
+  /* "Next" is a glance: its preview takes what the "Then" list leaves, so the list never scrolls. */
+  .p-next-view { flex: 1 1 0; min-height: 48px; display: grid; place-items: center; container-type: size; }
+  .p-next-view .p-stage-next { width: min(100cqw, 100cqh * 16 / 9); }
+  /* The item card: its controls stay put, a long player list scrolls on its own. */
+  .p-item .p-body { display: flex; flex-direction: column; }
+  .p-item .p-body > * { flex: none; }
+  .p-item .p-quiz-players { flex: 0 1 auto; min-height: 88px; overflow-y: auto; }
 }
-/* "Next" is a glance, not a second stage: smaller, so three items fit under it. */
+/* 1500px and wider (a 1920×1080 second monitor): four columns, the Zoom chat on its own, full height. */
+@media (min-width: 1500px) and (pointer: fine) {
+  .p-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .p-col-chat { grid-column: 4; grid-row: 1; }
+}
+/* "Next" is a glance, not a second stage: smaller on a phone or tablet. */
 .p-stage-next { width: 82%; }
 
 /* The quiz panel (#54): the same card, the host's controls for the game on stage. */
@@ -235,7 +269,11 @@
 .p-quiz-join { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-sm); }
 .p-quiz-join .chip { display: inline-flex; min-height: 26px; padding: 0 10px; font-size: var(--font-body-sm); }
 .p-quiz-pin b { font-family: var(--mono); font-size: 1.15rem; letter-spacing: 0.04em; }
-.p-quiz-url { min-width: 0; flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); }
+.p-quiz-part { display: contents; }
+.p-quiz-join .p-cap-counts { flex: 1 1 auto; }
+.p-quiz-url { min-width: 0; flex: 1 1 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); }
+/* "Next phase" keeps one line; Lock answers (and New game) sit beside it, or wrap under it. */
+.p-quiz-actions .p-cap-btn { width: auto; flex: 1 1 auto; white-space: nowrap; }
 .p-quiz-join .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
 .p-quiz-head { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-xs); }
 .p-quiz-players { list-style: none; margin: 0; padding: 0; }

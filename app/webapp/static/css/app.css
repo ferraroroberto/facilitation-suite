@@ -234,10 +234,31 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .big-action { min-height: 64px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wide-ghost { min-height: 44px; font-size: var(--font-label); }
 
+/* The list, or one session open full screen — never both (#150). */
+.sessions-list, .sessions-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
+.sessions-list[hidden], .sessions-detail[hidden] { display: none; }
+@media (min-width: 1100px) and (pointer: fine) {
+  /* The list alone keeps the centered measure; an open session uses the full
+     width in two columns, its settings beside the rest (design.md Layout). */
+  #paneSessions .pane-body[data-mode="list"] { max-width: var(--layout-measure); width: 100%; margin: 0 auto; }
+  .sessions-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas: "title title" "top look" "ready look" "go look";
+    align-items: start;
+  }
+  .sessions-detail > .detail-title { grid-area: title; }
+  .sessions-detail > .detail-grid { grid-area: top; }
+  .sessions-detail > .session-settings-card { grid-area: look; }
+  .sessions-detail > .ready-card { grid-area: ready; }
+  .sessions-detail > .go-row { grid-area: go; }
+}
 .detail-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--space-md); }
 .detail-title h1 { margin: 0; font-size: var(--font-heading-lg); line-height: 1.2; flex: 1 1 auto; }
 .detail-title p { margin: 0; width: 100%; order: 3; }
-.detail-title .button-surface { order: 2; display: inline-flex; align-items: center; gap: 6px; }
+/* An open session's title wraps beside its buttons, so the X stays top right on a phone too. */
+.sessions-detail .detail-title h1 { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.detail-title .detail-close { order: 2; align-self: flex-start; flex: none; margin-top: 2px; }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
 @media (min-width: 900px) { .detail-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
 .crumbs { margin: 8px 0; color: var(--muted); font-size: var(--font-body-sm); overflow-wrap: anywhere; }
@@ -632,9 +653,25 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .library-row .grow { display: grid; min-width: 0; }
 .library-path { font-family: var(--mono); overflow-wrap: anywhere; }
 .defaults-font-card .font-rows, .defaults-font-card .font-group, .defaults-font-card .font-sample-host { margin-top: 0; margin-bottom: 0; }
-/* A session's stage look against the defaults (Sessions → Stage lettering). */
-.look-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 6px 0 4px; }
-.look-row .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
+/* A session's own settings (#151): its details inline, then its stage look against the defaults. */
+.session-settings-card .font-row .input { width: 100%; }
+.session-settings-card .font-row .input.dur-min { width: 96px; }
+.meta-control { display: grid; gap: 4px; min-width: 0; }
+.font-row:has(.meta-control) { align-items: start; }
+.font-row:has(.meta-control) > .small:first-child { padding-top: 9px; }
+.settings-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 4px;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--line-muted);
+}
+.settings-sub-title { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: var(--font-body); font-weight: 700; }
+.settings-sub-title .icon { width: var(--icon-title); height: var(--icon-title); color: var(--muted); }
+.settings-sub .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
+.settings-sub .card-head-meta { margin-left: auto; }
 /* No detail pane: Settings keeps the centered measure on a wide window too (design.md Layout). */
 @media (min-width: 1100px) and (pointer: fine) {
   #paneSettings .pane-body { max-width: var(--layout-measure); width: 100%; margin: 0 auto; }

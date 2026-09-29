@@ -367,7 +367,7 @@ function themeCard() {
     `<div class="card-head"><h3 class="card-title">${icon('presentation')} Stage theme</h3></div>` +
     `<div class="font-rows"><label class="font-row"><span class="small">New sessions</span>` +
     `<select class="select-native" aria-label="Default stage theme" data-default-theme>${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
-    '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (Sessions → Stage lettering, where “Reset to default” takes the current one).</p>';
+    '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (Sessions → Session settings → Stage look, where “Reset to default” takes the current one).</p>';
   card.querySelector('[data-default-theme]').addEventListener('change', async (e) => {
     if (await saveDefaults({ stage: { theme: e.target.value } })) render();
   });

@@ -50,7 +50,15 @@ function ensureView(name) {
 
 const settingsPane = document.getElementById('paneSettings');
 
+/** /#sessions/<id> belongs to the Sessions tab: another tab drops it, so a reload opens that tab. */
+function leaveSessionHash(name) {
+  if (name !== 'sessions' && location.hash.startsWith('#sessions/')) {
+    history.replaceState(history.state, '', location.pathname + location.search);
+  }
+}
+
 async function showView(name) {
+  leaveSessionHash(name);
   if (name === 'settings') {
     document.querySelectorAll('.pane').forEach((p) => { p.hidden = p !== settingsPane; });
     document.querySelectorAll('.tabs .tab').forEach((t) => {
@@ -65,13 +73,18 @@ async function showView(name) {
   if (mod.show) mod.show();
 }
 
+// The nav's first onChange (its stored tab, at init) runs before followHash: it must
+// not drop a /#sessions/<id> link the page was opened with.
+let navReady = false;
 const nav = initNavTabs({
   storageKey: APP + '.tab',
   onChange: (tab) => {
+    if (navReady) leaveSessionHash(tab);
     settingsPane.hidden = true;
     ensureView(tab).then((mod) => { if (mod.show) mod.show(); });
   },
 });
+navReady = true;
 
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-open-settings]')) showView('settings');
@@ -79,8 +92,17 @@ document.addEventListener('click', (e) => {
 
 ctx.goTo = showView;
 
-/** A deep link — /#settings or /#settings/<section> (the presenter's music chip → Music). */
+/**
+ * A deep link — /#settings or /#settings/<section> (the presenter's music chip → Music),
+ * or /#sessions/<id>: that session open full screen (#150; the Sessions tab keeps it).
+ */
 async function followHash() {
+  const open = location.hash.match(/^#sessions\/(.+)$/);
+  if (open) {
+    (await ensureView('sessions')).openSession(decodeURIComponent(open[1]), { push: false });
+    showView('sessions');
+    return true;
+  }
   const m = location.hash.match(/^#settings(?:\/([a-z]+))?$/);
   if (!m) return false;
   history.replaceState(null, '', location.pathname + location.search); // a reload opens the last tab again

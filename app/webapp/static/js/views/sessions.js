@@ -1,5 +1,7 @@
-// Sessions tab: the ledger (list) and the selected session (detail) side by side
-// on a wide screen — folder, plan summary, readiness checklist, go-live buttons.
+// Sessions tab: the ledger (list); a session opened from it takes the whole
+// pane (#150) — folder, plan summary, its own settings (details and stage look,
+// #151), readiness, go-live buttons — until its X, Esc or Back returns to the
+// list. /#sessions/<id> opens one.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
@@ -14,10 +16,15 @@ let root;
 let ctx;
 let head;
 let listEl;
+let listWrap;
 let detailEl;
 let sessions = [];
 let sessionRoot = '';
 let justMounted = false;
+/** The session shown full screen; null = the list. It stays ctx.sessionId after closing. */
+let openId = null;
+/** Where the list was scrolled when a session opened, put back when it closes. */
+let listScroll = null;
 
 const STATE_ICON = { ok: 'circle-check', warn: 'triangle-alert', todo: 'circle-plus', unknown: 'triangle-alert' };
 
@@ -42,20 +49,18 @@ export async function mount(el, context) {
   root = el;
   ctx = context;
   root.innerHTML = '';
-  const split = document.createElement('div');
-  split.className = 'split';
-  const list = document.createElement('div');
-  list.className = 'split-list';
-  detailEl = document.createElement('div');
-  detailEl.className = 'split-detail';
-  split.append(list, detailEl);
-  root.appendChild(split);
-
+  root.dataset.mode = 'list';
   head = pageHead({ glyph: 'calendar-days', title: 'Sessions', status: 'Loading…' });
-  list.appendChild(head);
+  listWrap = document.createElement('div');
+  listWrap.className = 'sessions-list';
+  detailEl = document.createElement('div');
+  detailEl.className = 'sessions-detail';
+  detailEl.hidden = true;
+  root.append(head, listWrap, detailEl);
+
   listEl = document.createElement('div');
   listEl.className = 'card list-card';
-  list.appendChild(listEl);
+  listWrap.appendChild(listEl);
 
   const actions = document.createElement('div');
   actions.className = 'stack-actions';
@@ -63,17 +68,101 @@ export async function mount(el, context) {
     `<button type="button" class="button-tint big-action" data-new>${icon('plus')} New session</button>` +
     `<button type="button" class="button-ghost wide-ghost" data-add>Add an existing session folder</button>` +
     `<p class="muted small">This list is only a ledger of names and folders. Each session lives in its own folder with its own session.yaml. Duplicate a past session from its menu.</p>`;
-  list.appendChild(actions);
+  listWrap.appendChild(actions);
   actions.querySelector('[data-new]').addEventListener('click', newSession);
   actions.querySelector('[data-add]').addEventListener('click', addExisting);
 
+  document.addEventListener('keydown', onEscape);
+  window.addEventListener('popstate', onHistory);
   await refresh();
   justMounted = true;
 }
 
 export function show() {
+  if (openId) setHash(openId);  // another tab dropped the deep link; it is this tab's again
   if (justMounted) { justMounted = false; return; }
   refresh();
+}
+
+const hashOf = (id) => `#sessions/${encodeURIComponent(id)}`;
+function setHash(id) {
+  if (location.hash !== hashOf(id)) history.replaceState(history.state, '', location.pathname + location.search + hashOf(id));
+}
+
+/** The app shell's scroll: the window, or .app in an installed PWA (design.md Navigation). */
+function scrollPos() {
+  const app = document.querySelector('.app');
+  return { win: window.scrollY, app: app ? app.scrollTop : 0 };
+}
+function scrollBack(pos) {
+  const app = document.querySelector('.app');
+  window.scrollTo(0, pos.win);
+  if (app) app.scrollTop = pos.app;
+}
+
+/**
+ * Open a session full screen (#150): it becomes the selected session for every
+ * tab and its detail replaces the list. `push` adds a history entry, so Back
+ * closes it; a deep link (/#sessions/<id>) keeps the entry it arrived on.
+ */
+export function openSession(id, { push = true } = {}) {
+  if (!sessions.some((s) => s.id === id)) {
+    toast('That session is not in your ledger', 'error');
+    closeSession();
+    return;
+  }
+  if (openId === null) listScroll = scrollPos();
+  if (push && openId === null && location.hash !== hashOf(id)) {
+    history.pushState({ fsSession: id }, '', location.pathname + location.search + hashOf(id));
+  } else {
+    setHash(id);
+  }
+  openId = id;
+  if (ctx.sessionId !== id) ctx.setSession(id);
+  root.dataset.mode = 'open';
+  listWrap.hidden = true;
+  detailEl.hidden = false;
+  scrollBack({ win: 0, app: 0 });
+  renderList();
+  renderDetail();
+}
+
+/**
+ * Back to the list, where it was scrolled; the session stays the selected one.
+ * `fromHistory`: the browser already left the entry (Back), so history is not touched.
+ */
+export function closeSession({ fromHistory = false } = {}) {
+  const wasOpen = openId;
+  openId = null;
+  root.dataset.mode = 'list';
+  detailEl.hidden = true;
+  detailEl.innerHTML = '';
+  listWrap.hidden = false;
+  if (!fromHistory && location.hash.startsWith('#sessions/')) {
+    if (history.state && history.state.fsSession) history.back();
+    else history.replaceState(null, '', location.pathname + location.search);
+  }
+  if (!wasOpen) return;
+  renderList();
+  if (listScroll) scrollBack(listScroll);
+  listScroll = null;
+  const row = listEl.querySelector('.session-row.selected');
+  if (row) row.focus({ preventScroll: true });
+}
+
+/** Esc closes an open session — not while a dialog or menu owns it, or a field is being edited. */
+function onEscape(e) {
+  if (e.key !== 'Escape' || !openId || e.defaultPrevented) return;
+  if (root.closest('.pane').hidden) return;
+  if (document.querySelector('dialog[open], .row-menu')) return;
+  if (e.target.closest && e.target.closest('input, select, textarea, [contenteditable]')) return;
+  e.preventDefault();
+  closeSession();
+}
+
+/** Back (or Forward) to an entry without the deep link closes the open session. */
+function onHistory() {
+  if (openId && !location.hash.startsWith('#sessions/')) closeSession({ fromHistory: true });
 }
 
 async function refresh() {
@@ -90,8 +179,9 @@ async function refresh() {
   setStatus(head, `${sessions.length} in your ledger`);
   if (ctx.sessionId && !sessions.some((s) => s.id === ctx.sessionId)) ctx.setSession(null);
   if (!ctx.sessionId && sessions.length) ctx.setSession(pickDefault().id);
+  if (openId && !sessions.some((s) => s.id === openId)) closeSession();
   renderList();
-  renderDetail();
+  if (openId) renderDetail();
 }
 
 function pickDefault() {
@@ -135,7 +225,7 @@ function sessionRow(s) {
     `<div class="row-meta">${bad ? `<span class="chip bad">${esc(s.status === 'missing' ? 'folder missing' : 'unreadable')}</span> ` : ''}` +
     `${esc(fmtDate(s.date))} · ${esc(s.crumbs.slice(-3).join(' › '))}</div></div>` +
     `<button type="button" class="kebab hit-target" aria-label="More actions">${icon('ellipsis-vertical')}</button>`;
-  const select = () => { ctx.setSession(s.id); renderList(); renderDetail(); };
+  const select = () => openSession(s.id);
   row.addEventListener('click', (e) => { if (!e.target.closest('.kebab')) select(); });
   row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
   row.querySelector('.kebab').addEventListener('click', (e) => {
@@ -150,15 +240,9 @@ function sessionRow(s) {
 }
 
 async function renderDetail() {
-  const sid = ctx.sessionId;
+  const sid = openId;
+  if (!sid) return;
   detailEl.innerHTML = '';
-  if (!sid) {
-    const c = document.createElement('div');
-    c.className = 'card';
-    c.appendChild(emptyStateEl('presentation', 'Create a session to start planning.'));
-    detailEl.appendChild(c);
-    return;
-  }
   const loading = document.createElement('div');
   loading.className = 'card';
   loading.appendChild(emptyStateEl('refresh-cw', 'Reading the session folder…'));
@@ -174,18 +258,17 @@ async function renderDetail() {
     detailEl.appendChild(c);
     return;
   }
-  if (sid !== ctx.sessionId) return;
+  if (sid !== openId) return;
   detailEl.innerHTML = '';
   const s = data.session;
   const f = data.folder;
 
   const title = document.createElement('div');
   title.className = 'detail-title';
-  const when = s.date ? `${fmtDate(s.date)} · ${timeRange(s.date, s.duration_minutes)}` : 'No date yet';
-  const language = (LANGUAGES.find(([k]) => k === s.language) || LANGUAGES[0])[1];
-  title.innerHTML = `<h1>${esc(s.title)}</h1><p class="muted">${esc(when)} · ${fmtMinutes(s.duration_minutes)} planned · ${esc(language)} on stage</p>` +
-    `<button type="button" class="button-surface" data-edit-meta>${icon('pencil')} Edit</button>`;
-  title.querySelector('[data-edit-meta]').addEventListener('click', () => editMeta(sid, s));
+  title.innerHTML = `<h1 data-title></h1><p class="muted" data-summary></p>` +
+    `<button type="button" class="detail-close" aria-label="Close" title="Close (Esc)" data-close-session>${icon('x')}</button>`;
+  title.querySelector('[data-close-session]').addEventListener('click', () => closeSession());
+  paintTitle(title, s);
   detailEl.appendChild(title);
 
   const top = document.createElement('div');
@@ -229,7 +312,7 @@ async function renderDetail() {
   plan.querySelector('[data-edit-plan]').addEventListener('click', () => ctx.goTo('plan'));
   top.appendChild(plan);
 
-  detailEl.appendChild(fontCard(sid, s, data.look));
+  detailEl.appendChild(settingsCard(sid, s, data.look, () => paintTitle(title, s)));
 
   // -- readiness
   const ready = document.createElement('div');
@@ -250,36 +333,145 @@ async function renderDetail() {
   detailEl.appendChild(go);
 }
 
+/** The header: the title and the one-line summary (date · duration · language). */
+function paintTitle(el, s) {
+  const when = s.date ? `${fmtDate(s.date)} · ${timeRange(s.date, s.duration_minutes)}` : 'No date yet';
+  el.querySelector('[data-title]').textContent = s.title;
+  el.querySelector('[data-summary]').textContent = `${when} · ${fmtMinutes(s.duration_minutes)} planned · ${languageLabel(s.language)} on stage`;
+}
+
+const languageLabel = (code) => (LANGUAGES.find(([k]) => k === code) || LANGUAGES[0])[1];
+const hintOf = (s) => s.chat_hint || words(s.language).chat_hint;
+
+/** An ISO date as a datetime-local value, in this PC's time. */
+function localValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /**
- * The session's stage look: its theme and lettering (the shared editor in
- * font-editor.js) — every item follows it unless it sets its own in the Plan
- * tab. A new session starts from Settings → Stage defaults; the card says
- * whether it still uses them and can put them back (#110).
+ * The session's own settings (#151), one card: its details, edited inline and
+ * saved on change or blur, and its stage look — the theme and lettering (the
+ * shared editor in font-editor.js) every item follows unless it sets its own in
+ * the Plan tab. A new session starts from Settings → Stage defaults; the card
+ * says whether it still uses them and can put them back (#110). Global settings
+ * stay on the Settings page.
  */
-function fontCard(sid, s, look) {
-  const hint = s.chat_hint || words(s.language).chat_hint;
+function settingsCard(sid, s, look, onDetails) {
   applySessionTheme(sid, s.theme, JSON.stringify([s.theme, s.font || {}]));
   const card = document.createElement('div');
-  card.className = 'card font-card';
+  card.className = 'card session-settings-card';
   card.innerHTML =
-    `<div class="card-head"><h3 class="card-title">${icon('type')} Stage lettering</h3>` +
-    `<span class="card-head-meta">${esc(letteringLabel(s.font))}</span></div>` +
-    `<div class="look-row"><span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
-    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset>${icon('rotate-ccw')} Reset to default</button>`) + '</div>' +
+    `<div class="card-head"><h3 class="card-title">${icon('sliders-horizontal')} Session settings</h3></div>` +
+    `<div class="font-rows">` +
+    `<label class="font-row"><span class="small">Title</span><input class="input" data-meta="title" value="${esc(s.title)}" required aria-label="Title"></label>` +
+    `<label class="font-row"><span class="small">Date and time</span><input class="input" type="datetime-local" data-meta="date" value="${esc(localValue(s.date))}" aria-label="Date and time"></label>` +
+    `<label class="font-row"><span class="small">Duration</span><span class="inline-controls"><input class="input dur-min" type="number" min="1" step="5" data-meta="duration_minutes" value="${esc(s.duration_minutes)}" aria-label="Duration in minutes"><span class="small muted">min</span></span></label>` +
+    `<label class="font-row"><span class="small">Stage language</span><span class="meta-control"><select class="select-native" data-meta="language" aria-label="Language on the stage">` +
+    LANGUAGES.map(([v, l]) => `<option value="${esc(v)}"${v === (s.language || 'en') ? ' selected' : ''}>${esc(l)}</option>`).join('') +
+    `</select><span class="small muted">The words the stage says by itself: the chat hint, default titles, breakout rooms, the quiz.</span></span></label>` +
+    `<label class="font-row"><span class="small">Stage hint</span><span class="meta-control"><input class="input" data-meta="chat_hint" value="${esc(s.chat_hint || '')}" placeholder="${esc(words(s.language).chat_hint)}" aria-label="Stage hint under activities">` +
+    `<span class="small muted">Under activities. Empty = the language's own: “${esc(words('en').chat_hint)}” · “${esc(words('es').chat_hint)}”.</span></span></label>` +
+    `</div>` +
+    `<div class="settings-sub"><h4 class="settings-sub-title">${icon('type')} Stage look</h4>` +
+    `<span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
+    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset>${icon('rotate-ccw')} Reset to default</button>`) +
+    `<span class="card-head-meta" data-lettering>${esc(letteringLabel(s.font))}</span></div>` +
     `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. New sessions start from Settings → Stage defaults.</p>` +
     `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
     themeOptions(look.themes, s.theme) +
     `</select></label></div>` +
-    fontEditorHtml(s.font, { hint, library: look.fonts });
-  const saveSession = async (change) => {
-    const session = Object.assign({}, s, change);
+    fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts });
+
+  // One save at a time, in order, each from the session as the edits before it
+  // left it: a field saved on blur and a lettering click right after never
+  // overwrite each other. The change applies at once; a refused save undoes it.
+  let queue = Promise.resolve();
+  const saveSession = (change) => {
+    const before = {};
+    Object.keys(change).forEach((k) => { before[k] = s[k]; });
+    Object.assign(s, change);
+    const session = Object.assign({}, s);
     if (!session.font) delete session.font;  // the theme's lettering: no font block in session.yaml
-    try {
-      await api(`/api/sessions/${sid}`, { method: 'PUT', body: { session } });
-      Object.assign(s, change);
-      return true;
-    } catch (e) { toast(e.message, 'error'); return false; }
+    if (!session.date) delete session.date;
+    const run = queue.then(async () => {
+      try {
+        await api(`/api/sessions/${sid}`, { method: 'PUT', body: { session } });
+        return true;
+      } catch (e) {
+        Object.assign(s, before);
+        toast(e.message, 'error');
+        return false;
+      }
+    });
+    queue = run;
+    return run;
   };
+
+  // -- the details: each field saves on its own
+  const field = (name) => card.querySelector(`[data-meta="${name}"]`);
+  const readField = {
+    title: (el) => {
+      const v = el.value.trim();
+      if (!v) throw new Error('The session needs a title');
+      return v;
+    },
+    date: (el) => (el.value ? new Date(el.value).toISOString() : null),
+    duration_minutes: (el) => {
+      const v = parseInt(el.value, 10);
+      if (!(v >= 1)) throw new Error('The duration is at least 1 minute');
+      return v;
+    },
+    language: (el) => el.value,
+    chat_hint: (el) => el.value.trim(),
+  };
+  const showField = {
+    title: (el) => { el.value = s.title; },
+    date: (el) => { el.value = localValue(s.date); },
+    duration_minutes: (el) => { el.value = s.duration_minutes; },
+    language: (el) => { el.value = s.language || 'en'; },
+    chat_hint: (el) => { el.value = s.chat_hint || ''; },
+  };
+  const sameDate = (a, b) => (a ? new Date(a).getTime() : null) === (b ? new Date(b).getTime() : null);
+  const commit = async (name) => {
+    const el = field(name);
+    let value;
+    try { value = readField[name](el); } catch (e) {
+      toast(e.message, 'error');
+      showField[name](el);
+      return;
+    }
+    const now = name === 'language' ? (s.language || 'en') : s[name];
+    if (name === 'date' ? sameDate(value, now) : value === (now == null ? '' : now)) return;
+    const ok = await saveSession({ [name]: value });
+    showField[name](el);
+    if (!ok) return;
+    toast('Saved to session.yaml');
+    onDetails();
+    if (name === 'title' || name === 'date') {  // the list, behind
+      const row = sessions.find((x) => x.id === sid);
+      if (row) { row.title = s.title; row.date = s.date || null; renderList(); }
+    }
+    if (name === 'language' || name === 'chat_hint') {  // the stage preview says it at once
+      field('chat_hint').placeholder = words(s.language).chat_hint;
+      card.querySelector('.font-sample .st-hint').innerHTML = icon('message-square') + esc(hintOf(s));
+    }
+  };
+  Object.keys(readField).forEach((name) => {
+    const el = field(name);
+    if (el.tagName === 'SELECT') { el.addEventListener('change', () => commit(name)); return; }
+    // text fields: on blur (Enter too); a date field would save every segment typed on 'change'
+    el.addEventListener('blur', () => commit(name));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      if (e.key === 'Escape') { showField[name](el); el.blur(); }
+    });
+  });
+
+  // -- the stage look
   wireFontEditor(card, {
     current: () => s.font,
     save: (next) => saveSession({ font: next }),
@@ -357,35 +549,6 @@ async function save(sid, session) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-async function editMeta(sid, s) {
-  const date = s.date ? new Date(s.date) : null;
-  const pad = (n) => String(n).padStart(2, '0');
-  const local = date ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}` : '';
-  const v = await formDialog({
-    title: 'Session details',
-    fields: [
-      { name: 'title', label: 'Title', value: s.title, required: true },
-      { name: 'date', label: 'Date and time', type: 'datetime-local', value: local },
-      { name: 'duration', label: 'Duration (min)', type: 'number', value: s.duration_minutes },
-      { name: 'language', label: 'Language on the stage', type: 'select', value: s.language || 'en', options: LANGUAGES.map(([value, label]) => ({ value, label })),
-        hint: 'The words the stage says by itself: the chat hint, default titles, breakout rooms.' },
-      { name: 'chat_hint', label: 'Stage hint under activities', value: s.chat_hint || '',
-        placeholder: words(s.language).chat_hint,
-        hint: `Empty = the language's own: "${words('en').chat_hint}" · "${words('es').chat_hint}".` },
-    ],
-  });
-  if (!v) return;
-  const next = Object.assign({}, s, {
-    title: v.title.trim(),
-    language: v.language,
-    chat_hint: v.chat_hint.trim(),
-    date: v.date ? new Date(v.date).toISOString() : null,
-    duration_minutes: Math.max(1, parseInt(v.duration, 10) || s.duration_minutes),
-  });
-  if (!next.date) delete next.date;
-  await save(sid, next);
-}
-
 async function newSession() {
   const v = await formDialog({
     title: 'New session',
@@ -409,9 +572,9 @@ async function newSession() {
         duration_minutes: Math.max(1, parseInt(v.duration, 10) || 120),
       },
     });
-    ctx.setSession(created.id);
     toast('Session folder created');
     await refresh();
+    openSession(created.id);
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -425,8 +588,8 @@ async function addExisting() {
   if (!v) return;
   try {
     const added = await api('/api/sessions/add', { method: 'POST', body: { path: v.path } });
-    ctx.setSession(added.id);
     await refresh();
+    openSession(added.id);
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -443,9 +606,9 @@ async function duplicate(s) {
   if (!v) return;
   try {
     const dup = await api(`/api/sessions/${s.id}/duplicate`, { method: 'POST', body: { title: v.title.trim(), folder: v.folder.trim() } });
-    ctx.setSession(dup.id);
     toast('Session duplicated');
     await refresh();
+    openSession(dup.id);
   } catch (e) { toast(e.message, 'error'); }
 }
 
