@@ -27,6 +27,7 @@
 .p-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); justify-content: flex-end; }
 .p-chips .chip { min-height: 30px; padding: 4px 12px; font-size: var(--font-body-sm); border: 0; cursor: default; }
 .p-chips button.chip { cursor: pointer; font: inherit; font-size: var(--font-body-sm); font-weight: 600; }
+.p-chips a.chip { cursor: pointer; font-weight: 600; text-decoration: none; }
 /* A side-by-side cluster, so real 44px geometry (like .p-nav), not a ::before
    expansion (design.md Touch targets: adjacent clusters never overlap). */
 .p-icon-btn {

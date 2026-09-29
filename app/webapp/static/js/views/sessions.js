@@ -8,7 +8,7 @@ import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
 import { words, LANGUAGES } from '/static/js/stage-words.js';
-import { ROLES, TEXT_FONTS, sessionRole } from '/static/js/lettering.js';
+import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
 
 let root;
 let ctx;
@@ -229,7 +229,7 @@ async function renderDetail() {
   plan.querySelector('[data-edit-plan]').addEventListener('click', () => ctx.goTo('plan'));
   top.appendChild(plan);
 
-  detailEl.appendChild(fontCard(sid, s));
+  detailEl.appendChild(fontCard(sid, s, data.look));
 
   // -- readiness
   const ready = document.createElement('div');
@@ -250,125 +250,57 @@ async function renderDetail() {
   detailEl.appendChild(go);
 }
 
-// -- stage lettering: the font (a file on this PC or an installed one), its
-// weight and line thickness, and capitals — every item follows it unless it
-// sets its own in the Plan tab.
-const STAGE_FONTS = [
-  ['', 'Patrick Hand (theme)'],
-  ['system-ui', 'System sans'],
-  ['Georgia', 'Georgia (serif)'],
-  ['Segoe Print', 'Segoe Print (handwriting)'],
-];
-
-/** Two buttons (or more) as range tabs; `value` is the active one. */
-function tabs(label, attr, options, value) {
-  return `<div class="range-tabs ed-tabs" role="group" aria-label="${esc(label)}">${options.map(([v, l]) =>
-    `<button type="button" class="range-tab${v === value ? ' active' : ''}" aria-pressed="${v === value}" ${attr}="${esc(String(v))}">${esc(l)}</button>`).join('')}</div>`;
-}
-
 /**
- * The session's stage lettering: the title font (its own file or an installed
- * font, weight, line thickness), the text font (every other text; by default
- * the chat hint's plain sans) and, for each kind of text, which of the two it
- * uses and whether it is in capitals. An item can set its own in the Plan tab.
+ * The session's stage look: its theme and lettering (the shared editor in
+ * font-editor.js) — every item follows it unless it sets its own in the Plan
+ * tab. A new session starts from Settings → Stage defaults; the card says
+ * whether it still uses them and can put them back (#110).
  */
-const FONT_DEFAULTS = { file: '', family: '', weight: 400, stroke_px: 0, caps: true, text_family: '', text_weight: 400, roles: {} };
-
-function fontCard(sid, s) {
-  const font = Object.assign({}, FONT_DEFAULTS, s.font || {});
-  const file = (font.file || '').trim();
-  const name = file ? file.split(/[\\/]/).pop() : '';
-  const stroke = Number(font.stroke_px) || 0;
-  const familyLabel = file ? name : (STAGE_FONTS.find(([v]) => v === font.family) || [null, font.family || 'Patrick Hand (theme)'])[1];
+function fontCard(sid, s, look) {
   const hint = s.chat_hint || words(s.language).chat_hint;
-  applySessionTheme(sid, s.theme, JSON.stringify(font));
+  applySessionTheme(sid, s.theme, JSON.stringify([s.theme, s.font || {}]));
   const card = document.createElement('div');
   card.className = 'card font-card';
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('type')} Stage lettering</h3>` +
-    `<span class="card-head-meta">${esc(familyLabel)}</span></div>` +
-    `<div class="font-sample-host"><div class="stage-canvas font-sample" style="--st-font-stroke:${stroke}px">` +
-    `<h1 class="st-question">Hello, group!</h1>` +
-    `<div class="font-sample-row"><span class="st-hint">${icon('message-square')}${esc(hint)}</span>` +
-    `<div class="st-body"><span class="font-sample-words">meetings · focus</span></div></div></div></div>` +
-    `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab.</p>` +
-    `<h4 class="font-group">Title font</h4><div class="font-rows">` +
-    `<label class="font-row"><span class="small">Font</span><span class="inline-controls"><select class="select-native" aria-label="Title font" data-title-family>` +
-    STAGE_FONTS.map(([v, l]) => `<option value="${esc(v)}"${!file && v === font.family ? ' selected' : ''}>${esc(l)}</option>`).join('') +
-    (file ? `<option value="__file" selected>File · ${esc(name)}</option>` : '') +
-    `</select><button type="button" class="button-surface" data-font-pick>${icon('folder-open')} ${file ? 'Change file…' : 'Font file…'}</button></span></label>` +
-    `<div class="font-row"><span class="small">Weight</span>${tabs('Title weight', 'data-weight', [[400, 'Regular'], [700, 'Bold']], font.weight)}</div>` +
-    `<label class="font-row font-stroke"><span class="small">Line thickness</span>` +
-    `<input type="range" min="0" max="6" step="0.25" value="${stroke}" aria-label="Line thickness in stage px">` +
-    `<output class="mono small">${stroke} px</output></label></div>` +
-    (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '') +
-    `<h4 class="font-group">Text font</h4><div class="font-rows">` +
-    `<label class="font-row"><span class="small">Font</span><select class="select-native" aria-label="Text font" data-text-family>` +
-    TEXT_FONTS.map(([v, l]) => `<option value="${esc(v)}"${v === font.text_family ? ' selected' : ''}>${esc(l)}</option>`).join('') +
-    (font.text_family && !TEXT_FONTS.some(([v]) => v === font.text_family) ? `<option value="${esc(font.text_family)}" selected>${esc(font.text_family)}</option>` : '') +
-    `</select></label>` +
-    `<div class="font-row"><span class="small">Weight</span>${tabs('Text weight', 'data-text-weight', [[400, 'Regular'], [700, 'Bold']], font.text_weight)}</div></div>` +
-    `<h4 class="font-group">Each kind of text</h4><div class="font-rows role-rows">` +
-    ROLES.map((r) => {
-      const now = sessionRole(font, r.key);
-      return `<div class="role-row" data-role="${r.key}"><span class="small">${esc(r.label)}</span>` +
-        tabs(`${r.label}: font`, 'data-role-font', [['title', 'Title font'], ['text', 'Text font']], now.font === 'title' ? 'title' : 'text') +
-        tabs(`${r.label}: capitals`, 'data-role-caps', [['true', 'ALL CAPS'], ['false', 'As typed']], String(now.caps)) + '</div>';
-    }).join('') + `</div>`;
-  const sample = card.querySelector('.font-sample');
-  const range = card.querySelector('input[type=range]');
-  const out = card.querySelector('output');
-  const saveFont = async (change) => {
-    // from what is saved now: the thickness slider saves without drawing the card again
-    const next = Object.assign({}, FONT_DEFAULTS, s.font || {}, change);
-    const session = Object.assign({}, s, { font: next });
-    // all defaults: no font block in session.yaml
-    if (!next.file && !next.family && next.weight === 400 && !next.stroke_px && next.caps &&
-        !next.text_family && next.text_weight === 400 && !Object.keys(next.roles || {}).length) delete session.font;
+    `<span class="card-head-meta">${esc(letteringLabel(s.font))}</span></div>` +
+    `<div class="look-row"><span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
+    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset>${icon('rotate-ccw')} Reset to default</button>`) + '</div>' +
+    `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. New sessions start from Settings → Stage defaults.</p>` +
+    `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
+    themeOptions(look.themes, s.theme) +
+    `</select></label></div>` +
+    fontEditorHtml(s.font, { hint, library: look.fonts });
+  const saveSession = async (change) => {
+    const session = Object.assign({}, s, change);
+    if (!session.font) delete session.font;  // the theme's lettering: no font block in session.yaml
     try {
       await api(`/api/sessions/${sid}`, { method: 'PUT', body: { session } });
-      s.font = session.font;
+      Object.assign(s, change);
       return true;
     } catch (e) { toast(e.message, 'error'); return false; }
   };
-  // one kind of text: back to its default = no entry for it
-  const setRole = (key, change) => {
-    const role = ROLES.find((r) => r.key === key);
-    const roles = Object.assign({}, (s.font || {}).roles);
-    const mine = Object.assign({}, roles[key], change);
-    if (!mine.font || mine.font === role.font) delete mine.font;
-    if (mine.caps !== true) delete mine.caps;
-    if (Object.keys(mine).length) roles[key] = mine; else delete roles[key];
-    return saveFont({ roles });
-  };
-  const redraw = async (p) => { if (await p) renderDetail(); };
-  card.querySelector('[data-title-family]').addEventListener('change', (e) => {
-    if (e.target.value !== '__file') redraw(saveFont({ file: '', family: e.target.value }));
+  wireFontEditor(card, {
+    current: () => s.font,
+    save: (next) => saveSession({ font: next }),
+    redraw: renderDetail,
+    pickFile: async () => {
+      try { return (await api('/api/pick', { method: 'POST', body: { kind: 'font' } })).path; } catch (e) { toast(e.message, 'error'); return ''; }
+    },
   });
-  card.querySelector('[data-text-family]').addEventListener('change', (e) => redraw(saveFont({ text_family: e.target.value })));
-  card.querySelectorAll('[data-weight]').forEach((b) => b.addEventListener('click', () => redraw(saveFont({ weight: Number(b.dataset.weight) }))));
-  card.querySelectorAll('[data-text-weight]').forEach((b) => b.addEventListener('click', () => redraw(saveFont({ text_weight: Number(b.dataset.textWeight) }))));
-  card.querySelectorAll('.role-row').forEach((row) => {
-    const key = row.dataset.role;
-    row.querySelectorAll('[data-role-font]').forEach((b) => b.addEventListener('click', () => redraw(setRole(key, { font: b.dataset.roleFont }))));
-    row.querySelectorAll('[data-role-caps]').forEach((b) => b.addEventListener('click', () => {
-      const caps = b.dataset.roleCaps === 'true';
-      redraw(key === 'title' ? saveFont({ caps }) : setRole(key, { caps }));  // a title's capitals are font.caps
-    }));
+  card.querySelector('[data-theme-select]').addEventListener('change', async (e) => {
+    if (await saveSession({ theme: e.target.value })) renderDetail();
   });
-  range.addEventListener('input', () => {
-    out.textContent = `${range.value} px`;
-    sample.style.setProperty('--st-font-stroke', `${range.value}px`);
-  });
-  range.addEventListener('change', async () => {
-    if (await saveFont({ stroke_px: Number(range.value) })) toast(`Line thickness ${range.value} px saved`);
-  });
-  card.querySelector('[data-font-pick]').addEventListener('click', async () => {
-    let picked;
-    try { picked = await api('/api/pick', { method: 'POST', body: { kind: 'font' } }); } catch (e) { toast(e.message, 'error'); return; }
-    if (!picked.path) return;
-    if (await saveFont({ file: picked.path })) { toast('Stage font saved'); renderDetail(); }
-  });
+  const reset = card.querySelector('[data-look-reset]');
+  if (reset) {
+    reset.addEventListener('click', async () => {
+      try {
+        await api(`/api/sessions/${sid}/look/reset`, { method: 'POST' });
+        toast('Stage look reset to the defaults');
+      } catch (err) { toast(err.message, 'error'); }
+      renderDetail();
+    });
+  }
   return card;
 }
 

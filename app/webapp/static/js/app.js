@@ -78,7 +78,18 @@ document.addEventListener('click', (e) => {
 });
 
 ctx.goTo = showView;
-showView(nav.getTab() || 'sessions');
+
+/** A deep link — /#settings or /#settings/<section> (the presenter's music chip → Music). */
+async function followHash() {
+  const m = location.hash.match(/^#settings(?:\/([a-z]+))?$/);
+  if (!m) return false;
+  history.replaceState(null, '', location.pathname + location.search); // a reload opens the last tab again
+  if (m[1]) (await ensureView('settings')).focusSection(m[1]);
+  showView('settings');
+  return true;
+}
+window.addEventListener('hashchange', followHash);
+followHash().then((linked) => { if (!linked) showView(nav.getTab() || 'sessions'); });
 
 // The live snapshot carries the global light/dark (#92): a toggle on the presenter,
 // the phone or another tab switches this one too.

@@ -271,9 +271,14 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .font-sample .st-question { font-size: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .font-path { margin: 0 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .font-rows { display: grid; gap: var(--space-sm); margin: var(--space-sm) 0; }
-.font-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: var(--space-sm); }
+.font-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
+.font-row .inline-controls .select-native { flex: 1; min-width: 0; }
 .font-row .inline-controls .button-surface { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.font-row.font-stroke { grid-template-columns: 120px 1fr 56px; }
+.font-row.font-stroke { grid-template-columns: 120px minmax(0, 1fr) 56px; }
+@media (max-width: 520px) {
+  .font-row { grid-template-columns: 88px minmax(0, 1fr); }
+  .font-row.font-stroke { grid-template-columns: 88px minmax(0, 1fr) 48px; }
+}
 .font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .font-stroke output { width: 56px; text-align: right; }
 .font-group { margin: var(--space-md) 0 0; font-size: var(--font-label); font-weight: 600; color: var(--muted); }
@@ -603,7 +608,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .export-actions .button-primary, .export-actions .button-surface { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; }
 
 /* ---- Settings ----------------------------------------------------------- */
-.settings-card { display: grid; gap: var(--space-sm); }
+.settings-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
 .settings-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-left: 0; padding-right: 0; }
 .settings-row .grow { display: grid; }
 .settings-row > .icon { color: var(--muted); }
@@ -618,3 +623,19 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .deck-row code { font-family: var(--mono); font-size: var(--font-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-row .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
 @media (max-width: 640px) { .deck-label { width: auto; } .deck-row { flex-wrap: wrap; } }
+/* Five sections (#110), each a heading-md title over its cards; a deep link scrolls to one. */
+.settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); scroll-margin-top: var(--gap); }
+.settings-section-title { display: flex; align-items: center; gap: 8px; margin: var(--space-md) 0 0; font-size: var(--font-heading-md); font-weight: 700; line-height: 1.25; }
+.settings-section-title .icon { width: var(--icon-title); height: var(--icon-title); color: var(--muted); }
+.settings-actions .button-tint, .settings-actions .button-surface { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; }
+.library-row { padding: 8px 0; }
+.library-row .grow { display: grid; min-width: 0; }
+.library-path { font-family: var(--mono); overflow-wrap: anywhere; }
+.defaults-font-card .font-rows, .defaults-font-card .font-group, .defaults-font-card .font-sample-host { margin-top: 0; margin-bottom: 0; }
+/* A session's stage look against the defaults (Sessions → Stage lettering). */
+.look-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 6px 0 4px; }
+.look-row .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
+/* No detail pane: Settings keeps the centered measure on a wide window too (design.md Layout). */
+@media (min-width: 1100px) and (pointer: fine) {
+  #paneSettings .pane-body { max-width: var(--layout-measure); width: 100%; margin: 0 auto; }
+}

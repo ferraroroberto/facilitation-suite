@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.config import env_path
+from src.sessions.store import replace_held
 
 
 def _parse(line: str) -> Optional[tuple[str, str]]:
@@ -61,5 +62,5 @@ def set_value(key: str, value: str, path: Optional[Path] = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text("\n".join(out) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    replace_held(tmp, path)  # a reader (the app's own status check) may hold it open for a moment
     return path

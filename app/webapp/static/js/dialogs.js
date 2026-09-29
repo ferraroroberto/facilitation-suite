@@ -5,7 +5,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { esc } from '/static/js/ui.js';
 
 /**
- * An editor <dialog>: fields = [{name, label, type, value, placeholder, hint, options}].
+ * An editor <dialog>: fields = [{name, label, type, value, placeholder, hint, options, step, min, max}].
  * Resolves with {name: value} on Save, or null when dismissed (Escape, ×, backdrop).
  */
 export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) {
@@ -22,7 +22,7 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
       } else if (f.type === 'textarea') {
         control = `<textarea class="input" id="${id}" name="${f.name}" rows="3" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
       } else {
-        control = `<input class="input-native" id="${id}" name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value == null ? '' : f.value)}" placeholder="${esc(f.placeholder || '')}"${f.required ? ' required' : ''}>`;
+        control = `<input class="input-native" id="${id}" name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value == null ? '' : f.value)}" placeholder="${esc(f.placeholder || '')}"${f.step ? ` step="${esc(f.step)}"` : ''}${f.min != null ? ` min="${esc(f.min)}"` : ''}${f.max != null ? ` max="${esc(f.max)}"` : ''}${f.required ? ' required' : ''}>`;
       }
       return `<label class="row"><span>${esc(f.label)}</span>${control}</label>` +
         (f.hint ? `<p class="dialog-hint">${esc(f.hint)}</p>` : '');

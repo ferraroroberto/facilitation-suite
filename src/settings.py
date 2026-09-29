@@ -50,9 +50,11 @@ def _merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def update(patch: dict[str, Any]) -> AppConfig:
-    """Merge ``patch`` into the config file and return the reloaded config."""
-    raw = _merge(_read_raw(), patch)
+def update(patch: dict[str, Any], *, replace: tuple[str, ...] = ()) -> AppConfig:
+    """Merge ``patch`` into the config file and return the reloaded config. The top-level
+    keys in ``replace`` are written whole instead of merged (a value that can lose keys)."""
+    raw = _merge(_read_raw(), {k: v for k, v in patch.items() if k not in replace})
+    raw.update({k: v for k, v in patch.items() if k in replace})
     atomic_write_text(config_path(), json.dumps(raw, indent=2, ensure_ascii=False) + "\n")
     logger.info("ℹ️ settings saved: %s", ", ".join(sorted(patch)))
     return load_config()
