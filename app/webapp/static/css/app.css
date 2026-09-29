@@ -234,10 +234,32 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .big-action { min-height: 64px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wide-ghost { min-height: 44px; font-size: var(--font-label); }
 
+/* The list, or one session open full screen — never both (#150). */
+.sessions-list, .sessions-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
+.sessions-list[hidden], .sessions-detail[hidden] { display: none; }
+@media (min-width: 1100px) and (pointer: fine) {
+  /* The list alone keeps the centered measure; an open session uses the full
+     width in two columns, its stage look beside the rest (design.md Layout). */
+  #paneSessions .pane-body[data-mode="list"] { max-width: var(--layout-measure); width: 100%; margin: 0 auto; }
+  .sessions-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas: "title title" "top look" "ready look" "go look";
+    align-items: start;
+  }
+  .sessions-detail > .detail-title { grid-area: title; }
+  .sessions-detail > .detail-grid { grid-area: top; }
+  .sessions-detail > .font-card { grid-area: look; }
+  .sessions-detail > .ready-card { grid-area: ready; }
+  .sessions-detail > .go-row { grid-area: go; }
+}
 .detail-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--space-md); }
 .detail-title h1 { margin: 0; font-size: var(--font-heading-lg); line-height: 1.2; flex: 1 1 auto; }
 .detail-title p { margin: 0; width: 100%; order: 3; }
 .detail-title .button-surface { order: 2; display: inline-flex; align-items: center; gap: 6px; }
+/* An open session's title wraps beside its buttons, so the X stays top right on a phone too. */
+.sessions-detail .detail-title h1 { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.detail-title .detail-close { order: 2; align-self: flex-start; flex: none; margin-top: 2px; }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
 @media (min-width: 900px) { .detail-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
 .crumbs { margin: 8px 0; color: var(--muted); font-size: var(--font-body-sm); overflow-wrap: anywhere; }

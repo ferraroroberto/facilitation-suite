@@ -1,5 +1,6 @@
-// Sessions tab: the ledger (list) and the selected session (detail) side by side
-// on a wide screen — folder, plan summary, readiness checklist, go-live buttons.
+// Sessions tab: the ledger (list); a session opened from it takes the whole
+// pane (#150) — folder, plan summary, stage look, readiness, go-live buttons —
+// until its X, Esc or Back returns to the list. /#sessions/<id> opens one.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
@@ -14,10 +15,15 @@ let root;
 let ctx;
 let head;
 let listEl;
+let listWrap;
 let detailEl;
 let sessions = [];
 let sessionRoot = '';
 let justMounted = false;
+/** The session shown full screen; null = the list. It stays ctx.sessionId after closing. */
+let openId = null;
+/** Where the list was scrolled when a session opened, put back when it closes. */
+let listScroll = null;
 
 const STATE_ICON = { ok: 'circle-check', warn: 'triangle-alert', todo: 'circle-plus', unknown: 'triangle-alert' };
 
@@ -42,20 +48,18 @@ export async function mount(el, context) {
   root = el;
   ctx = context;
   root.innerHTML = '';
-  const split = document.createElement('div');
-  split.className = 'split';
-  const list = document.createElement('div');
-  list.className = 'split-list';
-  detailEl = document.createElement('div');
-  detailEl.className = 'split-detail';
-  split.append(list, detailEl);
-  root.appendChild(split);
-
+  root.dataset.mode = 'list';
   head = pageHead({ glyph: 'calendar-days', title: 'Sessions', status: 'Loading…' });
-  list.appendChild(head);
+  listWrap = document.createElement('div');
+  listWrap.className = 'sessions-list';
+  detailEl = document.createElement('div');
+  detailEl.className = 'sessions-detail';
+  detailEl.hidden = true;
+  root.append(head, listWrap, detailEl);
+
   listEl = document.createElement('div');
   listEl.className = 'card list-card';
-  list.appendChild(listEl);
+  listWrap.appendChild(listEl);
 
   const actions = document.createElement('div');
   actions.className = 'stack-actions';
@@ -63,17 +67,101 @@ export async function mount(el, context) {
     `<button type="button" class="button-tint big-action" data-new>${icon('plus')} New session</button>` +
     `<button type="button" class="button-ghost wide-ghost" data-add>Add an existing session folder</button>` +
     `<p class="muted small">This list is only a ledger of names and folders. Each session lives in its own folder with its own session.yaml. Duplicate a past session from its menu.</p>`;
-  list.appendChild(actions);
+  listWrap.appendChild(actions);
   actions.querySelector('[data-new]').addEventListener('click', newSession);
   actions.querySelector('[data-add]').addEventListener('click', addExisting);
 
+  document.addEventListener('keydown', onEscape);
+  window.addEventListener('popstate', onHistory);
   await refresh();
   justMounted = true;
 }
 
 export function show() {
+  if (openId) setHash(openId);  // another tab dropped the deep link; it is this tab's again
   if (justMounted) { justMounted = false; return; }
   refresh();
+}
+
+const hashOf = (id) => `#sessions/${encodeURIComponent(id)}`;
+function setHash(id) {
+  if (location.hash !== hashOf(id)) history.replaceState(history.state, '', location.pathname + location.search + hashOf(id));
+}
+
+/** The app shell's scroll: the window, or .app in an installed PWA (design.md Navigation). */
+function scrollPos() {
+  const app = document.querySelector('.app');
+  return { win: window.scrollY, app: app ? app.scrollTop : 0 };
+}
+function scrollBack(pos) {
+  const app = document.querySelector('.app');
+  window.scrollTo(0, pos.win);
+  if (app) app.scrollTop = pos.app;
+}
+
+/**
+ * Open a session full screen (#150): it becomes the selected session for every
+ * tab and its detail replaces the list. `push` adds a history entry, so Back
+ * closes it; a deep link (/#sessions/<id>) keeps the entry it arrived on.
+ */
+export function openSession(id, { push = true } = {}) {
+  if (!sessions.some((s) => s.id === id)) {
+    toast('That session is not in your ledger', 'error');
+    closeSession();
+    return;
+  }
+  if (openId === null) listScroll = scrollPos();
+  if (push && openId === null && location.hash !== hashOf(id)) {
+    history.pushState({ fsSession: id }, '', location.pathname + location.search + hashOf(id));
+  } else {
+    setHash(id);
+  }
+  openId = id;
+  if (ctx.sessionId !== id) ctx.setSession(id);
+  root.dataset.mode = 'open';
+  listWrap.hidden = true;
+  detailEl.hidden = false;
+  scrollBack({ win: 0, app: 0 });
+  renderList();
+  renderDetail();
+}
+
+/**
+ * Back to the list, where it was scrolled; the session stays the selected one.
+ * `fromHistory`: the browser already left the entry (Back), so history is not touched.
+ */
+export function closeSession({ fromHistory = false } = {}) {
+  const wasOpen = openId;
+  openId = null;
+  root.dataset.mode = 'list';
+  detailEl.hidden = true;
+  detailEl.innerHTML = '';
+  listWrap.hidden = false;
+  if (!fromHistory && location.hash.startsWith('#sessions/')) {
+    if (history.state && history.state.fsSession) history.back();
+    else history.replaceState(null, '', location.pathname + location.search);
+  }
+  if (!wasOpen) return;
+  renderList();
+  if (listScroll) scrollBack(listScroll);
+  listScroll = null;
+  const row = listEl.querySelector('.session-row.selected');
+  if (row) row.focus({ preventScroll: true });
+}
+
+/** Esc closes an open session — not while a dialog or menu owns it, or a field is being edited. */
+function onEscape(e) {
+  if (e.key !== 'Escape' || !openId || e.defaultPrevented) return;
+  if (root.closest('.pane').hidden) return;
+  if (document.querySelector('dialog[open], .row-menu')) return;
+  if (e.target.closest && e.target.closest('input, select, textarea, [contenteditable]')) return;
+  e.preventDefault();
+  closeSession();
+}
+
+/** Back (or Forward) to an entry without the deep link closes the open session. */
+function onHistory() {
+  if (openId && !location.hash.startsWith('#sessions/')) closeSession({ fromHistory: true });
 }
 
 async function refresh() {
@@ -90,8 +178,9 @@ async function refresh() {
   setStatus(head, `${sessions.length} in your ledger`);
   if (ctx.sessionId && !sessions.some((s) => s.id === ctx.sessionId)) ctx.setSession(null);
   if (!ctx.sessionId && sessions.length) ctx.setSession(pickDefault().id);
+  if (openId && !sessions.some((s) => s.id === openId)) closeSession();
   renderList();
-  renderDetail();
+  if (openId) renderDetail();
 }
 
 function pickDefault() {
@@ -135,7 +224,7 @@ function sessionRow(s) {
     `<div class="row-meta">${bad ? `<span class="chip bad">${esc(s.status === 'missing' ? 'folder missing' : 'unreadable')}</span> ` : ''}` +
     `${esc(fmtDate(s.date))} · ${esc(s.crumbs.slice(-3).join(' › '))}</div></div>` +
     `<button type="button" class="kebab hit-target" aria-label="More actions">${icon('ellipsis-vertical')}</button>`;
-  const select = () => { ctx.setSession(s.id); renderList(); renderDetail(); };
+  const select = () => openSession(s.id);
   row.addEventListener('click', (e) => { if (!e.target.closest('.kebab')) select(); });
   row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
   row.querySelector('.kebab').addEventListener('click', (e) => {
@@ -150,15 +239,9 @@ function sessionRow(s) {
 }
 
 async function renderDetail() {
-  const sid = ctx.sessionId;
+  const sid = openId;
+  if (!sid) return;
   detailEl.innerHTML = '';
-  if (!sid) {
-    const c = document.createElement('div');
-    c.className = 'card';
-    c.appendChild(emptyStateEl('presentation', 'Create a session to start planning.'));
-    detailEl.appendChild(c);
-    return;
-  }
   const loading = document.createElement('div');
   loading.className = 'card';
   loading.appendChild(emptyStateEl('refresh-cw', 'Reading the session folder…'));
@@ -174,7 +257,7 @@ async function renderDetail() {
     detailEl.appendChild(c);
     return;
   }
-  if (sid !== ctx.sessionId) return;
+  if (sid !== openId) return;
   detailEl.innerHTML = '';
   const s = data.session;
   const f = data.folder;
@@ -184,8 +267,10 @@ async function renderDetail() {
   const when = s.date ? `${fmtDate(s.date)} · ${timeRange(s.date, s.duration_minutes)}` : 'No date yet';
   const language = (LANGUAGES.find(([k]) => k === s.language) || LANGUAGES[0])[1];
   title.innerHTML = `<h1>${esc(s.title)}</h1><p class="muted">${esc(when)} · ${fmtMinutes(s.duration_minutes)} planned · ${esc(language)} on stage</p>` +
-    `<button type="button" class="button-surface" data-edit-meta>${icon('pencil')} Edit</button>`;
+    `<button type="button" class="button-surface" data-edit-meta>${icon('pencil')} Edit</button>` +
+    `<button type="button" class="detail-close" aria-label="Close" title="Close (Esc)" data-close-session>${icon('x')}</button>`;
   title.querySelector('[data-edit-meta]').addEventListener('click', () => editMeta(sid, s));
+  title.querySelector('[data-close-session]').addEventListener('click', () => closeSession());
   detailEl.appendChild(title);
 
   const top = document.createElement('div');
@@ -409,9 +494,9 @@ async function newSession() {
         duration_minutes: Math.max(1, parseInt(v.duration, 10) || 120),
       },
     });
-    ctx.setSession(created.id);
     toast('Session folder created');
     await refresh();
+    openSession(created.id);
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -425,8 +510,8 @@ async function addExisting() {
   if (!v) return;
   try {
     const added = await api('/api/sessions/add', { method: 'POST', body: { path: v.path } });
-    ctx.setSession(added.id);
     await refresh();
+    openSession(added.id);
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -443,9 +528,9 @@ async function duplicate(s) {
   if (!v) return;
   try {
     const dup = await api(`/api/sessions/${s.id}/duplicate`, { method: 'POST', body: { title: v.title.trim(), folder: v.folder.trim() } });
-    ctx.setSession(dup.id);
     toast('Session duplicated');
     await refresh();
+    openSession(dup.id);
   } catch (e) { toast(e.message, 'error'); }
 }
 
