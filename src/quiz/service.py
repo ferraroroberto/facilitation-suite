@@ -67,6 +67,10 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
   carries ``question``, ``tiles`` (the answer numbers) and ``answers`` (their
   texts, in tile order) — all shown on the stage anyway; ``correct`` (the
   answer numbers) and ``answer.correct`` only once the question has closed.
+  ``lang`` is the session's language (``en`` | ``es``, #91): the phone says
+  everything in it, as the stage does.
+- ``language() -> str`` — the live session's language (``en`` with none
+  live); the player page asks it before joining (``/play/api/ping``).
 - ``join_pin(pin, nickname, key=None) -> JoinResult`` — ``join`` into the
   game with that PIN: ``wrong_pin`` when no game of the live session has it,
   else ``join``'s own states (``no_game`` when that game is not on stage).
@@ -302,7 +306,12 @@ class QuizService:
         if game is None or game.check_player(player_id, secret) == UNKNOWN_PLAYER:
             return None
         scope = next((s for s in self.scopes().values() if s.lobby_id == game.lobby_id), None)
-        return game.player_view(player_id, scope.order if scope else [], scope.questions if scope else {})
+        view = game.player_view(player_id, scope.order if scope else [], scope.questions if scope else {})
+        return {**view, "lang": self.language()}
+
+    def language(self) -> str:
+        """The live session's language, which the stage and the phones speak (``en`` with none live)."""
+        return str(self.live.run.get("language") or "en")
 
     def _game_of(self, player_id: str) -> Optional[Game]:
         self._load()

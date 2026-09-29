@@ -14,7 +14,9 @@ listener, which runs on the main app's loop), so every route is ``async``:
 
     GET  /play                → the phone page (``?pin=`` fills the PIN in)
     GET  /play/static/…       → its CSS and JS (``app/player/static/``)
-    GET  /play/api/ping       → {"ok": true, "time": <server epoch seconds>}
+    GET  /play/api/ping       → {"ok": true, "time": <server epoch seconds>, "lang":
+                              the live session's language, so the join screen
+                              speaks it before the phone has a view (#91)}
     POST /play/api/join       {pin, nickname, key?} → {state: joined | wrong_pin |
                               no_game | closed, player_id, secret, name, …, view}
     POST /play/api/resume     {player_id, secret} → {state: resumed |
@@ -159,7 +161,7 @@ def create_player_app(quiz: QuizService) -> FastAPI:
 
     @app.get(f"{PREFIX}/api/ping")
     async def ping() -> dict[str, object]:
-        return {"ok": True, "time": time.time()}
+        return {"ok": True, "time": time.time(), "lang": quiz.language()}
 
     @app.post(f"{PREFIX}/api/join")
     async def join(request: Request, body: JoinBody) -> dict[str, Any]:
