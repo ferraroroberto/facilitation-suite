@@ -242,8 +242,8 @@ class SpotifyBackend:
 
     # ---------------------------------------------------------------- interface
 
-    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float) -> None:
-        self._submit(lambda: self._play(play_id, track, volume, fade_in_s), transition=True)
+    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float, start_s: float = 0.0) -> None:
+        self._submit(lambda: self._play(play_id, track, volume, fade_in_s, start_s > 0), transition=True)
 
     def pause(self, fade_s: float) -> None:
         self._submit(lambda: self._pause(fade_s), transition=True)
@@ -359,15 +359,19 @@ class SpotifyBackend:
                 self._sleep(STEP_S)
         return True
 
-    def _play(self, play_id: int, track: Track, volume: int, fade_in_s: float) -> None:
+    def _play(self, play_id: int, track: Track, volume: int, fade_in_s: float, carry_on: bool = False) -> None:
+        """``carry_on`` (a resume after a restart): the desktop app keeps its own position — play on
+        from there instead of starting the track or playlist over."""
         self.play_id = play_id
         self.device = self.client.device()  # the app may have been reopened since
         if self.restore_volume is None:
             self.restore_volume = self.device.get("volume_percent")
         self._volume(0 if fade_in_s > 0 else volume)
-        self.client.call("PUT", "/me/player/play", body=play_body(track.ref), query={"device_id": self.device["id"]})
+        self.client.call("PUT", "/me/player/play", body=None if carry_on else play_body(track.ref),
+                         query={"device_id": self.device["id"]})
         self._status = (OK, "Playing", time.monotonic())
-        logger.info("ℹ️ spotify: play %s on %s (volume %d, fade in %.1f s)", track.ref, self.device.get("name"), volume, fade_in_s)
+        logger.info("ℹ️ spotify: %s %s on %s (volume %d, fade in %.1f s)", "carry on with" if carry_on else "play",
+                    track.ref, self.device.get("name"), volume, fade_in_s)
         self._emit("playing", play_id, f"{track.label} on {self.device.get('name', 'Spotify')}")
         if fade_in_s > 0:
             self._fade(0, volume, fade_in_s)

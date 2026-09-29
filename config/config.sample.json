@@ -12,6 +12,7 @@
     "stage": { "theme": "default" },
     "music": { "fade_in_s": 2.0, "fade_out_s": 2.0 }
   },
+  "live": { "resume_on_start": true },
   "profiles": {
     "camera_strip": {"label": "Camera strip", "scene": "", "zone": [0.583, 0.23, 0.983, 0.77]},
     "camera_pip": {"label": "Camera PiP", "scene": "", "zone": [0.72, 0.04, 0.98, 0.3]},

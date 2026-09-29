@@ -23,12 +23,21 @@ when it is paused and when it is reset — the capture follows the start and
 the reset, the music (``src/music/``) all three.
 
 Durability (epic §5.4): the position, clocks and timers are mirrored to
-``live/state.json`` so a restarted server resumes where it was, and every
+``live/state.json`` so a restarted server resumes where it was (other
+services add their own sections through ``persisted`` — the music — and read
+them back from ``restored`` when the session goes live again), and every
 item change, clock and timer event is appended to ``live/events.jsonl``
 (which drives the session PDF order in step 12). A failed write is logged,
 kept in memory and surfaced on the presenter as ``write_error``; the state is
 written again two seconds later, and the warning goes once a write succeeds
 (OneDrive holding the file open while it uploads is the usual cause).
+
+Resume after a restart (#95): the session that is live is also named in a
+machine-local pointer (``data/live.json``), removed when the presenter closes
+it; ``state.json`` says ``"live": false`` once closed. At startup
+``resume_last()`` takes that session live again — only when both the pointer
+and its ``state.json`` say it was still live, so a closed session never comes
+back by itself. ``config.live.resume_on_start`` turns it off.
 
 Reset (the presenter, after a rehearsal): the whole ``live/`` folder is set
 aside as ``live-<date>-<time>/`` — nothing is deleted — and the session
@@ -109,8 +118,10 @@ class TimerState:
 
 
 class LiveHub:
-    def __init__(self, store: SessionStore) -> None:
+    def __init__(self, store: SessionStore, last_live: Optional[Path] = None) -> None:
         self.store = store
+        # The machine-local pointer to the session that is live (None: not kept — unit tests).
+        self.last_live = last_live
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.clients: set[Client] = set()
         self.session_id: Optional[str] = None
@@ -135,6 +146,11 @@ class LiveHub:
         # ("start" | "pause" | "reset", item): a timer began running, was paused, or was reset.
         self.timer_listeners: list[Callable[[str, dict[str, Any]], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
+        # Sections of state.json other services own: name → what to write now (the music).
+        self.persisted: dict[str, Callable[[], Any]] = {}
+        # Those sections as a session going live finds them — only while its session listeners
+        # run, and only when it was not closed (a restart, not the presenter's Close).
+        self.restored: dict[str, Any] = {}
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
         # The live session was reset: services drop what they hold of the old run.
         self.reset_listeners: list[Callable[[], None]] = []
@@ -243,7 +259,7 @@ class LiveHub:
 
     # ------------------------------------------------------------- lifecycle
 
-    def activate(self, sid: str) -> None:
+    def activate(self, sid: str, *, resumed: bool = False) -> None:
         if sid == self.session_id:
             return
         try:
@@ -264,17 +280,23 @@ class LiveHub:
         cur = self.current()
         # The item on stage when it goes live (the PDF order starts here; later moves are "item" events).
         self.event("session_live", items=len(self.items), index=self.index, item_id=cur["id"] if cur else None,
-                    kind=cur["kind"] if cur else None)
-        for fn in self.session_listeners:
-            fn(sid)
+                    kind=cur["kind"] if cur else None, **({"resumed": True} if resumed else {}))
+        try:
+            for fn in self.session_listeners:
+                fn(sid)
+        finally:
+            self.restored = {}
         self.broadcast(self.plan_message())
         self.commit()
+        self._point_to(sid)
 
     def deactivate(self) -> None:
         if self.session_id is None:
             return
         logger.info("ℹ️ live: session %s is no longer live", self.session_id)
         self.event("session_closed")
+        self._save_state(closed=True)
+        self._point_to(None)
         self._cancel_timer_handles()
         self.session_id, self.folder = None, None
         self.run = {"items": [], "sections": [], "planned_minutes": 0}
@@ -558,16 +580,19 @@ class LiveHub:
         except OSError as exc:
             self.write_failed(EVENTS_FILE, exc)
 
-    def _save_state(self) -> None:
+    def _save_state(self, *, closed: bool = False) -> None:
         live = self._live_dir()
         cur = self.current()
         if live is None:
             return
         data = {
-            "session_id": self.session_id, "item_id": cur["id"] if cur else None, "blackout": self.blackout,
+            "session_id": self.session_id, "live": not closed, "item_id": cur["id"] if cur else None,
+            "blackout": self.blackout,
             "names": self.names, "clock_started_at": self.clock_started_at, "section_entered": self.section_entered,
             "timers": {k: v.as_dict() for k, v in self.timers.items()},
         }
+        for name, get in self.persisted.items():
+            data[name] = get()
         try:
             atomic_write_text(live / STATE_FILE, json.dumps(data, indent=1))
         except OSError as exc:
@@ -599,6 +624,8 @@ class LiveHub:
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning("⚠️ live: %s unreadable (%s) — starting from the first item", STATE_FILE, exc)
             return
+        # Other services' sections come back only after a restart: never after the presenter's Close.
+        self.restored = {name: data.get(name) for name in self.persisted} if data.get("live") is True else {}
         found = self.item_by_id(data.get("item_id") or "")
         self.index = found["index"] if found else 0
         self.blackout = bool(data.get("blackout"))
@@ -613,3 +640,56 @@ class LiveHub:
             self.timers[item_id] = t
             if t.running_since is not None:
                 self._schedule_end(item_id)
+
+    # ---------------------------------------------------------------- resume
+
+    def _point_to(self, sid: Optional[str]) -> None:
+        """Name the live session in the machine-local pointer (``None``: remove it)."""
+        if self.last_live is None:
+            return
+        try:
+            if sid is None:
+                self.last_live.unlink(missing_ok=True)
+            else:
+                self.last_live.parent.mkdir(parents=True, exist_ok=True)
+                atomic_write_text(self.last_live, json.dumps(
+                    {"session_id": sid, "since": datetime.now(UTC).isoformat(timespec="seconds")}))
+        except OSError as exc:
+            logger.warning("⚠️ live: %s not updated (%s) — a restart may not resume this session", self.last_live, exc)
+
+    def resume_last(self) -> Optional[str]:
+        """At startup: take the session that was live when the server stopped live again.
+
+        Only when the pointer names it, it is still in the ledger and its ``state.json``
+        says it was live (not closed). Returns the session id, or None (logged why)."""
+        if self.last_live is None or self.session_id is not None:
+            return None
+        try:
+            sid = str(json.loads(self.last_live.read_text(encoding="utf-8"))["session_id"])
+        except FileNotFoundError:
+            logger.info("ℹ️ live: no session was live when the server stopped — nothing to resume")
+            return None
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            logger.warning("⚠️ live: %s unreadable (%s) — nothing resumed", self.last_live, exc)
+            return None
+        try:
+            folder = self.store.folder(sid)
+            data = json.loads((folder / "live" / STATE_FILE).read_text(encoding="utf-8"))
+        except SessionError as exc:
+            logger.warning("⚠️ live: the last live session %s is gone (%s) — nothing resumed", sid, exc)
+            return None
+        except (OSError, ValueError) as exc:
+            logger.warning("⚠️ live: the last live session %s has no readable %s (%s) — nothing resumed",
+                           sid, STATE_FILE, exc)
+            return None
+        if not isinstance(data, dict) or data.get("live") is not True:
+            logger.info("ℹ️ live: the last live session %s was closed — not resumed", sid)
+            self._point_to(None)
+            return None
+        try:
+            self.activate(sid, resumed=True)
+        except LiveError as exc:
+            logger.error("❌ live: resuming session %s failed (%s) — go live by hand", sid, exc)
+            return None
+        logger.info("ℹ️ live: session %s resumed after a restart, at item %d of %d", sid, self.index + 1, len(self.items))
+        return sid
