@@ -14,6 +14,9 @@ sessions.local.yaml
 !tests/fixtures/**/*.xlsx
 *.pptx
 !tests/fixtures/**/*.pptx
+# session event/log streams (chat.jsonl, events.jsonl, quiz.jsonl): only synthetic fixtures
+*.jsonl
+!tests/fixtures/**/*.jsonl
 
 # --- python / tooling ------------------------------------------------------
 __pycache__/
