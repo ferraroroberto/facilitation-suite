@@ -105,15 +105,27 @@ class ResilientRotatingFileHandler(RotatingFileHandler):
         try:
             os.replace(self.baseFilename, staged)
         except PermissionError as exc:
-            if not self._rotation_blocked:
-                logging.getLogger(__name__).warning(
-                    "⚠️ log rotation blocked: %s is held open by another process (%s) — "
-                    "still logging to it, will retry", self.baseFilename, exc,
-                )
+            # Settle every bit of state — including reopening the stream — *before* logging
+            # the warning below. That warning is itself a log record and, once this handler
+            # is attached to the root logger (as configure_logging() does), it re-enters this
+            # same emit()/doRollover() through Python logging's normal propagation (the
+            # per-handler lock is a threading.RLock, so the same thread recurses rather than
+            # deadlocking). Logging first and settling after left a reentrant call seeing
+            # ``_rotation_blocked`` still False and ``self.stream`` still None, so it retried
+            # the doomed rollover, which failed, which logged, which reentered again — an
+            # unbounded recursion that flooded the log with duplicate warnings and eventually
+            # raised RecursionError (caught, non-fatally, by logging's own handleError, but a
+            # real bug — #120).
+            was_blocked = self._rotation_blocked
             self._rotation_blocked = True
             self._blocked_at = time.monotonic()
             self._records_since_block = 0
             self.stream = self._open()  # keep appending to the still-open live file
+            if not was_blocked:
+                logging.getLogger(__name__).warning(
+                    "⚠️ log rotation blocked: %s is held open by another process (%s) — "
+                    "still logging to it, will retry", self.baseFilename, exc,
+                )
             return
 
         if self.backupCount > 0:
@@ -131,12 +143,15 @@ class ResilientRotatingFileHandler(RotatingFileHandler):
         else:
             os.remove(staged)
 
-        if self._rotation_blocked:
-            logging.getLogger(__name__).info("✅ log rotation resumed: %s", self.baseFilename)
+        # Same reentrancy hazard, mirrored: settle state and reopen the stream before logging
+        # the recovery breadcrumb.
+        was_blocked = self._rotation_blocked
         self._rotation_blocked = False
         self._records_since_block = 0
         if not self.delay:
             self.stream = self._open()
+        if was_blocked:
+            logging.getLogger(__name__).info("✅ log rotation resumed: %s", self.baseFilename)
 
 
 def log_path(name: str) -> Path:
