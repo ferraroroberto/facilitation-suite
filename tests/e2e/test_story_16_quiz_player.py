@@ -10,7 +10,9 @@ strip re-lays it out within a second, the long question and tiles fitting beside
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
 light and dark, and after the reveal the right answer's text. The podium reveals one place per
 Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on; a phone shows its own place only once it is
-revealed (#147). Switched to Spanish on the leaderboard,
+revealed (#147). The last question's reveal goes straight to that podium, never through a
+leaderboard that would give it away, and Prev from its step 0 comes back to the reveal; the
+presenter's Next says so (#158). Switched to Spanish on the leaderboard,
 the stage and a reloaded phone say it in Spanish (#91). A stage reloaded on a lobby that already has
 players shows every name (#111). The presenter's Sounds chip (#102) shows on the lobby, naming a
 cue-file/device state — never blank."""
@@ -18,6 +20,7 @@ cue-file/device state — never blank."""
 from __future__ import annotations
 
 import copy
+import json
 import re
 
 from playwright.sync_api import Browser, Page, expect
@@ -109,7 +112,7 @@ def _join(page: Page, url: str, nickname: str) -> None:
 def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> None:
     base = webapp.base_url
     folder = webapp.root / "sessions" / "demo" / "quiz-story"
-    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    sid, folder = build_demo_session(folder, webapp.root / "sessions.local.yaml")
     section = copy.deepcopy(PLAYER_QUIZ)
     first = section["items"][1]
     first["options"].update(LONG_ANSWERS)
@@ -185,6 +188,7 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(ana.locator("[data-locked-shape]")).to_have_attribute("data-choice", "2")
 
         assert page.request.post(f"{base}/api/actions/next").ok  # reveal
+        expect(page.locator("[data-qnext]")).to_contain_text("Show the leaderboard")  # not the last question
         expect(ana.locator("[data-result]")).to_contain_text("Correct")
         expect(ana.locator("[data-result-detail]")).to_contain_text("points · #1")
         expect(bo.locator("[data-result]")).to_contain_text("Not this time")
@@ -250,10 +254,27 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(ana.locator("[data-result-detail]")).to_contain_text("Puntuación")
         assert ana.evaluate("document.documentElement.lang") == "es"
 
-        assert page.request.post(f"{base}/api/actions/goto/{podium}").ok
+        # #158: the last question's reveal goes straight to the podium — the stage never shows a
+        # leaderboard (its top 5 would give the podium away) — and Prev from step 0 comes back to it
+        assert page.request.post(f"{base}/api/actions/goto/{podium - 1}").ok  # the last question
+        expect(stage.locator("[data-qz-index]")).to_have_text("Pregunta 2 de 2")
+        stage.evaluate("""() => { window.__board = false; new MutationObserver(() => {
+          if (document.querySelector('[data-qz-view="leaderboard"]')) window.__board = true;
+        }).observe(document.body, { subtree: true, childList: true, attributes: true }); }""")
+        assert page.request.post(f"{base}/api/actions/next").ok  # its reveal
+        expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "1")
+        expect(page.locator("[data-qnext]")).to_contain_text("On to the podium")
         shown = stage.locator(".qz-step.shown .qz-pname")  # laid out 2nd, 1st, 3rd
-        expect(stage.locator(".qz-step")).to_have_count(3)
-        expect(shown).to_have_count(0)  # nothing yet: each Next reveals one place
+        for move in ("next", "prev", "next"):  # the podium at step 0, back to the reveal, the podium again
+            assert page.request.post(f"{base}/api/actions/{move}").ok
+            if move == "prev":
+                expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "1")
+                continue
+            expect(stage.locator(".qz-step")).to_have_count(3)
+            expect(shown).to_have_count(0)  # nothing yet: each Next reveals one place
+        assert stage.evaluate("window.__board") is False
+        records = [json.loads(line) for line in (folder / "live" / "quiz.jsonl").read_text(encoding="utf-8").splitlines()]
+        assert [r["item_id"] for r in records if r.get("op") == "phase" and r["phase"] == "leaderboard"] == ["pq-1"]
         # a phone learns its place only once the stage reveals it (#147), in the session's language
         for phone in (ana, bo):
             expect(phone.locator("[data-result]")).to_have_text("Espera al podio…")

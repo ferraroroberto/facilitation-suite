@@ -16,7 +16,13 @@ any scope is shown as a plain item.
 **Phases and ``next``.** Entering a question for the first time opens it
 (``question``, deadline = now + its time limit). Then ``next`` (every control
 surface's "next") steps ``question → reveal → leaderboard`` and only from
-``leaderboard`` moves on to the next plan item; time up (plus
+``leaderboard`` moves on to the next plan item — except the **last question
+of a game that ends on a podium** (#158): its reveal's ``next`` moves on at
+once, so the stage goes straight to the podium (at step 0) and never shows
+the final top 5 before the podium reveals them, as Kahoot does
+(``state.quiz.podium_follows`` says the game ends on one; ``prev`` from the
+podium's step 0 comes back to that reveal). An older ``quiz.jsonl`` that
+shows that leaderboard replays as written. Time up (plus
 ``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves — and so does
 every active player answering, about ``EARLY_CLOSE_MS`` after the last one
 does, while the lobby's "end questions when everyone has answered" option is
@@ -156,6 +162,16 @@ class Scope:
     invalid: dict[str, str] = field(default_factory=dict)  # item id → why it cannot be played
     podium_id: Optional[str] = None
 
+    @property
+    def podium_follows(self) -> bool:
+        """The game ends on a podium."""
+        return self.podium_id is not None
+
+    def goes_to_podium(self, item_id: str) -> bool:
+        """``item_id`` is the last question of a game that ends on a podium: its reveal's Next
+        goes straight to the podium, with no leaderboard to give the podium away (#158)."""
+        return self.podium_follows and bool(self.order) and item_id == self.order[-1]
+
 
 @dataclass
 class JoinResult:
@@ -292,6 +308,7 @@ class QuizService:
         if game is None:
             return {"quiz": None}
         return {"quiz": {**game.snapshot(scope.order, scope.questions), "join_url": self.join_url(game.pin),
+                         "podium_follows": scope.podium_follows,
                          "listener": self.listener_up(), "accept_chat": self.accepts_chat(scope),
                          "reach": self.reach(), "sounds": self.sound_cues()}}
 
@@ -344,7 +361,7 @@ class QuizService:
             return None
         scope = next((s for s in self.scopes().values() if s.lobby_id == game.lobby_id), None)
         view = game.player_view(player_id, scope.order if scope else [], scope.questions if scope else {},
-                                podium_follows=bool(scope and scope.podium_id))
+                                podium_follows=bool(scope and scope.podium_follows))
         return {**view, "lang": self.language()}
 
     def language(self) -> str:
@@ -481,10 +498,10 @@ class QuizService:
             return False
         if game.phase == "question":
             self._phase(game, "reveal", cur["id"])
-        elif game.phase == "reveal":
+        elif game.phase == "reveal" and not scope.goes_to_podium(cur["id"]):
             self._phase(game, "leaderboard", cur["id"])
         else:
-            return False  # leaderboard: on to the next item
+            return False  # leaderboard, or the last reveal before a podium (#158): on to the next item
         self._changed()
         return True
 

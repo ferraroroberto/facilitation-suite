@@ -598,7 +598,8 @@ async def _play(args: argparse.Namespace, server: Disposable, host: Host, sectio
         answered = q["answered_count"]
         await host.step_to("reveal")
         await asyncio.sleep(PAUSE_S)
-        q = await host.step_to("leaderboard")
+        # The quiz ends on a podium: the last reveal goes straight to it, no leaderboard (#158).
+        q = await host.step_to("podium" if k == len(order) else "leaderboard")
         boards[item] = {e["id"]: e["score"] for e in q["leaderboard"]}
         logger.info("ℹ️ question %d/%d: %d answered · leader %s", k, len(order), answered,
                     q["leaderboard"][0]["name"] if q["leaderboard"] else "-")
@@ -606,7 +607,6 @@ async def _play(args: argparse.Namespace, server: Disposable, host: Host, sectio
             restart["board_after"] = boards[item]
             restart["board_before"] = boards.get(order[k - 2], {}) if k > 1 else {}
         await asyncio.sleep(PAUSE_S)
-    await host.next()
     q = await host.quiz()
     if q["phase"] != "podium":
         raise RuntimeError(f"expected the podium, the quiz shows {q['phase']}")

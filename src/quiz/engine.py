@@ -29,6 +29,10 @@ Records (every one also carries ``game`` and ``at``, epoch ms):
 
 Phases: ``lobby → question → reveal → leaderboard → (next question) … →
 podium`` (whose places are revealed one ``next`` at a time, ``podium_step``).
+Which phases the stage steps through is the service's call: since #158 the
+last question before a podium goes from its reveal straight to the podium.
+Replay applies whatever phases a file holds, so an older file that shows that
+leaderboard replays as written.
 A question is **open** from its ``question`` record until its
 ``reveal`` (time up, answers locked, or the presenter's ``next``) or a
 ``lock``; only an open question takes answers, and a question opens once.
@@ -407,8 +411,8 @@ class Game:
 
         On the podium, a top place is withheld until its step reveals it (3rd first, as the
         stage does) and every other place until the podium is complete. Before it, the last
-        question's reveal and leaderboard already hold the final ranking, so a game that ends
-        on a podium withholds every rank there too.
+        question's reveal (and its leaderboard, in a file written before #158) already holds the
+        final ranking, so a game that ends on a podium withholds every rank there too.
         """
         if self.phase == "podium":
             places, shown = self.podium_places(), self.podium_shown()

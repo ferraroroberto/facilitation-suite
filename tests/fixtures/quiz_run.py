@@ -9,7 +9,10 @@ questions — and returns exactly what the service wrote: the ``quiz.jsonl``
 records and the quiz's ``events.jsonl`` lines. Nicknames are made up.
 
 The committed ``quiz.jsonl`` and ``quiz-events.jsonl`` next to this file are
-its output (a unit test keeps them in step with the engine); regenerate with
+its output (a unit test keeps them in step with the engine). They were written
+before #158, so run 1's last question still shows its leaderboard before the
+podium: kept as an older log, they prove such a file gives the same results as
+a fresh one. Regenerate with
 
     python -m tests.fixtures.quiz_run
 
@@ -73,6 +76,7 @@ RUN2: dict[str, list[tuple[str, int, int]]] = {
     "qz-red": [("Comet", 2, 900), ("Zenith", 2, 2600)],
     "qz-rings": [("Comet", 3, 1300), ("Zenith", 1, 3300)],
 }
+LAST = "qz-sun"  # the quiz's last question, before its podium
 KICKED = "Meteor"  # removed by the host after the first question
 LATENCY_MS = 300  # a phone's answer reaches the server this long after the tap
 
@@ -132,7 +136,8 @@ def generate(folder: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 clock.t += 1_500
                 hub.next()  # reveal
                 clock.t += 8_000
-                hub.next()  # leaderboard
+                if item_id != LAST:  # the last question goes from its reveal straight to the podium (#158)
+                    hub.next()  # leaderboard
                 if item_id == stop_after:
                     return
 

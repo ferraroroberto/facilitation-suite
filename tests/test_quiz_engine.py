@@ -307,10 +307,10 @@ def test_next_steps_the_phases_of_a_question_before_moving_on(rig: tuple[LiveHub
     assert steps == [
         ("qz-1", "question"), ("qz-1", "reveal"), ("qz-1", "leaderboard"),
         ("qz-2", "question"), ("qz-2", "reveal"), ("qz-2", "leaderboard"),
-        ("qz-3", "question"), ("qz-3", "reveal"), ("qz-3", "leaderboard"),
+        ("qz-3", "question"), ("qz-3", "reveal"),
+        ("qz-podium", "podium"),  # the last question's reveal goes straight to the podium (#158)
     ]
-    hub.next()
-    assert hub.current()["id"] == "qz-podium" and state(hub)["phase"] == "podium" and "leaderboard" in state(hub)
+    assert "leaderboard" in state(hub) and state(hub)["podium_step"] == 0
     hub.next()  # a quiz item outside any game is a plain item: next moves straight on
     assert hub.current()["id"] == "qz-orphan" and state(hub) is None
     hub.next()
@@ -370,7 +370,7 @@ def test_the_podium_reveals_3rd_2nd_and_1st_one_next_at_a_time(rig: tuple[LiveHu
         assert podium_steps(hub) == ("qz-podium", step, 3)
     run_action(hub, "prev")  # … and with none shown goes to the previous item
     assert hub.current()["id"] == "qz-3"
-    run_action(hub, "next"), run_action(hub, "next"), run_action(hub, "next")  # reveal, leaderboard, podium
+    run_action(hub, "next"), run_action(hub, "next")  # reveal, podium (#158: no leaderboard in between)
     assert podium_steps(hub) == ("qz-podium", 0, 3)  # entered afresh from the game: nothing shown
     records = read_jsonl(hub.folder / "live" / QUIZ_FILE)
     assert [r["step"] for r in records if r["op"] == "podium"] == [1, 2, 3, 2, 1, 0]
@@ -445,8 +445,8 @@ def test_a_phone_learns_its_podium_place_only_once_the_stage_reveals_it(rig: tup
 
 def test_the_last_question_gives_no_final_rank_before_the_podium(rig: tuple[LiveHub, QuizService],
                                                                   clock: Clock) -> None:
-    """#147: the reveal and leaderboard of the last question would tell a phone its final place;
-    they carry none (an earlier question still does)."""
+    """#147: the reveal of the last question would tell a phone its final place; it carries none
+    (an earlier question still does), and nor does the podium it goes to (#158) before its steps."""
     hub, quiz = rig
     joined = ranked_game(hub, quiz, clock, 2)
     hub.next()  # question 1's reveal: not the last question, the rank is shown as before
@@ -454,10 +454,72 @@ def test_the_last_question_gives_no_final_rank_before_the_podium(rig: tuple[Live
     goto_id(hub, "qz-3")  # the last question
     hub.next()  # its reveal
     assert ranks(quiz, joined) == [None, None]
-    hub.next()  # its leaderboard
+    hub.next()  # the podium, at step 0
     views = [quiz.player_view(p.player_id, p.secret) for p in joined]
-    assert state(hub)["phase"] == "leaderboard" and [v.get("rank") for v in views] == [None, None]
+    assert state(hub)["phase"] == "podium" and [v.get("rank") for v in views] == [None, None]
     assert all(v["rank_pending"] is True and v["score"] > 0 for v in views)
+
+
+def test_the_last_reveal_goes_straight_to_the_podium(rig: tuple[LiveHub, QuizService]) -> None:
+    """#158: in a game that ends on a podium, Next on the last question's reveal skips the
+    leaderboard — its top 5 would give the podium away — and shows the podium at step 0, as
+    Kahoot does; Prev from there comes back to that reveal. Earlier questions keep theirs."""
+    hub, quiz = rig
+    at_lobby_with(hub, quiz, "Ana", "Bo", "Cy", "Di")
+    goto_id(hub, "qz-2")
+    assert state(hub)["podium_follows"] is True
+    run_action(hub, "next"), run_action(hub, "next")  # not the last question: reveal, leaderboard
+    assert (hub.current()["id"], state(hub)["phase"]) == ("qz-2", "leaderboard")
+    run_action(hub, "next")  # the last question opens
+    run_action(hub, "next")  # its reveal
+    assert (hub.current()["id"], state(hub)["phase"]) == ("qz-3", "reveal") and "leaderboard" not in state(hub)
+    run_action(hub, "next")
+    assert podium_steps(hub) == ("qz-podium", 0, 3)
+    run_action(hub, "prev")  # step 0: back to the reveal, not to a leaderboard
+    assert (hub.current()["id"], state(hub)["phase"]) == ("qz-3", "reveal")
+    run_action(hub, "next")
+    assert podium_steps(hub) == ("qz-podium", 0, 3)
+    records = read_jsonl(hub.folder / "live" / QUIZ_FILE)
+    boards = [r["item_id"] for r in records if r["op"] == "phase" and r["phase"] == "leaderboard"]
+    assert boards == ["qz-2"]  # the stage never showed the final top 5
+
+
+def test_a_quiz_without_a_podium_keeps_its_final_leaderboard(isolated_env: Path, clock: Clock) -> None:
+    """#158: with no podium after the quiz, the last question still ends on its leaderboard."""
+    sid, folder = build_demo_session(isolated_env / "sessions" / "demo" / "quiz", isolated_env / "sessions.local.yaml")
+    raw = yaml.safe_load((folder / SESSION_FILE).read_text(encoding="utf-8"))
+    raw["sections"].insert(1, {**QUIZ_SECTION, "items": [
+        it for it in QUIZ_SECTION["items"] if it["id"] not in ("qz-podium", "qz-orphan")]})
+    (folder / SESSION_FILE).write_text(yaml.safe_dump(raw, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    hub, quiz = make_rig(sid, clock)
+    at_lobby_with(hub, quiz, "Ana")
+    goto_id(hub, "qz-3")
+    assert state(hub)["podium_follows"] is False
+    hub.next(), hub.next()  # reveal, leaderboard
+    assert (hub.current()["id"], state(hub)["phase"]) == ("qz-3", "leaderboard") and state(hub)["leaderboard"]
+    hub.next()
+    assert hub.current()["id"] != "qz-3"  # only from the leaderboard does it move on
+
+
+def test_an_older_log_with_a_final_leaderboard_replays_as_written(quiz_session: tuple[str, Path], clock: Clock) -> None:
+    """#158: a ``quiz.jsonl`` written before the change shows the last question's leaderboard
+    before the podium. It replays as written, and Next from there still moves on to the podium."""
+    sid, folder = quiz_session
+    hub, quiz = make_rig(sid, clock)
+    at_lobby_with(hub, quiz, "Ana", "Bo")
+    goto_id(hub, "qz-3")
+    hub.next()  # its reveal
+    clock.t += 5000
+    with open(folder / "live" / QUIZ_FILE, "a", encoding="utf-8", newline="\n") as fh:  # what the older server wrote
+        fh.write(json.dumps({"game": "qz-lobby-1", "at": clock.t, "op": "phase", "phase": "leaderboard",
+                             "item_id": "qz-3"}) + "\n")
+    hub2, quiz2 = make_rig(sid, clock)  # a fresh server replays it
+    assert (hub2.current()["id"], state(hub2)["phase"]) == ("qz-3", "leaderboard")
+    assert [r["name"] for r in state(hub2)["leaderboard"]] == ["Ana", "Bo"]
+    hub2.next()
+    assert podium_steps(hub2) == ("qz-podium", 0, 2)
+    hub2.prev()  # back: the leaderboard that log showed
+    assert (hub2.current()["id"], state(hub2)["phase"]) == ("qz-3", "leaderboard")
 
 
 def test_lock_and_time_up_reveal(rig: tuple[LiveHub, QuizService], clock: Clock) -> None:
