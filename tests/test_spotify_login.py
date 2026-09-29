@@ -13,7 +13,7 @@ from typing import Any, Optional
 import pytest
 from fastapi.testclient import TestClient
 
-from src.env_file import read_env, set_value
+from src.env_file import get_value, read_env, set_value
 from src.music import spotify_login
 from src.music.spotify import REFRESH_KEY, TOKEN_URL
 
@@ -177,3 +177,69 @@ def test_saving_the_token_waits_for_a_reader_holding_env_open(isolated_env: Path
     finally:
         held.close()
     assert read_env()[REFRESH_KEY] == "fresh-token" and read_env()["SPOTIFY_CLIENT_ID"] == CLIENT_ID
+
+
+def test_frequent_reads_no_longer_starve_a_save_of_a_replace_window(isolated_env: Path) -> None:
+    """#141: .env is read on every Spotify status poll — often enough, pre-fix, that a save's
+    ``os.replace`` rarely found a moment without some reader's handle open, and Windows refused
+    the replace outright once the short retry budget was exhausted. Caching a read (below) cuts
+    how often a poll actually opens the file, which is what gives a save room in the first place."""
+    import threading
+
+    set_value("SPOTIFY_CLIENT_ID", CLIENT_ID)
+    stop = threading.Event()
+
+    def poll() -> None:
+        while not stop.is_set():
+            read_env()
+
+    readers = [threading.Thread(target=poll, daemon=True) for _ in range(8)]
+    for t in readers:
+        t.start()
+    try:
+        for n in range(20):
+            set_value(REFRESH_KEY, f"token-{n}")
+    finally:
+        stop.set()
+        for t in readers:
+            t.join(timeout=2)
+    assert read_env()[REFRESH_KEY] == "token-19"
+
+
+def test_a_burst_of_reads_shares_one_real_file_open(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One Spotify status poll reads .env more than once (the client id, then the token) — caching
+    means that burst opens the file once, not once per call (#141)."""
+    (isolated_env / ".env").write_text(f"SPOTIFY_CLIENT_ID={CLIENT_ID}\n", encoding="utf-8")
+    real_read_text = Path.read_text
+    calls = {"n": 0}
+
+    def counting_read_text(self: Path, *args: Any, **kwargs: Any) -> str:
+        if self.name == ".env":
+            calls["n"] += 1
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counting_read_text)
+    assert get_value("SPOTIFY_CLIENT_ID") == CLIENT_ID
+    assert get_value(REFRESH_KEY) == ""
+    assert calls["n"] == 1  # the second call reused the first's cached parse
+
+
+def test_a_read_retries_a_transient_permission_error_from_a_racing_replace(
+    isolated_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#141's mirror image: a status poll's read can itself land in the instant a save's
+    ``os.replace`` is in flight — Windows briefly refuses either side of that race, not just the
+    writer — so a read retries a transient ``PermissionError`` instead of surfacing it."""
+    (isolated_env / ".env").write_text(f"SPOTIFY_CLIENT_ID={CLIENT_ID}\n", encoding="utf-8")
+    real_read_text = Path.read_text
+    calls = {"n": 0}
+
+    def flaky_read_text(self: Path, *args: Any, **kwargs: Any) -> str:
+        calls["n"] += 1
+        if self.name == ".env" and calls["n"] <= 3:
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", flaky_read_text)
+    assert read_env()["SPOTIFY_CLIENT_ID"] == CLIENT_ID
+    assert calls["n"] == 4  # 3 failures the retry absorbed, then the read that succeeded
