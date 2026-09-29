@@ -21,7 +21,7 @@
 /* ---- top bar ---------------------------------------------------------- */
 .p-top { display: flex; align-items: center; gap: var(--space-md); min-width: 0; }
 .p-brand { width: 40px; height: 40px; border-radius: var(--radius-md); flex: none; }
-.p-titles { min-width: 0; flex: 1; }
+.p-titles { min-width: 140px; flex: 1; }
 .p-title { font-size: var(--font-heading-md); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-sub { color: var(--muted); font-size: var(--font-body-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); justify-content: flex-end; }
@@ -196,10 +196,11 @@
 .p-thumb.current .p-thumb-img { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .p-thumb.current .p-thumb-n { color: var(--accent-text); font-weight: 700; }
 
-/* Phone width (#98): the header's chips and icon buttons wrap onto their own
-   rows instead of squeezing the title to nothing and pushing the page wide.
-   The cockpit cards are already one column below 1100px (no change needed). */
-@media (max-width: 520px) {
+/* Phone and tablet widths (#98, #126): below the 1100px breakpoint where the
+   cockpit cards are already one column, the header's chips and icon buttons
+   wrap onto their own rows too, instead of squeezing the title (which keeps
+   its own 140px floor above) to nothing and pushing the page wide. */
+@media (max-width: 1099px) {
   .p-top { flex-wrap: wrap; }
   .p-chips { flex: 1 1 100%; justify-content: flex-start; }
 }

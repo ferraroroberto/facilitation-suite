@@ -27,6 +27,17 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     scroll_width = page.evaluate("document.documentElement.scrollWidth")
     client_width = page.evaluate("document.documentElement.clientWidth")
     assert scroll_width <= client_width, f"presenter scrolls sideways at 390px ({scroll_width} > {client_width})"
+
+    # #126: at tablet widths the title keeps a readable share of the row instead of
+    # being squeezed to nothing by the chips and icon buttons
+    for width in (600, 768, 1024):
+        page.set_viewport_size({"width": width, "height": 900})
+        page.wait_for_timeout(50)
+        title_width = page.locator(".p-title").bounding_box()["width"]
+        assert title_width > 120, f"presenter title squeezed to {title_width}px at {width}px wide"
+        scroll_width = page.evaluate("document.documentElement.scrollWidth")
+        client_width = page.evaluate("document.documentElement.clientWidth")
+        assert scroll_width <= client_width, f"presenter scrolls sideways at {width}px ({scroll_width} > {client_width})"
     page.set_viewport_size({"width": 1440, "height": 900})
 
     stage_ctx = browser.new_context(viewport={"width": 1280, "height": 720})
