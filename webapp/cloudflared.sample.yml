@@ -1,0 +1,31 @@
+# Named Cloudflare tunnel for the quiz player (#82) -- committed template.
+#
+# Copy to webapp/cloudflared.yml (gitignored: it holds the tunnel id) and fill
+# in the id and your hostname. When webapp/cloudflared.yml exists the tray runs
+#   cloudflared tunnel --config webapp/cloudflared.yml --metrics 127.0.0.1:8452 run
+# as its own child (src/tunnel.py); without it the tray logs a warning and the
+# quiz player is not published.
+#
+# One-time setup (README "Quiz player (public)"):
+#   1. cloudflared tunnel login                      (once per machine)
+#   2. cloudflared tunnel create facilitation-quiz
+#      -> writes ~/.cloudflared/<UUID>.json (secret: never commit or paste it)
+#   3. cloudflared tunnel route dns facilitation-quiz quiz.<your-domain>
+#   4. copy this file to webapp/cloudflared.yml, set `tunnel:` and `hostname:`
+#   5. quiz.public_url = https://quiz.<your-domain> in config/config.json
+#   6. tray.bat --restart
+#
+# NO Cloudflare Access policy on this hostname: the players are the public.
+
+tunnel: 00000000-0000-0000-0000-000000000000
+
+# Where `tunnel create` wrote the credentials (the default location).
+credentials-file: C:\Users\<you>\.cloudflared\00000000-0000-0000-0000-000000000000.json
+
+ingress:
+  # The player listener (quiz.public_port). It serves /play only: /presenter,
+  # /api, /ws and /stage are 404 there -- the main app (:8449) is never behind this.
+  - hostname: quiz.<your-domain>
+    service: http://127.0.0.1:8451
+  # Anything else that reaches the tunnel gets a plain 404.
+  - service: http_status:404

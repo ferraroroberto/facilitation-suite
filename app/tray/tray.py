@@ -7,9 +7,13 @@ reclaim-then-start owned by the shared ``tray_lifecycle.ps1``). Menu:
                         cert names it, else the loopback URL)
     Copy URL          — clipboard that same URL (paste it on the phone)
     Restart webapp    — stop + start so a fresh build is picked up
-    Status            — toast with the webapp state
+    Status            — toast with the webapp (and quiz tunnel) state
     --
-    Quit              — stop the webapp and exit
+    Quit              — stop the webapp and the tunnel, and exit
+
+When ``webapp/cloudflared.yml`` exists the tray also runs the quiz player's
+Cloudflare tunnel (``src/tunnel.py``): an owned-and-cycled child that dies with
+the tray on ``tray.bat --restart`` and is started again if it exits.
 
 Self-heal per project-scaffolding#201 (vendored ``app/tray/watchdog.py``):
 the initial spawn retries with backoff on a background thread, a health
@@ -37,7 +41,9 @@ from app.tray.watchdog import (
 )
 from app.webapp.manager import WebappManager, WebappManagerConfig
 from src.config import AppConfig
+from src.logger import log_path
 from src.no_window import NO_WINDOW
+from src.tunnel import Tunnel
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +114,7 @@ class TrayApp:
             on_recover=self._on_recover,
         )
         self.starter_exc: BaseException | None = None
+        self.tunnel = Tunnel(log_file=log_path("cloudflared"))
 
     # -- webapp lifecycle ---------------------------------------------------
 
@@ -180,11 +187,13 @@ class TrayApp:
 
     def show_status(self, icon, item) -> None:  # noqa: ARG002
         s = self.manager.status()
-        _notify("facilitation-suite status", f"{s.detail} · {s.base_url}")
+        tunnel = "quiz tunnel running" if self.tunnel.running() else "quiz tunnel off"
+        _notify("facilitation-suite status", f"{s.detail} · {s.base_url} · {tunnel}")
 
     def quit_app(self, icon, item) -> None:  # noqa: ARG002
         logger.info("👋 Tray quit requested")
         self.watchdog_stop.set()
+        self.tunnel.stop()
         try:
             self.manager.stop()
         except Exception as exc:  # noqa: BLE001
@@ -204,6 +213,7 @@ class TrayApp:
         threading.Thread(
             target=self.watchdog.run, args=(self.watchdog_stop,), daemon=True
         ).start()
+        threading.Thread(target=self.tunnel.supervise, name="tunnel", daemon=True).start()
 
         menu = Menu(
             MenuItem("Open facilitation-suite", self.open_local, default=True),

@@ -1,23 +1,30 @@
-"""Is the public quiz link reachable? (#56) — the readiness item and the presenter chip.
+"""Is the public quiz link reachable? (#56, #82) — the readiness item and the presenter chip.
 
-One check, five distinct states (``unknown`` is never folded into ``ok``):
+One check, six distinct states (``unknown`` is never folded into ``ok``):
 
 - ``not_configured`` — ``quiz.public_url`` is empty (or not an ``https://`` URL),
   or the player listener is off (``quiz.public_port = 0``).
 - ``listener_down`` — the player listener does not answer
   ``http://127.0.0.1:<public_port>/play/api/ping`` on this PC.
-- ``funnel_unreachable`` — public DNS does not know the host (Funnel off, or
-  not propagated yet), or the relay it points at does not answer the ping
-  (refused, timed out, a TLS error, a non-200 such as the relay's 502).
+- ``tunnel_down`` — ``quiz.public_url``'s host is one the Cloudflare tunnel
+  config (``webapp/cloudflared.yml``) publishes, and cloudflared is not running
+  or holds no edge connection (its ``/ready`` on ``127.0.0.1:8452``; ``src/tunnel.py``).
+- ``public_unreachable`` — public DNS does not know the host (the DNS record is
+  missing or not propagated yet), or the public edge it points at does not
+  answer the ping (refused, timed out, a TLS error, a non-200 such as the
+  502 Cloudflare and the Funnel relay both give when nothing serves the host).
 - ``unknown`` — the check could not establish it: never run, stale, public DNS
   did not answer at all (this PC offline?), or an unexpected error.
-- ``ok`` — the ping answered ``{"ok": true}`` **through the public relay**.
+- ``ok`` — the ping answered ``{"ok": true}`` **through the public edge**.
 
-The relay is reached the way a phone on mobile data reaches it: the host is
-resolved through public DNS (``1.1.1.1``, then ``8.8.8.8``, queried directly
-over UDP — never this PC's resolver, which MagicDNS answers with the tailnet
-address and so would skip the relay), then an HTTPS request goes to that
-address with the real host name for SNI and certificate checks.
+The edge (Cloudflare's, or Tailscale Funnel's relay in the fallback set-up) is
+reached the way a phone on mobile data reaches it: the host is resolved through
+public DNS (``1.1.1.1``, then ``8.8.8.8``, queried directly over UDP — never
+this PC's resolver, which may answer differently, e.g. MagicDNS with the
+tailnet address), then an HTTPS request goes to that address with the real host
+name for SNI and certificate checks. A proxied Cloudflare name answers public
+DNS with A records directly; a CNAME chain in an answer is followed to its A
+records all the same.
 
 The check blocks for up to a few seconds, so it never runs on the event loop:
 ``QuizReach.check_now`` runs in a thread (``asyncio.to_thread``, a readiness
@@ -43,23 +50,26 @@ from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
+import src.tunnel as src_tunnel
+
 logger = logging.getLogger(__name__)
 
 OK = "ok"
 LISTENER_DOWN = "listener_down"
-FUNNEL_UNREACHABLE = "funnel_unreachable"
+TUNNEL_DOWN = "tunnel_down"
+PUBLIC_UNREACHABLE = "public_unreachable"
 NOT_CONFIGURED = "not_configured"
 UNKNOWN = "unknown"
-STATES = (OK, LISTENER_DOWN, FUNNEL_UNREACHABLE, NOT_CONFIGURED, UNKNOWN)
-LABELS = {OK: "reachable", LISTENER_DOWN: "listener down", FUNNEL_UNREACHABLE: "funnel unreachable",
-          NOT_CONFIGURED: "not configured", UNKNOWN: "unknown"}
+STATES = (OK, LISTENER_DOWN, TUNNEL_DOWN, PUBLIC_UNREACHABLE, NOT_CONFIGURED, UNKNOWN)
+LABELS = {OK: "reachable", LISTENER_DOWN: "listener down", TUNNEL_DOWN: "tunnel down",
+          PUBLIC_UNREACHABLE: "public URL unreachable", NOT_CONFIGURED: "not configured", UNKNOWN: "unknown"}
 
 PUBLIC_RESOLVERS = ("1.1.1.1", "8.8.8.8")
 PING_PATH = "/play/api/ping"
 LOCAL_TIMEOUT_S = 2.0
 DNS_TIMEOUT_S = 2.0
-RELAY_TIMEOUT_S = 5.0
-RELAY_TRIES = 2  # relay addresses tried before calling it unreachable
+EDGE_TIMEOUT_S = 5.0
+EDGE_TRIES = 2  # edge addresses tried before calling it unreachable
 INTERVAL_S = 120.0  # the periodic check while a live session has quiz items
 STALE_S = 300.0  # an older result is "unknown", never a stale "ok"
 
@@ -73,8 +83,8 @@ class Reach:
     state: str
     detail: str
     checked_at: Optional[float] = None  # epoch seconds
-    via: Optional[str] = None  # the relay address that answered
-    ms: Optional[int] = None  # the relay round trip
+    via: Optional[str] = None  # the edge address that answered
+    ms: Optional[int] = None  # the edge round trip
 
     def as_dict(self) -> dict[str, Any]:
         return {"state": self.state, "label": LABELS[self.state], "detail": self.detail,
@@ -136,8 +146,8 @@ def resolve_public(host: str, resolvers: tuple[str, ...] = PUBLIC_RESOLVERS,
     """``host``'s addresses as public DNS has them; ``[]`` when no resolver that answered knows it.
 
     Asks each resolver in turn and returns the first one's addresses (a
-    resolver can still serve a cached NXDOMAIN minutes after Funnel went on —
-    seen in #49 — so an empty answer moves on to the next); raises
+    resolver can still serve a cached NXDOMAIN minutes after a new name went
+    live — seen in #49 — so an empty answer moves on to the next); raises
     ``DnsError`` only when none of them answered at all.
     """
     failures, answered = [], False
@@ -206,7 +216,7 @@ def ping_local(port: int, timeout: float = LOCAL_TIMEOUT_S) -> Optional[str]:
         return f"{type(exc).__name__}: {getattr(exc, 'reason', exc)}"
 
 
-def ping_relay(host: str, port: int, ip: str, path: str, timeout: float = RELAY_TIMEOUT_S) -> Optional[str]:
+def ping_edge(host: str, port: int, ip: str, path: str, timeout: float = EDGE_TIMEOUT_S) -> Optional[str]:
     """``None`` when ``https://host:port<path>`` answers the ping via ``ip``, else why not."""
     conn = _PinnedHTTPSConnection(host, ip, port, timeout)
     try:
@@ -224,16 +234,19 @@ def ping_relay(host: str, port: int, ip: str, path: str, timeout: float = RELAY_
 
 def check(public_url: str, public_port: int, *,
           local: Optional[Callable[[int], Optional[str]]] = None,
+          tunnel: Optional[Callable[[str], Optional[str]]] = None,
           resolve: Optional[Callable[[str], list[str]]] = None,
-          relay: Optional[Callable[[str, int, str, str], Optional[str]]] = None,
+          edge: Optional[Callable[[str, int, str, str], Optional[str]]] = None,
           clock: Callable[[], float] = time.time) -> Reach:
     """The public link's state now (blocking — run it in a thread; see the module docstring).
 
-    ``local``, ``resolve`` and ``relay`` default to this module's ``ping_local``,
-    ``resolve_public`` and ``ping_relay``, looked up at call time (the test suite
-    replaces the network ones so no test leaves this PC).
+    ``local``, ``tunnel``, ``resolve`` and ``edge`` default to this module's
+    ``ping_local``, ``src.tunnel.problem``, ``resolve_public`` and ``ping_edge``,
+    looked up at call time (the test suite replaces the network ones so no test
+    leaves this PC).
     """
-    local, resolve, relay = local or ping_local, resolve or resolve_public, relay or ping_relay
+    local, resolve, edge = local or ping_local, resolve or resolve_public, edge or ping_edge
+    tunnel = tunnel or src_tunnel.problem
     now = clock()
     url = (public_url or "").strip()
     if not public_port:
@@ -249,21 +262,25 @@ def check(public_url: str, public_port: int, *,
         why = local(public_port)
         if why is not None:
             return Reach(LISTENER_DOWN, f"127.0.0.1:{public_port} does not answer ({why})", now)
+        why = tunnel(host)
+        if why is not None:
+            return Reach(TUNNEL_DOWN, f"{why} — restart the tray (tray.bat --restart); its log: cloudflared.log", now)
         try:
             ips = resolve(host)
         except DnsError as exc:
             return Reach(UNKNOWN, f"Public DNS did not answer ({exc}) — is this PC online?", now)
         if not ips:
-            return Reach(FUNNEL_UNREACHABLE, f"{host} is not in public DNS — is Funnel on for :{port}?", now)
+            return Reach(PUBLIC_UNREACHABLE,
+                         f"{host} is not in public DNS — is its DNS record in place (or still propagating)?", now)
         errors = []
-        for ip in ips[:RELAY_TRIES]:
+        for ip in ips[:EDGE_TRIES]:
             started = time.monotonic()
-            why = relay(host, port, ip, path)
+            why = edge(host, port, ip, path)
             if why is None:
                 ms = int((time.monotonic() - started) * 1000)
                 return Reach(OK, f"Players can reach {host}:{port} (via {ip}, {ms} ms)", now, ip, ms)
             errors.append(f"{ip}: {why}")
-        return Reach(FUNNEL_UNREACHABLE, f"The relay does not answer the ping ({'; '.join(errors)})", now)
+        return Reach(PUBLIC_UNREACHABLE, f"The public edge does not answer the ping ({'; '.join(errors)})", now)
     except Exception as exc:  # noqa: BLE001 — a bug in the check must read "unknown", never "ok"
         logger.exception("❌ quiz reach: the check failed")
         return Reach(UNKNOWN, f"The check failed ({type(exc).__name__}: {exc})", now)

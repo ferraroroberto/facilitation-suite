@@ -14,9 +14,9 @@ Pages (``app/webapp/routers/pages.py``):
     GET /api/version → build identity (git_sha captured at import, schema version)
 
 The lifespan also runs the **quiz player listener** — a second, separate app on
-``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface Tailscale
-Funnel publishes. It shares this loop and the one ``QuizService``, never this
-app's routes.
+``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface the
+Cloudflare tunnel publishes (``src/tunnel.py``, run by the tray). It shares this
+loop and the one ``QuizService``, never this app's routes.
 
 Static assets are served ``no-cache`` (revalidated by ETag on every load):
 the app runs on this PC and on a phone over the tailnet, so a stale asset

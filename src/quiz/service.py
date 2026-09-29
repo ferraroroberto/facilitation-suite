@@ -71,7 +71,7 @@ its ``game`` record, so it survives a restart); ``state.quiz`` carries it
 with ``join_url`` (``quiz.public_url`` + ``/play?pin=…``, ``None`` while the
 public URL is not configured), ``listener`` (the player listener is up) and
 ``reach`` (the last public-link check, ``reach.py``: ``state`` ok |
-listener_down | funnel_unreachable | not_configured | unknown, ``label``,
+listener_down | tunnel_down | public_unreachable | not_configured | unknown, ``label``,
 ``detail``, ``checked_at``). The server sets ``public_url``, ``listener_up``
 and ``reach``.
 

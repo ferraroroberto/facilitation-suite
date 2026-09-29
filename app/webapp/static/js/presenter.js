@@ -427,9 +427,9 @@ function quizJoinHtml(q) {
     quizReachHtml(q.reach);
 }
 
-// The public-link check (src/quiz/reach.py), the same five states as the readiness list:
-// ok | listener_down | funnel_unreachable | not_configured | unknown — unknown is never shown as ok.
-const REACH_CHIP = { ok: 'ok', listener_down: 'warn', funnel_unreachable: 'warn', not_configured: 'warn', unknown: '' };
+// The public-link check (src/quiz/reach.py), the same six states as the readiness list:
+// ok | listener_down | tunnel_down | public_unreachable | not_configured | unknown — unknown is never shown as ok.
+const REACH_CHIP = { ok: 'ok', listener_down: 'warn', tunnel_down: 'warn', public_unreachable: 'warn', not_configured: 'warn', unknown: '' };
 
 function quizReachHtml(reach) {
   const r = reach || { state: 'unknown', label: 'unknown', detail: 'Not checked yet' };
@@ -610,7 +610,7 @@ function drawChips() {
     const pin = `${qz.pin.slice(0, 3)} ${qz.pin.slice(3)}`;
     const players = `${qz.player_count} player${qz.player_count === 1 ? '' : 's'}`;
     if (!qz.listener) chips.push(['bad', `Quiz · PIN ${pin} · players can't join`, null, 'The quiz player listener is off (quiz.public_port busy or 0) — see the log.']);
-    else if (!qz.join_url) chips.push(['warn', `Quiz · PIN ${pin} · public URL not configured`, null, 'Set quiz.public_url in config/config.json (the Tailscale Funnel address), then restart.']);
+    else if (!qz.join_url) chips.push(['warn', `Quiz · PIN ${pin} · public URL not configured`, null, 'Set quiz.public_url in config/config.json (the public player address, e.g. https://quiz.<domain>), then restart.']);
     else chips.push(['ok', `Quiz · PIN ${pin} · ${players}`, null, qz.join_url]);
   }
   if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
