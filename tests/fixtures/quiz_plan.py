@@ -19,6 +19,14 @@ PLAYER_QUIZ: dict[str, Any] = {"id": "sec-play", "name": "Shapes quiz", "minutes
     {"kind": "activity", "id": "pq-podium", "type": "quiz_podium"},
 ]}
 
+# Four answers at Kahoot's 75-character limit, with accents and "¿" (#84): the reveal must show every line.
+LONG_ANSWERS: dict[str, str] = {
+    "answer_1": "Compartir decisiones en público, con fechas, dueños y criterios explícitos.",
+    "answer_2": "¿Revisar métricas de satisfacción cada trimestre y publicar los resultados?",
+    "answer_3": "Organizar reuniones rápidas de alineación sin agenda ni acta posterior útil",
+    "answer_4": "Esperar a que el líder técnico apruebe cada cambio pequeño antes de avanzar",
+}
+
 
 def add_quiz_section(folder: Path, section: dict[str, Any] = PLAYER_QUIZ, at: int = 1) -> None:
     """Insert ``section`` into the session's plan (``session.yaml``) at position ``at``."""

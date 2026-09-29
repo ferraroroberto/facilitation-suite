@@ -2,17 +2,37 @@
 answer on the big tiles, see "Locked in" only once the server acked, survive a reload,
 and see their result. One phone is 320 px wide on the WebSocket, the other polls.
 The stage (#53) follows along: names pop into the lobby, the question shows no correct
-answer and counts down from the server's deadline, the reveal marks it, the leaderboard ranks."""
+answer and counts down from the server's deadline, the reveal marks it, the leaderboard ranks.
+The first question has four 75-character answers under a corner camera (#84): the reveal shows
+every line of every tile and keeps the tiles and bars out of the camera's box."""
 
 from __future__ import annotations
 
+import copy
+
 from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 from tests.fixtures.demo import build_demo_session
-from tests.fixtures.quiz_plan import add_quiz_section
+from tests.fixtures.quiz_plan import LONG_ANSWERS, PLAYER_QUIZ, add_quiz_section
 
 SMALL = {"viewport": {"width": 320, "height": 568}, "has_touch": True, "is_mobile": True}
 PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
+
+# On the stage, in canvas px (1920×1080): the answer tiles whose text does not fit their box, and the
+# tiles and bars that reach into the camera zone [x0, y0, x1, y1] (fractions) — both must be empty.
+CLIPPED = """() => [...document.querySelectorAll('.qz-tile')].filter((t) => {
+  const x = t.querySelector('.qz-text'), a = t.getBoundingClientRect(), b = x.getBoundingClientRect();
+  return t.scrollHeight > t.clientHeight + 1 || b.top < a.top - 1 || b.bottom > a.bottom + 1;
+}).map((t) => t.dataset.choice)"""
+IN_CAMERA = """(z) => {
+  const c = document.querySelector('.stage-canvas').getBoundingClientRect(), s = c.width / 1920;
+  const cam = { l: z[0] * 1920, t: z[1] * 1080, r: z[2] * 1920, b: z[3] * 1080 };
+  return [...document.querySelectorAll('.qz-tile, .qz-bar')].filter((e) => {
+    const r = e.getBoundingClientRect(), l = (r.left - c.left) / s, t = (r.top - c.top) / s;
+    return l < cam.r && l + r.width / s > cam.l && t < cam.b && t + r.height / s > cam.t;
+  }).map((e) => e.className);
+}"""
 
 
 def _phone(browser: Browser, spec: dict, errors: list[str]) -> Page:
@@ -32,7 +52,11 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
     base = webapp.base_url
     folder = webapp.root / "sessions" / "demo" / "quiz-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
-    add_quiz_section(folder)
+    section = copy.deepcopy(PLAYER_QUIZ)
+    first = section["items"][1]
+    first["options"].update(LONG_ANSWERS)
+    first["profile"] = "camera_pip"  # a camera box in the top-right corner, as in a real session
+    add_quiz_section(folder, section)
     assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
     items = page.request.get(f"{base}/api/live").json()["plan"]["run"]["items"]
     lobby = next(n for n, it in enumerate(items) if it["id"] == "pq-lobby") + 1
@@ -88,6 +112,15 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "2")
         expect(stage.locator(".qz-tile.correct [data-correct]")).to_have_text("Correct")
         expect(stage.locator(".qz-bar-count")).to_have_text(["1", "1", "0", "0"])
+        # every line of every 75-character answer shows, none under the camera (#84)
+        stage.evaluate("document.fonts.ready")
+        try:
+            stage.wait_for_function(f"() => ({CLIPPED})().length === 0", timeout=3000)
+        except PlaywrightTimeout:
+            pass
+        assert stage.evaluate(CLIPPED) == []
+        zone = next(it for it in items if it["id"] == "pq-1")["zone"]
+        assert zone and stage.evaluate(IN_CAMERA, zone) == []
 
         assert page.request.post(f"{base}/api/actions/next").ok  # leaderboard
         expect(ana.locator("[data-result]")).to_contain_text("#1")
