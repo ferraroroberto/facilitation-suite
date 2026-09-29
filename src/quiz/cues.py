@@ -7,11 +7,11 @@ A cue is a file in the session folder's ``audio/`` — any of ``.mp3``,
 - ``quiz-lobby.*`` — the lobby; loops for as long as the lobby is on stage;
 - ``quiz-countdown.*`` — a question opens (plays once);
 - ``quiz-reveal.*`` — the answers are revealed (plays once);
-- ``quiz-podium.*`` — the podium (plays once).
+- ``quiz-podium.*`` — the fanfare: the podium's 1st place is revealed (plays once).
 
 Every other change (the leaderboard, leaving the quiz, a cue-less phase)
-fades out a cue that is still sounding, so the lobby loop never runs into a
-question. Precedence is ``MusicService.cue``'s: an item's own music or the
+(and the podium before its 1st place shows) fades out a cue that is still
+sounding, so the lobby loop never runs into a question. Precedence is ``MusicService.cue``'s: an item's own music or the
 presenter's ad-hoc music always wins — the cue is skipped and that music
 plays on untouched. Joins and answers change nothing: only a new
 ``(session, game, phase, item)`` does.
@@ -33,7 +33,7 @@ CUES: dict[str, tuple[str, bool]] = {
     "lobby": ("quiz-lobby", True),
     "question": ("quiz-countdown", False),
     "reveal": ("quiz-reveal", False),
-    "podium": ("quiz-podium", False),
+    "podium": ("quiz-podium", False),  # with the 1st place (#89): see ``QuizCues.check``
 }
 
 
@@ -48,7 +48,10 @@ class QuizCues:
         """Play the cue of a phase that just changed (or fade out a cue the new phase has none for)."""
         try:
             game = self.quiz.game_on_stage()
-            key = (self.live.session_id, game.game_id, game.phase, game.item_id) if game and game.phase else None
+            phase = game.phase if game else ""
+            if phase == "podium" and (game.podium_places() == 0 or game.podium_shown() < game.podium_places()):
+                phase = "podium-steps"  # the fanfare waits for 1st (and never plays for an empty podium)
+            key = (self.live.session_id, game.game_id, phase, game.item_id) if game and phase else None
             if key == self.key:
                 return
             self.key = key

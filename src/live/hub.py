@@ -141,6 +141,8 @@ class LiveHub:
         # A service that steps through the item on stage takes ``next`` while it has steps left
         # (the quiz: question → reveal → leaderboard) by returning True; else the plan moves on.
         self.next_handlers: list[Callable[[], bool]] = []
+        # The same for ``prev``: a service with a step to take back (the quiz podium) returns True.
+        self.prev_handlers: list[Callable[[], bool]] = []
         # The same for the Space key (the ``space`` action): a service that owns what Space means
         # on the item on stage (the quiz: lock an open question) returns True; else capture/timer.
         self.space_handlers: list[Callable[[], bool]] = []
@@ -364,6 +366,8 @@ class LiveHub:
         self.goto(self.index + 1)
 
     def prev(self) -> None:
+        if any(take() for take in self.prev_handlers):
+            return
         self.goto(self.index - 1)
 
     def goto_section(self, number: int) -> None:

@@ -120,7 +120,7 @@ PLAN: dict[str, Any] = {
              "chat_prompt": "One or two words: what switches this group off?", "profile": "camera_pip",
              "font": {"family": "Patrick Hand", "size_px": 72},
              "timer": {"enabled": True, "seconds": 180, "start": "with_capture", "show_on": "stage", "end": "stop_capture"},
-             "options": {"merge_variants": True, "stopwords": "en", "show_names": False}},
+             "options": {"merge_variants": True, "stopwords": "en", "show_names": False, "terms": "verbatim"}},
             {"kind": "slide", "slide_id": 106, "profile": "screen_only"},
         ]},
         {"id": "sec-break", "name": "Break", "minutes": 10, "items": [
@@ -168,12 +168,17 @@ def write_demo_roster(path: Path, n: int = 40) -> list[str]:
     return names
 
 
+# The kryptonite word cloud is verbatim (#99): a 60-character answer, said three
+# times, so it — not "meetings" — is the top answer and the PDF strip's tile.
+LONG_TOP_ANSWER = "the constant context switching between projects and meetings"
+assert len(LONG_TOP_ANSWER) == 60
+
 # What the room "answered" in the demo run (synthetic), per activity in chat order.
 RUN_ANSWERS: dict[str, list[str]] = {
     "act-map": ["Madrid, Spain", "Sevilla, España", "Lisboa", "Milan, italy", "CDMX", "desde Bogotá", "Barcelona", "Grnada"],
     "act-weather": ["4", "3", "sunny spells", "5", "2", "4", "3 cloudy", "4"],
-    "act-kryptonite": ["meetings", "perfectionism", "meetings without agenda", "procrastination", "perfectionism",
-                       "notifications", "hello", "tiredness", "meetings"],
+    "act-kryptonite": ["meetings", "perfectionism", "meetings without agenda", LONG_TOP_ANSWER, "perfectionism",
+                       LONG_TOP_ANSWER, "hello", LONG_TOP_ANSWER, "meetings"],
     "act-enemy": ["Endless meetings", "Not saying no", "Context switching", "Unclear goals"],
     "act-ideas": ["Focus blocks every morning", "A shared agenda", "Say no kindly", "Fewer tools"],
     "act-takeaway": ["trust", "focus", "trust", "energy", "clarity", "focus", "trust"],

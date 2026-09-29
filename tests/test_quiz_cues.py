@@ -96,7 +96,11 @@ def test_each_phase_plays_its_cue_and_the_lobby_loops(quiz_folder: tuple[str, Pa
     assert plays(fake)[-1] == "quiz-reveal.wav"
     run_action(hub, "next")  # leaderboard: no cue of its own — the reveal's fades out
     assert fake.calls[-1][0] == "stop" and music.state == "idle" and music.cue_name is None
-    goto_id(hub, "qz-podium")
+    goto_id(hub, "qz-podium")  # two players: 2nd, then 1st — the fanfare waits for 1st (#89)
+    assert plays(fake)[-1] == "quiz-reveal.wav"
+    run_action(hub, "next")  # 2nd
+    assert plays(fake)[-1] == "quiz-reveal.wav"
+    run_action(hub, "next")  # 1st
     assert plays(fake)[-1] == "quiz-podium.wav"
     goto_id(hub, "slide-101")  # off the quiz: the cue fades out
     assert fake.calls[-1][0] == "stop" and music.state == "idle"

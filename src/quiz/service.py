@@ -2,7 +2,8 @@
 
 Wired like ``CaptureService``: it hears items change, sessions go live and
 resets, adds ``quiz`` to every ``/ws`` snapshot and registers its actions. It
-also takes the hub's ``next`` while a question has phases left.
+also takes the hub's ``next`` while a question has phases left, and the
+hub's ``next`` and ``prev`` while a podium has places to reveal or hide.
 
 **Game scope.** A ``quiz_lobby`` item and the ``quiz`` items after it, in run
 order, up to the next ``quiz_podium`` (or the next lobby), are one game. The
@@ -16,12 +17,18 @@ any scope is shown as a plain item.
 (``question``, deadline = now + its time limit). Then ``next`` (every control
 surface's "next") steps ``question → reveal → leaderboard`` and only from
 ``leaderboard`` moves on to the next plan item; time up (plus
-``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves. On a lobby, a
-podium and every other item ``next`` and ``prev`` behave exactly as before.
+``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves. On the
+**podium** (#89) ``next`` reveals one place at a time — 3rd, 2nd, then 1st
+(only the places that exist with fewer than three players) — and only once
+1st shows moves on; ``prev`` hides the last place shown, and with none shown
+goes to the previous item. The step (``podium_step`` in ``state.quiz``, with
+``podium_places``) is a ``podium`` record, so a restart keeps it; entering
+the podium from another phase of the game starts it at 0. On a lobby and
+every other item ``next`` and ``prev`` behave exactly as before.
 **Space** (the ``space`` action) on a question that is still open locks it
 (the same as ``quiz_lock``); anywhere else Space is the capture or the timer
-as before. ``prev`` is never taken: it goes to the previous item. Leaving a
-question while it is still open locks it (answers only count while the stage
+as before. Off the podium ``prev`` is never taken: it goes to the previous
+item. Leaving a question while it is still open locks it (answers only count while the stage
 shows the question); coming back shows its reveal or leaderboard again, never
 a second chance to answer.
 
@@ -214,6 +221,7 @@ class QuizService:
         live.session_listeners.append(self._on_session)
         live.reset_listeners.append(self._forget)
         live.next_handlers.append(self._on_next)
+        live.prev_handlers.append(self._on_prev)
         live.space_handlers.append(self._on_space)
         register(Action("quiz_lock", "Quiz: lock answers", lambda h, a: self.lock()))
         register(Action("quiz_kick", "Quiz: remove a player", lambda h, a: self.kick(str(a)), arg="id", stream_deck=False))
@@ -265,6 +273,13 @@ class QuizService:
         if game.phase != "question" or game.item_id != cur["id"] or run is None or not run.open:
             return None
         return game, scope, scope.questions[cur["id"]]
+
+    def podium_on_stage(self) -> Optional[Game]:
+        """The game whose podium is on stage now (``None`` anywhere else)."""
+        cur, scope, game = self._current()
+        if cur is None or scope is None or game is None or cur["id"] != scope.podium_id:
+            return None
+        return game if (game.phase, game.item_id) == ("podium", cur["id"]) else None
 
     def game_on_stage(self) -> Optional[Game]:
         """The game of the quiz item on stage (``None`` off a quiz)."""
@@ -406,7 +421,11 @@ class QuizService:
         self._changed()
 
     def _on_next(self) -> bool:
-        """The hub's ``next``: on a question with phases left, step it and take the ``next``."""
+        """The hub's ``next``: on a question with phases left, or a podium with places to reveal,
+        step it and take the ``next``."""
+        podium = self.podium_on_stage()
+        if podium is not None:
+            return self._podium_step(podium, +1)
         cur, scope, game = self._current()
         if cur is None or scope is None or game is None or cur["id"] not in scope.questions or game.item_id != cur["id"]:
             return False
@@ -416,6 +435,21 @@ class QuizService:
             self._phase(game, "leaderboard", cur["id"])
         else:
             return False  # leaderboard: on to the next item
+        self._changed()
+        return True
+
+    def _on_prev(self) -> bool:
+        """The hub's ``prev``: on a podium with a place shown, hide it and take the ``prev``."""
+        podium = self.podium_on_stage()
+        return podium is not None and self._podium_step(podium, -1)
+
+    def _podium_step(self, game: Game, delta: int) -> bool:
+        """Show one podium place more (``+1``) or fewer (``-1``); ``False`` when there is none to step."""
+        step = game.podium_shown() + delta
+        if not 0 <= step <= game.podium_places():
+            return False
+        self._record(game, {"op": "podium", "item_id": game.item_id, "step": step})
+        logger.info("ℹ️ quiz %s: podium shows %d of %d places", game.game_id, step, game.podium_places())
         self._changed()
         return True
 
