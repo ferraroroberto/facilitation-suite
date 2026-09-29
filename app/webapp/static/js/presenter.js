@@ -111,16 +111,25 @@ function buildShell() {
       `<button type="button" class="p-icon-btn" data-reset title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
       `<button type="button" class="p-icon-btn" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button>` +
     `</header>` +
+    // Four columns on a wide screen (#149): what is on stage, its notes and the session clocks ·
+    // what comes next and the music · the item's controls (quiz, capture, timer) · the Zoom chat.
+    // Narrower, the columns dissolve (display: contents) and the cards stack in their own order.
     `<div class="p-grid">` +
-      card('p-now', '<span class="live-dot"></span>On stage now', 'what Zoom sees', '<span class="p-flag" data-flag hidden></span>') +
-      card('p-next', 'Next', '') +
-      `<div class="p-side">` +
-        card('p-item', 'Timer', '') +
+      `<div class="p-col p-col-stage">` +
+        card('p-now', '<span class="live-dot"></span>On stage now', 'what Zoom sees', '<span class="p-flag" data-flag hidden></span>') +
+        card('p-notes', 'Notes', '') +
+        card('p-timing', 'Timing', '', '<span class="chip" data-drift hidden></span>') +
+      `</div>` +
+      `<div class="p-col p-col-next">` +
+        card('p-next', 'Next', '') +
         card('p-music', `${icon('music')} Music`, '') +
+      `</div>` +
+      `<div class="p-col p-side">` +
+        card('p-item', 'Timer', '') +
+      `</div>` +
+      `<div class="p-col p-col-chat">` +
         card('p-chat', 'Zoom chat', '', '<span class="p-age small muted" data-age></span>') +
       `</div>` +
-      card('p-notes', 'Notes', '') +
-      card('p-timing', 'Timing', '', '<span class="chip" data-drift hidden></span>') +
     `</div>` +
     `<footer class="card p-strip">` +
       `<button type="button" class="p-nav" data-prev aria-label="Previous (←)">${icon('chevron-left')}</button>` +
@@ -137,7 +146,7 @@ function buildShell() {
   clickToAdvance(nowHost, live);
 
   const nextBody = root.querySelector('.p-next [data-body]');
-  nextBody.innerHTML = `<div class="stage-host p-stage p-stage-next"></div><p class="p-caption small muted" data-caption></p>` +
+  nextBody.innerHTML = `<div class="p-next-view"><div class="stage-host p-stage p-stage-next"></div></div><p class="p-caption small muted" data-caption></p>` +
     `<p class="overline p-then-label">Then</p><ol class="p-then" data-then></ol>`;
   nextStage = createStage(nextBody.querySelector('.p-stage-next'), { guides: true, blackout: false });
 
@@ -238,7 +247,7 @@ function drawNext(s, nxt) {
   card.querySelector('[data-caption]').textContent = nxt
     ? (nxt.kind === 'activity' ? `${nxt.type_label || 'Activity'}${nxt.capture ? ' · starts when you press Space' : ''}` : kindLabel(nxt))
     : '';
-  const then = items().slice(s.index + 2, s.index + 5);
+  const then = items().slice(s.index + 2, s.index + 6);
   card.querySelector('[data-then]').innerHTML = then.map((it) =>
     `<li><span class="p-then-n">${it.index + 1}</span><span class="p-then-t">${esc(oneLine(it.title))}</span><span class="p-then-k">${esc(kindLabel(it))}</span></li>`).join('') ||
     '<li class="muted small">Nothing after this.</li>';
@@ -345,11 +354,11 @@ const isQuiz = (it) => !!(it && it.kind === 'activity' && QUIZ_TYPES.has(it.type
 function buildQuiz(body) {
   body.insertAdjacentHTML('beforeend',
     `<div class="p-cap-status"><span class="p-cap-dot" data-qdot></span><span class="grow" data-qphase></span><span class="p-quiz-left" data-qleft></span></div>` +
-    `<p class="small muted p-cap-counts" data-qcounts></p>` +
-    `<div class="p-quiz-join" data-qsound></div>` +
+    // Tighter (#149): the counts share a row with the Sounds chip, the PIN with its link.
+    `<div class="p-quiz-join"><p class="small muted p-cap-counts" data-qcounts></p><span class="p-quiz-part" data-qsound></span></div>` +
     `<div class="p-quiz-join" data-qjoin></div>` +
+    `<div class="p-timer-actions p-quiz-actions">` +
     `<button type="button" class="button-primary p-cap-btn" data-qnext></button>` +
-    `<div class="p-timer-actions">` +
     `<button type="button" class="button-surface" data-qlock>${icon('square')} Lock answers<kbd>Space</kbd></button>` +
     `<button type="button" class="button-surface" data-qnew>${icon('rotate-ccw')} New game</button></div>` +
     `<p class="overline p-quiz-head">${icon('users')} Players</p><ul class="p-quiz-players" data-qplayers></ul>`);
@@ -547,19 +556,20 @@ function drawTiming(cur, s) {
     drift.hidden = true;
     if (body.dataset.mode !== 'idle') {
       body.dataset.mode = 'idle';
-      body.innerHTML = `<div class="p-clock"><span class="p-clock-big">00:00</span><span class="p-clock-of">of ${hms(dur * 60)}</span></div>` +
-        `<p class="small muted">The session clock starts when you say so; the section clock follows it.</p>` +
-        `<button type="button" class="button-primary p-clock-start" data-cstart>${icon('clock')} Start the session clock</button>`;
+      // Compact (#149): the clock and its one button share a row.
+      body.innerHTML = `<div class="p-clock"><span class="p-clock-big">00:00</span><span class="p-clock-of">of ${hms(dur * 60)}</span>` +
+        `<button type="button" class="button-primary p-clock-start" data-cstart>${icon('clock')} Start the session clock</button></div>` +
+        `<p class="small muted">The session clock starts when you say so; the section clock follows it.</p>`;
       body.querySelector('[data-cstart]').addEventListener('click', () => live.send('clock_start'));
     }
     return;
   }
   if (body.dataset.mode !== 'run') {
     body.dataset.mode = 'run';
-    body.innerHTML = `<div class="p-clock"><span class="p-clock-big" data-elapsed></span><span class="p-clock-of">of ${hms(dur * 60)}</span></div>` +
-      `<div class="p-sec-name" data-secname></div><div class="p-sec-left small" data-secleft></div>` +
-      `<div class="p-bar"><span data-bar></span></div><div class="p-break small muted" data-break></div>` +
-      `<button type="button" class="button-ghost p-clock-reset" data-creset>${icon('rotate-ccw')} Reset clock</button>`;
+    body.innerHTML = `<div class="p-clock"><span class="p-clock-big" data-elapsed></span><span class="p-clock-of">of ${hms(dur * 60)}</span>` +
+      `<button type="button" class="button-ghost p-clock-reset" data-creset>${icon('rotate-ccw')} Reset clock</button></div>` +
+      `<div class="p-sec"><span class="p-sec-name" data-secname></span><span class="p-sec-left small" data-secleft></span></div>` +
+      `<div class="p-bar"><span data-bar></span></div><div class="p-break small muted" data-break></div>`;
     body.querySelector('[data-creset]').addEventListener('click', async () => {
       const ok = await confirmDialog({ title: 'Reset the session clock?', message: 'The session and section clocks go back to zero.', actionLabel: 'Reset' });
       if (ok) live.send('clock_reset');
@@ -674,7 +684,9 @@ const cueLabel = (cue) => cue.replace(/^quiz-/, '');
 function buildMusic() {
   const body = root.querySelector('.p-music [data-body]');
   body.innerHTML =
-    `<div class="p-music-now"><span class="p-cap-dot" data-mdot></span><span class="p-music-title" data-mnow></span></div>` +
+    // What is playing and its volume share the first row (#149).
+    `<div class="p-music-now"><span class="p-cap-dot" data-mdot></span><span class="p-music-title" data-mnow></span>` +
+    `<label class="p-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-mvol aria-label="Music volume"><output class="small" data-mvolout></output></label></div>` +
     `<select class="select-native" data-mpick aria-label="Track to play"></select>` +
     `<div class="p-music-link" data-mlinkrow hidden><input class="input" data-mlink placeholder="Paste a Spotify link" aria-label="Spotify link">` +
     `<button type="button" class="button-surface" data-mlinkplay>${icon('play')} Play link</button></div>` +
@@ -682,7 +694,6 @@ function buildMusic() {
     `<button type="button" class="button-primary" data-mtoggle></button>` +
     `<button type="button" class="button-surface" data-mstop title="Stop (fades out)">${icon('square')} Stop</button>` +
     `<button type="button" class="button-surface" data-mfade title="Fade out slowly, then stop">${icon('volume-x')} Fade out</button></div>` +
-    `<label class="p-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-mvol aria-label="Music volume"><output class="small" data-mvolout></output></label>` +
     `<p class="small muted p-music-hint" data-mhint></p>`;
   musicPickFor = null;
   const pick = body.querySelector('[data-mpick]');
@@ -707,7 +718,6 @@ function drawMusic(cur, s) {
   const m = s.music;
   const show = !!(m && (m.tracks.length || m.spotify || m.state !== 'idle'));
   card.hidden = !show;
-  root.querySelector('.p-side').classList.toggle('with-music', show);
   if (!show) return;
   const body = card.querySelector('[data-body]');
   const pick = body.querySelector('[data-mpick]');
