@@ -71,7 +71,9 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
   carries ``question``, ``tiles`` (the answer numbers) and ``answers`` (their
   texts, in tile order) — all shown on the stage anyway; ``correct`` (the
   answer numbers) and ``answer.correct`` only once the question has closed.
-  ``lang`` is the session's language (``en`` | ``es``, #91): the phone says
+  ``rank`` never arrives before the stage reveals that place: on the podium,
+  and on the last question of a game that ends on one, a withheld rank is
+  ``rank_pending: true`` instead (#147). ``lang`` is the session's language (``en`` | ``es``, #91): the phone says
   everything in it, as the stage does.
 - ``language() -> str`` — the live session's language (``en`` with none
   live); the player page asks it before joining (``/play/api/ping``).
@@ -341,7 +343,8 @@ class QuizService:
         if game is None or game.check_player(player_id, secret) == UNKNOWN_PLAYER:
             return None
         scope = next((s for s in self.scopes().values() if s.lobby_id == game.lobby_id), None)
-        view = game.player_view(player_id, scope.order if scope else [], scope.questions if scope else {})
+        view = game.player_view(player_id, scope.order if scope else [], scope.questions if scope else {},
+                                podium_follows=bool(scope and scope.podium_id))
         return {**view, "lang": self.language()}
 
     def language(self) -> str:
