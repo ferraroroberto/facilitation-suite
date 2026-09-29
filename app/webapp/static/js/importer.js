@@ -20,7 +20,7 @@ export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
         ? 'Nothing changes until you review it: the next screen shows every new, removed, moved or edited slide, and you apply the changes you want.'
         : 'Every slide becomes an image with its title and notes, and gets an OBS profile from where the grey camera box sits. Slides titled "activity – question" become activities.'}</p>` +
       `<div class="import-progress" hidden><div class="bar"><span></span></div><p class="small muted" data-msg></p></div>` +
-      `<div class="detail-actions"><button type="button" class="detail-save-btn" data-go>${reimport ? 'Re-import' : 'Import'}</button></div>` +
+      `<div class="detail-actions"><button type="button" class="button-primary detail-save-btn" data-go>${reimport ? 'Re-import' : 'Import'}</button></div>` +
       `</div>`;
     document.body.appendChild(dlg);
     const input = dlg.querySelector('[name=pptx]');
