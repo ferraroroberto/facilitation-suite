@@ -11,7 +11,7 @@ from src.results.collect import load_results, participation, timeline
 from src.results.excel import sheet_title
 from src.results.reconcile import minutes_of, norm_text, parse_saved_chat, reconcile
 from src.sessions.model import parse_session
-from tests.fixtures.demo import PLAN, build_demo_session, write_demo_run, zoom_saved_chat
+from tests.fixtures.demo import LONG_TOP_ANSWER, PLAN, build_demo_session, write_demo_run, zoom_saved_chat
 
 
 def _run(isolated_env: Path) -> tuple[str, Path, dict]:
@@ -63,7 +63,9 @@ def test_results_read_back_in_the_order_they_happened(isolated_env: Path) -> Non
     kr = next(a for a in data["activities"] if a["id"] == "act-kryptonite")
     assert (kr["answers"], kr["hidden"]) == (8, 1)
     assert kr["summary"] == "8 answers · word cloud" and kr["top_label"] == "Top words"
-    assert kr["top"][0] == {"label": "meetings", "count": 2}
+    # #99: kryptonite is verbatim — its top (and tile) answer is the 60-char phrase, not "meetings"
+    assert kr["top"][0] == {"label": LONG_TOP_ANSWER, "count": 3}
+    assert kr["tile"] == LONG_TOP_ANSWER
     assert next(r for r in kr["answer_rows"] if r["text"] == "hello")["hidden"] is True
     weather = next(a for a in data["activities"] if a["id"] == "act-weather")
     assert weather["summary"].startswith("8 answers · average 3.") and weather["tile"].startswith("3.")
