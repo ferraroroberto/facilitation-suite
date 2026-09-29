@@ -17,6 +17,11 @@
 // session theme's (fonts, ink, chips); the four answer colours match the phones
 // (a theme can move them with --st-quiz-1..4). prefers-reduced-motion: no
 // pops, rises or slides.
+//
+// Long answers (#84, Kahoot allows 75 characters): the reveal's bars move up into
+// the band a corner camera keeps free under the title (beside the camera), so the
+// tiles keep room for three lines; a tile whose text still does not fit steps its
+// size down (fitTiles). The lobby shows the names that fit in full rows, then "+N more".
 
 import { esc } from '/static/js/ui.js';
 
@@ -32,7 +37,8 @@ const shape = (n) => `<svg class="qz-shape" viewBox="0 0 24 24" aria-hidden="tru
 const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 const RING = 2 * Math.PI * 54; // the countdown ring's circumference (r = 54 in a 120 box)
 const TOP = 5; // leaderboard rows
-const MAX_NAMES = 60; // lobby names on stage; the rest are "+N more"
+const MAX_NAMES = 60; // lobby names drawn at most; those that do not fit, and the rest, are "+N more"
+const MIN_FIT = 0.6; // fitTiles steps the answers down to 60 % of their size, no further
 
 const WORDS = {
   en: {
@@ -189,12 +195,38 @@ function lobby(body, { ctx, q, w, st, fresh, redraw }) {
     li.textContent = p.name;
     list.appendChild(li); // (re)appended in join order
   }
+  st.total = players.length;
+  fitNames(list, st.total, w);
+  if (fresh) document.fonts?.ready.then(() => { if (list.isConnected) fitNames(list, st.total, w); });
+}
+
+/**
+ * Show the names that fit in the list's full rows, then a "+N more" chip for the
+ * rest (the names not drawn and those that do not fit). Without a layout (a
+ * hidden preview) there is nothing to measure: every drawn name stays.
+ */
+function fitNames(list, total, w) {
+  const chips = [...list.querySelectorAll('.qz-player:not(.qz-more)')];
   let more = list.querySelector('.qz-more');
-  if (players.length > MAX_NAMES) {
+  let shown = chips.length;
+  chips.forEach((li) => { li.hidden = false; });
+  const place = () => {
+    if (shown >= total) {
+      if (more) more.remove();
+      more = null;
+      return;
+    }
     if (!more) { more = document.createElement('li'); more.className = 'qz-player qz-more'; }
-    more.textContent = w.more(players.length - MAX_NAMES);
+    more.textContent = w.more(total - shown);
     list.appendChild(more);
-  } else if (more) more.remove();
+  };
+  place();
+  if (!list.clientHeight) return;
+  const fits = (li) => !li || li.offsetTop + li.offsetHeight <= list.clientHeight;
+  while (shown > 0 && !fits(more || chips[shown - 1])) {
+    chips[--shown].hidden = true;
+    place();
+  }
 }
 
 // ----------------------------------------------------------------- question
@@ -211,6 +243,9 @@ function question(body, { ctx, q, w, st, fresh }) {
       `<div class="qz-answers n${answers.length}">${answers.map((a) => tile(a, '', w)).join('')}</div>` +
       '</div>';
     st.clock = body.querySelector('[data-qz-clock]');
+    const root = body.firstElementChild;
+    fitTiles(root);
+    document.fonts?.ready.then(() => { if (root.isConnected) fitTiles(root); });
   }
   const index = body.querySelector('[data-qz-index]');
   index.hidden = !(q && q.question_index != null);
@@ -260,6 +295,47 @@ function reveal(body, { ctx, q, w, fresh }) {
     }).join('') + '</div>' +
     `<div class="qz-answers n${answers.length}">${answers.map((a) => tile(a, mark(a), w)).join('')}</div>` +
     '</div>';
+  const root = body.firstElementChild;
+  root.style.setProperty('--qz-band', `${bandOf(body)}px`);
+  fitTiles(root);
+  document.fonts?.ready.then(() => { if (root.isConnected) fitTiles(root); });
+}
+
+/**
+ * The band a corner camera keeps free under the title (--st-head-min holds the
+ * head down to the camera's bottom edge): the head's height below its own text.
+ * 0 without a corner camera, or before layout.
+ */
+function bandOf(body) {
+  const head = body.parentElement && body.parentElement.querySelector(':scope > .st-head');
+  if (!head) return 0;
+  let bottom = head.offsetTop;
+  for (const el of head.children) {
+    if (el.offsetParent) bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
+  }
+  return Math.max(0, head.offsetTop + head.offsetHeight - bottom);
+}
+
+/**
+ * Step the answers' size down (to MIN_FIT of the theme's) until every tile shows
+ * all of its text and, on the reveal, the tiles fit under the bars. Answers that
+ * fit keep their size, so a question or a reveal of short answers is unchanged.
+ */
+function fitTiles(root) {
+  if (!root) return;
+  const answers = root.querySelector('.qz-answers');
+  root.style.removeProperty('--qz-fs');
+  if (!answers || !answers.firstElementChild || !root.clientHeight) return; // not laid out: nothing to measure
+  const tiles = [...answers.children];
+  const base = parseFloat(getComputedStyle(tiles[0]).fontSize) || 48;
+  // A tile clips its text only past its box: the text centred in it may use the padding.
+  const over = () => answers.offsetTop + answers.offsetHeight > root.clientHeight + 1 ||
+    tiles.some((t) => t.querySelector('.qz-text').offsetHeight > t.clientHeight + 1);
+  let size = base;
+  while (over() && size > base * MIN_FIT) {
+    size = Math.max(base * MIN_FIT, size * 0.94);
+    root.style.setProperty('--qz-fs', `${size.toFixed(1)}px`);
+  }
 }
 
 // -------------------------------------------------------------- leaderboard
