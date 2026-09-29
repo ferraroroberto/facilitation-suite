@@ -190,6 +190,26 @@ def test_resume_kick_and_a_wrong_secret(game) -> None:
     assert (idle["state"], idle["view"]) == ("no_game", None)
 
 
+def test_an_answer_while_no_session_is_live_is_retried_not_refused(game) -> None:
+    """After a restart the session is not live until the presenter goes live again (#56):
+    an answer retried in that window must not say ``unknown_player`` — the phone would
+    drop its identity — but ``no_game``, and the same answer is accepted once it is live."""
+    main, base = game
+    phone = Phone(base)
+    pin = quiz_state(main)["pin"]
+    ana = phone.join(pin, "Ana")
+    sid = main.get("/api/live").json()["plan"]["session"]["id"]
+    goto(main, "pq-1")
+    assert main.post("/api/live/deactivate").status_code == 200  # the window between a restart and "Go live"
+
+    assert phone.answer(ana, "pq-1", 2)["state"] == "no_game"
+    assert phone.call("POST", "/play/api/resume", {k: ana[k] for k in ("player_id", "secret")})[1]["state"] == "no_game"
+
+    assert main.post("/api/live/activate", json={"session": sid}).status_code == 200
+    assert quiz_state(main)["phase"] == "question"  # still open: its deadline has not passed
+    assert phone.answer(ana, "pq-1", 2)["state"] == "accepted"
+
+
 def test_the_socket_pushes_each_phone_its_own_view(game) -> None:
     main, base = game
     phone = Phone(base)

@@ -1,15 +1,18 @@
-"""The quiz on the main app (#52): the join QR code for the stage and the presenter.
+"""The quiz on the main app: the join QR code for the stage and the presenter (#52) and the public-link check (#56).
 
 Behind ``RemoteAuth`` like every other ``/api/*`` route — the public player
 app (``app/player/``) never serves it.
 
     GET /api/quiz/qr.svg[?pin=]  → the QR of ``quiz.public_url`` + ``/play?pin=…``
                                    for the game on stage (or the game with ``pin``)
+    GET  /api/quiz/reach         → the last public-link check (``src/quiz/reach.py``)
+    POST /api/quiz/reach         → check now (in a worker thread) and return it
 """
 
 from __future__ import annotations
 
-from typing import Optional
+import asyncio
+from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
@@ -32,3 +35,14 @@ async def join_qr(request: Request, pin: Optional[str] = None) -> Response:
     url = quiz.join_url(game.pin)
     svg, state = (qr_svg(url), "ok") if url else (not_configured_svg(), "not-configured")
     return Response(svg, media_type="image/svg+xml", headers={"Cache-Control": "no-store", QR_STATE_HEADER: state})
+
+
+@router.get("/reach")
+async def reach_state(request: Request) -> dict[str, Any]:
+    return request.app.state.quiz_reach.current()
+
+
+@router.post("/reach")
+async def reach_check(request: Request) -> dict[str, Any]:
+    """The readiness "Check" and the presenter's chip: blocking network calls, so never on the loop."""
+    return await asyncio.to_thread(request.app.state.quiz_reach.check_now)

@@ -112,6 +112,11 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
     music = getattr(request.app.state, "music", None)
     if music is not None and library.uses_spotify(session):
         facts["spotify"] = music.spotify_status()  # only then: it asks Spotify (cached 30 s)
+    reach = getattr(request.app.state, "quiz_reach", None)
+    if reach is not None and readiness.has_quiz(session):
+        facts["quiz_reach"] = reach.current()  # the last check; a stale one reads "unknown"
+        if not reach.fresh():
+            reach.kick()  # in a background thread: the page never waits on the network
     return {
         "summary": st.summary(entry),
         "session": dump_session(session),

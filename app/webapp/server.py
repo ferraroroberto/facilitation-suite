@@ -81,7 +81,8 @@ from src.music.service import MusicService
 from src.obs.service import ObsService
 from src.quiz.chat import ChatAnswers
 from src.quiz.cues import QuizCues
-from src.quiz.service import QuizService
+from src.quiz.reach import QuizReach
+from src.quiz.service import QUIZ_TYPES, QuizService
 from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -115,8 +116,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     player = PlayerListener(cfg.quiz.public_port, app.state.quiz)
     app.state.player = player
     await player.start()  # optional: a busy port is logged, never fatal
+    reach = asyncio.create_task(app.state.quiz_reach.run_periodic(), name="quiz-reach")
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
+    reach.cancel()
     await player.stop()
     monitor.cancel()
     app.state.obs.stop()
@@ -206,12 +209,28 @@ def _install_music(app: FastAPI) -> None:
 
 
 def _install_quiz(app: FastAPI) -> None:
-    """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``), plus its
-    Zoom-chat fallback (``src/quiz/chat.py``; own messages count only in the capture's rehearsal mode)."""
+    """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``), its
+    Zoom-chat fallback (``src/quiz/chat.py``; own messages count only in the capture's rehearsal mode)
+    and the public-link check (``src/quiz/reach.py``: when a quiz session goes live, then every few
+    minutes while it is, and on demand — always in a worker thread)."""
     service = QuizService(app.state.live)
     service.public_url = lambda: app.state.config.quiz.public_url
     service.listener_up = lambda: bool(getattr(app.state, "player", None) and app.state.player.running)
     app.state.quiz = service
+    live = app.state.live
+
+    def quiz_live() -> bool:  # the live session plays a quiz: the public link is checked every few minutes
+        return live.session_id is not None and any(it.get("type") in QUIZ_TYPES for it in live.items)
+
+    def pushed() -> None:  # called from the checking thread
+        if live.loop is not None:
+            live.loop.call_soon_threadsafe(live.push_state)
+
+    reach = QuizReach(lambda: (app.state.config.quiz.public_url, app.state.config.quiz.public_port),
+                      wanted=quiz_live, on_change=pushed)
+    service.reach = reach.current
+    live.session_listeners.append(lambda sid: reach.kick() if sid and quiz_live() else None)
+    app.state.quiz_reach = reach
     app.state.quiz_chat = ChatAnswers(service, app.state.chat, count_own=lambda: app.state.capture.count_own)
 
 

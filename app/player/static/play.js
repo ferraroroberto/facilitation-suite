@@ -390,7 +390,8 @@ async function answer(itemId, choice) {
   for (let attempt = 0; ; attempt++) {
     let r = null;
     try { r = await post('/play/api/answer', body); } catch { r = null; }
-    if (r && r.ok) {
+    const paused = r && r.ok && r.data.state === 'no_game'; // the server restarted and is not live yet: keep trying
+    if (r && r.ok && !paused) {
       clock(r.data);
       online = true;
       Object.assign(mine, { choice: r.data.choice || choice, state: r.data.state, retrying: false });
@@ -403,7 +404,7 @@ async function answer(itemId, choice) {
       Object.assign(mine, { state: 'error', message: r.data?.error?.message });
       return redraw();
     }
-    // offline, a proxy error, 429 or a restart: the same answer again until the server acks it
+    // offline, a proxy error, 429 or a restart (no_game until it is live again): the same answer until acked
     mine.retrying = true;
     redraw();
     const wait = r && r.status === 429 ? (r.data?.error?.detail?.retry_after_s || 1) * 1000 : 0;
