@@ -4,7 +4,8 @@ and see their result. One phone is 320 px wide on the WebSocket, the other polls
 The stage (#53) follows along: names pop into the lobby, the question shows no correct
 answer and counts down from the server's deadline, the reveal marks it, the leaderboard ranks.
 The first question has four 75-character answers under a corner camera (#84): the reveal shows
-every line of every tile and keeps the tiles and bars out of the camera's box."""
+every line of every tile. The reveal, the leaderboard (that corner camera) and the podium (a camera
+strip) keep their content out of the camera's box (#88)."""
 
 from __future__ import annotations
 
@@ -20,7 +21,8 @@ SMALL = {"viewport": {"width": 320, "height": 568}, "has_touch": True, "is_mobil
 PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
 
 # On the stage, in canvas px (1920×1080): the answer tiles whose text does not fit their box, and the
-# tiles and bars that reach into the camera zone [x0, y0, x1, y1] (fractions) — both must be empty.
+# pieces of content (tiles, bars, leaderboard rows, podium steps) that reach into the camera zone
+# [x0, y0, x1, y1] (fractions) — both must be empty.
 CLIPPED = """() => [...document.querySelectorAll('.qz-tile')].filter((t) => {
   const x = t.querySelector('.qz-text'), a = t.getBoundingClientRect(), b = x.getBoundingClientRect();
   return t.scrollHeight > t.clientHeight + 1 || b.top < a.top - 1 || b.bottom > a.bottom + 1;
@@ -28,7 +30,8 @@ CLIPPED = """() => [...document.querySelectorAll('.qz-tile')].filter((t) => {
 IN_CAMERA = """(z) => {
   const c = document.querySelector('.stage-canvas').getBoundingClientRect(), s = c.width / 1920;
   const cam = { l: z[0] * 1920, t: z[1] * 1080, r: z[2] * 1920, b: z[3] * 1080 };
-  return [...document.querySelectorAll('.qz-tile, .qz-bar')].filter((e) => {
+  return [...document.querySelectorAll(
+    '.qz-tile, .qz-bar, .qz-board-title, .qz-row, .qz-top, .qz-block')].filter((e) => {
     const r = e.getBoundingClientRect(), l = (r.left - c.left) / s, t = (r.top - c.top) / s;
     return l < cam.r && l + r.width / s > cam.l && t < cam.b && t + r.height / s > cam.t;
   }).map((e) => e.className);
@@ -56,10 +59,12 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
     first = section["items"][1]
     first["options"].update(LONG_ANSWERS)
     first["profile"] = "camera_pip"  # a camera box in the top-right corner, as in a real session
+    section["items"][-1]["profile"] = "camera_strip"  # the podium beside a camera strip
     add_quiz_section(folder, section)
     assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
     items = page.request.get(f"{base}/api/live").json()["plan"]["run"]["items"]
     lobby = next(n for n, it in enumerate(items) if it["id"] == "pq-lobby") + 1
+    podium = next(n for n, it in enumerate(items) if it["id"] == "pq-podium") + 1
     assert page.request.post(f"{base}/api/actions/goto/{lobby}").ok
     pin = page.request.get(f"{base}/api/live").json()["state"]["quiz"]["pin"]
 
@@ -126,6 +131,12 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         expect(ana.locator("[data-result]")).to_contain_text("#1")
         expect(bo.locator("[data-result]")).to_contain_text("#2")
         expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo"])
+        assert stage.evaluate(IN_CAMERA, zone) == []  # rank 1's score beside the camera, not under it (#88)
+
+        assert page.request.post(f"{base}/api/actions/goto/{podium}").ok
+        expect(stage.locator(".qz-step .qz-pname")).to_have_text(["Bo", "Ana"])  # 2nd, 1st
+        strip = next(it for it in items if it["id"] == "pq-podium")["zone"]
+        assert strip and stage.evaluate(IN_CAMERA, strip) == []
         assert errors == []
     finally:
         ana.context.close()
