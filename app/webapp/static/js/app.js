@@ -4,7 +4,8 @@
 
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
-import { api, APP } from '/static/js/ui.js';
+import { api, APP, followAppearance } from '/static/js/ui.js';
+import { connectLive } from '/static/js/live.js';
 
 const VIEWS = {
   sessions: () => import('/static/js/views/sessions.js'),
@@ -78,6 +79,10 @@ document.addEventListener('click', (e) => {
 
 ctx.goTo = showView;
 showView(nav.getTab() || 'sessions');
+
+// The live snapshot carries the global light/dark (#92): a toggle on the presenter,
+// the phone or another tab switches this one too.
+connectLive('app', { onState: (s) => followAppearance(s.appearance) });
 
 api('/api/version').then((v) => {
   document.getElementById('buildReadout').textContent = buildReadoutText(v.git_sha, v.captured_at);

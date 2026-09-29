@@ -10,7 +10,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc, oneLine, toast, currentTheme, setTheme, APP } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, APP } from '/static/js/ui.js';
 import { connectLive, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 
@@ -49,7 +49,7 @@ async function start() {
       loadChat();
       loadGroups();
     },
-    onState() { drawLive(); drawChat(); },
+    onState(s) { followAppearance(s.appearance); drawLive(); drawChat(); },
     onMessage(msg) {
       if (msg.type === 'error') toast(msg.message, 'error');
       if (msg.type === 'chat') { chat = chat.concat(msg.messages); drawChat(); }
@@ -66,7 +66,7 @@ function unpaired(code) {
   document.querySelector('.tabs').hidden = true;
   livePane.innerHTML = headHtml();
   livePane.querySelector('[data-r-sub]').textContent = 'Not paired';
-  livePane.querySelector('[data-theme]').remove();
+  livePane.querySelector('[data-theme-toggle]').remove();
   const card = document.createElement('div');
   card.className = 'card';
   card.appendChild(emptyStateEl('smartphone', code === 'remote_off'
@@ -82,7 +82,7 @@ const items = () => (plan && plan.run ? plan.run.items : []);
 function headHtml() {
   return `<div class="card home-head remote-head"><span class="home-title">${icon('presentation')}` +
     '<span class="remote-titles"><span class="home-title-text">Live</span><span class="remote-sub" data-r-sub></span></span></span>' +
-    `<button type="button" class="home-toggle" data-theme aria-label="Toggle theme" title="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button></div>`;
+    `<button type="button" class="home-toggle" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button></div>`;
 }
 
 function buildShell() {
@@ -91,10 +91,7 @@ function buildShell() {
   shellFor = key;
   preview = null;
   livePane.innerHTML = headHtml();
-  livePane.querySelector('[data-theme]').addEventListener('click', (e) => {
-    setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
-    e.currentTarget.innerHTML = icon(currentTheme() === 'dark' ? 'sun' : 'moon');
-  });
+  livePane.querySelector('[data-theme-toggle]').addEventListener('click', toggleTheme); // every screen, not just this phone
   if (!plan || !plan.active) {
     const card = document.createElement('div');
     card.className = 'card';
