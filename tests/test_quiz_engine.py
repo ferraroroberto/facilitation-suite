@@ -470,7 +470,10 @@ def test_the_time_up_reveal_is_scheduled_on_the_loop_after_a_restart(quiz_sessio
         hub2.bind(asyncio.get_running_loop())
         hub2.activate(sid)
         assert state(hub2)["phase"] == "question"
-        await asyncio.sleep(0.3)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5.0  # generous ceiling; the reveal is due ~50 ms out
+        while state(hub2)["phase"] != "reveal" and loop.time() < deadline:
+            await asyncio.sleep(0.01)
         return state(hub2)["phase"]
 
     assert asyncio.run(restart()) == "reveal"
