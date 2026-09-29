@@ -49,6 +49,11 @@ def _free_port() -> int:
         return int(s.getsockname()[1])
 
 
+_PORT_RACE_ATTEMPTS = 5  # the probed port and the listener's own bind are two separate sockets:
+# between closing the probe and the listener binding, port churn elsewhere on the box can steal
+# the number (#132). ``player.running`` tells us for certain whether the bind won.
+
+
 class Phone:
     """One phone talking to the player listener over real HTTP."""
 
@@ -105,15 +110,21 @@ def game(isolated_env: Path) -> Iterator[tuple[TestClient, str]]:
     """The main app with its player listener on a free port, a quiz session live on its lobby."""
     from app.webapp.server import create_app
 
-    port = _free_port()
-    write_test_config(Path(os.environ["FS_CONFIG_PATH"]), session_root=str(isolated_env / "sessions"),
-                      quiz={"public_port": port, "public_url": PUBLIC_URL})
     sid, folder = build_demo_session(isolated_env / "sessions" / "demo" / "play", isolated_env / "sessions.local.yaml")
     add_quiz_section(folder)
-    with TestClient(create_app(), client=("127.0.0.1", 50000)) as main:
-        assert main.post("/api/live/activate", json={"session": sid}).status_code == 200
-        goto(main, "pq-lobby")
-        yield main, f"http://127.0.0.1:{port}"
+
+    for _attempt in range(_PORT_RACE_ATTEMPTS):
+        port = _free_port()
+        write_test_config(Path(os.environ["FS_CONFIG_PATH"]), session_root=str(isolated_env / "sessions"),
+                          quiz={"public_port": port, "public_url": PUBLIC_URL})
+        with TestClient(create_app(), client=("127.0.0.1", 50000)) as main:
+            if not main.app.state.player.running:
+                continue  # someone else grabbed the port between the probe and the bind — retry
+            assert main.post("/api/live/activate", json={"session": sid}).status_code == 200
+            goto(main, "pq-lobby")
+            yield main, f"http://127.0.0.1:{port}"
+            return
+    pytest.fail(f"quiz player listener never bound after {_PORT_RACE_ATTEMPTS} attempts (port churn?)")
 
 
 # ---- the game: join, answer, ack, reveal ----
