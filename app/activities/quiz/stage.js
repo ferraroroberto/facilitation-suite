@@ -24,10 +24,13 @@
 // tiles keep room for three lines; a tile whose text still does not fit steps its
 // size down (fitTiles). The lobby shows the names that fit in full rows, then "+N more".
 //
-// The camera (#88): every phase stays out of the item's camera zone. A camera strip is
-// outside the content area already; under a corner camera the lobby, question and podium
-// start below it (the head's --st-head-min), the reveal's bars and the leaderboard sit
-// beside it (--st-head-right, stage.css).
+// The camera (#88, #148): every phase stays out of the item's camera zone. A camera strip is
+// outside the content area already; under a corner camera the title flows around the corner
+// (stage.css floats a box of the camera's size in the head), the lobby and podium start
+// below it, the question's status row and the reveal's bars rise into the band beside it
+// (--qz-band, --st-head-right) and the leaderboard sits beside it. When the answers still do
+// not fit at their smallest — a long question beside a camera strip — the question steps
+// down too (fitPhase), so nothing is cut or runs off the stage.
 
 import { esc } from '/static/js/ui.js';
 
@@ -265,8 +268,8 @@ function question(body, { ctx, q, w, st, fresh }) {
       '</div>';
     st.clock = body.querySelector('[data-qz-clock]');
     const root = body.firstElementChild;
-    fitTiles(root);
-    document.fonts?.ready.then(() => { if (root.isConnected) fitTiles(root); });
+    fitPhase(body, root);
+    document.fonts?.ready.then(() => { if (root.isConnected) fitPhase(body, root); });
   }
   const index = body.querySelector('[data-qz-index]');
   index.hidden = !(q && q.question_index != null);
@@ -320,9 +323,37 @@ function reveal(body, { ctx, q, w, fresh }) {
     `<div class="qz-answers n${answers.length}">${answers.map((a) => tile(a, mark(a), w)).join('')}</div>` +
     '</div>';
   const root = body.firstElementChild;
-  root.style.setProperty('--qz-band', `${bandOf(body)}px`);
-  fitTiles(root);
-  document.fonts?.ready.then(() => { if (root.isConnected) fitTiles(root); });
+  fitPhase(body, root);
+  document.fonts?.ready.then(() => { if (root.isConnected) fitPhase(body, root); });
+}
+
+/**
+ * Lay a question or its reveal out in what the stage leaves it (#148): measure the band
+ * beside a corner camera (--qz-band; .qz-beside while there is one), then fit the answers
+ * (fitTiles). Only when they still do not fit at their smallest does the question above
+ * them step down, to MIN_FIT of its own size, re-measuring at each step: a question whose
+ * answers fit keeps its size.
+ */
+function fitPhase(body, root) {
+  const title = body.parentElement && body.parentElement.querySelector(':scope > .st-head .st-question');
+  if (title) {
+    if (title.dataset.qzSize === undefined) title.dataset.qzSize = title.style.fontSize;
+    title.style.fontSize = title.dataset.qzSize; // the item's own size: every fit starts from it
+  }
+  const step = () => {
+    const band = bandOf(body);
+    root.style.setProperty('--qz-band', `${band}px`);
+    root.classList.toggle('qz-beside', band > 0);
+    return fitTiles(root);
+  };
+  let fits = step();
+  const base = title ? parseFloat(getComputedStyle(title).fontSize) || 0 : 0;
+  let size = base;
+  while (!fits && size > base * MIN_FIT) {
+    size = Math.max(base * MIN_FIT, size * 0.94);
+    title.style.fontSize = `${size.toFixed(1)}px`;
+    fits = step();
+  }
 }
 
 /**
@@ -344,22 +375,35 @@ function bandOf(body) {
  * Step the answers' size down (to MIN_FIT of the theme's) until every tile shows
  * all of its text and, on the reveal, the tiles fit under the bars. Answers that
  * fit keep their size, so a question or a reveal of short answers is unchanged.
+ * True when they fit (or there is no layout to measure).
  */
 function fitTiles(root) {
-  if (!root) return;
+  if (!root) return true;
   const answers = root.querySelector('.qz-answers');
   root.style.removeProperty('--qz-fs');
-  if (!answers || !answers.firstElementChild || !root.clientHeight) return; // not laid out: nothing to measure
+  if (!answers || !answers.firstElementChild || !root.clientHeight) return true; // not laid out: nothing to measure
   const tiles = [...answers.children];
   const base = parseFloat(getComputedStyle(tiles[0]).fontSize) || 48;
-  // A tile clips its text only past its box: the text centred in it may use the padding.
+  // A tile's text fits inside its padding, the same test as the e2e stories' CLIPPED, and breaks
+  // no word in the middle unless it must (#148): a narrow column, beside a camera strip, steps the
+  // answers down instead of leaving their lines on the tile's edges or splitting "Observation-s".
+  const broken = (text) => {
+    text.style.overflowWrap = 'normal';
+    const wide = text.scrollWidth > text.clientWidth + 1;
+    text.style.overflowWrap = '';
+    return wide;
+  };
   const over = () => answers.offsetTop + answers.offsetHeight > root.clientHeight + 1 ||
-    tiles.some((t) => t.querySelector('.qz-text').offsetHeight > t.clientHeight + 1);
+    tiles.some((t) => {
+      const text = t.querySelector('.qz-text');
+      return t.scrollHeight > t.clientHeight + 1 || text.offsetHeight > t.clientHeight + 1 || broken(text);
+    });
   let size = base;
   while (over() && size > base * MIN_FIT) {
     size = Math.max(base * MIN_FIT, size * 0.94);
     root.style.setProperty('--qz-fs', `${size.toFixed(1)}px`);
   }
+  return !over();
 }
 
 // -------------------------------------------------------------- leaderboard

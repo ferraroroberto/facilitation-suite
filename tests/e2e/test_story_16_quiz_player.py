@@ -5,7 +5,8 @@ The stage (#53) follows along: names pop into the lobby, the question shows no c
 answer and counts down from the server's deadline, the reveal marks it, the leaderboard ranks.
 The first question has four 75-character answers under a corner camera (#84): the reveal shows
 every line of every tile. The reveal, the leaderboard (that corner camera) and the podium (a camera
-strip) keep their content out of the camera's box (#88). The phones show that 120-character
+strip) keep their content out of the camera's box (#88); switching the live reveal to a camera
+strip re-lays it out within a second, the long question and tiles fitting beside it (#148). The phones show that 120-character
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
 light and dark, and after the reveal the right answer's text. The podium reveals one place per
 Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on; a phone shows its own place only once it is
@@ -43,6 +44,23 @@ IN_CAMERA = """(z) => {
     const r = e.getBoundingClientRect(), l = (r.left - c.left) / s, t = (r.top - c.top) / s;
     return l < cam.r && l + r.width / s > cam.l && t < cam.b && t + r.height / s > cam.t;
   }).map((e) => e.className);
+}"""
+# On the stage: the quiz content — the question's own lines included (they flow around a corner
+# camera, #148) — that reaches past the 1920×1080 canvas or into the camera zone; both must be empty.
+OFF_ZONE = """(z) => {
+  const c = document.querySelector('.stage-canvas').getBoundingClientRect(), s = c.width / 1920;
+  const cam = z && { l: z[0] * 1920, t: z[1] * 1080, r: z[2] * 1920, b: z[3] * 1080 };
+  const boxes = [];
+  for (const e of document.querySelectorAll('.st-question, .qz-status > :not([hidden]), .qz-tile, .qz-bar')) {
+    let rects = [e.getBoundingClientRect()];
+    if (e.matches('.st-question')) { const g = document.createRange(); g.selectNodeContents(e); rects = [...g.getClientRects()]; }
+    for (const r of rects) {
+      if (r.width < 1) continue;
+      boxes.push([e.className, (r.left - c.left) / s, (r.top - c.top) / s, (r.right - c.left) / s, (r.bottom - c.top) / s]);
+    }
+  }
+  return boxes.filter(([, l, t, r, b]) => l < -1 || t < -1 || r > 1921 || b > 1081 ||
+    (cam && l < cam.r && r > cam.l && t < cam.b && b > cam.t)).map(([n]) => n);
 }"""
 # On a phone: how wide the page is, and which tiles (or the question) cut their text (#90).
 PHONE_FIT = """() => ({ width: document.documentElement.scrollWidth,
@@ -189,6 +207,29 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         assert stage.evaluate(CLIPPED) == []
         zone = next(it for it in items if it["id"] == "pq-1")["zone"]
         assert zone and stage.evaluate(IN_CAMERA, zone) == []
+        assert stage.evaluate(OFF_ZONE, zone) == []
+
+        # #148: the live item switched to a camera strip re-lays the reveal out within a second, with no
+        # reload — the long question and its tiles fit beside the strip, none past the stage's edge
+        stage.evaluate("window.__sameStage = true")
+        session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
+        for profile in ("camera_strip", "camera_pip"):  # and back, for the steps below
+            for sec in session["sections"]:
+                for it in sec["items"]:
+                    if it.get("id") == "pq-1":
+                        it["profile"] = profile
+            assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": session}).ok
+            expect(stage.locator(".st-item")).to_have_attribute("data-profile", profile, timeout=1000)
+            live = page.request.get(f"{base}/api/live").json()["plan"]["run"]["items"]
+            now_zone = next(it for it in live if it["id"] == "pq-1")["zone"]
+            try:
+                stage.wait_for_function(f"(z) => ({OFF_ZONE})(z).length === 0 && ({CLIPPED})().length === 0",
+                                        arg=now_zone, timeout=3000)
+            except PlaywrightTimeout:
+                pass
+            assert stage.evaluate(OFF_ZONE, now_zone) == [], profile
+            assert stage.evaluate(CLIPPED) == [], profile
+        assert stage.evaluate("window.__sameStage") is True
 
         assert page.request.post(f"{base}/api/actions/next").ok  # leaderboard
         expect(ana.locator("[data-result]")).to_contain_text("#1")
