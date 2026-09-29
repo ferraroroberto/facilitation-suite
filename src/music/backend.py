@@ -44,8 +44,9 @@ class Track:
 class Backend(Protocol):
     kind: str
 
-    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float) -> None:
-        """Start ``track`` from its beginning, fading in to ``volume``; whatever played before stops."""
+    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float, start_s: float = 0.0) -> None:
+        """Start ``track`` from its beginning (or ``start_s`` seconds in — a resume after a restart),
+        fading in to ``volume``; whatever played before stops."""
 
     def pause(self, fade_s: float) -> None:
         """Fade out, then hold the position."""

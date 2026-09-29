@@ -44,11 +44,19 @@ def level(volume: float) -> float:
     return v * v
 
 
-def open_source(path: str) -> Source:
+def open_source(path: str, seek_frame: int = 0) -> Source:
     import miniaudio
 
     return miniaudio.stream_file(path, output_format=miniaudio.SampleFormat.FLOAT32, nchannels=CHANNELS,
-                                 sample_rate=SAMPLE_RATE, frames_to_read=SAMPLE_RATE * BUFFER_MS // 1000)
+                                 sample_rate=SAMPLE_RATE, frames_to_read=SAMPLE_RATE * BUFFER_MS // 1000,
+                                 seek_frame=seek_frame)
+
+
+def file_frames(path: str) -> int:
+    """The file's length in output frames (``SAMPLE_RATE``), without decoding it."""
+    import miniaudio
+
+    return int(miniaudio.get_file_info(path).duration * SAMPLE_RATE)
 
 
 def open_device() -> Any:
@@ -67,9 +75,11 @@ class Voice:
     always under the backend's lock.
     """
 
-    def __init__(self, play_id: int, track: Track, opener: Callable[[str], Source]) -> None:
+    def __init__(self, play_id: int, track: Track, opener: Callable[..., Source], start_frame: int = 0) -> None:
         self.play_id, self.track, self._open = play_id, track, opener
-        self.src = opener(track.ref)
+        # A resume after a restart opens the file ``start_frame`` frames in; the loop starts over at the top.
+        self.src = opener(track.ref, start_frame) if start_frame else opener(track.ref)
+        self.start_frame = start_frame
         self.gain = 0.0
         self.target = 0.0
         self.step = 0.0
@@ -78,7 +88,7 @@ class Voice:
         self.done = False
         self.ended = False  # reached the end of the file (not looping)
         self.error = ""
-        self.frames = 0  # frames played so far (the position)
+        self.frames = start_frame  # frames played so far, from the top of the file (the position)
 
     def ramp(self, target: float, seconds: float, then: Optional[str] = None) -> None:
         self.target, self.then = target, then
@@ -143,9 +153,11 @@ class FileBackend:
     kind = "file"
 
     def __init__(self, on_event: EventSink, *, device_factory: Callable[[], Any] = open_device,
-                 source_factory: Callable[[str], Source] = open_source) -> None:
+                 source_factory: Callable[..., Source] = open_source,
+                 length_factory: Callable[[str], int] = file_frames) -> None:
         self.on_event = on_event
         self._device_factory, self._source_factory = device_factory, source_factory
+        self._length_factory = length_factory
         self._lock = threading.Lock()
         self._voices: list[Voice] = []
         self._current: Optional[Voice] = None
@@ -157,8 +169,8 @@ class FileBackend:
 
     # ---------------------------------------------------------------- interface
 
-    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float) -> None:
-        self._submit(lambda: self._play(play_id, track, volume, fade_in_s))
+    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float, start_s: float = 0.0) -> None:
+        self._submit(lambda: self._play(play_id, track, volume, fade_in_s, start_s))
 
     def pause(self, fade_s: float) -> None:
         self._submit(lambda: self._with_current(lambda v: v.ramp(0.0, max(fade_s, DECLICK_S), "pause")))
@@ -226,9 +238,23 @@ class FileBackend:
             if self._current is not None and not self._current.done:
                 fn(self._current)
 
-    def _play(self, play_id: int, track: Track, volume: int, fade_in_s: float) -> None:
+    def _start_frame(self, track: Track, start_s: float) -> Optional[int]:
+        """Where a resume starts: ``start_s`` in frames (wrapped for a loop); None past the end."""
+        if start_s <= 0:
+            return 0
+        at, length = int(start_s * SAMPLE_RATE), self._length_factory(track.ref)
+        if track.loop and length > 0:
+            return at % length
+        return at if at < length else None
+
+    def _play(self, play_id: int, track: Track, volume: int, fade_in_s: float, start_s: float = 0.0) -> None:
         try:
-            voice = Voice(play_id, track, self._source_factory)
+            start = self._start_frame(track, start_s)
+            if start is None:  # it would have ended while the server was down
+                logger.info("ℹ️ music (file): %s would have ended by %.1f s — not resumed", track.label, start_s)
+                self._emit("ended", play_id, track.label)
+                return
+            voice = Voice(play_id, track, self._source_factory, start)
         except Exception as exc:  # noqa: BLE001 — miniaudio.DecodeError, a missing file, an unreadable one
             logger.warning("⚠️ music (file): cannot open %s (%s)", track.ref, exc)
             self._emit("error", play_id, f"Cannot play {track.label} ({exc})")
@@ -243,8 +269,8 @@ class FileBackend:
             self._voices = [v for v in self._voices if not v.done] + [voice]
             self._current = voice
         self._ensure_device(play_id)
-        logger.info("ℹ️ music (file): play %s (volume %d, fade in %.1f s%s)", track.label, volume, fade_in_s,
-                    ", loop" if track.loop else "")
+        logger.info("ℹ️ music (file): play %s (volume %d, fade in %.1f s%s%s)", track.label, volume, fade_in_s,
+                    ", loop" if track.loop else "", f", from {start / SAMPLE_RATE:.1f} s" if start else "")
 
     def _resume(self, volume: int, fade_s: float) -> None:
         with self._lock:
@@ -314,12 +340,12 @@ class FileBackend:
         events: list[tuple[str, int, str]] = []
         with self._lock:
             for v in self._voices:
-                started = v.frames == 0
+                started = v.frames == v.start_frame
                 try:
                     v.mix(out, frames)
                 except Exception as exc:  # noqa: BLE001 — a decoder failing mid-file ends that voice only
                     v.done, v.error = True, str(exc)
-                if started and v.frames:
+                if started and v.frames > v.start_frame:
                     events.append(("playing", v.play_id, v.track.label))
                 if v.done:
                     if v.error:

@@ -187,6 +187,11 @@ def test_backend_plays_fades_pauses_and_stops_by_volume_steps() -> None:
     b._play(4, Track("spotify", "spotify:track:t", "t"), 60, 1.0)
     b._transitions -= 1
     assert [vol(c) for c in fake.api()] == [("GET", "/me/player/devices"), ("vol", 0), ("PUT", "/me/player/play")]
+    # A resume after a server restart carries on from the desktop app's own position: no context sent.
+    fake.calls.clear()
+    b._play(5, Track("spotify", "spotify:playlist:abc", "Spotify playlist abc"), 60, 0, carry_on=True)
+    play = next(c for c in fake.api() if c[1] == "/me/player/play")
+    assert play[2] == {"device_id": "dev-pc"}
     b.close()
 
 
