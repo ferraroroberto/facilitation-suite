@@ -46,6 +46,9 @@ const TOP = 5; // leaderboard rows
 const MAX_NAMES = 60; // lobby names drawn at most; those that do not fit, and the rest, are "+N more"
 const MIN_FIT = 0.6; // fitTiles steps the answers down to 60 % of their size, no further
 
+// Every word the audience reads on the stage, in the session's language (ctx.lang, #91). The
+// presenter's controls stay in English. tests/test_quiz_language.py checks both languages have
+// every key this file uses (and the phone's table in app/player/static/play.js likewise).
 const WORDS = {
   en: {
     question: (i, n) => `Question ${i} of ${n}`,
@@ -65,7 +68,7 @@ const WORDS = {
   },
   es: {
     question: (i, n) => `Pregunta ${i} de ${n}`,
-    answered: 'respuestas',
+    answered: 'han respondido',
     players: (n) => `${n} jugador${n === 1 ? '' : 'es'}`,
     join: 'Únete con tu móvil',
     pin: 'PIN del juego',
@@ -73,8 +76,8 @@ const WORDS = {
     leaderboard: 'Clasificación',
     correct: 'Correcta',
     more: (n) => `+${n} más`,
-    no_url: 'Unirse con el móvil no está configurado',
-    no_listener: 'Unirse con el móvil no está disponible ahora',
+    no_url: 'La entrada con el móvil no está configurada',
+    no_listener: 'Ahora mismo no se puede entrar con el móvil',
     starting: 'El quiz empieza pronto',
     no_players: 'Sin jugadores',
     sample_url: 'tu-enlace/play',

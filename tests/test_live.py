@@ -238,12 +238,15 @@ def test_notes_from_the_plan_replace_the_slide_notes() -> None:
 
 def test_the_session_language_names_default_titles_and_the_hint() -> None:
     raw = {"title": "x", "language": "es", "chat_hint": "Write your answer in the Zoom chat", "sections": [{"name": "S", "items": [
-        {"kind": "break"}, {"kind": "activity", "type": "groups_reveal"}, {"kind": "break", "title": "Café"}]}]}
+        {"kind": "break"}, {"kind": "activity", "type": "groups_reveal"}, {"kind": "break", "title": "Café"},
+        {"kind": "activity", "type": "quiz_lobby"}, {"kind": "activity", "type": "quiz_podium"}]}]}
     s = parse_session(raw)
     assert s.chat_hint == ""  # the old stored English default now follows the language
     run = build_run(s, None)
     assert run["language"] == "es" and run["chat_hint"] == ""
-    assert [it["title"] for it in run["items"]] == ["Descanso", "¿Con quién estás?", "Café"]
+    assert [it["title"] for it in run["items"]] == ["Descanso", "¿Con quién estás?", "Café", "Quiz", "Podio"]
+    raw["language"] = "en"  # English keeps the quiz types' own labels (#91)
+    assert [it["title"] for it in build_run(parse_session(raw), None)["items"]][3:] == ["Quiz lobby", "Quiz podium"]
     assert parse_session({"title": "x", "chat_hint": "Escribe en el chat"}).chat_hint == "Escribe en el chat"
     with pytest.raises(ValueError):
         parse_session({"title": "x", "language": "fr"})

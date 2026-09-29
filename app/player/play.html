@@ -43,33 +43,33 @@
 
 <main class="play" data-screen="loading">
   <header class="play-head">
-    <h1 class="play-title">Quiz</h1>
+    <h1 class="play-title" data-t="title">Quiz</h1>
     <span class="play-conn" id="conn" data-state="checking" role="status" aria-live="polite">Connecting…</span>
-    <button type="button" class="button-surface play-icon-btn hit-target" data-theme-toggle aria-label="Switch light or dark">
+    <button type="button" class="button-surface play-icon-btn hit-target" data-theme-toggle aria-label="Switch light or dark" data-t-label="theme">
       <svg class="icon i-moon" aria-hidden="true"><use href="#i-moon"/></svg>
       <svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg>
     </button>
   </header>
 
   <section class="card screen" data-for="loading">
-    <p class="play-lead">Loading…</p>
+    <p class="play-lead" data-t="loading">Loading…</p>
   </section>
 
   <section class="card screen" data-for="join">
     <form id="joinForm" class="play-form" novalidate>
-      <label class="play-label" for="pin">Game PIN</label>
+      <label class="play-label" for="pin" data-t="pin_label">Game PIN</label>
       <input class="play-input play-pin" id="pin" name="pin" inputmode="numeric" autocomplete="off" maxlength="7"
              pattern="[0-9 ]*" placeholder="123 456" required>
-      <label class="play-label" for="nickname">Nickname</label>
-      <input class="play-input" id="nickname" name="nickname" autocomplete="nickname" maxlength="20" placeholder="Your name" required>
+      <label class="play-label" for="nickname" data-t="nickname_label">Nickname</label>
+      <input class="play-input" id="nickname" name="nickname" autocomplete="nickname" maxlength="20" placeholder="Your name" data-t-placeholder="nickname_placeholder" required>
       <p class="play-error" id="joinError" role="alert" hidden></p>
-      <button type="submit" class="button-primary play-wide" id="joinBtn">Join</button>
+      <button type="submit" class="button-primary play-wide" id="joinBtn" data-t="join">Join</button>
     </form>
   </section>
 
   <section class="card screen" data-for="wait">
     <p class="play-name" data-name></p>
-    <p class="play-lead" data-wait-text>You're in! Watch the screen — the quiz starts soon.</p>
+    <p class="play-lead" data-wait-text></p>
   </section>
 
   <section class="screen play-question" data-for="question">
@@ -94,8 +94,8 @@
   </section>
 
   <section class="card screen" data-for="kicked">
-    <p class="play-result-title"><svg class="icon" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Removed</p>
-    <p class="play-lead">The host removed you from this game.</p>
+    <p class="play-result-title"><svg class="icon" aria-hidden="true"><use href="#i-triangle-alert"/></svg> <span data-t="removed">Removed</span></p>
+    <p class="play-lead" data-t="removed_detail">The host removed you from this game.</p>
   </section>
 </main>
 <script type="module" src="/play/static/play.js"></script>
