@@ -70,12 +70,17 @@ flowchart LR
   filebk --> audiofiles[("session audio/ · mp3 wav ogg flac")]
   music --> spotbk["src/music/spotify.py<br/>SpotifyBackend — Web API · own thread · stepped fades · distinct states"]
   spotbk -->|HTTPS · token from .env| spotapi["Spotify Web API → the desktop app on this PC"]
-  login["scripts/spotify_login.py<br/>PKCE, once"] -.->|writes SPOTIFY_REFRESH_TOKEN| envfile[(".env (gitignored)")]
+  login["scripts/spotify_login.py<br/>terminal login"] --> spotlogin["src/music/spotify_login.py<br/>PKCE login · loopback callback :8765"]
+  spotlogin -.->|writes SPOTIFY_REFRESH_TOKEN| envfile[(".env (gitignored)")]
   spotbk --> envfile
   sessr -->|Plan tab picker · readiness| musiclib["src/music/library.py<br/>copy into audio/ · Music files check"]
   musiclib --> audiofiles
-  appv --> settingsr["routers/settings.py<br/>OBS connection · profiles · reader · appearance"]
+  appv --> settingsr["routers/settings.py<br/>Appearance · Stage defaults · Music · Live tools · About"]
   settingsr --> settingsf["src/settings.py → config/config.json"]
+  settingsr -->|Connect Spotify, this PC| spotlogin
+  settingsr --> defaultsm["src/defaults.py<br/>what new sessions start from · Reset to default"]
+  settingsr --> stagelib["src/library.py<br/>stage library: session_root/_library fonts · themes"]
+  sessr -->|new session · look/reset| defaultsm
   settingsr --> obs
   deck["Stream Deck · fleet plugin (fleet-config#1006)"] -->|POST /api/actions/id| actionsr["routers/actions.py<br/>home-automation's action contract"]
   actionsr --> acts

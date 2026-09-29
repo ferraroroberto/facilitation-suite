@@ -8,6 +8,10 @@
   "reader": { "enabled": true, "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat" },
   "remote": { "token": "" },
   "quiz": { "public_port": 8451, "public_url": "" },
+  "defaults": {
+    "stage": { "theme": "default" },
+    "music": { "fade_in_s": 2.0, "fade_out_s": 2.0 }
+  },
   "live": { "resume_on_start": true },
   "profiles": {
     "camera_strip": {"label": "Camera strip", "scene": "", "zone": [0.583, 0.23, 0.983, 0.77]},

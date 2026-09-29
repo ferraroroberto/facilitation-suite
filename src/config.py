@@ -111,7 +111,16 @@ class AppConfig:
     quiz: QuizConfig = field(default_factory=QuizConfig)
     live: LiveConfig = field(default_factory=LiveConfig)
     profiles: dict[str, Any] = field(default_factory=dict)
+    # What every new session starts from — the stage theme and lettering, the music
+    # fades (#110); parsed and checked by src/defaults.py.
+    defaults: dict[str, Any] = field(default_factory=dict)
     source: str = "defaults"
+
+
+def session_root(cfg: AppConfig) -> Path:
+    """The folder new sessions go under (``session_root``, else ``~/facilitation-sessions``)."""
+    root = cfg.session_root.strip()
+    return Path(root) if root else Path.home() / "facilitation-sessions"
 
 
 def _zone(value: Any, fallback: Any) -> Any:
