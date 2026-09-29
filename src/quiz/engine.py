@@ -367,11 +367,14 @@ class Game:
             out.update(podium_step=self.podium_shown(), podium_places=self.podium_places())
         return out
 
-    def player_view(self, player_id: str, order: list[str], questions: dict[str, QuizQuestion]) -> dict[str, Any]:
+    def player_view(self, player_id: str, order: list[str], questions: dict[str, QuizQuestion], *,
+                    podium_follows: bool = False) -> dict[str, Any]:
         """What one phone shows: the phase, the question and its tiles (``tiles`` = the answer
         numbers, ``answers`` = their texts in the same order — both are on the stage already),
         its own answer — and only after the question closes, the ``correct`` answer numbers,
-        whether its answer was right, its points and its rank."""
+        whether its answer was right, its points and its rank. A rank the podium has not
+        revealed yet is left out (``rank_pending``, see ``rank_withheld``); ``podium_follows``
+        says the game ends on a podium."""
         p = self.players[player_id]
         out: dict[str, Any] = {
             "game_id": self.game_id, "player_id": p.id, "name": p.name, "kicked": p.kicked,
@@ -394,7 +397,23 @@ class Game:
             mine = next((s for s in self.standings(questions) if s.player_id == p.id), None)
             if mine is not None:
                 out.update(score=mine.score, rank=mine.rank, streak=mine.streak, last_points=mine.last_points)
+                if self.rank_withheld(mine.rank, order, podium_follows):
+                    del out["rank"]
+                    out["rank_pending"] = True
         return out
+
+    def rank_withheld(self, rank: int, order: list[str], podium_follows: bool) -> bool:
+        """Whether a phone must not learn this rank yet, so it cannot spoil the podium's reveal (#147).
+
+        On the podium, a top place is withheld until its step reveals it (3rd first, as the
+        stage does) and every other place until the podium is complete. Before it, the last
+        question's reveal and leaderboard already hold the final ranking, so a game that ends
+        on a podium withholds every rank there too.
+        """
+        if self.phase == "podium":
+            places, shown = self.podium_places(), self.podium_shown()
+            return rank <= places - shown if rank <= places else shown < places
+        return podium_follows and bool(order) and self.item_id == order[-1]
 
 
 def _choice(choice: Any) -> Optional[int]:
