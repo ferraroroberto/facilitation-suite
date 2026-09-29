@@ -30,12 +30,12 @@ that loses nothing. It never touches the live app or a real session folder:
    percentiles.
 
 ``--restart-mid-question`` kills the server process (a crash, no clean
-shutdown) once half the bots have answered question ``--restart-at``, starts
-it again on the same ports and, ``--reactivate-after`` seconds later, takes the
-session live again as the presenter's "Go live" would. It then checks the game
-came back as it was (game, PIN, question, deadline, players, answers so far)
-and that the next leaderboard equals the one before plus that question's
-points, per player.
+shutdown) once half the bots have answered question ``--restart-at`` and
+starts it again on the same ports. Nobody presses "Go live": the server takes
+the session live again by itself at startup (#95) — the run fails if it does
+not. It then checks the game came back as it was (game, PIN, question,
+deadline, players, answers so far) and that the next leaderboard equals the
+one before plus that question's points, per player.
 
 **Through the public edge.** Give the disposable instance a fixed player port
 and publish it on a *temporary* hostname of the Cloudflare tunnel, then point
@@ -623,7 +623,7 @@ async def _play(args: argparse.Namespace, server: Disposable, host: Host, sectio
 
 async def restart_mid_question(server: Disposable, host: Host, bots: list[Bot], item: str, before: dict[str, Any],
                                stats: Stats, args: argparse.Namespace) -> dict[str, Any]:
-    """Kill the server mid-question, start it again, go live again; check the game came back as it was."""
+    """Kill the server mid-question and start it again; check it is live by itself and the game came back as it was."""
     acked = sum(1 for b in bots if item in b.acks)
     logger.info("💥 killing the server mid-question %s (%d answered, %d acked, %d s left)", item,
                 before["answered_count"], acked, (before["deadline_ms"] - int(time.time() * 1000)) // 1000)
@@ -632,10 +632,12 @@ async def restart_mid_question(server: Disposable, host: Host, bots: list[Bot], 
     await asyncio.sleep(1.0)
     await asyncio.to_thread(server.start)
     up = time.monotonic() - killed
-    logger.info("ℹ️ server back after %.1f s; going live again in %.0f s (the presenter's \"Go live\")", up,
-                args.reactivate_after)
-    await asyncio.sleep(args.reactivate_after)
-    await host.go_live()
+    live = (await host.call("GET", "/api/live"))["state"]
+    if live.get("session_id") == host.sid:
+        logger.info("✅ server back after %.1f s and live again by itself (no \"Go live\")", up)
+    else:
+        stats.error(f"restart: the session did not come back live by itself (live: {live.get('session_id')!r})")
+        await host.go_live()  # carry on, so the rest of the run still checks the game
     after = await host.quiz()
     same = {k: (before.get(k), after.get(k)) for k in ("game_id", "pin", "item_id", "phase", "deadline_ms", "player_count")}
     for key, (was, now) in same.items():
@@ -758,7 +760,6 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument("--join-spread", type=float, default=8.0, help="bots join over this many seconds")
     p.add_argument("--restart-mid-question", action="store_true")
     p.add_argument("--restart-at", type=int, default=5, help="the question to crash on")
-    p.add_argument("--reactivate-after", type=float, default=4.0, help="seconds between the restart and going live")
     p.add_argument("--port", type=int, default=0, help="the disposable app's port (default: a free one)")
     p.add_argument("--player-port", type=int, default=0, help="its player listener's port (fix it for a tunnel)")
     p.add_argument("--player-base", default="", help="the bots' /play base URL (default: the loopback listener)")

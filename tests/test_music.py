@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import array
+import json
 import struct
 import time
 import wave
@@ -43,8 +44,8 @@ class FakeBackend:
         self.sink, self.kind = sink, kind
         self.calls: list[tuple[Any, ...]] = []
 
-    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float) -> None:
-        self.calls.append(("play", track.label, volume, fade_in_s))
+    def play(self, play_id: int, track: Track, volume: int, fade_in_s: float, start_s: float = 0.0) -> None:
+        self.calls.append(("play", track.label, volume, fade_in_s) + ((round(start_s, 1),) if start_s else ()))
 
     def pause(self, fade_s: float) -> None:
         self.calls.append(("pause", fade_s))
@@ -261,6 +262,109 @@ def test_reset_and_closing_the_session_stop_the_music(rig: tuple[LiveHub, MusicS
     assert fake.calls[-1] == ("stop", 1.0) and music.state == "idle"
 
 
+def restart(sid: str) -> tuple[LiveHub, MusicService, FakeBackend]:
+    """A crash and a fresh server: a new hub and music service take the session live from its folder."""
+    hub = LiveHub(SessionStore(load_config()))
+    made: list[FakeBackend] = []
+    music = MusicService(hub, {"file": lambda sink: made.append(FakeBackend(sink)) or made[-1]})
+    hub.activate(sid)
+    return hub, music, made[0]
+
+
+def edit_state(folder: Path, change: Any) -> dict[str, Any]:
+    path = folder / "live" / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    change(data)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return data
+
+
+def test_item_music_resumes_after_a_restart_near_its_position(rig: tuple[LiveHub, MusicService, FakeBackend],
+                                                                music_session: tuple[str, Path]) -> None:
+    hub, music, fake = rig
+    sid, folder = music_session
+    goto_id(hub, "slide-105")
+    run_action(hub, "timer_toggle")
+    run_action(hub, "music_volume", "60")  # the presenter's level is kept too
+    saved = json.loads((folder / "live" / "state.json").read_text(encoding="utf-8"))["music"]
+    assert {k: saved[k] for k in ("kind", "ref", "loop", "state", "volume", "fade_in_s", "fade_out_s", "owner")} == {
+        "kind": "file", "ref": "audio/a.wav", "loop": False, "state": "playing", "volume": 60, "fade_in_s": 3.0,
+        "fade_out_s": 4.0, "owner": "slide-105"}
+    # 30 s later (the server was down meanwhile: it counts as played, like the timer)
+    edit_state(folder, lambda d: d["music"].update(at_ms=d["music"]["at_ms"] - 30_000))
+    hub2, music2, fake2 = restart(sid)
+    (call,) = fake2.calls
+    assert call[:4] == ("play", "a.wav", 60, 3.0) and 30 <= call[4] < 31  # fading in over the item's fade-in
+    assert music2.state == "playing" and music2.owner == "slide-105" and music2.volume == 60
+    run_action(hub2, "timer_toggle")  # the timer still drives it
+    assert fake2.calls[-1] == ("pause", 4.0) and music2.state == "paused"
+
+
+def test_item_music_paused_with_its_timer_comes_back_paused(rig: tuple[LiveHub, MusicService, FakeBackend],
+                                                            music_session: tuple[str, Path]) -> None:
+    hub, music, _ = rig
+    sid, folder = music_session
+    goto_id(hub, "slide-105")
+    run_action(hub, "timer_toggle")
+    run_action(hub, "timer_toggle")  # paused: timer and music
+    edit_state(folder, lambda d: d["music"].update(position_s=42.0, at_ms=d["music"]["at_ms"] - 60_000))
+    hub2, music2, fake2 = restart(sid)
+    assert fake2.calls == [] and music2.state == "paused" and music2.owner == "slide-105"  # silent, holding 42 s
+    assert hub2.snapshot()["state"]["music"]["track"] == {"kind": "file", "label": "a.wav"}
+    run_action(hub2, "timer_toggle")  # the timer's resume resumes it where it was
+    assert fake2.calls == [("play", "a.wav", 70, 3.0, 42.0)] and music2.state == "playing"
+
+
+def test_item_music_stays_silent_when_its_item_left_or_its_timer_ended(
+        rig: tuple[LiveHub, MusicService, FakeBackend], music_session: tuple[str, Path]) -> None:
+    hub, music, _ = rig
+    sid, folder = music_session
+    goto_id(hub, "brk-coffee")  # on_enter music with an on_enter timer
+    run_action(hub, "next")  # keep_playing: the break's music plays on, another item on stage
+    assert music.state == "playing" and music.owner == "brk-coffee"
+    saved = json.loads((folder / "live" / "state.json").read_text(encoding="utf-8"))["music"]
+    hub2, music2, fake2 = restart(sid)
+    assert fake2.calls == [] and music2.state == "idle"
+
+    def ended(d: dict[str, Any]) -> None:  # back on the break, but its timer reached 00:00 while down
+        d.update(item_id="brk-coffee", music=saved)
+        d["timers"]["brk-coffee"].update(done=True, running_since=None)
+
+    edit_state(folder, ended)
+    hub3, music3, fake3 = restart(sid)
+    assert hub3.current()["id"] == "brk-coffee" and fake3.calls == [] and music3.state == "idle"
+
+
+def test_ad_hoc_music_resumes_if_it_was_playing_and_cues_are_never_saved(
+        rig: tuple[LiveHub, MusicService, FakeBackend], music_session: tuple[str, Path]) -> None:
+    hub, music, _ = rig
+    sid, folder = music_session
+    extra = next(t for t in music.tracks() if t["label"] == "extra.wav")
+    run_action(hub, "music_play", str(extra["n"]))
+    edit_state(folder, lambda d: d["music"].update(at_ms=d["music"]["at_ms"] - 10_000))
+    hub2, music2, fake2 = restart(sid)
+    (call,) = fake2.calls
+    assert call[:4] == ("play", "extra.wav", 80, 2.0) and 10 <= call[4] < 11 and music2.owner is None
+    run_action(hub2, "music_toggle")  # paused by hand…
+    hub3, music3, fake3 = restart(sid)
+    assert fake3.calls == [] and music3.state == "paused"  # …comes back paused
+    run_action(hub3, "music_stop")  # nothing loaded in the backend: nothing to fade out
+    assert fake3.calls == [] and music3.state == "idle"
+    write_wav(folder / "audio" / "quiz-lobby.wav")
+    assert music3.cue("quiz-lobby") and music3.state == "playing"
+    hub3.commit()
+    assert json.loads((folder / "live" / "state.json").read_text(encoding="utf-8"))["music"] is None
+
+
+def test_closing_the_session_forgets_its_music(rig: tuple[LiveHub, MusicService, FakeBackend],
+                                               music_session: tuple[str, Path]) -> None:
+    hub, music, fake = rig
+    run_action(hub, "music_play", "1")
+    hub.deactivate()  # the presenter's Close: going live again later starts silent
+    hub.activate(music_session[0])
+    assert [c[0] for c in fake.calls] == ["play", "stop"] and music.state == "idle"
+
+
 def test_music_round_trips_and_stays_out_when_absent() -> None:
     session = parse_session(dict(PLAN, sections=[{"name": "S", "items": [
         {"kind": "slide", "slide_id": 1, "music": {"path": "audio/x.mp3", "loop": True}},
@@ -426,6 +530,32 @@ def test_file_backend_opens_the_device_mixes_and_reports() -> None:
     assert backend.snapshot()["device"] == "fake-out"
     backend.close()
     assert devices[0].closed
+
+
+def test_file_backend_resumes_part_way_in_wraps_a_loop_and_skips_a_finished_file() -> None:
+    events: list[tuple[str, int, str]] = []
+    devices: list[FakeDevice] = []
+    opened: list[int] = []
+
+    def source(ref: str, seek_frame: int = 0) -> Ones:
+        opened.append(seek_frame)
+        return Ones(SAMPLE_RATE)
+
+    backend = FileBackend(lambda *e: events.append(e), device_factory=lambda: devices.append(FakeDevice()) or devices[-1],
+                          source_factory=source, length_factory=lambda ref: SAMPLE_RATE * 10)  # a 10 s file
+    backend.play(1, Track("file", "t.wav", "t.wav"), 100, 0, start_s=4.0)
+    wait_for(lambda: devices and devices[0].gen is not None)
+    assert opened == [4 * SAMPLE_RATE]
+    devices[0].gen.send(200)
+    wait_for(lambda: events)
+    assert events == [("playing", 1, "t.wav")] and backend.snapshot()["position_s"] == 4.0  # from the top of the file
+    backend.play(2, Track("file", "t.wav", "t.wav", loop=True), 100, 0, start_s=25.0)  # 2½ times round
+    wait_for(lambda: len(opened) == 2)
+    assert opened[-1] == 5 * SAMPLE_RATE
+    backend.play(3, Track("file", "t.wav", "t.wav"), 100, 0, start_s=12.0)  # past its end: it would have ended
+    wait_for(lambda: events[-1][1] == 3)
+    assert events[-1] == ("ended", 3, "t.wav") and len(opened) == 2
+    backend.close()
 
 
 def test_a_duplicated_session_takes_its_music_along(music_session: tuple[str, Path]) -> None:

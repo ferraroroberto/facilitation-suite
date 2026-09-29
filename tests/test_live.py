@@ -144,6 +144,73 @@ def test_state_and_events_survive_a_restart(hub: LiveHub, demo: tuple[str, Path]
     assert fresh.index == 5 and fresh.blackout is True and fresh.clock_started_at == hub.clock_started_at
 
 
+def test_the_live_session_is_resumed_at_startup(demo: tuple[str, Path], isolated_env: Path) -> None:
+    sid, folder = demo
+    pointer = isolated_env / "data" / "live.json"
+    hub = LiveHub(SessionStore(load_config()), last_live=pointer)
+    assert hub.resume_last() is None and hub.session_id is None  # nothing was live
+    hub.activate(sid)
+    hub.clock_start()
+    at = hub.item_by_id("slide-105")["index"]  # a slide with a manual timer
+    hub.goto(at)
+    hub.timer_toggle()
+    assert json.loads(pointer.read_text(encoding="utf-8"))["session_id"] == sid
+    assert json.loads((folder / "live" / "state.json").read_text(encoding="utf-8"))["live"] is True
+    fresh = LiveHub(SessionStore(load_config()), last_live=pointer)  # a crash, then a fresh server
+    assert fresh.resume_last() == sid
+    assert fresh.session_id == sid and fresh.index == at and fresh.clock_started_at == hub.clock_started_at
+    assert fresh.timers["slide-105"].running_since is not None
+    assert fresh.snapshot()["state"]["timers"] == hub.snapshot()["state"]["timers"]
+    events = [json.loads(line) for line in (folder / "live" / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert events[-1]["event"] == "session_live" and events[-1]["resumed"] is True and events[-1]["index"] == at
+    assert fresh.resume_last() is None  # already live: nothing to do
+
+
+def test_a_closed_session_is_never_resumed(demo: tuple[str, Path], isolated_env: Path) -> None:
+    sid, folder = demo
+    pointer = isolated_env / "data" / "live.json"
+    state = folder / "live" / "state.json"
+    hub = LiveHub(SessionStore(load_config()), last_live=pointer)
+    hub.activate(sid)
+    hub.goto(3)
+    hub.deactivate()  # the presenter's Close
+    assert not pointer.exists() and json.loads(state.read_text(encoding="utf-8"))["live"] is False
+    stale = json.dumps({"session_id": sid})
+    pointer.write_text(stale, encoding="utf-8")  # a pointer whose removal failed: state.json still says closed
+    fresh = LiveHub(SessionStore(load_config()), last_live=pointer)
+    assert fresh.resume_last() is None and fresh.session_id is None and not pointer.exists()
+    # A state.json from before the resume (no "live" key) is no proof it was live either.
+    data = json.loads(state.read_text(encoding="utf-8"))
+    del data["live"]
+    state.write_text(json.dumps(data), encoding="utf-8")
+    pointer.write_text(stale, encoding="utf-8")
+    assert fresh.resume_last() is None and fresh.session_id is None
+    # Nor is a session the ledger no longer lists; going live by hand still restores the position.
+    pointer.write_text(json.dumps({"session_id": "0123456789"}), encoding="utf-8")
+    assert fresh.resume_last() is None
+    fresh.activate(sid)
+    assert fresh.index == 3
+
+
+def test_the_server_resumes_at_startup_unless_switched_off(demo: tuple[str, Path], isolated_env: Path) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.webapp.server import create_app
+    from tests.conftest import write_test_config
+
+    sid, _ = demo
+    with TestClient(create_app(), client=("127.0.0.1", 50000)) as c:
+        c.post("/api/live/activate", json={"session": sid}).raise_for_status()
+        c.post("/api/actions/goto/3").raise_for_status()
+    with TestClient(create_app(), client=("127.0.0.1", 50000)) as c:  # a restart: live again, no "Go live"
+        state = c.get("/api/live").json()["state"]
+        assert state["session_id"] == sid and state["index"] == 2
+    write_test_config(isolated_env / "config.json", session_root=str(isolated_env / "sessions"),
+                      live={"resume_on_start": False})
+    with TestClient(create_app(), client=("127.0.0.1", 50000)) as c:
+        assert c.get("/api/live").json()["state"]["active"] is False
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows refuses to replace a file another program holds open")
 def test_state_written_while_onedrive_holds_it_open(hub: LiveHub, demo: tuple[str, Path]) -> None:
     state = demo[1] / "live" / "state.json"

@@ -13,6 +13,9 @@ Pages (``app/webapp/routers/pages.py``):
     GET /healthz     → liveness
     GET /api/version → build identity (git_sha captured at import, schema version)
 
+At startup the lifespan takes the session that was live when the server
+stopped live again (``LiveHub.resume_last``, #95; off with ``live.resume_on_start``).
+
 The lifespan also runs the **quiz player listener** — a second, separate app on
 ``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface the
 Cloudflare tunnel publishes (``src/tunnel.py``, run by the tray). It shares this
@@ -70,7 +73,7 @@ from src.build_info import build_identity
 from src.certs import cert_paths
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
-from src.config import load_config, profiles
+from src.config import data_dir, load_config, profiles
 from src.errors import DomainError
 from src.importer.service import Importer
 from src.live.actions import Action, register
@@ -90,6 +93,7 @@ logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
+LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
 
 
 class NoCacheStaticFiles(StaticFiles):
@@ -117,6 +121,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.player = player
     await player.start()  # optional: a busy port is logged, never fatal
     reach = asyncio.create_task(app.state.quiz_reach.run_periodic(), name="quiz-reach")
+    # After every service is wired and the loop bound (timers, the quiz, the music): the session
+    # that was live when the server stopped comes back by itself (#95).
+    if cfg.live.resume_on_start:
+        app.state.live.resume_last()
+    else:
+        logger.info("ℹ️ live: resume at startup is off (config live.resume_on_start) — go live by hand")
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
     reach.cancel()
@@ -242,7 +252,7 @@ def create_app() -> FastAPI:
     store = SessionStore(app.state.config)
     app.state.store = store
     app.state.importer = Importer(load=store.load, save=store.save, folder=store.folder)
-    app.state.live = LiveHub(store)
+    app.state.live = LiveHub(store, last_live=data_dir() / LAST_LIVE_FILE)
     app.state.last_action = None  # the latest /api/actions press (the presenter's Stream Deck chip)
     app.state.live.extra_state.append(lambda: {"last_action": app.state.last_action})
     # Light/dark for the app, the presenter and the remote (#92): every open page follows it.
