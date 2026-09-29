@@ -9,8 +9,9 @@ strip) keep their content out of the camera's box (#88). The phones show that 12
 question and the four answers' texts in their tiles (#90), every word of them at 320 and 390 px,
 light and dark, and after the reveal the right answer's text. The podium reveals one place per
 Next (#89): 3rd, 2nd, 1st, and the fourth Next moves on. Switched to Spanish on the leaderboard,
-the stage and a reloaded phone say it in Spanish (#91). The presenter's Sounds chip (#102) shows
-on the lobby, naming a cue-file/device state — never blank."""
+the stage and a reloaded phone say it in Spanish (#91). A stage reloaded on a lobby that already has
+players shows every name (#111). The presenter's Sounds chip (#102) shows on the lobby, naming a
+cue-file/device state — never blank."""
 
 from __future__ import annotations
 
@@ -100,6 +101,9 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         # a third player, straight through the player API, who never answers: the podium's 3rd (#89)
         cy = page.request.post(f"{webapp.player_url}/play/api/join", data={"pin": pin, "nickname": "Cy"})
         assert cy.ok and cy.json()["state"] == "joined"
+        # a stage (re)opened on a lobby that already has players shows every name, not "+3 more" (#111)
+        stage.reload()
+        expect(stage.locator(".qz-player:visible")).to_have_text(["Ana", "Bo", "Cy"])
 
         assert page.request.post(f"{base}/api/actions/next").ok  # the first question
         for phone in (ana, bo):

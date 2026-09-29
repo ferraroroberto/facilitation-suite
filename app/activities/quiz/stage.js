@@ -205,14 +205,25 @@ function lobby(body, { ctx, q, w, st, fresh, redraw }) {
     list.appendChild(li); // (re)appended in join order
   }
   st.total = players.length;
+  st.w = w;
   fitNames(list, st.total, w);
-  if (fresh) document.fonts?.ready.then(() => { if (list.isConnected) fitNames(list, st.total, w); });
+  if (fresh) {
+    // A stage opened on a lobby that already has players (#111) draws before the quiz's
+    // stylesheet and fonts arrive: fit again once they have (the list takes its size then).
+    const refit = () => { if (list.isConnected && views.get(body) === st) fitNames(list, st.total, st.w); };
+    document.fonts?.ready.then(refit);
+    if (typeof ResizeObserver === 'function') {
+      const ro = new ResizeObserver(() => { if (list.isConnected) refit(); else ro.disconnect(); });
+      ro.observe(list);
+    }
+  }
 }
 
 /**
  * Show the names that fit in the list's full rows, then a "+N more" chip for the
  * rest (the names not drawn and those that do not fit). Without a layout (a
- * hidden preview) there is nothing to measure: every drawn name stays.
+ * hidden preview) or before stage.css has made the list the chips' offset parent,
+ * there is nothing to measure: every drawn name stays.
  */
 function fitNames(list, total, w) {
   const chips = [...list.querySelectorAll('.qz-player:not(.qz-more)')];
@@ -230,7 +241,8 @@ function fitNames(list, total, w) {
     list.appendChild(more);
   };
   place();
-  if (!list.clientHeight) return;
+  const probe = chips[0] || more;
+  if (!probe || !list.clientHeight || probe.offsetParent !== list) return;
   const fits = (li) => !li || li.offsetTop + li.offsetHeight <= list.clientHeight;
   while (shown > 0 && !fits(more || chips[shown - 1])) {
     chips[--shown].hidden = true;
