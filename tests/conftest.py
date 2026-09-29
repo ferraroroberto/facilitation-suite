@@ -36,14 +36,17 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pa
     monkeypatch.setenv("FS_ENV_PATH", str(root / ".env"))  # never the real secrets file
     for key in ("SPOTIFY_CLIENT_ID", "SPOTIFY_REFRESH_TOKEN", "SPOTIFY_DEVICE_NAME"):
         monkeypatch.delenv(key, raising=False)
-    # The public quiz-link check never leaves this PC in a test: no public DNS, no relay.
+    # The public quiz-link check never leaves this PC in a test: no public DNS, no edge, and
+    # never this checkout's real tunnel config.
+    from src import tunnel
     from src.quiz import reach
 
     def offline(*_: object) -> None:
         raise reach.DnsError("tests are offline")
 
     monkeypatch.setattr(reach, "resolve_public", offline)
-    monkeypatch.setattr(reach, "ping_relay", lambda *_: "tests are offline")
+    monkeypatch.setattr(reach, "ping_edge", lambda *_: "tests are offline")
+    monkeypatch.setattr(tunnel, "CONFIG_PATH", root / "cloudflared.yml")
     yield root
 
 

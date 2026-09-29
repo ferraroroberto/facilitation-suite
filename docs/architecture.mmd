@@ -7,8 +7,10 @@ flowchart LR
     stage["/stage (OBS display capture)"]
   end
   tray["tray.bat → app/tray/tray.py"] --> server
-  phones["players' phones (public internet, not the tailnet)"] -->|HTTPS · WS| funnel["Tailscale Funnel :10000<br/>&lt;this PC&gt;.&lt;tailnet&gt;.ts.net"]
-  funnel -->|"http://127.0.0.1:8451"| playerapp
+  tray -.->|"spawns + cycles (when webapp/cloudflared.yml exists)"| cloudflared["src/tunnel.py → cloudflared<br/>named tunnel facilitation-quiz · /ready on 127.0.0.1:8452"]
+  phones["players' phones (public internet, not the tailnet)"] -->|HTTPS · WS| cfedge["Cloudflare edge<br/>quiz.robertoferraro.net · no Access policy"]
+  cfedge -->|tunnel| cloudflared
+  cloudflared -->|"http://127.0.0.1:8451"| playerapp
   subgraph player[Quiz player listener 127.0.0.1:8451 — app/player/ · same process + loop]
     playerapp["app/player/app.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
     playerpush["app/player/push.py<br/>PlayerPush — each phone's own view on every change"]
@@ -111,8 +113,9 @@ flowchart LR
   stage -->|img| quizr["routers/quiz.py<br/>GET /api/quiz/qr.svg (RemoteAuth)"]
   quizr --> quizsvc
   quizr --> qr["src/quiz/qr.py<br/>join QR SVG (public_url + /play?pin=)"]
-  quizr -->|"GET / POST /api/quiz/reach"| reach["src/quiz/reach.py<br/>QuizReach · public link check in a worker thread<br/>public DNS (1.1.1.1 · 8.8.8.8) → relay ping · readiness + presenter chip"]
-  reach -.->|HTTPS ping via the relay| funnel
+  quizr -->|"GET / POST /api/quiz/reach"| reach["src/quiz/reach.py<br/>QuizReach · public link check in a worker thread<br/>tunnel /ready → public DNS (1.1.1.1 · 8.8.8.8) → edge ping · readiness + presenter chip"]
+  reach -.->|"GET /ready"| cloudflared
+  reach -.->|HTTPS ping via the edge| cfedge
   bots["scripts/quiz_bots.py<br/>N bots · a disposable instance · restart mid-question"] -.->|player API · host's next| playerapp
   chathub -->|new messages| quizchat["src/quiz/chat.py<br/>ChatAnswers · A–D in the chat → chat players"]
   quizchat --> quizsvc

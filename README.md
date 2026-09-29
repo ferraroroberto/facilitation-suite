@@ -52,6 +52,7 @@ The header's moon/sun button switches light and dark, and **Settings → Text si
 | `facilitation-suite.log` | the webapp (the server, including `✅ facilitation-suite up — build <sha>`), plus the lines of the freeze-PNG and session-PDF helpers it spawns — they log to stderr and the server relays them |
 | `tray.log` | the tray: starting, adopting and restarting the webapp |
 | `chat-reader.log` | the Zoom chat reader |
+| `cloudflared.log` | cloudflared, the quiz player's tunnel (its own writer; the tray moves it to `.log.1` past 5 MB when it starts cloudflared) |
 | `webapp/watchdog.log` (repo root) | the tray's watchdog breadcrumbs |
 
 ## Importing a PowerPoint
@@ -250,25 +251,29 @@ The quiz (#34) is the one part of the app strangers reach: players on their own 
 
 - The server starts a second listener, the player app (`app/player/`), on **`127.0.0.1:8451`** (`quiz.public_port`), loopback only whatever `host` says. It runs in the same process and event loop as the main app and stops with it.
 - It serves the player page `/play` (its own CSS and script under `/play/static/`), the player API `/play/api/…` and the `/play/ws` socket — nothing else: the presenter, the stage, the app, `/api/*`, `/ws`, `/static` and the OpenAPI docs are all `404` there. Only the player app may ever use port 8451. It calls the main app's one quiz engine directly (same process, same loop).
-- **Tailscale Funnel** publishes it on the public internet as `https://<this PC>.<tailnet>.ts.net:10000/play`. Funnel only serves on 443, 8443 and 10000, and on this PC the other two are taken: 443 by the tailnet-only LLM hub, 8443 by voice-transcriber (a Funnel there would capture its tailnet traffic). Likewise 8450 is parking-manager's, hence 8451. The `tailscale serve` entries on 443, 3000 and 8465 stay tailnet-only and untouched.
+- A **Cloudflare named tunnel** publishes it on the public internet as `https://quiz.<domain>/play` (here `quiz.robertoferraro.net`, the same pattern as the fleet's other public hostnames — but with **no Cloudflare Access policy**: the players are the public). The tunnel config `webapp/cloudflared.yml` (gitignored; template `webapp/cloudflared.sample.yml`) maps that hostname to `http://127.0.0.1:8451` and everything else to a 404. 8450 is parking-manager's, hence 8451.
+- **The tray runs cloudflared** when `webapp/cloudflared.yml` exists: `cloudflared tunnel --config webapp/cloudflared.yml --metrics 127.0.0.1:8452 run` (`src/tunnel.py`), a child of the tray — it stops with **Quit**, dies with the tray on `tray.bat --restart` (and the fresh tray first ends any cloudflared still running this config, so no orphan survives), and is started again if it exits (after 30 s, doubling to 5 min). Its log is `data/logs/cloudflared.log`. Without the file the tray logs `⚠️ tunnel: no …cloudflared.yml` and carries on; the quiz is then not public. `127.0.0.1:8452/ready` is cloudflared's own readiness (200 with an edge connection, 503 without), which the reachability check reads.
 - If 8451 is busy at start, the log says `❌ quiz player listener: 127.0.0.1:8451 is busy …` once, the public quiz is off, and the main app keeps serving. `quiz.public_port: 0` turns the listener off.
 
+**One-time setup** (`cloudflared` installed and logged in with `cloudflared tunnel login`):
+
 ```powershell
-tailscale funnel --bg --https=10000 http://127.0.0.1:8451  # publish (persists across reboots)
-tailscale funnel status                                     # what is public (:10000 = "Funnel on")
-tailscale funnel --https=10000 off                          # stop publishing
+cloudflared tunnel create facilitation-quiz                                # writes ~/.cloudflared/<UUID>.json — secret, never commit or paste it
+cloudflared tunnel route dns facilitation-quiz quiz.robertoferraro.net    # the proxied CNAME to the tunnel
+Copy-Item webapp\cloudflared.sample.yml webapp\cloudflared.yml            # then set tunnel: <UUID>, credentials-file and hostname
+& .\tray.bat --restart                                                     # the tray starts cloudflared
 ```
 
-Never `tailscale funnel reset` — it clears the whole serve config, the tailnet-only entries included.
+Set `quiz.public_url` to the public address (`https://quiz.robertoferraro.net`): the join QR code and link are built from it. While it is empty the presenter's chip says *Quiz · PIN … · public URL not configured* and the QR is a placeholder saying the same. Through the tunnel only `/play…` answers; `/presenter`, `/api/*`, `/ws` and `/stage` are `404` (the main app is never behind it).
 
-Set `quiz.public_url` to the public address (`https://<this PC>.<tailnet>.ts.net:10000`): the join QR code and link are built from it. While it is empty the presenter's chip says *Quiz · PIN … · public URL not configured* and the QR is a placeholder saying the same.
+**Fallback: Tailscale Funnel.** Before the tunnel (#49–#56) the player was published by Funnel on `:10000` — `tailscale funnel --bg --https=10000 http://127.0.0.1:8451`, `quiz.public_url = https://<this PC>.<tailnet>.ts.net:10000`, off again with `tailscale funnel --https=10000 off` (never `tailscale funnel reset`: it clears the whole serve config, the tailnet-only entries on 443, 3000 and 8465 included). It still works (the rate limits and the reachability check handle both), but it caps connections per client IP (see *Running a quiz*, "Measured limits"), and `:10000` is more often blocked on corporate networks than 443. It is off since #82.
 
 **Playing on a phone.** Every game has a **6-digit PIN** (kept in `live/quiz.jsonl`, so it survives a restart; *play again* gets a new one). Players scan the QR code (`quiz.public_url` + `/play?pin=…`, the PIN filled in) or open `/play` and type the PIN, pick a nickname (a name already taken gets ` (2)`) and join. The phone then shows only what it needs: *You're in* in the lobby; on a question, two to four big tiles in four colours **and** four shapes (1 red triangle, 2 blue diamond, 3 amber circle, 4 green square — the stage uses the same) with the time left; after a tap *Sending…* until the server acknowledges the answer, then **✓ Locked in** — never before; *Too late* when the question closed first; at the reveal *Correct* (+points, rank) or *Not this time* or *No answer*; the rank and score on the leaderboard and podium; and *Removed* for a player the host kicked. The page works from 320 px wide, in light or dark (the ☾/☀ button), and never receives the correct answer before the reveal or anyone else's answers.
 
 - **Reconnect-safe.** The player's id and secret stay in the phone's browser storage: a reload, a locked phone or a Wi-Fi ↔ 4G switch resumes the same player and score. A PIN for another game starts a fresh join.
 - **Acked answers.** A tap is retried with backoff until the server answers; a retry never scores twice (the first answer stands). After a server restart the session is not live until the presenter goes live again; an answer sent in that gap gets `no_game` and the page keeps retrying it (the phone keeps its identity).
 - **Live updates** come over the `/play/ws` socket; while it is down, or after it dropped twice within 30 s, the page polls every second and keeps trying the socket. `?transport=poll` forces polling (to test a network that blocks WebSockets).
-- **Rate limits per phone address** on join/resume (200 at once, then 5 a second), answers (600, then 20 a second) and wrong PINs (30, then one every 2 s) — generous enough for 60 players behind one office NAT (the Funnel relay itself is tighter: see *Running a quiz*, "Known limit"). Funnel passes the phone's public IP in `X-Forwarded-For` (replacing anything the phone sent), which the listener trusts from `127.0.0.1` only.
+- **Rate limits per phone address** on join/resume (200 at once, then 5 a second), answers (600, then 20 a second) and wrong PINs (30, then one every 2 s) — generous enough for 60 players behind one office NAT. The address is the phone's real one: the listener trusts `X-Forwarded-For` from `127.0.0.1` only and takes its rightmost entry; Cloudflare *appends* the connecting IP there (so a spoofed value stays on the left, and the rightmost equals `CF-Connecting-IP`), and Funnel replaces the header outright. Probed through the tunnel (#82): 45 wrong PINs each spoofing a different `X-Forwarded-For` shared one bucket — 429 from the 32nd — while the same spoofs over loopback each got their own.
 - The listener's own request lines stay out of the access log (the polling URL carries the player's secret, and 60 phones poll every second).
 
 `GET /api/quiz/qr.svg` (main app, behind `RemoteAuth`; `?pin=` for a given game) is the join QR of the game on stage; its `X-Quiz-QR` header says `ok` or `not-configured`. `state.quiz` carries `pin`, `join_url` (`null` while `quiz.public_url` is empty), `listener` (the player listener is up) and `reach` (the last public-link check). `GET /api/quiz/reach` returns that check, `POST /api/quiz/reach` runs it now.
@@ -279,33 +284,37 @@ End to end, from a Kahoot spreadsheet to the podium. The details of each part ar
 
 1. **Import.** Plan tab → **Import Kahoot** → pick the `.xlsx` (Kahoot's spreadsheet template). A new section holds the lobby, one item per question and the podium; edit any question in the Plan tab.
 2. **Sound (optional).** Put `quiz-lobby.*`, `quiz-countdown.*`, `quiz-reveal.*` and `quiz-podium.*` (`.mp3`, `.wav`, `.ogg` or `.flac`) in the session's `audio/` folder; the Readiness list does not check them, a missing one is simply silent.
-3. **Funnel on.** `tailscale funnel --bg --https=10000 http://127.0.0.1:8451` (it persists across reboots; `tailscale funnel status` shows `:10000 (Funnel on)`), and `quiz.public_url` = `https://<this PC>.<tailnet>.ts.net:10000` in the config. After the session, `tailscale funnel --https=10000 off` if you don't want it public between sessions (never `tailscale funnel reset`).
+3. **Tunnel up.** With the one-time setup done (*Quiz player (public)*), the tray runs cloudflared and `quiz.public_url` = `https://quiz.robertoferraro.net`; the Reachability chip says *reachable*. Nothing to switch on per session: between sessions the tunnel serves the player page with no game (*no game* on the phone).
 4. **The player link.** On the lobby the stage shows the QR code, the link and the PIN; the presenter's Quiz card has **Copy link** for the chat. Players open it on their phone (mobile data works; they are not on the tailnet).
 5. **Rehearse.**
    - *Alone, through the chat:* on a quiz question, **Simulate answers** (the presenter) makes twelve simulated people answer in the chat; the game runs lobby to podium.
-   - *With bots, through the player API:* `& .\.venv\Scripts\python.exe scripts\quiz_bots.py` boots a **disposable** instance with a synthetic session (never the live app or a real session folder), plays a 10-question game with 60 bots (joins, answers with retries, random reloads, WebSocket ↔ polling) as the host, and checks against `live/quiz.jsonl` that every bot joined once and every answer was recorded, acked and scored exactly once. `--restart-mid-question` also kills the server mid-question, restarts it and checks the game and every score came back. Through the public relay: publish the disposable instance on a temporary Funnel path and pass `--player-port` / `--player-base` / `--public-dns` (the script's docstring has the commands); remove the path afterwards and check `tailscale funnel status` shows only `/` → 8451.
+   - *With bots, through the player API:* `& .\.venv\Scripts\python.exe scripts\quiz_bots.py` boots a **disposable** instance with a synthetic session (never the live app or a real session folder), plays a 10-question game with 60 bots (joins, answers with retries, random reloads, WebSocket ↔ polling) as the host, and checks against `live/quiz.jsonl` that every bot joined once and every answer was recorded, acked and scored exactly once. `--restart-mid-question` also kills the server mid-question, restarts it and checks the game and every score came back. Through the public edge: publish the disposable instance on a temporary hostname of the tunnel (e.g. `quiz-bots.<domain>`: a DNS route plus a rule in `webapp/cloudflared.yml`, then `tray.bat --restart` — keep one connector, since Cloudflare spreads a tunnel's requests over all its cloudflared processes) and pass `--player-port` / `--player-base` / `--public-dns` (the script's docstring has the commands); the live player (`quiz.public_url`'s host and the tunnel config's hostnames, at the root) is refused. Remove the rule afterwards; `cloudflared` cannot delete the DNS record, so remove it in the Cloudflare dashboard or leave it — the live config's catch-all answers it with a 404.
 6. **Chat fallback.** If phones cannot join or the link dies mid-game, say "type A, B, C or D in the chat": while the lobby's *Answers typed in the chat count too* is on (the default), chat answers score through the same engine, and the game carries on.
 
-**Reachability check.** For a session with quiz items the Sessions tab's *Ready for the live session* list has **Quiz public URL reachable**, and the presenter's Quiz card has the same state on its **Reachability** chip; both have a **Check** button. The check (`src/quiz/reach.py`) pings `/play/api/ping` on the player listener on this PC, then resolves the public host through **public DNS** (1.1.1.1, then 8.8.8.8, asked directly — this PC's own resolver answers with the tailnet address and would skip the relay) and pings the same path through the relay, as a phone on mobile data would. It runs in a worker thread when a quiz session goes live, every 2 minutes while it is live, and on demand. Each state is distinct:
+**Reachability check.** For a session with quiz items the Sessions tab's *Ready for the live session* list has **Quiz public URL reachable**, and the presenter's Quiz card has the same state on its **Reachability** chip; both have a **Check** button. The check (`src/quiz/reach.py`) pings `/play/api/ping` on the player listener on this PC, asks cloudflared's `/ready` on `127.0.0.1:8452` when the host is one `webapp/cloudflared.yml` publishes, then resolves the public host through **public DNS** (1.1.1.1, then 8.8.8.8, asked directly — never this PC's own resolver, which can answer differently, e.g. MagicDNS for a ts.net name) and pings the same path through the public edge, as a phone on mobile data would. It runs in a worker thread when a quiz session goes live, every 2 minutes while it is live, and on demand. Each state is distinct:
 
 | State | Meaning |
 |---|---|
-| *reachable* | the ping answered through the public relay |
+| *reachable* | the ping answered through the public edge |
 | *listener down* | the player listener on `127.0.0.1:8451` does not answer (busy port? see the log) |
-| *funnel unreachable* | public DNS does not know the host (Funnel off, or not propagated yet — it took ~14 min the first time), or the relay does not answer (e.g. its 502) |
+| *tunnel down* | the host is the tunnel's and cloudflared is not running, or has no connection to Cloudflare (`tray.bat --restart`; `data/logs/cloudflared.log`) |
+| *public URL unreachable* | public DNS does not know the host (no DNS record, or not propagated yet), or the edge does not answer the ping (e.g. the 502 Cloudflare gives when no cloudflared serves the host — webapp/cloudflared.yml missing on this PC? — or the Funnel relay's) |
 | *not configured* | `quiz.public_url` is empty or not `https://`, or `quiz.public_port` is 0 |
 | *unknown* | not checked yet, the last check is over 5 minutes old, public DNS did not answer (is this PC online?), or the check itself failed — never counted as ready |
 
-**Known limit: one public IP, one relay.** Measured through the relay (2026-09-28, `scripts/quiz_bots.py` and a connection probe, all from this PC's one public IP): each Funnel relay address accepted **20 concurrent connections** from that IP; the 21st and later were reset or timed out until one closed (60 WebSockets spread over the relay's three addresses all opened). A phone holds one or two (the socket, plus the page's HTTP connection while it polls or answers), so a room where every phone shares one public IP (office Wi-Fi behind one NAT) can seat only about 10–20 players through one relay address, whatever the app's own rate limits allow: 60 bots from one IP got 44 joins in 7 minutes. Phones on mobile data each have their own address. Whether the cap is per client address or per relay address in total is not known (no second public IP to test from); for a room on one network, plan on the chat fallback. Moving to a Cloudflare named tunnel (see the follow-up issue).
+**Measured limits: one public IP.** All from this PC's one public IP — the office-NAT case.
+
+- *Cloudflare tunnel* (2026-09-29, #82): **no per-IP cap found up to 200 connections**: 200 WebSockets opened at once to one edge address all opened, stayed open 15 s and answered a ping, and 200 concurrent HTTP pings all answered. `scripts/quiz_bots.py` with 60 bots × 10 questions through a temporary tunnel hostname: 60 of 60 joined in 8 s, 600 answers acked and scored exactly once (join p50 80 ms, answer ack p50 71 ms / p99 110 ms); with `--restart-mid-question` the same, the game back as it was 7.8 s after the kill (phones saw the tunnel's 502 meanwhile and retried). More than 200 was not tried.
+- *Tailscale Funnel* (the fallback; 2026-09-28, #56): each Funnel relay address accepted **20 concurrent connections** from one IP; the 21st and later were reset or timed out until one closed. A phone holds one or two (the socket, plus the page's HTTP connection while it polls or answers), so a room on one NAT seats only about 10–20 players per relay address: 60 bots from one IP got 44 joins in 7 minutes. Phones on mobile data each have their own address.
 
 **Before the session:**
 
-- [ ] Funnel on (`tailscale funnel status` → `:10000 (Funnel on)`, `/ → 127.0.0.1:8451`) and `quiz.public_url` set.
+- [ ] The tunnel is up (the tray's **Status** says *quiz tunnel running*) and `quiz.public_url` set.
 - [ ] *Quiz public URL reachable* is **reachable** (press **Check**); not *unknown*.
 - [ ] Open the join link on a phone **on mobile data**, join the lobby, answer one question — then **Remove** that test player (or **New game** on the lobby).
 - [ ] Sound cues in `audio/` play (optional).
 - [ ] The Zoom chat reader is tested (the chat fallback depends on it) and the lobby's chat switch is as you want it.
-- [ ] Players share one office network? Expect the relay limit above; have the chat fallback ready.
+- [ ] The chat fallback is ready anyway (a network that blocks the quiz host, or the tunnel down mid-game).
 - [ ] A rehearsal with `scripts/quiz_bots.py` passed on this build.
 
 ## Phone remote
@@ -378,7 +387,7 @@ Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
-| `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public Funnel address, empty until published (see *Quiz player*). Restart the tray after changing it |
+| `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see *Quiz player*). Restart the tray after changing it |
 
 **`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see *Spotify setup*); `FS_ENV_PATH` points elsewhere.
 
@@ -406,15 +415,16 @@ The Sessions tab creates, duplicates (plan, slides, roster, theme, music — nev
 ```
 app/
   webapp/            FastAPI server (server.py), routers/, static/ (app, presenter, stage)
-  player/            the public quiz player app on 127.0.0.1:8451 (only /play*; published by Tailscale Funnel)
+  player/            the public quiz player app on 127.0.0.1:8451 (only /play*; published by the Cloudflare tunnel)
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, logger, build identity, certs, sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, quiz/, results/
+src/                 config, logger, build identity, certs, tunnel (cloudflared), sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, quiz/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, quiz_bots.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)
+webapp/              machine-local, gitignored: certificates/, cloudflared.yml (template: cloudflared.sample.yml, committed)
 ```
 
 ## Verify

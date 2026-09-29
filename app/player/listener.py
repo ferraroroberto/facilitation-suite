@@ -6,7 +6,8 @@ no second engine), stopped when the main app stops. ``launcher.py`` and the
 tray stay as they are.
 
 - **Loopback only, always.** Whatever ``config.host`` says, this binds
-  ``127.0.0.1``: the only way in from outside is Tailscale Funnel.
+  ``127.0.0.1``: the only way in from outside is the local ``cloudflared``
+  (the Cloudflare tunnel, ``src/tunnel.py``) or, as the fallback, Tailscale Funnel.
 - **Optional.** A busy port logs one distinct ❌ line and the main app keeps
   serving — the deck must never die because of the quiz. We bind the socket
   ourselves (uvicorn's own bind failure calls ``sys.exit``) with
@@ -126,8 +127,9 @@ class PlayerListener:
             lifespan="off",
             log_config=None,  # the process's logging is already configured; don't reset it
             access_log=True,  # False would empty the shared uvicorn.access logger (see the module docstring)
-            # Funnel forwards from loopback with X-Forwarded-For = the phone's public IP (it replaces
-            # whatever the client sent); trusted from 127.0.0.1 only, so request.client is the phone.
+            # cloudflared and Funnel forward from loopback with the phone's public IP as the LAST
+            # X-Forwarded-For entry (see ratelimit.py); trusted from 127.0.0.1 only, uvicorn takes the
+            # rightmost untrusted entry, so request.client is the phone whatever the phone sent.
             proxy_headers=True,
             forwarded_allow_ips="127.0.0.1",
             ws_ping_interval=20.0,
@@ -145,7 +147,7 @@ class PlayerListener:
             await asyncio.sleep(0.02)
         if not self.running:
             return False
-        logger.info("✅ quiz player listener on http://%s:%d/play (public only through Tailscale Funnel)", HOST, self.port)
+        logger.info("✅ quiz player listener on http://%s:%d/play (public only through the tunnel)", HOST, self.port)
         return True
 
     def _on_done(self, task: asyncio.Task[None]) -> None:

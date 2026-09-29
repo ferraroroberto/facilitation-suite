@@ -61,7 +61,7 @@ class Phone:
         req = urllib.request.Request(self.base + path, data=data, method=method)
         req.add_header("Content-Type", "application/json")
         if self.ip:
-            req.add_header("X-Forwarded-For", self.ip)  # as Tailscale Funnel sends it, from loopback
+            req.add_header("X-Forwarded-For", self.ip)  # as cloudflared / Funnel send it, from loopback
         try:
             with urllib.request.urlopen(req, timeout=5) as r:
                 status, raw = r.status, r.read()
@@ -255,7 +255,7 @@ def test_a_socket_that_never_says_hello_is_closed(game) -> None:
             ws.recv(timeout=5)
 
 
-# ---- rate limits (per client IP, as Funnel reports it) ----
+# ---- rate limits (per client IP, as the tunnel reports it) ----
 
 def test_rate_limits_are_per_forwarded_ip(game, monkeypatch) -> None:
     main, base = game
@@ -273,6 +273,20 @@ def test_rate_limits_are_per_forwarded_ip(game, monkeypatch) -> None:
     assert home.join(wrong, "x")["state"] == "wrong_pin"
     status, body = home.call("POST", "/play/api/join", {"pin": pin, "nickname": "y"})
     assert status == 429 and body["error"]["code"] == "slow_down"  # PIN guessing stops (its join bucket has room)
+
+
+def test_through_cloudflare_a_spoofed_forwarded_for_is_still_keyed_on_the_real_ip(game, monkeypatch) -> None:
+    # Cloudflare APPENDS the connecting IP to whatever X-Forwarded-For the phone sent (probed through
+    # the tunnel, #82): "6.6.6.N,<real>". Each request spoofing a new address must still share the
+    # real address's bucket — the rightmost entry — or a PIN sweep could rotate past the limit.
+    main, base = game
+    monkeypatch.setattr(ratelimit, "JOIN", ratelimit.Limit(burst=3, per_s=0.001))
+    pin = quiz_state(main)["pin"]
+    for n in range(3):
+        assert Phone(base, f"6.6.6.{n},203.0.113.7").join(pin, f"p{n}")["state"] == "joined"
+    status, body = Phone(base, "6.6.6.99,203.0.113.7").call("POST", "/play/api/join", {"pin": pin, "nickname": "p9"})
+    assert status == 429 and body["error"]["code"] == "slow_down"
+    assert Phone(base, "6.6.6.99,198.51.100.9").join(pin, "other")["state"] == "joined"  # another real address
 
 
 def test_the_default_limits_let_60_players_behind_one_nat_play() -> None:

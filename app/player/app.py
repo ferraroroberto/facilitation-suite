@@ -1,7 +1,8 @@
 """The quiz player app — the only thing the public internet can reach (#34, #49, #52).
 
 Served on ``127.0.0.1:<quiz.public_port>`` (default 8451) by
-``app/player/listener.py`` and published by Tailscale Funnel on :10000. It
+``app/player/listener.py`` and published by a Cloudflare named tunnel
+(``quiz.<domain>``, ``src/tunnel.py``; Tailscale Funnel is the fallback). It
 mounts **nothing** from the main :8449 app: no ``RemoteAuth`` bypass, no
 ``/api/*``, no ``/ws``, no presenter or stage, not the main ``/static`` (its
 own page chrome — the fleet tokens and a few vendored stylesheets — is copied

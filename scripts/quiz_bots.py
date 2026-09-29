@@ -37,18 +37,33 @@ came back as it was (game, PIN, question, deadline, players, answers so far)
 and that the next leaderboard equals the one before plus that question's
 points, per player.
 
-**Through the public relay.** Give the disposable instance a fixed player port
-and publish it on a *temporary* Funnel path, then point the bots at it and
-resolve the host through public DNS (as a phone on mobile data does; this PC's
-own resolver answers with the tailnet address and would skip the relay)::
+**Through the public edge.** Give the disposable instance a fixed player port
+and publish it on a *temporary* hostname of the Cloudflare tunnel, then point
+the bots at it and resolve the host through public DNS (as a phone on mobile
+data does)::
 
-    tailscale funnel --bg --https=10000 --set-path /fs-bots56 http://127.0.0.1:18461/play
+    cloudflared tunnel route dns facilitation-quiz quiz-bots.<domain>
+    # webapp/cloudflared.yml: add, above the catch-all,
+    #   - hostname: quiz-bots.<domain>
+    #     service: http://127.0.0.1:18461
+    # then tray.bat --restart
     .venv/Scripts/python.exe scripts/quiz_bots.py --player-port 18461 \\
-        --player-base https://<host>.ts.net:10000/fs-bots56 --public-dns
-    tailscale funnel --https=10000 --set-path /fs-bots56 off
+        --player-base https://quiz-bots.<domain>/play --public-dns
 
-All bots then share this PC's public IP, which is the corporate-NAT case the
-player API's per-IP rate limits (``app/player/ratelimit.py``) are sized for.
+Keep ONE connector: Cloudflare spreads a tunnel's requests over all its running
+cloudflared processes, and each answers from its own config, so a second one
+with other ingress rules would 404 part of the traffic. (With the tray's
+connector not running, a temp config holding the same rules, run by hand,
+works the same.) Afterwards remove the rule and restart the tray again.
+``cloudflared`` cannot delete a DNS record: remove ``quiz-bots`` in the
+Cloudflare dashboard, or leave it — the live config's catch-all answers it with
+a 404. (Fallback ingress: a temporary Funnel path, e.g. ``tailscale funnel --bg
+--https=10000 --set-path /fs-bots56 http://127.0.0.1:18461/play``, then ``… off``.)
+
+The live player — ``quiz.public_url``'s host and every host of
+``webapp/cloudflared.yml`` at its root — is refused as a ``--player-base``. All
+bots share this PC's public IP, which is the corporate-NAT case the player
+API's per-IP rate limits (``app/player/ratelimit.py``) are sized for.
 
 Usage (from the repo root)::
 
@@ -87,7 +102,9 @@ from websockets.asyncio.client import connect as ws_connect
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.activities.registry import options_with_defaults  # noqa: E402 — needs the sys.path line above
+from src import tunnel  # noqa: E402 — needs the sys.path line above
+from src.activities.registry import options_with_defaults  # noqa: E402
+from src.config import load_config  # noqa: E402
 from src.jsonl import read_jsonl  # noqa: E402
 from src.quiz.engine import points  # noqa: E402
 from src.quiz.model import QuizQuestion, question_from_item  # noqa: E402
@@ -500,7 +517,7 @@ def pin_to_public_dns(base: str) -> str:
         local = [f"({exc})"]
     ips = resolve_public(host)
     if not ips:
-        raise SystemExit(f"❌ {host} is not in public DNS — is the Funnel on?")
+        raise SystemExit(f"❌ {host} is not in public DNS — is its DNS record in place?")
     real = socket.getaddrinfo
 
     def pinned(h: Any, *args: Any, **kwargs: Any) -> Any:
@@ -508,7 +525,7 @@ def pin_to_public_dns(base: str) -> str:
         return real(ips[0] if name == host else h, *args, **kwargs)
 
     socket.getaddrinfo = pinned
-    logger.info("ℹ️ %s: this PC's resolver says %s; public DNS says %s → the bots connect to %s (the relay)",
+    logger.info("ℹ️ %s: this PC's resolver says %s; public DNS says %s → the bots connect to %s (the edge)",
                 host, ", ".join(local), ", ".join(ips), ips[0])
     return ips[0]
 
@@ -542,7 +559,7 @@ async def _play(args: argparse.Namespace, server: Disposable, host: Host, sectio
     base = args.player_base or f"http://127.0.0.1:{server.player_port}/play"
     logger.info("ℹ️ game %s · PIN %s · %d bots → %s", game_id, pin, args.bots, base)
     if args.public_dns:
-        logger.info("ℹ️ ping through the relay: %s", await peer_of(base))
+        logger.info("ℹ️ ping through the edge: %s", await peer_of(base))
 
     opened: dict[str, float] = {}
     bots = [Bot(n, base, pin, stats, rng, opened, drop=args.drop, poll_share=args.poll_share)
@@ -722,6 +739,15 @@ def report(result: dict[str, Any], stats: Stats, fails: list[str], elapsed: floa
                     "podium = replay = the bots' own scoring; 0 unexpected errors")
 
 
+def live_player_hosts() -> set[str]:
+    """The hosts that publish the live player: ``quiz.public_url``'s and the tunnel config's."""
+    live = set(tunnel.hostnames())
+    host = urlsplit(load_config().quiz.public_url or "").hostname
+    if host:
+        live.add(host.lower())
+    return live
+
+
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bots", type=int, default=60)
@@ -734,17 +760,18 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument("--restart-at", type=int, default=5, help="the question to crash on")
     p.add_argument("--reactivate-after", type=float, default=4.0, help="seconds between the restart and going live")
     p.add_argument("--port", type=int, default=0, help="the disposable app's port (default: a free one)")
-    p.add_argument("--player-port", type=int, default=0, help="its player listener's port (fix it for a Funnel path)")
+    p.add_argument("--player-port", type=int, default=0, help="its player listener's port (fix it for a tunnel)")
     p.add_argument("--player-base", default="", help="the bots' /play base URL (default: the loopback listener)")
     p.add_argument("--public-dns", action="store_true", help="resolve --player-base's host through public DNS")
     p.add_argument("--keep", action="store_true", help="keep the disposable folder")
     args = p.parse_args(argv)
     if args.port in LIVE_PORTS or args.player_port in LIVE_PORTS:
         p.error(f"ports {LIVE_PORTS} belong to the live app — the bots only play a disposable instance")
+    live = live_player_hosts()
     base = urlsplit(args.player_base)
-    if args.player_base and base.hostname not in ("127.0.0.1", "localhost") and base.path.rstrip("/") in ("", "/play"):
-        p.error("a public --player-base must be a temporary Funnel path (e.g. …:10000/fs-bots56), "
-                "never the live player at the root")
+    if args.player_base and (base.hostname or "").lower() in live and base.path.rstrip("/") in ("", "/play"):
+        p.error(f"{base.hostname} is the live player ({', '.join(sorted(live))}) — publish the disposable "
+                "instance on a temporary hostname (e.g. quiz-bots.<domain>) or Funnel path")
     if args.restart_mid_question and not 1 <= args.restart_at <= args.questions:
         p.error("--restart-at must be one of the questions")
     return args

@@ -29,10 +29,10 @@ def has_quiz(session: Session) -> bool:
     return any(it.kind == "activity" and it.include and it.type in QUIZ_TYPES for it in session.all_items())
 
 
-# The public-link check's five states (src/quiz/reach.py) as checklist states: each keeps its own
+# The public-link check's six states (src/quiz/reach.py) as checklist states: each keeps its own
 # name in ``reach`` and in the detail, and ``unknown`` stays ``unknown`` — never counted as ok.
-REACH_ROW = {"ok": "ok", "listener_down": "warn", "funnel_unreachable": "warn", "not_configured": "todo",
-             "unknown": "unknown"}
+REACH_ROW = {"ok": "ok", "listener_down": "warn", "tunnel_down": "warn", "public_unreachable": "warn",
+             "not_configured": "todo", "unknown": "unknown"}
 
 
 def quiz_reach_check(reach: Optional[dict[str, Any]]) -> dict[str, Any]:
