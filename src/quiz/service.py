@@ -95,6 +95,14 @@ and ``reach``.
 
 ``state.quiz`` also carries ``accept_chat``: the lobby's "answers typed in
 the chat count too" switch for this game (default on).
+
+**Sounds chip** (#102): ``state.quiz.sounds`` (present whenever a quiz item is
+on stage, valid or not) is ``{have, total, missing, device, device_detail}`` —
+how many of the four cue files (``src/quiz/cues.py``) are in ``audio/``, which
+are missing (by short name: ``lobby``, ``countdown``, ``reveal``, ``podium``),
+and the output-device state (``ok`` | ``none`` | ``unknown`` —
+``MusicService.output_device``). Cached per plan revision (``sound_cues()``):
+computed when the session goes live or the plan is saved, never per snapshot.
 """
 
 from __future__ import annotations
@@ -220,8 +228,11 @@ class QuizService:
         self.public_url: Callable[[], str] = lambda: ""  # quiz.public_url (set by the server)
         self.listener_up: Callable[[], bool] = lambda: False  # the player listener serves (set by the server)
         self.reach: Callable[[], Optional[dict[str, Any]]] = lambda: None  # the public link check (``reach.py``)
+        # The output-device check (``MusicService.output_device``, set by the server, #102).
+        self.output_device: Callable[[], tuple[str, str]] = lambda: ("unknown", "Not checked")
         self._session: Optional[str] = None
         self._scopes: tuple[Any, dict[str, Scope]] = (None, {})
+        self._sounds: tuple[Any, dict[str, Any]] = (None, {})  # the Sounds chip, cached per plan revision (#102)
         self._pending: list[dict[str, Any]] = []  # records not yet written to quiz.jsonl
         self._reveal: Optional[Any] = None  # the pending reveal handle of the open question (time-up or early close)
         self._reveal_at: Optional[int] = None  # when that handle is due to fire (clock ms)
@@ -246,6 +257,19 @@ class QuizService:
             self._scopes = (key, scopes_of(self.live.items))
         return self._scopes[1]
 
+    def sound_cues(self) -> dict[str, Any]:
+        """The Sounds chip (#102): the quiz cue files in ``audio/`` plus the output device.
+
+        Cached per plan revision — computed when the session goes live or the
+        plan is saved (``plan_rev`` bumps then), never on every snapshot."""
+        key = (self.live.session_id, self.live.plan_rev)
+        if self._sounds[0] != key:
+            from src.quiz.cues import cue_inventory
+
+            device, detail = self.output_device()
+            self._sounds = (key, {**cue_inventory(self.live.folder), "device": device, "device_detail": detail})
+        return self._sounds[1]
+
     def _current(self) -> tuple[Optional[dict[str, Any]], Optional[Scope], Optional[Game]]:
         """The item on stage, its game's scope and that game (each ``None`` when there is none)."""
         self._load()
@@ -262,12 +286,12 @@ class QuizService:
             return {"quiz": None}
         if cur["id"] in scope.invalid:
             return {"quiz": {"game_id": game.game_id if game else None, "phase": None, "item_id": cur["id"],
-                             "error": scope.invalid[cur["id"]]}}
+                             "error": scope.invalid[cur["id"]], "sounds": self.sound_cues()}}
         if game is None:
             return {"quiz": None}
         return {"quiz": {**game.snapshot(scope.order, scope.questions), "join_url": self.join_url(game.pin),
                          "listener": self.listener_up(), "accept_chat": self.accepts_chat(scope),
-                         "reach": self.reach()}}
+                         "reach": self.reach(), "sounds": self.sound_cues()}}
 
     def accepts_chat(self, scope: Scope) -> bool:
         """The lobby's "answers typed in the chat count too" switch (default on)."""

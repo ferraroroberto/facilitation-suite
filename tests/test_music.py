@@ -251,6 +251,38 @@ def test_spotify_without_a_backend_is_an_error_state(rig: tuple[LiveHub, MusicSe
     assert music.state == "error" and "not set up" in music.detail
 
 
+def test_output_device_ok_none_and_unknown(monkeypatch: pytest.MonkeyPatch,
+                                            rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:
+    """#102: the Sounds chip's device check — 'ok' (a device), 'none' (nothing enumerated),
+    'unknown' (the query itself failed) — 'unknown' is never reported as 'ok'."""
+    import miniaudio
+
+    _, music, _ = rig
+
+    class WithSpeakers:
+        def get_playbacks(self) -> list[dict[str, Any]]:
+            return [{"name": "Speakers (Realtek)"}]
+
+    monkeypatch.setattr(miniaudio, "Devices", lambda: WithSpeakers())
+    assert music.output_device() == ("ok", "Speakers (Realtek)")
+
+    class Empty:
+        def get_playbacks(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(miniaudio, "Devices", lambda: Empty())
+    state, detail = music.output_device()
+    assert state == "none" and "No audio output device" in detail
+
+    class Broken:
+        def get_playbacks(self) -> list[dict[str, Any]]:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(miniaudio, "Devices", lambda: Broken())
+    state, detail = music.output_device()
+    assert state == "unknown" and "boom" in detail
+
+
 def test_reset_and_closing_the_session_stop_the_music(rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:
     hub, music, fake = rig
     goto_id(hub, "slide-105")

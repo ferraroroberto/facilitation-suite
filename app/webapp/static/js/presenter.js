@@ -346,6 +346,7 @@ function buildQuiz(body) {
   body.insertAdjacentHTML('beforeend',
     `<div class="p-cap-status"><span class="p-cap-dot" data-qdot></span><span class="grow" data-qphase></span><span class="p-quiz-left" data-qleft></span></div>` +
     `<p class="small muted p-cap-counts" data-qcounts></p>` +
+    `<div class="p-quiz-join" data-qsound></div>` +
     `<div class="p-quiz-join" data-qjoin></div>` +
     `<button type="button" class="button-primary p-cap-btn" data-qnext></button>` +
     `<div class="p-timer-actions">` +
@@ -449,6 +450,17 @@ function quizReachHtml(reach) {
     `<button type="button" class="button-surface" data-qreachcheck>${icon('refresh-cw')} Check</button>`;
 }
 
+// The Sounds chip (#102): which of the four cue files (src/quiz/cues.py) are in audio/, and
+// whether this PC has an audio output device at all — "unknown" (the check could not run) is
+// never shown as ok, and no device is its own distinct message, not folded into the count.
+function quizSoundHtml(s) {
+  if (!s) return '';
+  if (s.device === 'none') return `<span class="chip bad" title="${esc(s.device_detail || '')}">No audio output device</span>`;
+  if (s.device === 'unknown') return `<span class="chip" title="${esc(s.device_detail || 'Could not check for an audio output device')}">Sounds · unknown</span>`;
+  const title = s.missing.length ? `Missing: ${s.missing.join(', ')}` : `All ${s.total} quiz cues are in audio/`;
+  return `<span class="chip ${s.have === s.total ? 'ok' : 'warn'}" title="${esc(title)}">Sounds · ${s.have}/${s.total}</span>`;
+}
+
 function drawQuiz(body, q) {
   const phase = q && !q.error ? q.phase : null;
   body.querySelector('[data-qdot]').className = `p-cap-dot ${phase === 'question' ? 'live' : phase ? 'stopped' : 'error'}`;
@@ -458,6 +470,9 @@ function drawQuiz(body, q) {
     ? `${q.player_count} player${q.player_count === 1 ? '' : 's'} joined${answering ? ` · ${q.answered_count} answered` : ''}` +
       (q.accept_chat ? ' · chat answers on' : ' · chat answers off')
     : '';
+  const sound = body.querySelector('[data-qsound]');
+  const soundHtml = quizSoundHtml(q && q.sounds);
+  if (sound.dataset.html !== soundHtml) { sound.dataset.html = soundHtml; sound.innerHTML = soundHtml; }
   const join = body.querySelector('[data-qjoin]');
   const joinHtml = q && !q.error ? quizJoinHtml(q) : '';
   if (join.dataset.html !== joinHtml) { join.dataset.html = joinHtml; join.innerHTML = joinHtml; }
@@ -653,6 +668,9 @@ function drawChips() {
 // music comes on stage. The latest command wins (src/music/service.py).
 let musicPickFor = null; // the item the picker was last pre-selected for
 
+// ``state.music.cue`` names the file (e.g. "quiz-lobby"); the card shows its short name (#102).
+const cueLabel = (cue) => cue.replace(/^quiz-/, '');
+
 function buildMusic() {
   const body = root.querySelector('.p-music [data-body]');
   body.innerHTML =
@@ -724,8 +742,9 @@ function drawMusic(cur, s) {
   const owner = m.owner && items().find((it) => it.id === m.owner);
   const hint = body.querySelector('[data-mhint]');
   hint.textContent = m.state === 'error' ? m.detail
-    : owner ? `Follows the timer of “${oneLine(owner.title)}”.`
-      : playing || paused ? 'Played by hand — no timer touches it.' : m.tracks.length ? 'Pick a track and press Play, or let an item’s timer start its music.' : 'Paste a Spotify link to play it.';
+    : m.cue ? `Quiz cue: ${cueLabel(m.cue)}`  // the quiz's phase sound is playing, not the presenter's pick (#102)
+      : owner ? `Follows the timer of “${oneLine(owner.title)}”.`
+        : playing || paused ? 'Played by hand — no timer touches it.' : m.tracks.length ? 'Pick a track and press Play, or let an item’s timer start its music.' : 'Paste a Spotify link to play it.';
   hint.classList.toggle('warn', m.state === 'error');
 }
 

@@ -20,9 +20,11 @@ plays on untouched. Joins and answers change nothing: only a new
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, Optional
 
 from src.live.hub import LiveHub
+from src.music.library import cue_file
 from src.music.service import MusicService
 from src.quiz.service import QuizService
 
@@ -35,6 +37,18 @@ CUES: dict[str, tuple[str, bool]] = {
     "reveal": ("quiz-reveal", False),
     "podium": ("quiz-podium", False),  # with the 1st place (#89): see ``QuizCues.check``
 }
+
+
+def cue_inventory(folder: Optional[Path]) -> dict[str, Any]:
+    """The presenter's Sounds chip (#102): which of the four cue files are in ``audio/``.
+
+    ``missing`` names each absent cue by its short name (``lobby``, ``countdown``,
+    ``reveal``, ``podium``), not its file name. No live session (``folder`` is
+    ``None``) counts every cue as missing, like an empty ``audio/``."""
+    names = {name.removeprefix("quiz-"): name for name, _loop in CUES.values()}
+    missing = sorted(names) if folder is None else sorted(n for n, filename in names.items()
+                                                            if cue_file(folder, filename) is None)
+    return {"have": len(names) - len(missing), "total": len(names), "missing": missing}
 
 
 class QuizCues:

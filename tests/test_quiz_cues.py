@@ -68,6 +68,42 @@ def test_cue_files_are_found_by_name_in_any_playable_format(tmp_path: Path) -> N
     assert cue_file(tmp_path, "quiz-podium") is None
 
 
+def test_cue_inventory_counts_the_four_short_named_cues(tmp_path: Path) -> None:
+    from src.quiz.cues import cue_inventory
+
+    assert cue_inventory(None) == {"have": 0, "total": 4, "missing": ["countdown", "lobby", "podium", "reveal"]}
+    assert cue_inventory(tmp_path) == {"have": 0, "total": 4, "missing": ["countdown", "lobby", "podium", "reveal"]}
+    write_wav(tmp_path / "audio" / "quiz-lobby.wav")
+    write_wav(tmp_path / "audio" / "quiz-reveal.mp3")
+    assert cue_inventory(tmp_path) == {"have": 2, "total": 4, "missing": ["countdown", "podium"]}
+
+
+def test_sounds_chip_reflects_cue_files_and_the_output_device_cached_per_plan_rev(
+        quiz_folder: tuple[str, Path]) -> None:
+    """#102: state.quiz.sounds — computed when the session goes live or the plan is saved,
+    never recomputed just because a snapshot was taken."""
+    sid, folder = quiz_folder
+    cues(folder, "lobby", "reveal")
+    hub, quiz, music, fake = rig(sid)
+    quiz.output_device = lambda: ("ok", "Fake Speakers")
+    goto_id(hub, "qz-lobby")
+    sounds = hub.snapshot()["state"]["quiz"]["sounds"]
+    assert sounds == {"have": 2, "total": 4, "missing": ["countdown", "podium"],
+                       "device": "ok", "device_detail": "Fake Speakers"}
+
+    cues(folder, "countdown")  # a new file on disk: not picked up until the plan is (re)loaded
+    assert hub.snapshot()["state"]["quiz"]["sounds"]["have"] == 2
+    hub._reload(sid)  # the Plan tab's save (session_saved), which bumps plan_rev
+    assert hub.snapshot()["state"]["quiz"]["sounds"]["have"] == 3
+
+
+def test_sounds_chip_device_is_unknown_until_the_server_wires_the_check(quiz_folder: tuple[str, Path]) -> None:
+    hub, quiz, music, fake = rig(quiz_folder[0])  # no output_device set (as the server wires it, #102)
+    goto_id(hub, "qz-lobby")
+    sounds = hub.snapshot()["state"]["quiz"]["sounds"]
+    assert sounds["device"] == "unknown" and sounds["have"] == 0
+
+
 def test_without_cue_files_the_quiz_is_silent(quiz_folder: tuple[str, Path]) -> None:
     hub, quiz, music, fake = rig(quiz_folder[0])
     goto_id(hub, "qz-lobby")
