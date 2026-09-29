@@ -20,8 +20,21 @@ SYSTEM_FONT = Path("C:/Windows/Fonts/segoepr.ttf")
 VENDORED = Path(__file__).resolve().parents[2] / "app" / "webapp" / "static" / "fonts" / "PatrickHand-Regular.ttf"
 
 
+# A read can land while the server's own atomic replace of session.yaml (`src/sessions/store.py`'s
+# `replace_held`) is briefly mid-flight — a Windows sharing violation, not a stuck save (#143). This
+# story polls the file every 0.1 s while the app saves repeatedly, which is what makes the race
+# likely enough to show up; a short retry here survives it instead of the whole poll loop aborting.
+_READ_RETRY_WAITS = (0.02, 0.05, 0.1, 0.2, 0.3)
+
+
 def _saved(folder: Path) -> dict:
-    return yaml.safe_load((folder / "session.yaml").read_text(encoding="utf-8"))
+    path = folder / "session.yaml"
+    for wait in _READ_RETRY_WAITS:
+        try:
+            return yaml.safe_load(path.read_text(encoding="utf-8"))
+        except PermissionError:
+            time.sleep(wait)
+    return yaml.safe_load(path.read_text(encoding="utf-8"))  # the last try raises what Windows says
 
 
 def _until(check, timeout: float = 5.0) -> None:
