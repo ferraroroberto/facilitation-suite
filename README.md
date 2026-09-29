@@ -55,6 +55,8 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 | `cloudflared.log` | cloudflared, the quiz player's tunnel (its own writer; the tray moves it to `.log.1` past 5 MB when it starts cloudflared) |
 | `webapp/watchdog.log` (repo root) | the tray's watchdog breadcrumbs |
 
+An **outside** process (a stray old server, an editor, a `tail`) can still hold a log file open even with one writer per file. Rotation then keeps appending to the current file instead of dropping records, logs one `⚠️ log rotation blocked` line and retries once the outside handle closes (#100).
+
 ## Importing a PowerPoint
 
 Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the Windows file dialog on this PC). PowerPoint desktop exports every slide to a 1920×1080 PNG through COM, from a read-only copy of the deck, in its own process with a 5-minute timeout. Each slide keeps PowerPoint's own SlideID, title, notes and fingerprints (image dHash + title/notes hashes) in `slides/slides.json`.
