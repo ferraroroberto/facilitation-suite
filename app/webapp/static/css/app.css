@@ -44,19 +44,10 @@ body {
   align-content: start;
 }
 
-/* The rail's brand tile only exists in the wide layout. */
-.rail-brand { display: none; }
-
 /* Wide, fine pointer: left rail (vendored nav) + full-width content with
    master-detail panes (design.md Layout). */
 @media (min-width: 1100px) and (pointer: fine) {
   .app { max-width: none; margin: 0; min-height: 100vh; }
-  .rail-brand {
-    display: flex;
-    justify-content: center;
-    padding: var(--space-md) 0 var(--space-sm);
-  }
-  .rail-brand img { width: 40px; height: 40px; border-radius: var(--radius-md); }
   .split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
