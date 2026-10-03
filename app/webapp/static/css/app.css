@@ -277,7 +277,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 /* Stage font card: a line of stage lettering at stage size, in the session's font. */
 .font-sample-host { margin: 10px 0; border-radius: var(--radius-md); border: 1px solid var(--line-muted); overflow: hidden; }
 .stage-canvas.font-sample { position: relative; padding: 18px 24px; }
-.font-sample .st-question { font-size: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-canvas.font-sample .st-question { font-size: calc(var(--st-title-size, 72px) * 0.889); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .font-path { margin: 0 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .font-rows { display: grid; gap: var(--space-sm); margin: var(--space-sm) 0; }
 .font-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
@@ -290,6 +290,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 }
 .font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .font-stroke output { width: 56px; text-align: right; }
+.font-color { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--input-bg); cursor: pointer; }
+.font-size-input { width: 96px; }
+.font-note { margin: var(--space-sm) 0 0; }
 .font-group { margin: var(--space-md) 0 0; font-size: var(--font-label); font-weight: 600; color: var(--muted); }
 .font-sample-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
 .stage-canvas.font-sample .st-hint { flex: none; white-space: nowrap; font-size: 20px; padding: 8px 18px; }

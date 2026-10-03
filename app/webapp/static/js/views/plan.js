@@ -1021,6 +1021,14 @@ function renderBulk() {
   form.appendChild(save);
 }
 
+/** The session's own title size (Sessions → Stage look, #191): what an activity's title is until the item sets one. */
+const sessionTitleSize = () => (st.session.font && st.session.font.title_size) || 72;
+/** The size a font row shows for an item with none of its own: an activity title follows the session's. */
+const shownSize = (defaultSize) => (defaultSize === 72 ? sessionTitleSize() : defaultSize);
+/** A new item font block. An activity title (72) seeds no size, so it keeps following the session's;
+ *  a break's title (120) and the like seed theirs, as they always did. */
+const fontSeed = (defaultSize) => (defaultSize === 72 ? { family: 'theme' } : { family: 'theme', size_px: defaultSize || 72 });
+
 /**
  * An item's own lettering — font, size (stage px on the 1920-wide canvas; none
  * for a slide's text, which keeps its PowerPoint sizes) and capitals. Each
@@ -1028,9 +1036,9 @@ function renderBulk() {
  * exception for this item only.
  */
 function fontField(it, label, defaultSize) {
-  const font = it.font || { family: 'theme', size_px: defaultSize || 72 };
+  const font = it.font || { family: 'theme' };
   const set = (change) => {
-    it.font = Object.assign({ family: 'theme', size_px: defaultSize || 72 }, it.font, change);
+    it.font = Object.assign(fontSeed(defaultSize), it.font, change);
     markDirty();
     updatePreview(it);
   };
@@ -1043,7 +1051,7 @@ function fontField(it, label, defaultSize) {
   fam.addEventListener('change', () => set({ family: fam.value }));
   row.appendChild(fam);
   if (defaultSize) {
-    const size = input(font.size_px || defaultSize, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
+    const size = input(font.size_px || shownSize(defaultSize), (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
     size.classList.add('size-input');
     row.append(size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
   }
@@ -1072,7 +1080,7 @@ function rolesField(it, keys, defaultSize) {
   wrap.className = 'role-rows';
   const own = (it.font || {}).roles || {};
   const setRole = (key, change) => {
-    const f = Object.assign({ family: 'theme', size_px: defaultSize || 72 }, it.font);
+    const f = Object.assign(fontSeed(defaultSize), it.font);
     const roles = Object.assign({}, f.roles);
     const mine = Object.assign({}, roles[key], change);
     if (!mine.font) delete mine.font;
@@ -1344,7 +1352,7 @@ function runItem(it) {
     id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
     capture: it.kind === 'activity' && spec.capture !== false,
     title: titleOf(it), question: it.question || (it.kind === 'activity' ? words(st.session.language).question : ''),
-    font: it.font || { family: 'theme', size_px: 72 }, options: it.options || {},
+    font: it.font || fontSeed(it.kind === 'activity' ? 72 : null), options: it.options || {},
     profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
     timer: it.timer && it.timer.enabled !== false ? it.timer : null,
     ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),

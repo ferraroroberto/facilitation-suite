@@ -250,7 +250,7 @@ export function createStage(host, opts = {}) {
         ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_bg)}">${slideText(it)}`
         : it.slide_file
           ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
-          : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(it.title)}</h1></div>`;
+          : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font)}">${lines(it.title)}</h1></div>`;
       // a slide's timer sits in a bottom corner, away from the camera
       if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>`;
     } else if (it.kind === 'break' || it.kind === 'breakout') {
@@ -262,7 +262,7 @@ export function createStage(host, opts = {}) {
     } else {
       const text = it.capture ? (it.question || it.title) : it.title;
       html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="${lettering(it.font, 72)}">${lines(text)}</h1>` +
+        `<div class="st-head"><h1 class="st-question" style="${lettering(it.font)}">${lines(text)}</h1>` +
         `<p class="st-sub" data-sub hidden></p></div>` +
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +

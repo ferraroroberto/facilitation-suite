@@ -105,10 +105,11 @@ class Font(_Open):
     this PC; ``size_px`` is in stage pixels (the stage is a 1920×1080 canvas
     scaled to its window); ``caps`` — capitals or as typed — is ``None`` to
     follow the session. Those three are the item's title; ``roles`` sets its
-    other text (``TEXT_ROLES`` but ``title``) apart from the session's."""
+    other text (``TEXT_ROLES`` but ``title``) apart from the session's. No
+    ``size_px`` = the session's title size (``StageFont.title_size``, else 72)."""
 
     family: str = THEME_FONT
-    size_px: int = Field(72, ge=12, le=240)
+    size_px: Optional[int] = Field(None, ge=12, le=240)
     caps: Optional[bool] = None
     roles: dict[str, TextRole] = Field(default_factory=dict)
 
@@ -138,11 +139,23 @@ class StageFont(_Open):
     weight: Literal[400, 700] = 400
     stroke_px: float = Field(0, ge=0, le=8)
     caps: bool = True
+    # The colour (#rrggbb) and size (stage px) of activity titles and questions (#191);
+    # "" / 0 = the theme's ink and 72 px. An item's own size (``Item.font``) still wins.
+    title_color: str = ""
+    title_size: int = Field(0, ge=0, le=240)
     text_family: str = ""
     text_weight: Literal[400, 700] = 400
     roles: dict[str, TextRole] = Field(default_factory=dict)
 
     _roles = field_validator("roles", mode="before")(classmethod(lambda cls, v: _known_roles(v)))
+
+    @field_validator("title_color")
+    @classmethod
+    def _title_color(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v and not re.fullmatch(r"#[0-9a-f]{6}", v):
+            raise ValueError("title_color must be a #rrggbb colour (or empty for the theme's)")
+        return v
 
 
 class Item(_Open):
