@@ -400,3 +400,49 @@ def test_a_read_in_flight_across_a_save_never_overwrites_the_saved_cache(
     saved.set()
     reader.join(5)
     assert read_env().get(REFRESH_KEY) == "good-login"
+
+
+def test_backend_skips_with_a_dip_in_the_volume() -> None:
+    fake = FakeSpotify()
+    b = SpotifyBackend(lambda *e: None, client=client(fake), sleep=lambda s: None)
+    b.play(1, Track("spotify", "spotify:playlist:abc", "Spotify playlist abc"), 60, 0)
+    wait_for(lambda: len(fake.api()) == 3)
+    fake.calls.clear()
+    b.skip("next", 60)
+    wait_for(lambda: len(fake.api()) == 4)
+    b.skip("previous", 60)
+    wait_for(lambda: len(fake.api()) == 8)
+    vol = lambda c: ("vol", int(c[2]["volume_percent"])) if c[1] == "/me/player/volume" else (c[0], c[1])  # noqa: E731
+    assert [vol(c) for c in fake.api()] == [
+        ("vol", 0), ("POST", "/me/player/next"), ("vol", 30), ("vol", 60),  # dip out, skip, back in
+        ("vol", 0), ("POST", "/me/player/previous"), ("vol", 30), ("vol", 60),
+    ]
+    assert fake.api()[1][2] == {"device_id": "dev-pc"}
+    b.close()
+
+
+def test_next_and_previous_need_spotify_music_that_is_playing(isolated_env: Path) -> None:
+    from src.config import load_config
+    from src.live.actions import run_action
+    from src.live.hub import LiveHub
+    from src.music.service import MusicService
+    from src.sessions.store import SessionStore
+    from tests.test_music import FakeBackend
+
+    sid, _ = build_demo_session(isolated_env / "sessions" / "demo" / "skip", isolated_env / "sessions.local.yaml")
+    hub = LiveHub(SessionStore(load_config()))
+    made: dict[str, FakeBackend] = {}
+    music = MusicService(hub, {k: (lambda sink, k=k: made.setdefault(k, FakeBackend(sink, k))) for k in ("file", "spotify")})
+    hub.activate(sid)
+    with pytest.raises(MusicError) as err:
+        run_action(hub, "music_next")
+    assert err.value.code == "nothing_playing"
+    run_action(hub, "music_play", "https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO")
+    music.state = "playing"  # the backend's "playing" event, played by hand
+    run_action(hub, "music_next")
+    run_action(hub, "music_prev")
+    assert made["spotify"].calls[-2:] == [("skip", "next", 80), ("skip", "previous", 80)]
+    music.track = Track("file", "x.wav", "x.wav")  # a file is one track
+    with pytest.raises(MusicError) as err:
+        run_action(hub, "music_next")
+    assert err.value.code == "single_track"

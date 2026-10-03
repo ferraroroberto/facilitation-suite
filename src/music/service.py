@@ -114,6 +114,8 @@ class MusicService:
         register(Action("music_toggle", "Music play/pause", lambda h, a: self.toggle()))
         register(Action("music_stop", "Music stop (fades out)", lambda h, a: self.stop()))
         register(Action("music_fade_out", "Music slow fade-out", lambda h, a: self.stop(FADE_OUT_LONG_S)))
+        register(Action("music_next", "Music next track", lambda h, a: self.skip("next")))
+        register(Action("music_prev", "Music previous track", lambda h, a: self.skip("previous")))
         register(Action("music_volume", "Music volume", lambda h, a: self.set_volume(_volume(a)), arg="n"))
         register(Action("music_play", "Play a track", lambda h, a: self.play_pick(str(a)), arg="track", stream_deck=False))
 
@@ -227,6 +229,18 @@ class MusicService:
     def stop(self, fade_s: Optional[float] = None) -> None:
         self._stop(self.fade_out_s if fade_s is None else fade_s)
         self.live.commit()
+
+    def skip(self, direction: str) -> None:
+        """The next or previous track of the playing Spotify playlist, album or artist (#191).
+
+        Only while it plays: a file is a single track, and a paused Spotify would start playing
+        on a skip. Spotify's own rule applies to previous: past the first seconds of a track it
+        restarts that track."""
+        if self.state != "playing" or self.track is None or self.backend is None:
+            raise MusicError(409, "nothing_playing", "Nothing is playing — start the music first")
+        if self.track.kind != "spotify" or not hasattr(self.backend, "skip"):
+            raise MusicError(409, "single_track", "Next and previous track work on Spotify music; a file is one track")
+        self.backend.skip(direction, self.volume)
 
     def set_volume(self, volume: int) -> None:
         self.volume = volume

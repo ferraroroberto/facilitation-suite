@@ -119,6 +119,8 @@ function buildShell() {
       '<div class="r-music-now"><span data-r-mnow></span></div>' +
       '<div class="r-more">' +
         `<button type="button" class="button-surface" data-r-mtoggle></button>` +
+        `<button type="button" class="button-surface" data-r-mprev aria-label="Previous track">${icon('skip-back')}</button>` +
+        `<button type="button" class="button-surface" data-r-mnext aria-label="Next track">${icon('skip-forward')}</button>` +
         `<button type="button" class="button-surface" data-r-mstop>${icon('square')} Stop music</button></div>` +
       `<label class="r-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-r-mvol aria-label="Music volume"></label></div>` +
     '<p class="small muted r-foot">The presenter on the PC does the same; this is for when you stand up or walk away from the keyboard.</p>');
@@ -132,6 +134,8 @@ function buildShell() {
   on('[data-r-tplus]', 'timer_add_minute');
   on('[data-r-blackout]', 'blackout');
   on('[data-r-mtoggle]', 'music_toggle');
+  on('[data-r-mprev]', 'music_prev');
+  on('[data-r-mnext]', 'music_next');
   on('[data-r-mstop]', 'music_stop');
   const vol = livePane.querySelector('[data-r-mvol]');
   vol.addEventListener('change', () => live.send('music_volume', vol.value));
@@ -205,6 +209,9 @@ function drawMusic(m) {
   const btn = livePane.querySelector('[data-r-mtoggle]');
   const html = playing ? `${icon('pause')} Pause music` : `${icon('play')} ${paused ? 'Resume' : 'Play'} music`;
   if (btn.dataset.html !== html) { btn.dataset.html = html; btn.innerHTML = html; }
+  const skippable = playing && !!m.track && m.track.kind === 'spotify'; // a file is one track
+  livePane.querySelector('[data-r-mprev]').disabled = !skippable;
+  livePane.querySelector('[data-r-mnext]').disabled = !skippable;
   livePane.querySelector('[data-r-mstop]').disabled = !playing && !paused;
   const vol = livePane.querySelector('[data-r-mvol]');
   if (document.activeElement !== vol) vol.value = String(m.volume);

@@ -57,6 +57,8 @@ DEVICE_KEY = "SPOTIFY_DEVICE_NAME"
 # user-read-private: GET /me returns the account type (``product``) only with it (#109)
 SCOPES = "user-read-playback-state user-modify-playback-state user-read-private"
 STEP_S = 0.5  # one volume request per half second while fading
+SKIP_DIP_S = 0.5  # next/previous: the volume dips out before the skip …
+SKIP_RISE_S = 1.0  # … and comes back after it
 TIMEOUT_S = 5.0
 STATUS_TTL_S = 30.0  # the readiness check reuses a recent answer
 CONFIGURED_TTL_S = 10.0
@@ -265,6 +267,11 @@ class SpotifyBackend:
     def stop(self, fade_s: float) -> None:
         self._submit(lambda: self._stop(fade_s), transition=True)
 
+    def skip(self, direction: str, volume: int) -> None:
+        """The next or previous track of the playing playlist, album or artist (``direction``:
+        ``next`` | ``previous``), the volume dipping out and back in around the skip."""
+        self._submit(lambda: self._skip(direction, volume), transition=True)
+
     def set_volume(self, volume: int) -> None:
         self._submit(lambda: self._volume(volume) if self.volume_now else None)
 
@@ -402,6 +409,13 @@ class SpotifyBackend:
             return
         self.client.call("PUT", "/me/player/pause", query={"device_id": self._device_id()})
         logger.info("ℹ️ spotify: paused")
+
+    def _skip(self, direction: str, volume: int) -> None:
+        if not self._fade(self.volume_now if self.volume_now is not None else volume, 0, SKIP_DIP_S):
+            return
+        self.client.call("POST", f"/me/player/{direction}", query={"device_id": self._device_id()})
+        logger.info("ℹ️ spotify: %s track", direction)
+        self._fade(0, volume, SKIP_RISE_S)
 
     def _resume(self, volume: int, fade_s: float) -> None:
         self._volume(0)
