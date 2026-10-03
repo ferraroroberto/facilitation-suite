@@ -45,7 +45,8 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             expect(card.locator("[role=switch]")).to_have_attribute("aria-checked", "false")
             card.locator("[role=switch]").click()
             expect(page.locator(".settings-card", has_text="Clicking the stage").locator("[role=switch]")).to_have_attribute("aria-checked", "true")
-            assert page.request.get(f"{inst.base_url}/api/settings").json()["stage_click"] == {"advance": True}
+            # the switch moves at once and the save follows: wait for the server to have it
+            page.wait_for_function("() => fetch('/api/settings').then((r) => r.json()).then((j) => j.stage_click.advance === true)")
         finally:
             stop_instance(proc)
             fake.close()
