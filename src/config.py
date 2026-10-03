@@ -91,9 +91,12 @@ class LiveConfig:
 class StageClickConfig:
     """What a click on the stage window does (#191): ``advance`` goes on to the next item, as in a
     slideshow. Off by default — a stray click must not move the presentation on; the arrow keys
-    and a clicker still do."""
+    and a clicker still do. With ``advance`` off, ``restore_camera`` (on by default) makes a click
+    re-apply the item's OBS profile — back to the slide's camera layout after the facilitator
+    switched OBS by hand."""
 
     advance: bool = False
+    restore_camera: bool = True
 
 
 # OBS profiles (epic §11): each item's profile picks an OBS scene, and the

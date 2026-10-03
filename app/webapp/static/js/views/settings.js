@@ -309,17 +309,20 @@ function stageClickCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
   card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('monitor')} Clicking the stage</h3></div>`;
-  const line = document.createElement('div');
-  line.className = 'switch-line';
-  const label = 'A click on the stage goes to the next item';
-  line.append(
-    switchEl(data.stage_click.advance, { label, onToggle: (next, btn) => { setSwitch(btn, next); save({ stage_click: { advance: next } }); } }),
-    Object.assign(document.createElement('span'), { textContent: label }),
-  );
-  card.appendChild(line);
+  const row = (key, label) => {
+    const line = document.createElement('div');
+    line.className = 'switch-line';
+    line.append(
+      switchEl(data.stage_click[key], { label, onToggle: (next, btn) => { setSwitch(btn, next); save({ stage_click: { [key]: next } }); } }),
+      Object.assign(document.createElement('span'), { textContent: label }),
+    );
+    card.appendChild(line);
+  };
+  row('advance', 'A click on the stage goes to the next item');
+  row('restore_camera', 'A click on the stage restores the item’s camera layout');
   const note = document.createElement('p');
   note.className = 'small muted settings-note';
-  note.textContent = 'Off by default, so a stray click cannot move the presentation on. The arrow keys and a clicker always go forward and back; a double-click is full screen.';
+  note.textContent = 'Going to the next item is off by default, so a stray click cannot move the presentation on; the arrow keys and a clicker always go forward and back, and a double-click is full screen. With it off, a click re-applies the current item’s camera layout in OBS (after you switched OBS by hand); it does nothing when the item has no layout or OBS is not connected.';
   card.appendChild(note);
   return card;
 }

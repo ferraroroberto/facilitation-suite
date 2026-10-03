@@ -89,9 +89,22 @@ function runLive() {
   sayHello();
 
   bindKeys(live);
-  // A click goes on to the next item only when Settings → Live tools says so (off by default, #191);
-  // a double-click is full screen, not two steps.
-  clickToAdvance(document, live, { wait: 280, cancelOn: 'dblclick', enabled: () => !!(live.state && live.state.stage_click && live.state.stage_click.advance) });
+  // What a click does is Settings → Live tools (#191): the next item (off by default), else — with
+  // "restore camera on click" on, the default — the item's OBS profile again (the facilitator
+  // switched OBS by hand and wants the slide's layout back; nothing without a profile or OBS).
+  // A double-click is full screen, not two steps.
+  const clicks = () => (live.state && live.state.stage_click) || {};
+  clickToAdvance(document, live, {
+    wait: 280,
+    cancelOn: 'dblclick',
+    enabled: () => !!(clicks().advance || clicks().restore_camera),
+    action() {
+      if (clicks().advance) { live.send('next'); return; }
+      const it = current();
+      const obs = live.state && live.state.obs;
+      if (it && it.profile && obs && obs.state === 'connected') live.send('obs_profile', it.profile);
+    },
+  });
 
   document.addEventListener('dblclick', () => {
     if (document.fullscreenElement) document.exitFullscreen();
