@@ -353,13 +353,14 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
   border-top: 1px solid var(--line-muted);
 }
 .sec-row:first-child { border-top: 0; }
-/* COLOR-02 (#167): dark --muted (#7d8590) is 4.5:1 on a card, not on a tint. On the section band and on an accent-soft
-   selected row the secondary text takes --ink, as design.md sets text on a tint in fg; light --muted already clears 4.5:1. */
+/* COLOR-02 (#167): --muted is 4.5:1 on a card, not on a tint (4.17:1 on the light accent-soft selected row, 3.79:1 on
+   the dark one). On an accent-soft selected row the secondary text takes --ink, as design.md sets text on a tint in fg.
+   The dark section band (muted mixed into the card, 4.14:1) does the same; the light band already clears 4.5:1. */
 [data-theme="dark"] .sec-row .sec-meta,
 [data-theme="dark"] .sec-row .sec-min { color: var(--ink); }  /* not --muted on .sec-row: its band is mixed from it */
-[data-theme="dark"] .session-row.selected,
-[data-theme="dark"] .item-row.selected,
-[data-theme="dark"] .result-row.selected { --muted: var(--ink); }
+.session-row.selected,
+.item-row.selected,
+.result-row.selected { --muted: var(--ink); }
 .grip { color: var(--muted); cursor: grab; display: inline-flex; }
 .grip .icon { width: var(--icon-inline); height: var(--icon-inline); }
 .sec-toggle, .sec-name { border: 0; background: transparent; cursor: pointer; color: var(--ink); padding: 0; }
