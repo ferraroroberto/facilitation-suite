@@ -45,6 +45,7 @@ class FakeSpotify:
         self.fail: dict[str, tuple[int, dict[str, Any]]] = {}  # "PUT /me/player/play" → answer
         self.unauthorized_once = False
         self.down = False
+        self.bodies: dict[str, dict[str, Any]] = {}  # "GET /playlists/abc" → the JSON it answers
 
     def __call__(self, method: str, url: str, headers: dict[str, str], body: Optional[bytes]) -> tuple[int, dict[str, str], bytes]:
         if self.down:
@@ -66,6 +67,8 @@ class FakeSpotify:
             return status, {"Retry-After": "7"}, json.dumps(data).encode()
         if key == "GET /me/player/devices":
             return 200, {}, json.dumps({"devices": self.devices}).encode()
+        if key in self.bodies:
+            return 200, {}, json.dumps(self.bodies[key]).encode()
         return 204, {}, b""
 
     def api(self) -> list[tuple[str, str, Any]]:
@@ -446,3 +449,68 @@ def test_next_and_previous_need_spotify_music_that_is_playing(isolated_env: Path
     with pytest.raises(MusicError) as err:
         run_action(hub, "music_next")
     assert err.value.code == "single_track"
+
+
+def test_a_link_is_named_by_what_spotify_calls_it() -> None:
+    fake = FakeSpotify()
+    fake.bodies = {
+        "GET /playlists/pl1": {"name": "Warm-up mix"},
+        "GET /albums/al1": {"name": "Kind of Blue", "artists": [{"name": "Miles Davis"}]},
+        "GET /artists/ar1": {"name": "Nina Simone"},
+        "GET /tracks/tr1": {"name": "So What", "artists": [{"name": "Miles Davis"}, {"name": "John Coltrane"}, {"name": "x"}]},
+    }
+    c = client(fake)
+    assert c.link_name("spotify:playlist:pl1") == "Warm-up mix"
+    assert fake.api()[-1][2] == {"fields": "name"}  # a playlist is asked for its name only
+    assert c.link_name("spotify:album:al1") == "Kind of Blue — Miles Davis"
+    assert c.link_name("spotify:artist:ar1") == "Nina Simone"
+    assert c.link_name("spotify:track:tr1") == "So What — Miles Davis, John Coltrane"
+    fake.fail["GET /playlists/private"] = (404, {"error": {"status": 404, "message": "Not found."}})
+    assert state_of(lambda: c.link_name("spotify:playlist:private")) == UNKNOWN
+
+
+def test_names_are_fetched_once_cached_on_disk_and_never_block(tmp_path: Path) -> None:
+    fake, arrived = FakeSpotify(), []
+    fake.bodies = {"GET /playlists/pl1": {"name": "Warm-up mix"}}
+    cache = tmp_path / "data" / "spotify-names.json"
+    b = SpotifyBackend(lambda *e: None, client=client(fake), names_file=cache)
+    b.on_names = lambda: arrived.append(1)
+    assert b.name_of("spotify:playlist:pl1") == ""  # a miss answers at once: the caller shows the id label
+    wait_for(lambda: arrived)
+    assert b.name_of("spotify:playlist:pl1") == "Warm-up mix"
+    assert [c[1] for c in fake.api()] == ["/playlists/pl1"]  # one lookup, however often it is asked
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"spotify:playlist:pl1": "Warm-up mix"}
+    # a new backend (a restart) knows it without asking Spotify
+    fake.calls.clear()
+    again = SpotifyBackend(lambda *e: None, client=client(fake), names_file=cache)
+    assert again.name_of("spotify:playlist:pl1") == "Warm-up mix" and fake.calls == []
+    # a link Spotify will not name keeps the id label and is not asked again at once
+    fake.fail["GET /playlists/private"] = (404, {"error": {"status": 404, "message": "Not found."}})
+    assert b.name_of("spotify:playlist:private") == ""
+    wait_for(lambda: not b._name_pending)
+    n = len(fake.calls)
+    assert b.name_of("spotify:playlist:private") == "" and len(fake.calls) == n
+    # not connected: no lookup at all
+    fake.calls.clear()
+    off = SpotifyBackend(lambda *e: None, client=client(fake, env={}))
+    assert off.name_of("spotify:playlist:pl1") == "" and fake.calls == []
+
+
+def test_the_service_labels_by_name_once_known_and_keeps_the_track(isolated_env: Path) -> None:
+    from src.config import load_config
+    from src.live.hub import LiveHub
+    from src.music.service import MusicService
+    from src.sessions.store import SessionStore
+
+    fake = FakeSpotify()
+    hub = LiveHub(SessionStore(load_config()))
+    music = MusicService(hub, {"spotify": lambda sink: SpotifyBackend(sink, client=client(fake))})
+    uri = "spotify:playlist:4HufCBabcdef"
+    assert music._spotify_label(uri) == "Spotify playlist 4HufCB"  # no name yet (not looked up in this fake)
+    music.backends["spotify"]._names[uri] = "Warm-up mix"
+    track = music._track("spotify", uri, False)
+    assert track.label == "Warm-up mix"
+    assert track == Track("spotify", uri, "Spotify playlist 4HufCB")  # the label is not part of what a track is
+    music.track = Track("spotify", uri, "Spotify playlist 4HufCB")
+    music._apply_names()
+    assert music.track.label == "Warm-up mix"

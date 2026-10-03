@@ -22,6 +22,10 @@ expired — log in again), ``no_device`` (the desktop app is not open on this
 PC), ``not_premium``, ``ok`` — and ``unknown`` when it could not be
 established (Spotify unreachable, rate-limited, a 5xx), never folded into ok.
 
+A link is shown by its real name (playlist, album and artist, track) fetched once the
+account is connected and kept in a machine-local cache file; until then, or when Spotify
+will not say (a private playlist), by its kind and the first 6 characters of its id (#191).
+
 The cached status, "configured" answer and access token each remember the
 ``.env`` generation they were computed from (``src.env_file.generation``): a
 save (a new login, a rotated token) makes them stale at once, even when a
@@ -41,6 +45,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Optional
 
 from src.env_file import generation as env_generation
@@ -62,6 +67,7 @@ SKIP_RISE_S = 1.0  # … and comes back after it
 TIMEOUT_S = 5.0
 STATUS_TTL_S = 30.0  # the readiness check reuses a recent answer
 CONFIGURED_TTL_S = 10.0
+NAME_RETRY_S = 300.0  # a link Spotify would not name (private playlist, offline) is asked again after this
 
 OK, NOT_CONFIGURED, TOKEN_EXPIRED, NO_DEVICE, NOT_PREMIUM, UNKNOWN = (
     "ok", "not_configured", "token_expired", "no_device", "not_premium", "unknown")
@@ -215,6 +221,18 @@ class SpotifyClient:
             raise SpotifyError(UNKNOWN, f"Spotify is rate-limiting the app — try again in {hdrs.get('Retry-After', 'a few')} s")
         raise SpotifyError(UNKNOWN, f"Spotify answered {status}{': ' + message if message else ''}")
 
+    def link_name(self, uri: str) -> str:
+        """The real name of a ``spotify:<kind>:<id>`` link: a playlist's or artist's name, an album's or
+        track's as "name — artist". ``SpotifyError`` when Spotify will not say (a private playlist
+        the login cannot read, Spotify unreachable)."""
+        _, kind, ident = uri.split(":", 2)
+        data = self.call("GET", f"/{kind}s/{ident}", query={"fields": "name"} if kind == "playlist" else None)
+        name = str(data.get("name") or "").strip()
+        artists = ", ".join(str(a.get("name")) for a in (data.get("artists") or [])[:2] if isinstance(a, dict) and a.get("name"))
+        if not name:
+            raise SpotifyError(UNKNOWN, f"Spotify gave no name for {uri}")
+        return f"{name} — {artists}" if artists and kind in ("album", "track") else name
+
     def device(self) -> dict[str, Any]:
         """The desktop app on this PC (by name), else the active computer, else any computer."""
         devices = self.call("GET", "/me/player/devices").get("devices") or []
@@ -236,10 +254,17 @@ class SpotifyBackend:
     kind = "spotify"
 
     def __init__(self, on_event: EventSink, *, client: Optional[SpotifyClient] = None,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep, names_file: Optional[Path] = None) -> None:
         self.on_event = on_event
         self.client = client or SpotifyClient()
         self._sleep = sleep
+        # Real names of the links the app has met (#191), kept in a machine-local cache file.
+        self.on_names: Optional[Callable[[], None]] = None  # called (from a worker thread) when a name arrived
+        self._names_file = names_file
+        self._names: dict[str, str] = self._load_names()
+        self._names_lock = threading.Lock()
+        self._name_pending: set[str] = set()
+        self._name_failed: dict[str, float] = {}
         self._queue: queue.Queue = queue.Queue()
         self._transitions = 0  # queued play/pause/resume/stop commands: a fade in progress gives way
         self._count_lock = threading.Lock()
@@ -277,6 +302,60 @@ class SpotifyBackend:
 
     def fade(self, to: int, seconds: float) -> None:
         self._submit(lambda: self._fade(self.volume_now or 0, to, seconds))
+
+    def name_of(self, uri: str) -> str:
+        """The real name of a link, from the cache; ``""`` until it is known. Never blocks: a miss
+        starts one background lookup (when the account is connected), retried only after
+        ``NAME_RETRY_S`` if Spotify would not say, so the caller shows the id label meanwhile."""
+        with self._names_lock:
+            name = self._names.get(uri, "")
+            if name or uri in self._name_pending or not self.configured():
+                return name
+            failed = self._name_failed.get(uri)
+            if failed is not None and time.monotonic() - failed < NAME_RETRY_S:
+                return ""
+            self._name_pending.add(uri)
+        threading.Thread(target=self._fetch_name, args=(uri,), name="music-spotify-name", daemon=True).start()
+        return ""
+
+    def _fetch_name(self, uri: str) -> None:
+        name = ""
+        try:
+            name = self.client.link_name(uri)
+        except SpotifyError as exc:
+            logger.info("ℹ️ spotify: no name for %s (%s) — keeping the id label", uri, exc.detail)
+        except Exception:  # noqa: BLE001 — never a dead worker, never a lost pending mark
+            logger.exception("❌ spotify: name lookup failed for %s", uri)
+        with self._names_lock:
+            self._name_pending.discard(uri)
+            if name:
+                self._names[uri] = name
+                self._save_names()
+            else:
+                self._name_failed[uri] = time.monotonic()
+        if name and self.on_names is not None:
+            self.on_names()
+
+    def _load_names(self) -> dict[str, str]:
+        if self._names_file is None:
+            return {}
+        try:
+            data = json.loads(self._names_file.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError) as exc:
+            logger.warning("⚠️ spotify: %s unreadable (%s) — names are fetched again", self._names_file, exc)
+            return {}
+        return {str(k): str(v) for k, v in data.items() if v} if isinstance(data, dict) else {}
+
+    def _save_names(self) -> None:
+        if self._names_file is None:
+            return
+        try:
+            self._names_file.parent.mkdir(parents=True, exist_ok=True)
+            self._names_file.write_text(json.dumps(self._names, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError as exc:
+            logger.warning("⚠️ spotify: names not cached (%s)", exc)
 
     def snapshot(self) -> dict[str, Any]:
         return {"device": (self.device or {}).get("name", ""), "status": self._status[0] or None}
