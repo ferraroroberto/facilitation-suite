@@ -10,6 +10,45 @@ from playwright.sync_api import Browser, Page, expect
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session
 
+# #190: draw items with the stage's own renderer into a 1920×1080 host (scale 1, so every number is a
+# canvas pixel), once per case, and report where the title text sits against the camera zone's middle.
+CENTRE_ON_CAMERA = """async (cases) => {
+  const { createStage } = await import('/static/js/stage-render.js');
+  await document.fonts.ready;
+  const out = [];
+  for (const c of cases) {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:1920px;height:1080px;z-index:99';
+    document.body.appendChild(host);
+    const stage = createStage(host);
+    const ctx = { plan: { session: { id: 'x' }, run: { language: 'en' } }, state: {}, now: 0, result: null };
+    stage.render(Object.assign({ id: c.name, profile: 'camera_pip', zone: c.zone, font: {} }, c.item), ctx);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const top = host.getBoundingClientRect().top;
+    const text = host.querySelector(c.kind === 'slide' ? '.st-tbox.title span' : '.st-question');
+    const r = text.getBoundingClientRect();
+    const zone = c.zone;
+    out.push({ name: c.name, mid: (r.top + r.bottom) / 2 - top, zoneMid: zone ? ((zone[1] + zone[3]) / 2) * 1080 : null,
+               lineHeight: parseFloat(getComputedStyle(text).lineHeight) / parseFloat(getComputedStyle(text).fontSize) });
+    host.remove();
+  }
+  return out;
+}"""
+PIP = [0.72, 0.04, 0.98, 0.3]
+CAMERA_CASES = [
+    {"name": f"q{n}", "kind": "activity", "zone": PIP,
+     "item": {"kind": "activity", "title": "\\n".join(["Where is the group strong?"] * n)}}
+    for n in (1, 2, 3)
+] + [
+    {"name": "slide2", "kind": "slide", "zone": PIP,
+     "item": {"kind": "slide", "slide_bg": "bg.png", "title": "Slide",
+              "text_boxes": [{"x": 110, "y": 90, "w": 1100, "h": 230, "text": "One line\nTwo lines", "title": True,
+                              "size": 72, "color": "#1f1f1f", "align": "left", "anchor": "top", "pad": [0, 0, 0, 0]}]}},
+    # the other layouts keep the text where it was (top-aligned: well above the zone's middle)
+    {"name": "screen_only", "kind": "activity", "zone": None, "item": {"kind": "activity", "title": "One line", "profile": "screen_only"}},
+    {"name": "strip", "kind": "activity", "zone": [0.75, 0, 1, 1], "item": {"kind": "activity", "title": "One line", "profile": "camera_strip"}},
+]
+
 
 def _reflowed(page: Page) -> None:
     """A viewport resize has been laid out and its resize handlers have run (two frames)."""
@@ -65,6 +104,14 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     expect(stage.locator(".st-question")).to_have_text("Where are you joining from?")
     expect(page.locator(".p-next .p-meta")).to_contain_text("Today's menu")
     expect(page.locator(".p-notes")).to_contain_text("Your city and country")
+
+    # #190: under a corner camera the title text is centred on the camera's middle (1, 2 and 3 lines,
+    # an imported slide's title box too) with tight line spacing; the other layouts do not move it
+    got = {c["name"]: c for c in stage.evaluate(CENTRE_ON_CAMERA, CAMERA_CASES)}
+    for name in ("q1", "q2", "q3", "slide2"):
+        assert abs(got[name]["mid"] - got[name]["zoneMid"]) <= 4, got[name]
+        assert got[name]["lineHeight"] <= 1.05, got[name]
+    assert got["screen_only"]["mid"] < 140 and got["strip"]["mid"] < 140, got
 
     # the item's own timer: T starts it on both screens
     page.keyboard.press("t")
