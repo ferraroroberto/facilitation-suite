@@ -20,6 +20,7 @@ modal           = { src = "app/webapp/static/_vendored/modal", sha = "56e76aa373
 disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "56e76aa373c6cb689b100f1ce14aa8171d872085", dest = "app/webapp/static/_vendored/disclosure" }
 empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "56e76aa373c6cb689b100f1ce14aa8171d872085", dest = "app/webapp/static/_vendored/empty-state" }
 switch          = { src = "app/webapp/static/_vendored/switch", sha = "f23a32ea8d24cf5291df482f988dee334617409c", dest = "app/webapp/static/_vendored/switch" }
+toast           = { src = "app/webapp/static/_vendored/toast", sha = "f23a32ea8d24cf5291df482f988dee334617409c", dest = "app/webapp/static/_vendored/toast" }
 select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "56e76aa373c6cb689b100f1ce14aa8171d872085", dest = "app/webapp/static/_vendored/select-native" }
 home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "f23a32ea8d24cf5291df482f988dee334617409c", dest = "app/webapp/static/_vendored/home-head" }
 range-tab       = { src = "app/webapp/static/_vendored/range-tab", sha = "56e76aa373c6cb689b100f1ce14aa8171d872085", dest = "app/webapp/static/_vendored/range-tab" }

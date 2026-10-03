@@ -77,23 +77,7 @@ body {
 
 .page-foot { margin-top: var(--space-md); }
 
-/* Toast — user-initiated command results only. */
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--bottom-tabs-height) + var(--bottom-tabs-margin) + 16px);
-  transform: translateX(-50%);
-  max-width: min(90vw, 560px);
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
-  background: var(--ink);
-  color: var(--bg);
-  font-size: var(--font-body-sm);
-  font-weight: 600;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  z-index: 50;
-}
-.toast[data-kind="error"] { background: var(--danger); color: #fff; }
+/* Toast: the vendored neutral one (_vendored/toast). With the nav a left rail on a wide fine pointer there is no bar to clear, so it sits low (longhand, so it cannot override the vendored shorthand). */
 @media (min-width: 1100px) and (pointer: fine) { .toast { bottom: 24px; } }
 
 /* ---- shared building blocks used by several views ---------------------- */
