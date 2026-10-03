@@ -35,6 +35,8 @@ body {
 }
 .home-head .home-toggle + .home-toggle { margin-left: 0; }
 .home-head .home-title-text { overflow: hidden; text-overflow: ellipsis; }
+/* NAV-02 (#167): the pane's title is its heading, so a pane opens with one in view; the h2 drops its UA margin */
+.home-head h2.home-title { margin: 0; }
 
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
 .split-list, .split-detail {

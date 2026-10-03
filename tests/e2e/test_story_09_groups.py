@@ -41,6 +41,10 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     page.set_viewport_size({"width": 390, "height": 844})
     assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
     assert small_targets(page) == []  # #167: the header toggles, the roster import and the filter reach 44px
+    # #167: the pane opens with its heading in view (the page header's title is an h2, not a span)
+    assert page.evaluate("""() => { const t = document.querySelector('#paneGroups h1, #paneGroups h2, #paneGroups h3')
+      .getBoundingClientRect().top; return t >= 0 && t <= innerHeight; }""")
+    expect(page.locator("#paneGroups .home-head h2.home-title")).to_have_css("font-size", "16px")  # still the body-size title
     page.set_viewport_size({"width": 1440, "height": 900})
 
     page.locator("[data-reveal]").click()
