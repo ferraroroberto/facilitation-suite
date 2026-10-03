@@ -40,6 +40,7 @@ build_info      = { src = "src/build_info.py", sha = "10b2f9424b6d0272d511048ce8
 static_pytest_target = "tests/e2e/test_smoke.py"
 static_browsers       = ["chromium"]
 full_pytest_target    = "tests/e2e"
+junit_xml             = "data/e2e-junit.xml"  # the gate writes it; /e2e-audit reads timing from it
 
 [[e2e.rule]]
 tier       = "static"
