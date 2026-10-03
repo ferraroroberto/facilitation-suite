@@ -122,6 +122,17 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.keyboard.press("t")
     expect(page.locator("[data-tstate]")).to_have_text("paused")
 
+    # #191: the server holds the position, so a reloaded stage, and one opened again, come back on
+    # the same item with its (paused) timer rather than on a start or blank state
+    stage.reload()
+    expect(stage.locator(".st-question")).to_have_text("Where are you joining from?")
+    expect(stage.locator("[data-pill].paused")).to_be_visible()
+    reopened = stage_ctx.new_page()
+    reopened.goto(f"{webapp.base_url}/stage")
+    expect(reopened.locator(".st-question")).to_have_text("Where are you joining from?")
+    expect(reopened.locator("[data-pill].paused")).to_be_visible()
+    reopened.close()
+
     # the clicker on the stage window drives the presenter too (PageDown = next)
     stage.keyboard.press("PageDown")
     expect(page.locator(".p-sub")).to_contain_text("3 of 17")
