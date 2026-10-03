@@ -102,6 +102,45 @@ function fitSlideText(root) {
   });
 }
 
+/** A camera zone (fractions of the canvas) as a box in canvas px when it is a corner box (under 40 % of the canvas height), else null. */
+function cornerBox(zone) {
+  if (!zone) return null;
+  const [x0, y0, x1, y1] = [zone[0] * W, zone[1] * H, zone[2] * W, zone[3] * H];
+  return y1 - y0 >= H * 0.4 ? null : { x0, y0, x1, y1 };
+}
+
+/**
+ * Under a corner camera the title text beside it is centred vertically on the camera (#190):
+ * an activity's question with its subtitle, and an imported slide's title boxes (a box that
+ * reaches under the camera is left alone). Only a block that fits the camera's height moves;
+ * a longer one keeps flowing from the top and below the camera, as before. Measured in canvas
+ * px, so it holds at any window size; a hidden host measures 0 and is redone when it shows.
+ * The quiz keeps its own flow: its status row and bars rise into the band under its title.
+ */
+function centreOnCamera(canvas, it) {
+  const box = cornerBox(it.zone);
+  const frame = canvas.getBoundingClientRect();
+  const scale = frame.width / W;
+  if (!box || !scale || (it.type || '').startsWith('quiz')) return;
+  const mid = (box.y0 + box.y1) / 2;
+  const centre = (move, first, last) => {
+    move.style.transform = '';
+    const top = (first.getBoundingClientRect().top - frame.top) / scale;
+    const bottom = (last.getBoundingClientRect().bottom - frame.top) / scale;
+    if (bottom - top > box.y1 - box.y0 || bottom < box.y0 || top > box.y1) return;
+    move.style.transform = `translateY(${mid - (top + bottom) / 2}px)`;
+  };
+  if (it.kind === 'activity') {
+    const head = canvas.querySelector('.st-head');
+    const sub = head && head.querySelector('.st-sub');
+    if (head) centre(head, head.querySelector('.st-question'), sub && !sub.hidden ? sub : head.querySelector('.st-question'));
+  } else if (it.kind === 'slide') {
+    canvas.querySelectorAll('.st-tbox.title').forEach((b) => {
+      if (parseFloat(b.style.left) + parseFloat(b.style.width) <= box.x0 + 1) centre(b, b.firstElementChild, b.firstElementChild);
+    });
+  }
+}
+
 /**
  * Where an item's content goes, from its camera zone (Settings → profiles, in
  * fractions of the canvas): a tall zone at a side keeps the content beside it;
@@ -110,11 +149,12 @@ function fitSlideText(root) {
  */
 function zoneStyle(zone) {
   if (!zone) return '';
-  const [x0, y0, x1, y1] = [zone[0] * W, zone[1] * H, zone[2] * W, zone[3] * H];
-  if (y1 - y0 >= H * 0.4) {
+  const corner = cornerBox(zone);
+  if (!corner) {
+    const [x0, x1] = [zone[0] * W, zone[2] * W];
     return x0 >= W / 2 ? `--st-right:${Math.round(W - x0 + 60)}px;` : `--st-left:${Math.round(x1 + 60)}px;`;
   }
-  return `--st-head-right:${Math.max(0, Math.round(W - x0 - 110 + 40))}px;--st-head-min:${Math.max(0, Math.round(y1 - 80 + 24))}px;`;
+  return `--st-head-right:${Math.max(0, Math.round(W - corner.x0 - 110 + 40))}px;--st-head-min:${Math.max(0, Math.round(corner.y1 - 80 + 24))}px;`;
 }
 
 /** "mm:ss" for the countdowns (stage, presenter, phone). Rounds up, so 00:00 shows only at
@@ -239,10 +279,13 @@ export function createStage(host, opts = {}) {
     }
     html += `</div><div class="st-blackout" data-blackout hidden></div>`;
     canvas.innerHTML = html;
-    if (it.text_boxes) {
-      fitSlideText(canvas);
-      document.fonts.ready.then(() => { if (item === it) fitSlideText(canvas); });
-    }
+    if (it.text_boxes) fitSlideText(canvas);
+    centreOnCamera(canvas, it);
+    document.fonts.ready.then(() => {
+      if (item !== it) return;
+      if (it.text_boxes) fitSlideText(canvas);
+      centreOnCamera(canvas, it);
+    });
   }
 
   let lastCtx = null;
@@ -293,8 +336,10 @@ export function createStage(host, opts = {}) {
     if (!plugin || !body) return;
     const sub = canvas.querySelector('[data-sub]');
     if (sub && plugin.subtitle) {
+      const before = sub.textContent;
       sub.textContent = plugin.subtitle(item, lang);
       sub.hidden = !sub.textContent;
+      if (sub.textContent !== before) centreOnCamera(canvas, item);
     }
     // The live quiz game (#53) reaches only the item it is about: every other item gets null.
     const q = ctx.state && ctx.state.quiz;

@@ -50,6 +50,9 @@
   --st-slide-weight: var(--st-text-weight);
   --st-slide-stroke: 0px;
   --st-slide-case: none;
+  /* Line spacing of titles, questions and a slide's text (#190): tight, as the hand-lettered
+     font already carries generous ascent and descent. One value for every item. */
+  --st-leading: 1.04;
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
   /* A paused timer: the pill turns yellow, a break clock amber. */
@@ -85,7 +88,7 @@
   paint-order: stroke fill;
   font-weight: var(--st-slide-weight);
   text-transform: var(--st-slide-case);
-  line-height: 1.15;
+  line-height: var(--st-leading);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -118,7 +121,7 @@
   -webkit-text-stroke: var(--st-title-stroke) currentColor;
   paint-order: stroke fill;
   font-weight: var(--st-title-weight);
-  line-height: 1.12;
+  line-height: var(--st-leading);
   text-transform: var(--st-title-case);
   overflow-wrap: anywhere;
 }
