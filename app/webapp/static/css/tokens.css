@@ -58,7 +58,6 @@
   --row-lg: 60px;
   --control-h: 36px;
   --hit-min: 44px;
-  --control-inset: calc((var(--hit-min) - var(--control-h)) / 2);
   --layout-measure: 772px;
   --layout-rail: 80px;
   --bottom-tabs-height: 61px;
