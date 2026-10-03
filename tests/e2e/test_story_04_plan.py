@@ -89,6 +89,8 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.get_by_label("Notes").fill("Read the top three aloud.")
     expect(page.locator(".dirty-bar")).to_be_visible()
     assert small_targets(page) == []  # #167: the plan and its editor, every control reaches 44px
+    # #167: the 44px fields keep a real 1px boundary (an inset shadow reads as none: COLOR-03)
+    assert set(page.eval_on_selector_all(".sec-min input, .input:not(textarea), .select-native", "els => els.map(e => getComputedStyle(e).borderTopWidth)")) == {"1px"}
     # #167: a glyph in a button label is on the icons.size inline step (16px), not the label's 1em
     assert set(page.eval_on_selector_all(".button-surface .icon, .button-ghost .icon, .button-tint .icon", "els => els.map(e => e.getBoundingClientRect().width).filter(w => w > 0)")) == {16}
     # #167: --muted is under 4.5:1 on a selected (accent-soft) row in both themes and on the dark section band,
