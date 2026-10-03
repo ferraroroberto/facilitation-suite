@@ -50,6 +50,10 @@ tier       = "static"
 prefix     = "app/webapp/static/_vendored/"
 extensions = ["html"]
 [[e2e.rule]]
+tier       = "none"
+prefix     = "app/webapp/static/_vendored/"
+extensions = ["md"]
+[[e2e.rule]]
 tier   = "full"
 prefix = "app/"
 [[e2e.rule]]
@@ -59,13 +63,23 @@ prefix = "tests/e2e/"
 tier   = "full"
 prefix = "themes/"
 [[e2e.rule]]
+tier       = "full"
+prefix     = "tests/fixtures/"
+extensions = ["py"]
+[[e2e.rule]]
+tier = "full"
+path = "tests/conftest.py"
+[[e2e.rule]]
+tier = "full"
+path = "config/config.sample.json"
+[[e2e.rule]]
 tier       = "none"
 prefix     = "src/"
 extensions = ["py"]
 [[e2e.rule]]
 tier       = "none"
 prefix     = "tests/"
-extensions = ["py", "json", "yaml", "txt"]
+extensions = ["py", "json", "yaml", "txt", "jsonl"]
 [[e2e.rule]]
 tier   = "none"
 prefix = "scripts/"
@@ -83,7 +97,7 @@ tier   = "none"
 prefix = "assets/"
 [[e2e.rule]]
 tier       = "none"
-extensions = ["md", "bat", "toml", "ini", "txt", "yaml"]
+extensions = ["md", "bat", "toml", "ini", "txt", "yaml", "yml", "example"]
 [[e2e.rule]]
 tier = "none"
 path = ".gitignore"
