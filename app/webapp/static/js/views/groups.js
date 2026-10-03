@@ -146,7 +146,7 @@ function renderRounds() {
   }
   const r = data.rounds;
   const tabs = document.createElement('div');
-  tabs.className = 'range-tabs';
+  tabs.className = 'range-tabs round-tabs';
   tabs.setAttribute('role', 'tablist');
   tabs.innerHTML = ROUNDS.map((k) =>
     `<button type="button" role="tab" class="range-tab${k === tab ? ' active' : ''}" aria-selected="${k === tab}" data-round="${k}">${esc(data.labels[k])} · ${r[k].length} rooms</button>`).join('');

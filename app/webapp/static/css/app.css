@@ -470,6 +470,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 
 /* ---- Groups ------------------------------------------------------------- */
 .groups-filter { width: 100%; }
+/* the round tabs carry "label · N rooms" on one line each (range-tab is nowrap); three of them do not fit a phone row, so the row wraps. row-gap 8px keeps the 44px hit-target expansions (4px each side) from overlapping. */
+.round-tabs { flex-wrap: wrap; row-gap: 8px; }
+.round-tabs .range-tab { flex: 1 1 auto; }
 .person-row { padding-left: var(--space-md); padding-right: var(--space-md); }
 .person-row.absent .row-title { color: var(--muted); }
 .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--gap); }
