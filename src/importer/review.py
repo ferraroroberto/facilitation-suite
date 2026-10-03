@@ -217,7 +217,7 @@ def diff(old_meta: Optional[dict[str, Any]], new_meta: dict[str, Any], session: 
                 detail = "New slide · skipped in the plan"
             else:
                 prof = PROFILE_LABEL.get(s.get("profile") or "", "")
-                detail = f"New slide · {prof.lower()} detected" if prof else "New slide · OBS profile unsure"
+                detail = f"New slide · {prof.lower()} detected" if prof else "New slide · camera layout unsure"
             changes.append({"id": f"new-{nid}", "kind": "new", "slide_id": nid, "old": None, "new": _brief(s),
                             "title": s["title"], "position": s["index"], "after": prev["index"] if prev else None,
                             "detail": detail})

@@ -34,7 +34,7 @@ export async function mount(el, context) {
   list.appendChild(head);
   const tools = document.createElement('div');
   tools.className = 'row-actions';
-  tools.innerHTML = `<button type="button" class="button-surface" data-import>${icon('upload')} Import roster (.xlsx)</button>`;
+  tools.innerHTML = `<button type="button" class="button-surface" data-import title="An Excel file with a name column">${icon('upload')} Import roster</button>`;
   list.appendChild(tools);
   tools.querySelector('[data-import]').addEventListener('click', importRoster);
   const search = document.createElement('input');
