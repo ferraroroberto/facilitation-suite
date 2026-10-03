@@ -46,24 +46,25 @@ body {
   align-content: start;
 }
 
-/* Wide, fine pointer: left rail (vendored nav). Plan (and the presenter's Live) span the
-   window with master-detail panes; every other view keeps the centred measure (design.md
-   Layout, #183: `[design] wide_views` in .fleet.toml declares the wide ones). */
+/* Wide, fine pointer: left rail (vendored nav). The master-detail views (Plan, Groups,
+   Results, and the presenter's Live) span the window with the list and detail side by side;
+   the Sessions list alone keeps the centred measure (design.md Layout, #183/#189:
+   `[design] wide_views` in .fleet.toml declares the wide ones). */
 @media (min-width: 1100px) and (pointer: fine) {
   .app { max-width: none; margin: 0; min-height: 100vh; }
-  #paneSessions:has(.pane-body[data-mode="list"]), #paneGroups, #paneResults {
+  #paneSessions:has(.pane-body[data-mode="list"]) {
     max-width: var(--layout-measure);
     width: 100%;
     margin: 0 auto;
   }
-  #panePlan .split {
+  .split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
     gap: var(--gap);
     align-items: start;
   }
-  #panePlan .split > .split-list,
-  #panePlan .split > .split-detail {
+  .split > .split-list,
+  .split > .split-detail {
     min-width: 0;
     /* Each pane scrolls on its own; the window does not (design.md Layout). */
     position: sticky;

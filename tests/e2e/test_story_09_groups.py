@@ -42,7 +42,12 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     expect(page.locator(".banner.ok")).to_contain_text("Round B:")
     expect(page.locator("[data-csv]")).to_be_disabled()  # two people have no email
     expect(page.locator("#paneGroups")).to_contain_text("missing for")
-    assert page.locator("#paneGroups").bounding_box()["width"] <= 772  # #183: Groups holds the measure at 1440px
+    # #189: at 1440px the list and the rooms sit side by side, the pane spanning the window
+    assert page.locator("#paneGroups").bounding_box()["width"] > 1000
+    list_box = page.locator("#paneGroups .split-list").bounding_box()
+    detail_box = page.locator("#paneGroups .split-detail").bounding_box()
+    assert detail_box["x"] >= list_box["x"] + list_box["width"] - 1
+    assert abs(detail_box["y"] - list_box["y"]) < 4
     shot(page, shots / "story-09-groups-1-desktop.png")
 
     # #167: the three round tabs wrap on a phone instead of widening the page
@@ -50,7 +55,6 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
     assert small_targets(page) == []  # #167: the header toggles, the roster import and the filter reach 44px
     # #167: the pane opens with its heading in view (the page header's title is an h2, not a span)
-    page.evaluate("window.scrollTo(0, 0)")  # #183: Groups holds the measure on desktop, so the window scrolled there; a phone opens at the top
     assert page.evaluate("""() => { const t = document.querySelector('#paneGroups h1, #paneGroups h2, #paneGroups h3')
       .getBoundingClientRect().top; return t >= 0 && t <= innerHeight; }""")
     expect(page.locator("#paneGroups .home-head h2.home-title")).to_have_css("font-size", "16px")  # still the body-size title

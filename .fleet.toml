@@ -119,11 +119,11 @@ path = "launcher.py"
 ready_selector = ".session-row"
 
 # /design-review and /design-sync (#183). Width follows the shape of a view: Plan (master-detail
-# with a live stage preview) spans the window above 1100px; the presenter's Live cockpit is
-# full-bleed by design and is not a tab of the walked page. Sessions list, Groups and Results
-# keep the 772px measure (app.css).
+# with a live stage preview) spans the window above 1100px, and so do Groups and Results, the
+# other master-detail views (#189); the presenter's Live cockpit is full-bleed by design and is
+# not a tab of the walked page. Only the Sessions list keeps the 772px measure (app.css).
 [design]
-wide_views = ["plan", "live"]
+wide_views = ["plan", "groups", "results", "live"]
 
 [design.review]
 # The stage preview in the Plan editor and the stage-font sample in Settings are the real stage
