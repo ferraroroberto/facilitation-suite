@@ -100,6 +100,8 @@ if ($tier -eq "skip") {
     foreach ($b in ($e2eBrowsers -split ',' | Where-Object { $_ })) {
         $e2eArgs += @("--browser", $b)
     }
+    # The timing record /e2e-audit reads ([e2e] junit_xml in .fleet.toml); data/ is gitignored.
+    $e2eArgs += @("--junitxml", "data/e2e-junit.xml")
     Invoke-Stage "pytest e2e (${tier}: $e2eTarget)" { & $py -m pytest @e2eArgs }
 }
 
