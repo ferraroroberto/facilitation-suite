@@ -89,13 +89,14 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.get_by_label("Notes").fill("Read the top three aloud.")
     expect(page.locator(".dirty-bar")).to_be_visible()
     assert small_targets(page) == []  # #167: the plan and its editor, every control reaches 44px
-    # #167: dark --muted is under 4.5:1 on the section band and on a selected (accent-soft) row, so the
-    # secondary text there is the primary ink -- same colour as the name beside it
+    # #167: --muted is under 4.5:1 on a selected (accent-soft) row in both themes and on the dark section band,
+    # so the secondary text there is the primary ink -- the same colour as the name beside it
     theme = page.evaluate("document.documentElement.dataset.theme")
-    page.evaluate("document.documentElement.dataset.theme = 'dark'")
     color = lambda sel: page.locator(sel).first.evaluate("e => getComputedStyle(e).color")  # noqa: E731
-    assert color(".sec-row .sec-meta") == color(".sec-row .sec-name")
-    assert color(".item-row.selected .num") == color(".item-row.selected .item-title")
+    for mode in ("light", "dark"):
+        page.evaluate("t => { document.documentElement.dataset.theme = t; }", mode)
+        assert color(".item-row.selected .num") == color(".item-row.selected .item-title")
+    assert color(".sec-row .sec-meta") == color(".sec-row .sec-name")  # the dark band, the theme left on
     page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     expect(page.locator(".preview-frame .st-question")).to_have_js_property("innerHTML", "One word<br>you take home")
     expect(page.locator(".item-row.selected .item-title")).to_have_text("Take-home word")
