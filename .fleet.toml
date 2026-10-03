@@ -111,3 +111,8 @@ path = "LICENSE"
 [[e2e.rule]]
 tier = "none"
 path = "launcher.py"
+
+# /perf-review: "ready" = the first session row painted from /api/sessions, visible on the landing
+# view (the Sessions tab), not a painted shell (#166). An empty ledger would never show it.
+[perf.review]
+ready_selector = ".session-row"
