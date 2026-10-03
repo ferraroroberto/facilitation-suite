@@ -71,6 +71,7 @@ class LibraryFile(BaseModel):
 
 class StageClickPatch(BaseModel):
     advance: Optional[bool] = None
+    restore_camera: Optional[bool] = None
 
 
 class SettingsPatch(BaseModel):
@@ -102,7 +103,7 @@ def remote_payload(request: Request) -> dict[str, Any]:
 def stage_click_state(cfg: Any) -> dict[str, Any]:
     """What a click on the stage does, for the Settings card and the live snapshot (the stage
     window follows a change at once, with no reload)."""
-    return {"advance": cfg.stage_click.advance}
+    return {"advance": cfg.stage_click.advance, "restore_camera": cfg.stage_click.restore_camera}
 
 
 def payload(request: Request) -> dict[str, Any]:

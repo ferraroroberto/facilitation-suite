@@ -68,15 +68,19 @@ def test_an_unknown_value_in_the_file_falls_back_to_system(tmp_path: Path, monke
 
 def test_a_click_on_the_stage_goes_on_only_when_switched_on(client: TestClient, isolated_env: Path) -> None:
     """#191: off by default; the setting is saved and the open stage hears it at once."""
-    assert client.get("/api/settings").json()["stage_click"] == {"advance": False}
-    assert _state(client)["stage_click"] == {"advance": False}
+    assert client.get("/api/settings").json()["stage_click"] == {"advance": False, "restore_camera": True}
+    assert _state(client)["stage_click"] == {"advance": False, "restore_camera": True}
     with client.websocket_connect("/ws?role=stage") as stage:
         assert stage.receive_json()["type"] == "plan"
-        assert stage.receive_json()["state"]["stage_click"] == {"advance": False}
-        assert client.put("/api/settings", json={"stage_click": {"advance": True}}).json()["stage_click"] == {"advance": True}
+        assert stage.receive_json()["state"]["stage_click"] == {"advance": False, "restore_camera": True}
+        assert client.put("/api/settings", json={"stage_click": {"advance": True}}).json()["stage_click"] == {"advance": True, "restore_camera": True}
         while True:  # the pushed snapshot (a stage's own hello may be queued before it)
             msg = stage.receive_json()
             if msg["type"] == "state" and msg["state"]["stage_click"]["advance"]:
                 break
-    assert json.loads((isolated_env / "config.json").read_text(encoding="utf-8"))["stage_click"] == {"advance": True}
-    assert client.put("/api/settings", json={"stage_click": {"advance": False}}).json()["stage_click"] == {"advance": False}
+    assert json.loads((isolated_env / "config.json").read_text(encoding="utf-8"))["stage_click"] == {"advance": True, "restore_camera": True}
+    assert client.put("/api/settings", json={"stage_click": {"advance": False}}).json()["stage_click"] == {"advance": False, "restore_camera": True}
+    # the camera restore is its own switch, on by default
+    r = client.put("/api/settings", json={"stage_click": {"restore_camera": False}}).json()["stage_click"]
+    assert r == {"advance": False, "restore_camera": False}
+    assert client.put("/api/settings", json={"stage_click": {"restore_camera": True}}).json()["stage_click"]["restore_camera"] is True

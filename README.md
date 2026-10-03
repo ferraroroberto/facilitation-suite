@@ -111,7 +111,7 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 
 | Key (stage or presenter window) | Action |
 |---|---|
-| → · PageDown · ↓ · N · click | next item (a presentation clicker works; so does a click on the presenter's "on stage now". A click on the **stage window** goes on only when **Settings → Live tools → Clicking the stage** is on — off by default, so a stray click cannot move the presentation; a double-click on the stage is always full screen) |
+| → · PageDown · ↓ · N · click | next item (a presentation clicker works; so does a click on the presenter's "on stage now". A click on the **stage window** goes on only when **Settings → Live tools → Clicking the stage** is on — off by default, so a stray click cannot move the presentation; a double-click on the stage is always full screen. With it off, a click on the stage **re-applies the item's camera layout** in OBS instead — see *OBS*) |
 | ← · PageUp · ↑ · P | previous item |
 | B · . | blackout |
 | T | the item's timer: start / pause |
@@ -370,6 +370,8 @@ Each item in the plan has a **Camera layout** (an OBS profile) — *Camera strip
 
 **Text beside the corner camera.** Under *Camera PiP* the title text that sits beside the camera is centred vertically on the camera zone — one, two or three lines alike: an activity's question (and its subtitle) and an imported slide's title box. Text too tall for the camera's height keeps starting at the top and flows below it, and a title box that runs under the camera is left where the deck put it. *Camera strip* and *Screen only* are unchanged, and a quiz keeps its own layout (its status row and bars rise into the band under the title). Titles, questions and a slide's text share one tight line spacing (`--st-leading` in `themes/default.css`). The centring follows the **zone**, not OBS, so the zone has to match where the camera really is: in OBS select the camera source and read its position and size, then enter them in **Settings → OBS profiles** as fractions of the canvas (left = x ÷ 1920, top = y ÷ 1080, right = (x + width) ÷ 1920, bottom = (y + height) ÷ 1080). The shipped default (`0.72, 0.04, 0.98, 0.30`) leaves a small margin around the camera; a camera flush against the top-right corner sits about 40 px higher than that zone's middle, so move the zone's top and right edges to the corner.
 
+**Click to restore the layout (#191).** You switch OBS by hand — full-screen camera to talk — and want the slide's layout back: click the stage window. With *A click on the stage goes to the next item* off (the default), a click re-applies the current item's Camera layout through the same switch as `obs_profile/<name>`; it does nothing when the item has no layout, OBS is not connected, or **Settings → Live tools → Clicking the stage → restore the item's camera layout** is switched off (on by default). With the first one on, a click goes to the next item instead and does not touch OBS.
+
 OBS is never in the critical path: it runs on its own thread, reconnects by itself, and the presenter's **OBS** chip says *profile …*, *not reachable* (click to retry), *connecting* or *off*. A profile without a scene, or a scene OBS doesn't have, leaves OBS as it is and the chip says so. The deck keeps working with OBS closed.
 
 ## Stream Deck
@@ -399,7 +401,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | **Appearance** | light / dark / system for the app, the presenter and the phone remote · text size | global (every device) · text size per device |
 | **Stage defaults** | the stage theme and lettering (title font, text font, each kind of text) new sessions start from · the **stage library** of fonts and themes | defaults only: a new session **copies** them into its `session.yaml`, then owns them |
 | **Music** | the Spotify account (state, device, last check, **Connect / Reconnect Spotify**) · the fades a newly switched-on music item starts with | global (the login is in `.env`, the fades in `config/config.json`) |
-| **Live tools** | OBS profiles and connection · the Zoom chat reader · whether a click on the stage goes to the next item · the Stream Deck buttons · the phone remote | global |
+| **Live tools** | OBS profiles and connection · the Zoom chat reader · what a click on the stage does · the Stream Deck buttons · the phone remote | global |
 | **About** | the build and the credits | — |
 
 **Per session** stays in the session's own plan: its stage theme and lettering (Sessions tab → **Session settings** → *Stage look*), each item's own font exceptions and music (Plan tab). Changing a default never touches an existing session. The session's Stage look says **Using the default** or **Overridden**, and **Reset to default** copies the current defaults in (the session's theme and lettering; items keep their own exceptions). The stage always follows the session's own look.
@@ -422,7 +424,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 | `defaults` | what new sessions start from (Settings → Stage defaults and Music): `stage.theme` (a repo theme or `library/<name>`), `stage.font` (a `session.yaml` `font` block; absent = the theme's lettering), `music.fade_in_s` / `fade_out_s` (0–60, default 2) — a bad value falls back, logged |
-| `stage_click` | `advance`: a click on the stage window goes to the next item (default `false`; Settings → Live tools → Clicking the stage; the open stage follows a change at once) |
+| `stage_click` | what a click on the stage window does (Settings → Live tools → Clicking the stage; the open stage follows a change at once): `advance` goes to the next item (default `false`), `restore_camera` re-applies the item's OBS profile when `advance` is off (default `true`) |
 | `live` | `resume_on_start`: after a restart, take the session that was live when the server stopped live again (default `true`; a closed session never comes back) |
 | `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see *Quiz player*). Restart the tray after changing it |
 

@@ -108,15 +108,16 @@ export function driftText(minutes) {
  * A click on the stage (the window, or the presenter's "on stage now") goes on
  * to the next item, as in a slideshow — not on a button or a map pin (they
  * have their own click), and `wait` ms later so a double-click can cancel it.
+ * `enabled()` is asked per click; `action()` is what the click does (default: next).
  */
-export function clickToAdvance(el, live, { wait = 0, cancelOn = null, enabled = () => true } = {}) {
+export function clickToAdvance(el, live, { wait = 0, cancelOn = null, enabled = () => true, action = () => live.send('next') } = {}) {
   let pending = null;
   // Capture phase: decide before the map's own handler closes its popover.
   el.addEventListener('click', (e) => {
     if (!enabled() || e.button !== 0 || e.target.closest('button, a, input, select, textarea, .mp-pop')) return;
     if (el.querySelector && el.querySelector('.mp-pop')) return; // this click only closes the map's popover
     clearTimeout(pending);
-    pending = setTimeout(() => live.send('next'), wait);
+    pending = setTimeout(action, wait);
   }, true);
   if (cancelOn) el.addEventListener(cancelOn, () => clearTimeout(pending));
 }
