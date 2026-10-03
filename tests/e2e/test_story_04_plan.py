@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import shot
+from tests.e2e.conftest import shot, small_targets
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import LONG_ANSWERS, add_quiz_section
 
@@ -88,6 +88,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.locator(".dur-input").fill("1:30")
     page.get_by_label("Notes").fill("Read the top three aloud.")
     expect(page.locator(".dirty-bar")).to_be_visible()
+    assert small_targets(page) == []  # #167: the plan and its editor, every control reaches 44px
     expect(page.locator(".preview-frame .st-question")).to_have_js_property("innerHTML", "One word<br>you take home")
     expect(page.locator(".item-row.selected .item-title")).to_have_text("Take-home word")
     # answers verbatim: the preview's sample "saying yes to everything" stops being split into words

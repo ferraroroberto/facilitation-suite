@@ -150,6 +150,21 @@ body {
   min-width: 0;
 }
 textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vertical; }
+/* Touch targets (#167, design.md hit-target.min): a native input/select is a replaced element that cannot carry
+   the .hit-target ::before, so it gets the real 44px box and paints its 36px control inside a transparent
+   --control-inset band; the 1px control-border boundary is an inset shadow on the padding box. The vendored
+   .input-native / .select-native are restated here (app.css loads after them); never edit the vendored files. */
+.input:not(textarea), .input-native, .select-native, .sec-min input {
+  height: var(--hit-min);
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--control-inset) 0;
+  border-radius: var(--radius-md) / calc(var(--radius-md) + var(--control-inset));
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--control-border);
+}
+.input:not(textarea):focus-visible, .input-native:focus-visible, .select-native:focus-visible,
+.sec-min input:focus-visible { outline-offset: calc(2px - var(--control-inset)); }
 
 /* ---- dialogs + row menu -------------------------------------------------- */
 
@@ -321,10 +336,12 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .plan-toolbar .button-surface { display: inline-flex; align-items: center; gap: 6px; }
 .plan-fold { display: inline-flex; gap: 2px; }
 .plan-fold .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
+/* toolbar buttons that sit side by side reach the 44px floor with real height, so their rects never overlap (#167) */
+.button-surface, .button-ghost, .button-tint { min-height: var(--hit-min); }
 .plan-totals { font-size: var(--font-body-sm); color: var(--muted); margin-left: auto; }
 .plan-totals.over { color: var(--attention-text); font-weight: 600; }
 .dirty-bar { display: inline-flex; align-items: center; gap: var(--space-sm); width: 100%; justify-content: flex-end; }
-.save-small { min-height: var(--control-h); padding: 0 16px; }
+.save-small { min-height: var(--hit-min); padding: 0 16px; }
 .plan-list { padding: 0; }
 .sec-row {
   display: flex;
@@ -341,16 +358,13 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .sec-toggle, .sec-name { border: 0; background: transparent; cursor: pointer; color: var(--ink); padding: 0; }
 /* 34px visual + the shared .hit-target (co-applied in plan.js) = 44px effective (design.md Touch targets). */
 .sec-toggle { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
-.sec-name { font-weight: 700; text-align: left; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec-name { min-height: var(--hit-min); font-weight: 700; text-align: left; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sec-meta { font-size: var(--font-body-sm); color: var(--muted); white-space: nowrap; }
 .sec-min { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-body-sm); color: var(--muted); }
 .sec-min input {
   width: 64px;
-  height: var(--control-h);
   padding: 0 8px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  background: var(--card);
+  background-color: var(--card);
   text-align: right;
 }
 .item-row {
@@ -446,15 +460,15 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .dur-input { width: 90px; font-family: var(--mono); }
 .music-src[hidden] { display: none; }
 .music-src { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
-.music-src .button-surface { display: inline-flex; align-items: center; gap: 6px; min-height: var(--control-h); padding: 0 12px; }
+.music-src .button-surface { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit-min); padding: 0 12px; }
 .music-file { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 160px; font-weight: 600; overflow-wrap: anywhere; }
 .music-file .icon { flex: none; width: 16px; height: 16px; }
 .music-volume { display: flex; align-items: center; gap: var(--space-sm); }
 .music-volume input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .music-volume output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
-.input.invalid { border-color: var(--danger); }
+.input.invalid { box-shadow: inset 0 0 0 1px var(--danger); }
 .ed-tools { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: 12px 0; border-top: 1px solid var(--line-muted); }
-.ed-tools .button-surface, .ed-tools .button-tint { display: inline-flex; align-items: center; gap: 6px; min-height: var(--control-h); padding: 0 12px; }
+.ed-tools .button-surface, .ed-tools .button-tint { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit-min); padding: 0 12px; }
 .ed-tools .button-tint.danger { margin-left: auto; }
 .ed-save { width: 100%; margin-top: var(--space-sm); }
 @media (min-width: 1100px) and (pointer: fine) {
@@ -636,7 +650,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .remote-actions .button-tint, .remote-actions .button-surface { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; }
 .deck-label { width: 220px; flex: none; font-weight: 600; font-size: var(--font-body-sm); }
 .deck-row code { font-family: var(--mono); font-size: var(--font-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deck-row .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.deck-row .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--hit-min); }
 @media (max-width: 640px) { .deck-label { width: auto; } .deck-row { flex-wrap: wrap; } }
 /* Five sections (#110), each a heading-md title over its cards; a deep link scrolls to one. */
 .settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); scroll-margin-top: var(--gap); }

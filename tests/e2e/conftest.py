@@ -141,3 +141,27 @@ def shot(page, path: Path, settle: float = 0.0) -> None:
         page.wait_for_timeout(int(settle * 1000))
     page.evaluate("document.fonts.ready")
     page.screenshot(path=str(path), animations="disabled", caret="hide")
+
+
+_SMALL_TARGETS_JS = """(floor) => {
+  const out = [];
+  for (const el of document.querySelectorAll(
+      'button, a[href], input, select, textarea, summary, [role=button], [role=tab], [role=switch], [role=menuitem], [role=checkbox]')) {
+    if (el.disabled) continue;
+    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    if (!r.width || !r.height || s.visibility === 'hidden' || s.display === 'none') continue;
+    // an invisible ::before expansion (the shared .hit-target, the vendored range-tab) grows the effective box
+    const b = getComputedStyle(el, '::before');
+    const grow = (side) => (b.content !== 'none' && b.position === 'absolute') ? Math.max(0, -parseFloat(b[side]) || 0) : 0;
+    const w = r.width + grow('left') + grow('right'), h = r.height + grow('top') + grow('bottom');
+    if (w < floor - 1 || h < floor - 1)
+      out.push(`${el.tagName.toLowerCase()}.${el.className} ${Math.round(w)}x${Math.round(h)}`);
+  }
+  return out;
+}"""
+
+
+def small_targets(page, floor: int = 44) -> list[str]:
+    """Visible controls whose effective box (the visual box, plus the shared ``.hit-target`` expansion)
+    is under ``floor`` px either way -- design.md hit-target.min (#167). Empty when the view conforms."""
+    return page.evaluate(_SMALL_TARGETS_JS, floor)

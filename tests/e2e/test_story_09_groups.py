@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import shot
+from tests.e2e.conftest import shot, small_targets
 from tests.fixtures.demo import build_demo_session
 
 
@@ -40,6 +40,7 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     # #167: the three round tabs wrap on a phone instead of widening the page
     page.set_viewport_size({"width": 390, "height": 844})
     assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+    assert small_targets(page) == []  # #167: the header toggles, the roster import and the filter reach 44px
     page.set_viewport_size({"width": 1440, "height": 900})
 
     page.locator("[data-reveal]").click()
