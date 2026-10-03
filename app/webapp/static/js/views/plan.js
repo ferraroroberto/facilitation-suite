@@ -884,7 +884,7 @@ function renderEditor() {
     if (it.kind === 'slide') slideTextFields(form, it);
   }
 
-  form.appendChild(field('OBS profile', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'OBS profile')));
+  form.appendChild(field('Camera layout', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout')));
   if (it.kind === 'slide' && it.profile == null) {
     form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint warn">Detection was unsure for this slide — pick one.</p>');
   } else if (it.kind === 'slide') {
@@ -985,12 +985,12 @@ function renderBulk() {
   form.appendChild(field('Selected', strip));
 
   const profiles = new Set(items.map((it) => it.profile || null));
-  form.appendChild(field('OBS profile', rangeTabs(PROFILES, profiles.size === 1 ? [...profiles][0] : null, (v) => {
+  form.appendChild(field('Camera layout', rangeTabs(PROFILES, profiles.size === 1 ? [...profiles][0] : null, (v) => {
     items.forEach((it) => { it.profile = v; });
     markDirty();
     renderList();
     renderEditor();
-  }, 'OBS profile for the selected items')));
+  }, 'Camera layout for the selected items')));
   if (profiles.size > 1) form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">They differ now — a pick sets all of them.</p>');
 
   const allIn = items.every((it) => it.include !== false);
@@ -1313,7 +1313,7 @@ function previewCard(it) {
   card.innerHTML =
     `<div class="preview-frame stage-host" data-preview></div>` +
     `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'
-      ? 'The slide as imported. The dashed box is where the camera goes for the chosen profile.'
+      ? 'The slide as imported. The dashed box is where the camera goes for the chosen layout.'
       : it.type === 'groups_reveal'
         ? 'Drawn by the real stage with the rooms from the Groups tab — a new shuffle redraws it.'
         : it.kind === 'activity'

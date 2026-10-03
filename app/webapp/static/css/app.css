@@ -46,18 +46,24 @@ body {
   align-content: start;
 }
 
-/* Wide, fine pointer: left rail (vendored nav) + full-width content with
-   master-detail panes (design.md Layout). */
+/* Wide, fine pointer: left rail (vendored nav). Plan (and the presenter's Live) span the
+   window with master-detail panes; every other view keeps the centred measure (design.md
+   Layout, #183: `[design] wide_views` in .fleet.toml declares the wide ones). */
 @media (min-width: 1100px) and (pointer: fine) {
   .app { max-width: none; margin: 0; min-height: 100vh; }
-  .split {
+  #paneSessions:has(.pane-body[data-mode="list"]), #paneGroups, #paneResults {
+    max-width: var(--layout-measure);
+    width: 100%;
+    margin: 0 auto;
+  }
+  #panePlan .split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
     gap: var(--gap);
     align-items: start;
   }
-  .split > .split-list,
-  .split > .split-detail {
+  #panePlan .split > .split-list,
+  #panePlan .split > .split-detail {
     min-width: 0;
     /* Each pane scrolls on its own; the window does not (design.md Layout). */
     position: sticky;
@@ -236,9 +242,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .sessions-list, .sessions-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
 .sessions-list[hidden], .sessions-detail[hidden] { display: none; }
 @media (min-width: 1100px) and (pointer: fine) {
-  /* The list alone keeps the centered measure; an open session uses the full
-     width in two columns, its settings beside the rest (design.md Layout). */
-  #paneSessions .pane-body[data-mode="list"] { max-width: var(--layout-measure); width: 100%; margin: 0 auto; }
+  /* The list alone keeps the centered measure (the pane cap above); an open session uses
+     the full width in two columns, its settings beside the rest (design.md Layout). */
   .sessions-detail {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto auto auto 1fr;
@@ -476,7 +481,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .ed-tools .button-tint.danger { margin-left: auto; }
 .ed-save { width: 100%; margin-top: var(--space-sm); }
 @media (min-width: 1100px) and (pointer: fine) {
-  .plan-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+  #panePlan .plan-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
 }
 @media (max-width: 640px) {
   .ed-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }

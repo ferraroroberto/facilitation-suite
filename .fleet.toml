@@ -116,3 +116,22 @@ path = "launcher.py"
 # view (the Sessions tab), not a painted shell (#166). An empty ledger would never show it.
 [perf.review]
 ready_selector = ".session-row"
+
+# /design-review and /design-sync (#183). Width follows the shape of a view: Plan (master-detail
+# with a live stage preview) spans the window above 1100px; the presenter's Live cockpit is
+# full-bleed by design and is not a tab of the walked page. Sessions list, Groups and Results
+# keep the 772px measure (app.css).
+[design]
+wide_views = ["plan", "live"]
+
+[design.review]
+# The stage preview in the Plan editor is the real stage drawn by the session theme
+# (themes/*.css), not the fleet design: not the app's own UI, so nothing in it is measured.
+exclude_selectors = [".preview-frame"]
+
+# Settings is a pane behind the header gear, not a tab: open it once so the walk sees the
+# vendored text-size control (A11Y-02) and measures the Settings pane at all.
+[[design.review.extra_steps]]
+tab   = "sessions"
+id    = "settings"
+click = "[data-open-settings]"

@@ -72,6 +72,8 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.goto(webapp.base_url + "/")
     page.click("#tabPlan")
     expect(page.locator(".sec-row")).to_have_count(6)
+    # #183: Plan spans the window at 1440px (the other views hold the 772px measure)
+    assert page.locator("#panePlan").bounding_box()["width"] > 1000
 
     # fold every section, open them again
     page.locator("[data-fold=collapse]").click()
@@ -154,7 +156,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     assert page.evaluate(CLIPPED) == []
     # #148: picking another OBS profile re-lays the quiz preview out around that profile's camera box
     for label, profile in (("Camera strip", "camera_strip"), ("Camera PiP", "camera_pip"), ("Screen only", "screen_only")):
-        page.locator("#panePlan .ed-row", has_text="OBS profile").locator(".range-tab", has_text=label).click()
+        page.locator("#panePlan .ed-row", has_text="Camera layout").locator(".range-tab", has_text=label).click()
         expect(page.locator(".preview-frame .st-item")).to_have_attribute("data-profile", profile)
         page.wait_for_function(f"() => ({UNDER_GUIDE})().length === 0 && ({CLIPPED})().length === 0")
 

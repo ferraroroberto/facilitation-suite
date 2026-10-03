@@ -107,7 +107,7 @@ export async function openReview(host, sid, { onClose }) {
   if (prof.length) {
     const card = document.createElement('div');
     card.className = 'card review-obs';
-    card.innerHTML = '<div class="row-title">OBS profile detected from the slide images</div>' +
+    card.innerHTML = '<div class="row-title">Camera layout detected from the slide images</div>' +
       `<p class="small muted">${esc(prof.map(([k, n]) => (PROFILE_TEXT[k] || ((x) => `${x} ${k}`))(n)).join(' · '))}. Change any of them in the plan.</p>`;
     wrap.appendChild(card);
   }
