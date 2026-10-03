@@ -69,10 +69,15 @@ class LibraryFile(BaseModel):
     path: str = Field(min_length=1, max_length=1000)
 
 
+class StageClickPatch(BaseModel):
+    advance: Optional[bool] = None
+
+
 class SettingsPatch(BaseModel):
     obs: Optional[ObsPatch] = None
     profiles: Optional[dict[str, ProfilePatch]] = None
     reader: Optional[ReaderPatch] = None
+    stage_click: Optional[StageClickPatch] = None
 
 
 def remote_payload(request: Request) -> dict[str, Any]:
@@ -94,6 +99,12 @@ def remote_payload(request: Request) -> dict[str, Any]:
     return {"enabled": bool(token), "https": bool(cert_host), "bind_loopback": loopback, "base_url": base, "link": link}
 
 
+def stage_click_state(cfg: Any) -> dict[str, Any]:
+    """What a click on the stage does, for the Settings card and the live snapshot (the stage
+    window follows a change at once, with no reload)."""
+    return {"advance": cfg.stage_click.advance}
+
+
 def payload(request: Request) -> dict[str, Any]:
     cfg = request.app.state.config
     obs = request.app.state.obs
@@ -106,6 +117,7 @@ def payload(request: Request) -> dict[str, Any]:
         "reader": {"enabled": cfg.reader.enabled, "window_title": cfg.reader.window_title, "poll_ms": cfg.reader.poll_ms},
         "stage_display": cfg.stage_display,
         "appearance": cfg.appearance,
+        "stage_click": stage_click_state(cfg),
         "source": cfg.source,
     }
 
@@ -141,6 +153,8 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
         patch["profiles"] = out
     if body.reader:
         patch["reader"] = body.reader.model_dump(exclude_none=True)
+    if body.stage_click:
+        patch["stage_click"] = body.stage_click.model_dump(exclude_none=True)
     if patch:
         request.app.state.config = settings_file.update(patch)
         if "obs" in patch or "profiles" in patch:
@@ -148,6 +162,8 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
         hub = request.app.state.live
         if "profiles" in patch and hub.session_id:
             hub.session_saved(hub.session_id)  # new zones on the stage
+        if "stage_click" in patch and hub.loop is not None:
+            hub.loop.call_soon_threadsafe(hub.push_state)  # the open stage follows at once
     return payload(request)
 
 

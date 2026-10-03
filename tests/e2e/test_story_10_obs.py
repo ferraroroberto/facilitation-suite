@@ -39,6 +39,13 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             page.locator("dialog .detail-save-btn").click()
             expect(page.locator("[data-profile=camera_pip]")).to_contain_text("Camera big")
             shot(page, shots / "story-10-obs-1-settings.png")
+
+            # #191: a click on the stage goes on only when this switch is on (off by default)
+            card = page.locator(".settings-card", has_text="Clicking the stage")
+            expect(card.locator("[role=switch]")).to_have_attribute("aria-checked", "false")
+            card.locator("[role=switch]").click()
+            expect(page.locator(".settings-card", has_text="Clicking the stage").locator("[role=switch]")).to_have_attribute("aria-checked", "true")
+            assert page.request.get(f"{inst.base_url}/api/settings").json()["stage_click"] == {"advance": True}
         finally:
             stop_instance(proc)
             fake.close()

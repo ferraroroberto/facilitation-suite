@@ -116,7 +116,7 @@ function render() {
   root.appendChild(section('appearance', [appearanceCard(), textSizeCard()]));
   root.appendChild(section('stage', [themeCard(), letteringCard(), libraryCard()]));
   root.appendChild(section('music', [spotifyCard(), musicDefaultsCard()]));
-  root.appendChild(section('live', [obsCard(), readerCard(), streamDeckCard(), remoteCard()]));
+  root.appendChild(section('live', [obsCard(), readerCard(), stageClickCard(), streamDeckCard(), remoteCard()]));
   root.appendChild(section('about', [aboutCard(), creditsCard()]));
   scrollToWanted();
 }
@@ -304,7 +304,27 @@ function readerCard() {
   return card;
 }
 
-const APPEARANCE_CHOICES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
+/** What a click on the stage window does (#191): the next item, only when switched on. */
+function stageClickCard() {
+  const card = document.createElement('div');
+  card.className = 'card settings-card';
+  card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('monitor')} Clicking the stage</h3></div>`;
+  const line = document.createElement('div');
+  line.className = 'switch-line';
+  const label = 'A click on the stage goes to the next item';
+  line.append(
+    switchEl(data.stage_click.advance, { label, onToggle: (next, btn) => { setSwitch(btn, next); save({ stage_click: { advance: next } }); } }),
+    Object.assign(document.createElement('span'), { textContent: label }),
+  );
+  card.appendChild(line);
+  const note = document.createElement('p');
+  note.className = 'small muted settings-note';
+  note.textContent = 'Off by default, so a stray click cannot move the presentation on. The arrow keys and a clicker always go forward and back; a double-click is full screen.';
+  card.appendChild(note);
+  return card;
+}
+
+const APPEARANCE_CHOICES =[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
 
 /** Light/dark for the app, the presenter and the phone remote — one value for every device (#92). */
 function appearanceCard() {

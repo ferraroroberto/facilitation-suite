@@ -7,7 +7,7 @@ import re
 
 from playwright.sync_api import Browser, Page, expect
 
-from tests.e2e.conftest import shot
+from tests.e2e.conftest import set_stage_click, shot
 from tests.fixtures.demo import build_demo_session
 
 # #190: draw items with the stage's own renderer into a 1920×1080 host (scale 1, so every number is a
@@ -157,11 +157,18 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     shot(page, shots / "story-05-live-1-presenter.png")
     shot(stage, shots / "story-05-live-2-stage.png")
 
-    # a click on "on stage now" or on the stage window goes on; End and Home jump to the ends
+    # a click on "on stage now" goes on; End and Home jump to the ends
     page.locator(".p-now .p-stage").click()
     expect(page.locator(".p-sub")).to_contain_text("11 of 17")
+    # #191: a click on the stage window does not go on by default (a stray click must not move the
+    # presentation); Settings → Live tools → "A click on the stage goes to the next item" turns it on
+    stage.mouse.click(640, 360)
+    stage.wait_for_timeout(600)  # past the click's 280 ms wait
+    expect(page.locator(".p-sub")).to_contain_text("11 of 17")
+    set_stage_click(page, webapp, True)
     stage.mouse.click(640, 360)
     expect(page.locator(".p-sub")).to_contain_text("12 of 17")
+    set_stage_click(page, webapp, False)
     page.keyboard.press("End")
     expect(page.locator(".p-sub")).to_contain_text("17 of 17")
     stage.keyboard.press("Home")

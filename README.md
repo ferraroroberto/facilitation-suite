@@ -111,7 +111,7 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 
 | Key (stage or presenter window) | Action |
 |---|---|
-| → · PageDown · ↓ · N · click | next item (a presentation clicker works; so does a click on the stage window or the presenter's "on stage now" — a double-click on the stage is full screen) |
+| → · PageDown · ↓ · N · click | next item (a presentation clicker works; so does a click on the presenter's "on stage now". A click on the **stage window** goes on only when **Settings → Live tools → Clicking the stage** is on — off by default, so a stray click cannot move the presentation; a double-click on the stage is always full screen) |
 | ← · PageUp · ↑ · P | previous item |
 | B · . | blackout |
 | T | the item's timer: start / pause |
@@ -399,7 +399,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | **Appearance** | light / dark / system for the app, the presenter and the phone remote · text size | global (every device) · text size per device |
 | **Stage defaults** | the stage theme and lettering (title font, text font, each kind of text) new sessions start from · the **stage library** of fonts and themes | defaults only: a new session **copies** them into its `session.yaml`, then owns them |
 | **Music** | the Spotify account (state, device, last check, **Connect / Reconnect Spotify**) · the fades a newly switched-on music item starts with | global (the login is in `.env`, the fades in `config/config.json`) |
-| **Live tools** | OBS profiles and connection · the Zoom chat reader · the Stream Deck buttons · the phone remote | global |
+| **Live tools** | OBS profiles and connection · the Zoom chat reader · whether a click on the stage goes to the next item · the Stream Deck buttons · the phone remote | global |
 | **About** | the build and the credits | — |
 
 **Per session** stays in the session's own plan: its stage theme and lettering (Sessions tab → **Session settings** → *Stage look*), each item's own font exceptions and music (Plan tab). Changing a default never touches an existing session. The session's Stage look says **Using the default** or **Overridden**, and **Reset to default** copies the current defaults in (the session's theme and lettering; items keep their own exceptions). The stage always follows the session's own look.
@@ -422,6 +422,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | `reader` | Zoom chat reader: poll interval and the chat window's class and title |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 | `defaults` | what new sessions start from (Settings → Stage defaults and Music): `stage.theme` (a repo theme or `library/<name>`), `stage.font` (a `session.yaml` `font` block; absent = the theme's lettering), `music.fade_in_s` / `fade_out_s` (0–60, default 2) — a bad value falls back, logged |
+| `stage_click` | `advance`: a click on the stage window goes to the next item (default `false`; Settings → Live tools → Clicking the stage; the open stage follows a change at once) |
 | `live` | `resume_on_start`: after a restart, take the session that was live when the server stopped live again (default `true`; a closed session never comes back) |
 | `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see *Quiz player*). Restart the tray after changing it |
 

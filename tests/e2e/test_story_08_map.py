@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Browser, Page, expect
 
-from tests.e2e.conftest import shot
+from tests.e2e.conftest import set_stage_click, shot
 from tests.fixtures.demo import build_demo_session
 
 ANSWERS = ["Madrid", "Barcelona", "Sevilla, España", "Valencia", "Bilbao", "Madrid, España", "Lisboa - Portugal",
@@ -66,9 +66,12 @@ def test_people_land_on_the_map(page: Page, browser: Browser, webapp, shots) -> 
         assert (area["x"] <= pop["x"] and pop["x"] + pop["width"] <= area["x"] + area["width"]
                 and area["y"] <= pop["y"] and pop["y"] + pop["height"] <= area["y"] + area["height"]), (pop, area)
 
+    set_stage_click(page, webapp, True)  # #191: with a click that goes on (off by default), this one only closes the popover
     stage.mouse.click(area["x"] + 8, area["y"] + 8)  # closes the popover — a click that only closes it does not go on
     expect(stage.locator(".mp-pop")).to_have_count(0)
+    stage.wait_for_timeout(600)  # past the click's 280 ms wait
     expect(page.locator(".p-sub")).to_contain_text("2 of 17")
+    set_stage_click(page, webapp, False)
 
     # every cluster shows its count, and no two labels cover each other
     counts = stage.locator(".mp-pin.many b").all_inner_texts()

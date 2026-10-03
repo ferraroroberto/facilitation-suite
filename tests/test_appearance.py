@@ -64,3 +64,19 @@ def test_an_unknown_value_in_the_file_falls_back_to_system(tmp_path: Path, monke
     assert config_mod.load_config().appearance == "system"
     path.write_text(json.dumps({"appearance": "light"}), encoding="utf-8")
     assert config_mod.load_config().appearance == "light"
+
+
+def test_a_click_on_the_stage_goes_on_only_when_switched_on(client: TestClient, isolated_env: Path) -> None:
+    """#191: off by default; the setting is saved and the open stage hears it at once."""
+    assert client.get("/api/settings").json()["stage_click"] == {"advance": False}
+    assert _state(client)["stage_click"] == {"advance": False}
+    with client.websocket_connect("/ws?role=stage") as stage:
+        assert stage.receive_json()["type"] == "plan"
+        assert stage.receive_json()["state"]["stage_click"] == {"advance": False}
+        assert client.put("/api/settings", json={"stage_click": {"advance": True}}).json()["stage_click"] == {"advance": True}
+        while True:  # the pushed snapshot (a stage's own hello may be queued before it)
+            msg = stage.receive_json()
+            if msg["type"] == "state" and msg["state"]["stage_click"]["advance"]:
+                break
+    assert json.loads((isolated_env / "config.json").read_text(encoding="utf-8"))["stage_click"] == {"advance": True}
+    assert client.put("/api/settings", json={"stage_click": {"advance": False}}).json()["stage_click"] == {"advance": False}
