@@ -132,6 +132,15 @@ def shots() -> Path:
     return SHOTS_DIR
 
 
+def set_stage_click(page, instance: Instance, advance: bool) -> None:
+    """Settings → Live tools → *A click on the stage goes to the next item* (#191), through its API,
+    and a beat for the open stage window to hear it. The instance is shared by the whole run, so a
+    test that turns it on turns it off again."""
+    response = page.request.put(f"{instance.base_url}/api/settings", data={"stage_click": {"advance": advance}})
+    assert response.ok, response.text()
+    page.wait_for_timeout(300)
+
+
 def shot(page, path: Path, settle: float = 0.0) -> None:
     """Capture for the gallery (only under ``FS_E2E_SHOTS=1``): no caret, no animations.
     ``settle`` is seconds to let a slow-drawing view finish first -- paid only when capturing."""

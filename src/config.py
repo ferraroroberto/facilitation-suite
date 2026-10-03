@@ -87,6 +87,15 @@ class LiveConfig:
     resume_on_start: bool = True
 
 
+@dataclass(frozen=True)
+class StageClickConfig:
+    """What a click on the stage window does (#191): ``advance`` goes on to the next item, as in a
+    slideshow. Off by default — a stray click must not move the presentation on; the arrow keys
+    and a clicker still do."""
+
+    advance: bool = False
+
+
 # OBS profiles (epic §11): each item's profile picks an OBS scene, and the
 # stage keeps that profile's camera zone empty. Zones are fractions of the
 # 1920×1080 canvas (x0, y0, x1, y1); the strip matches the house slides' grey box.
@@ -110,6 +119,7 @@ class AppConfig:
     remote: RemoteConfig = field(default_factory=RemoteConfig)
     quiz: QuizConfig = field(default_factory=QuizConfig)
     live: LiveConfig = field(default_factory=LiveConfig)
+    stage_click: StageClickConfig = field(default_factory=StageClickConfig)
     profiles: dict[str, Any] = field(default_factory=dict)
     # What every new session starts from — the stage theme and lettering, the music
     # fades (#110); parsed and checked by src/defaults.py.

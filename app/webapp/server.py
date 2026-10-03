@@ -277,6 +277,8 @@ def create_app() -> FastAPI:
     app.state.live.extra_state.append(lambda: {"last_action": app.state.last_action})
     # Light/dark for the app, the presenter and the remote (#92): every open page follows it.
     app.state.live.extra_state.append(lambda: {"appearance": app.state.config.appearance})
+    # What a click on the stage does (#191): the stage window reads it from the snapshot.
+    app.state.live.extra_state.append(lambda: {"stage_click": settings.stage_click_state(app.state.config)})
     _install_chat(app)
     _install_obs(app)
     _install_music(app)
