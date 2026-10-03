@@ -340,6 +340,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .plan-fold .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
 /* toolbar buttons that sit side by side reach the 44px floor with real height, so their rects never overlap (#167) */
 .button-surface, .button-ghost, .button-tint { min-height: var(--hit-min); }
+/* COMP-02 (#167): the .icon default is 1em, so a glyph in a 12-14px button label was off the icons.size steps; inline = 16px */
+.button-primary .icon, .button-tint .icon, .button-ghost .icon, .button-surface .icon { width: var(--icon-inline); height: var(--icon-inline); }
 .plan-totals { font-size: var(--font-body-sm); color: var(--muted); margin-left: auto; }
 .plan-totals.over { color: var(--attention-text); font-weight: 600; }
 .dirty-bar { display: inline-flex; align-items: center; gap: var(--space-sm); width: 100%; justify-content: flex-end; }
