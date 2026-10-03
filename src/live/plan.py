@@ -60,6 +60,15 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
     return words.get(item.type or "") or (types.get(item.type or "") or {}).get("label") or "Activity"
 
 
+def _item_font(item: Any) -> dict[str, Any]:
+    """The item's own lettering for the stage. An activity's title size is the session's
+    (``font.title_size``, #191) unless the item sets one; the other kinds keep 72 px."""
+    font = item.font.model_dump() if item.font else {"family": THEME_FONT}
+    if font.get("size_px") is None and item.kind != "activity":
+        font["size_px"] = 72
+    return font
+
+
 def _slide_text(item: Any, slide: Optional[dict[str, Any]]) -> dict[str, Any]:
     """A slide whose text the stage draws itself: its text-free picture and text boxes."""
     if item.kind != "slide" or item.live_text is False or not slide or not slide.get("bg_file") or not slide.get("boxes"):
@@ -100,7 +109,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "title": display_title(it, slide, types, session.language),
                 "question": it.question,
                 "chat_prompt": it.chat_prompt,
-                "font": (it.font.model_dump() if it.font else {"family": THEME_FONT, "size_px": 72}),
+                "font": _item_font(it),
                 "options": it.options,
                 "notes": it.notes or ((slide or {}).get("notes", "") if it.kind == "slide" else ""),
                 "notes_own": bool(it.notes),

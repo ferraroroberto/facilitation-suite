@@ -67,6 +67,16 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     _until(lambda: _saved(folder)["font"]["stroke_px"] == 2)
     sample = card.locator(".st-question")
     expect(sample).to_have_css("-webkit-text-stroke-width", "2px")
+    # #191: the title's colour and size; a pale colour is flagged against the grey stage
+    card.locator("[data-title-color]").fill("#fafafa")
+    expect(card.locator("[data-contrast]")).to_contain_text("hard to read")
+    card.locator("[data-title-color]").fill("#c62828")
+    expect(card.locator("[data-contrast]")).not_to_contain_text("hard to read")
+    _until(lambda: (_saved(folder).get("font") or {}).get("title_color") == "#c62828")
+    expect(sample).to_have_css("color", "rgb(198, 40, 40)")
+    card.locator("[data-title-size]").fill("96")
+    card.locator("[data-title-size]").press("Tab")
+    _until(lambda: (_saved(folder).get("font") or {}).get("title_size") == 96)
     page.wait_for_function("() => document.fonts.check('64px \"Session Font\"')")
     card.scroll_into_view_if_needed()
     shot(page, shots / "story-15-font-1-sessions.png")
@@ -85,6 +95,12 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     expect(q).to_contain_text("kryptonite")
     assert "Session Font" in q.evaluate("el => getComputedStyle(el).fontFamily")
     expect(q).to_have_css("-webkit-text-stroke-width", "2px")
+    expect(q).to_have_css("color", "rgb(198, 40, 40)")  # #191: the session's title colour on the preview
+    expect(q).to_have_css("font-size", "72px")  # this item set its own size (the demo's): it wins
+    page.locator('[data-item="act-map"]').click()  # an item with no size of its own follows the session's
+    expect(page.locator(".preview-frame .st-question")).to_have_css("font-size", "96px")
+    expect(page.locator(".preview-frame .st-question")).to_have_css("color", "rgb(198, 40, 40)")
+    page.locator('[data-item="act-kryptonite"]').click()
     expect(page.locator("#panePlan select[aria-label=\"Question font\"]")).to_have_value("theme")
     # this item's word cloud as typed after all: its own exception, on its preview only
     body = page.locator(".preview-frame .st-body")

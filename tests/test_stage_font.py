@@ -160,3 +160,39 @@ def test_item_lettering_keeps_only_known_kinds_and_saves_quietly() -> None:
     fonts = [it.get("font") for it in dump_session(s)["sections"][0]["items"]]
     assert fonts[0]["roles"] == {"answers": {"caps": True}}
     assert "roles" not in fonts[1]  # no exceptions: nothing extra in session.yaml
+
+
+def test_title_colour_and_size_are_checked_and_become_theme_variables() -> None:
+    """#191: font.title_color / title_size — a #rrggbb colour and a size in stage px."""
+    from src.defaults import normal_font
+    from src.sessions.theme import lettering_css
+
+    s = parse_session({"title": "x", "font": {"title_color": " #C62828 ", "title_size": 96}})
+    assert s.font is not None and s.font.title_color == "#c62828" and s.font.title_size == 96
+    css = font_css(s, "/f")
+    assert "--st-title-color: #c62828;" in css and "--st-title-size: 96px;" in css
+    assert "--st-title-color" not in font_css(parse_session({"title": "x", "font": {"stroke_px": 1}}), "/f")  # says nothing: the theme's
+    for bad in ("red", "#fff", "#12345g", "rgb(1,2,3)"):
+        with pytest.raises(ValidationError):
+            parse_session({"title": "x", "font": {"title_color": bad}})
+    with pytest.raises(ValidationError):
+        parse_session({"title": "x", "font": {"title_size": 241}})
+    # the Settings sample states every variable, so a session's colour never shows through it
+    sample = lettering_css(None, "/f", scope=".font-sample", complete=True)
+    assert "--st-title-color: var(--st-ink);" in sample and "--st-title-size: 72px;" in sample
+    # a colour or size is a real difference from the theme (a default block saves as nothing)
+    assert normal_font(s.font) is not None and normal_font(parse_session({"title": "x", "font": {"title_size": 0}}).font) is None
+
+
+def test_a_run_item_has_a_size_only_when_it_sets_one_or_is_not_an_activity() -> None:
+    """#191: an activity's title size is the session's (font.title_size) unless the item sets its own;
+    the other kinds keep their 72 px."""
+    from src.live.plan import _item_font
+
+    session = parse_session({"title": "x", "sections": [{"id": "s", "items": [
+        {"kind": "activity", "id": "a", "type": "word_cloud"},
+        {"kind": "activity", "id": "b", "type": "word_cloud", "font": {"size_px": 90}},
+        {"kind": "break", "id": "c", "font": {"family": "theme"}}, {"kind": "break", "id": "d"}]}]})
+    a, b, c, d = (it for sec in session.sections for it in sec.items)
+    assert _item_font(a).get("size_px") is None and _item_font(b)["size_px"] == 90
+    assert _item_font(c)["size_px"] == 72 and _item_font(d)["size_px"] == 72

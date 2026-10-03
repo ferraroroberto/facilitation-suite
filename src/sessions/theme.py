@@ -109,6 +109,10 @@ def lettering_css(font: Optional[StageFont], font_url: str, *, scope: str = ".st
         props.append(f"--st-font-stroke: {font.stroke_px:g}px;")
     if not font.caps or complete:
         props.append(f"--st-question-transform: {'uppercase' if font.caps else 'none'};")
+    if font.title_color or complete:
+        props.append(f"--st-title-color: {font.title_color or 'var(--st-ink)'};")
+    if font.title_size or complete:
+        props.append(f"--st-title-size: {font.title_size or 72}px;")
     if font.text_family.strip() and _family(font.text_family) != '""':
         props.append(f"--st-text-font: {_family(font.text_family)}, var(--st-ui-font);")
     elif complete:

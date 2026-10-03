@@ -17,12 +17,25 @@ export const STAGE_FONTS = [
   ['Segoe Print', 'Segoe Print (handwriting)'],
 ];
 
-export const FONT_DEFAULTS = { file: '', family: '', weight: 400, stroke_px: 0, caps: true, text_family: '', text_weight: 400, roles: {} };
+export const FONT_DEFAULTS = { file: '', family: '', weight: 400, stroke_px: 0, caps: true, title_color: '', title_size: 0, text_family: '', text_weight: 400, roles: {} };
 
 /** A lettering block that says nothing the theme doesn't: saved as no block at all. */
 export function isThemeLettering(f) {
-  return !f.file && !f.family && f.weight === 400 && !f.stroke_px && f.caps !== false &&
+  return !f.file && !f.family && f.weight === 400 && !f.stroke_px && f.caps !== false && !f.title_color && !f.title_size &&
     !f.text_family && f.text_weight === 400 && !Object.keys(f.roles || {}).length;
+}
+
+/** WCAG contrast ratio of a #rrggbb text colour on a CSS `rgb(r, g, b)` background, or null if unreadable. */
+export function contrastRatio(hex, bg) {
+  const bgParts = String(bg || '').match(/\d+(\.\d+)?/g);
+  if (!/^#[0-9a-f]{6}$/i.test(hex || '') || !bgParts || bgParts.length < 3) return null;
+  const lum = (rgb) => {
+    const [r, g, b] = rgb.map((c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const a = lum([1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)));
+  const b = lum(bgParts.slice(0, 3).map(Number));
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
 const fileName = (path) => String(path || '').split(/[\\/]/).pop();
@@ -55,8 +68,11 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
   const f = Object.assign({}, FONT_DEFAULTS, font || {});
   const file = (f.file || '').trim();
   const stroke = Number(f.stroke_px) || 0;
+  const color = f.title_color || '';
+  const size = Number(f.title_size) || 0;
   const inLibrary = library.some((l) => l.path === file);
-  return `<div class="font-sample-host"><div class="stage-canvas font-sample ${esc(sampleClass)}" style="--st-font-stroke:${stroke}px">` +
+  return `<div class="font-sample-host"><div class="stage-canvas font-sample ${esc(sampleClass)}" style="--st-font-stroke:${stroke}px` +
+    `${color ? `;--st-title-color:${esc(color)}` : ''}${size ? `;--st-title-size:${size}px` : ''}">` +
     `<h1 class="st-question">Hello, group!</h1>` +
     `<div class="font-sample-row"><span class="st-hint">${icon('message-square')}${esc(hint)}</span>` +
     `<div class="st-body"><span class="font-sample-words">meetings · focus</span></div></div></div></div>` +
@@ -69,7 +85,15 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
     `<div class="font-row"><span class="small">Weight</span>${tabs('Title weight', 'data-weight', [[400, 'Regular'], [700, 'Bold']], f.weight)}</div>` +
     `<label class="font-row font-stroke"><span class="small">Line thickness</span>` +
     `<input type="range" min="0" max="6" step="0.25" value="${stroke}" aria-label="Line thickness in stage px">` +
-    `<output class="mono small">${stroke} px</output></label></div>` +
+    `<output class="mono small">${stroke} px</output></label>` +
+    `<div class="font-row"><span class="small">Colour</span><span class="inline-controls">` +
+    `<input type="color" class="font-color" aria-label="Title colour" data-title-color value="${esc(color || '#1f1f1f')}">` +
+    `<button type="button" class="button-surface" data-title-color-reset${color ? '' : ' disabled'}>Theme colour</button>` +
+    `<span class="small muted" data-contrast></span></span></div>` +
+    `<label class="font-row"><span class="small">Size</span><span class="inline-controls">` +
+    `<input type="number" class="input font-size-input" min="24" max="240" step="2" placeholder="72" value="${size || ''}" aria-label="Title size in stage px" data-title-size>` +
+    `<span class="small muted">px · empty = 72</span></span></label></div>` +
+    `<p class="small muted font-note">Colour and size letter activity titles and questions. Imported slides keep their PowerPoint size and colour.</p>` +
     (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '') +
     `<h4 class="font-group">Text font</h4><div class="font-rows">` +
     `<label class="font-row"><span class="small">Font</span><select class="select-native" aria-label="Text font" data-text-family>` +
@@ -127,6 +151,31 @@ export function wireFontEditor(card, { current, save, redraw, pickFile }) {
       const caps = b.dataset.roleCaps === 'true';
       again(key === 'title' ? saveFont({ caps }) : setRole(key, { caps }));  // a title's capitals are font.caps
     }));
+  });
+  // the title's colour and size (#191): the sample follows as you pick, a change saves
+  const colorEl = card.querySelector('[data-title-color]');
+  const sizeEl = card.querySelector('[data-title-size]');
+  const contrastEl = card.querySelector('[data-contrast]');
+  const paintContrast = () => {
+    const set = !card.querySelector('[data-title-color-reset]').disabled || colorEl.dataset.dirty === '1';
+    const ratio = set ? contrastRatio(colorEl.value, getComputedStyle(sample).backgroundColor) : null;
+    contrastEl.textContent = ratio ? `${ratio.toFixed(1)}:1 on the stage background${ratio < 3 ? ' — hard to read' : ''}` : '';
+    contrastEl.className = `small ${ratio && ratio < 3 ? 'chip warn' : 'muted'}`;
+  };
+  paintContrast();
+  colorEl.addEventListener('input', () => {
+    colorEl.dataset.dirty = '1';
+    sample.style.setProperty('--st-title-color', colorEl.value);
+    paintContrast();
+  });
+  colorEl.addEventListener('change', () => again(saveFont({ title_color: colorEl.value })));
+  card.querySelector('[data-title-color-reset]').addEventListener('click', () => again(saveFont({ title_color: '' })));
+  sizeEl.addEventListener('input', () => sample.style.setProperty('--st-title-size', `${Number(sizeEl.value) || 72}px`));
+  sizeEl.addEventListener('change', async () => {
+    const n = Math.round(Number(sizeEl.value)) || 0;
+    const size = n ? Math.min(240, Math.max(24, n)) : 0;
+    sizeEl.value = size || '';
+    if (await saveFont({ title_size: size })) toast(size ? `Title size ${size} px saved` : 'Title size back to the theme’s');
   });
   range.addEventListener('input', () => {
     out.textContent = `${range.value} px`;

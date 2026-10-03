@@ -34,6 +34,10 @@
   --st-title-weight: var(--st-font-weight);
   --st-title-stroke: var(--st-font-stroke);
   --st-title-case: var(--st-question-transform);
+  /* Colour and size of activity titles and questions (session.yaml → font.title_color /
+     title_size, set globally in Settings and per session). The ink is 14:1 on the grey. */
+  --st-title-color: var(--st-ink);
+  --st-title-size: 72px;
   --st-sub-font: var(--st-text-font);
   --st-sub-weight: var(--st-text-weight);
   --st-sub-stroke: 0px;
@@ -117,6 +121,8 @@
 
 .stage-canvas .st-question {
   margin: 0;
+  color: var(--st-title-color);
+  font-size: var(--st-title-size);
   font-family: var(--st-title-font);
   -webkit-text-stroke: var(--st-title-stroke) currentColor;
   paint-order: stroke fill;

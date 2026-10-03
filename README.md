@@ -90,7 +90,9 @@ Select several items as in a file manager — **Ctrl+click** adds or removes one
 font:
   file: C:/Users/you/Fonts/MyHand-Regular.otf   # else family: Georgia
   weight: 400
-  stroke_px: 1.5
+  caps: true              # titles and questions in capitals
+  title_color: "#c62828"  # colour of activity titles and questions (empty = the theme's ink)
+  title_size: 84          # their size in stage px (0 or absent = 72)
   caps: true              # titles and questions in capitals
   text_family: Georgia    # empty = the chat hint's plain sans
   text_weight: 400
@@ -98,6 +100,8 @@ font:
     answers: {caps: true}           # the word cloud in capitals
     hint: {font: title, caps: true} # the chat hint in the title font
 ```
+
+The title **colour** and **size** (#191) letter activity titles and questions, beside a camera strip too; imported slides keep their PowerPoint size and colour. The editor shows the colour's contrast on the stage background and warns under 3:1 (a pale colour on the light grey is hard to read from a distance); the theme's own ink is 14:1. Set them for every new session in **Settings → Stage defaults** (the same editor), and per presentation on the session's own card — a session keeps what it was made with until you change it there.
 
 Every item follows it; in the Plan tab an item's title **font** row (font, size, capitals — "as the session" by default) and its **Other text** rows (the chat hint and answers of an activity, a breakout's subtitle, a slide's text: font — the title font, the text font or an installed one — and capitals) are the exceptions for that item only (`font.roles` on the item).
 
