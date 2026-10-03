@@ -41,8 +41,9 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     expect(sub).to_contain_text("Item 2 of")
     expect(page.locator("[data-r-capture]")).to_contain_text("Start capture")
     for _ in range(5):  # on to the kryptonite word cloud (item 8)
+        before = sub.inner_text()
         page.locator("[data-r-nextbtn]").click()
-        time.sleep(0.15)
+        expect(sub).not_to_have_text(before)  # the remote followed before the next tap
     page.locator("[data-r-nextbtn]").click()
     expect(page.locator("[data-r-title]")).to_contain_text("kryptonite")
     page.locator("[data-r-capture]").click()
@@ -56,8 +57,7 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     expect(page.locator("[data-r-count]")).to_contain_text("6 answers", timeout=10000)
     expect(page.locator("[data-r-elapsed]")).not_to_have_text("--:--")
     page.wait_for_function("() => document.fonts.ready.then(() => true)")
-    time.sleep(0.6)  # let the cloud settle
-    shot(page, shots / "story-14-remote-1-live.png")
+    shot(page, shots / "story-14-remote-1-live.png", settle=0.6)  # let the cloud settle
 
     # the chat: "can you hear me?" is not an answer — tap it to hide it
     page.click("#tabChat")
@@ -105,12 +105,20 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
         expect(app_tab.locator("html")).to_have_attribute("data-theme", "dark", timeout=1500)
         # a reload paints the chosen theme first: no flash of the OS's light
         app_tab.add_init_script("""
+          window.__stateFrames = 0;  // live snapshots received: the page follows the server's theme on each
+          const Socket = window.WebSocket;
+          window.WebSocket = class extends Socket {
+            constructor(...args) {
+              super(...args);
+              this.addEventListener('message', (ev) => { if (/"type":\\s*"state"/.test(String(ev.data))) window.__stateFrames++; });
+            }
+          };
           window.__themes = [];
           new MutationObserver(() => window.__themes.push(document.documentElement.dataset.theme))
             .observe(document, { attributes: true, attributeFilter: ['data-theme'], subtree: true });""")
         app_tab.reload()
         expect(app_tab.locator("#paneSessions .home-head")).to_have_count(1)
-        app_tab.wait_for_timeout(1000)  # the live snapshot has arrived by now
+        app_tab.wait_for_function("window.__stateFrames > 0")  # the live snapshot has arrived
         assert set(app_tab.evaluate("window.__themes")) == {"dark"}
         # `system` follows each device's own OS setting, live
         assert page.request.put(appearance, data={"appearance": "system"}).ok

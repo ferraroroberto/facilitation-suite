@@ -11,6 +11,11 @@ from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session
 
 
+def _reflowed(page: Page) -> None:
+    """A viewport resize has been laid out and its resize handlers have run (two frames)."""
+    page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))")
+
+
 def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "live-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
@@ -23,7 +28,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
 
     # #98: the header wraps at phone width instead of pushing the page sideways
     page.set_viewport_size({"width": 390, "height": 844})
-    page.wait_for_timeout(50)
+    _reflowed(page)
     scroll_width = page.evaluate("document.documentElement.scrollWidth")
     client_width = page.evaluate("document.documentElement.clientWidth")
     assert scroll_width <= client_width, f"presenter scrolls sideways at 390px ({scroll_width} > {client_width})"
@@ -32,7 +37,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     # being squeezed to nothing by the chips and icon buttons
     for width in (600, 768, 1024):
         page.set_viewport_size({"width": width, "height": 900})
-        page.wait_for_timeout(50)
+        _reflowed(page)
         title_width = page.locator(".p-title").bounding_box()["width"]
         assert title_width > 120, f"presenter title squeezed to {title_width}px at {width}px wide"
         scroll_width = page.evaluate("document.documentElement.scrollWidth")
