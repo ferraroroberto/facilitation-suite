@@ -132,9 +132,12 @@ def shots() -> Path:
     return SHOTS_DIR
 
 
-def shot(page, path: Path) -> None:
-    """Capture for the gallery (only under ``FS_E2E_SHOTS=1``): no caret, no animations."""
+def shot(page, path: Path, settle: float = 0.0) -> None:
+    """Capture for the gallery (only under ``FS_E2E_SHOTS=1``): no caret, no animations.
+    ``settle`` is seconds to let a slow-drawing view finish first -- paid only when capturing."""
     if os.environ.get("FS_E2E_SHOTS") != "1":
         return
+    if settle:
+        page.wait_for_timeout(int(settle * 1000))
     page.evaluate("document.fonts.ready")
     page.screenshot(path=str(path), animations="disabled", caret="hide")
