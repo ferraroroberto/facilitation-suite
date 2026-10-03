@@ -37,6 +37,11 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     expect(page.locator("#paneGroups")).to_contain_text("missing for")
     shot(page, shots / "story-09-groups-1-desktop.png")
 
+    # #167: the three round tabs wrap on a phone instead of widening the page
+    page.set_viewport_size({"width": 390, "height": 844})
+    assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+    page.set_viewport_size({"width": 1440, "height": 900})
+
     page.locator("[data-reveal]").click()
     expect(page.locator("#toast")).to_contain_text("added to Personal readme")
     page.click("#tabPlan")
