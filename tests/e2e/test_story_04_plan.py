@@ -72,7 +72,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.goto(webapp.base_url + "/")
     page.click("#tabPlan")
     expect(page.locator(".sec-row")).to_have_count(6)
-    # #183: Plan spans the window at 1440px (the other views hold the 772px measure)
+    # #183: Plan spans the window at 1440px (only the Sessions list holds the 772px measure)
     assert page.locator("#panePlan").bounding_box()["width"] > 1000
 
     # fold every section, open them again

@@ -87,6 +87,12 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
 
     pane.locator(".result-row", has_text="kryptonite").click()
     expect(pane.locator(".result-detail h1")).to_contain_text("kryptonite")
+    # #189: at 1440px the list and the detail sit side by side, the pane spanning the window
+    assert pane.bounding_box()["width"] > 1000
+    list_box = pane.locator(".split-list").bounding_box()
+    detail_box = pane.locator(".split-detail").bounding_box()
+    assert detail_box["x"] >= list_box["x"] + list_box["width"] - 1
+    assert abs(detail_box["y"] - list_box["y"]) < 4
     expect(pane.locator(".result-detail .muted").first).to_contain_text("8 answers from")
     expect(pane.locator(".result-detail .muted").first).to_contain_text("1 hidden")
     # #99: a 60-char verbatim answer is the top result — full text in the detail's
