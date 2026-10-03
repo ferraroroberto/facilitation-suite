@@ -95,7 +95,8 @@ if ($tier -eq "skip") {
     Write-Host ""
     Write-Host ">> e2e routing: $tier" -ForegroundColor Cyan
     Write-Host "   reason: $routeReason" -ForegroundColor DarkGray
-    $e2eArgs = @($e2eTarget)
+    # The classifier joins several routed modules with spaces; pytest needs each as its own argument.
+    $e2eArgs = @($e2eTarget -split '\s+' | Where-Object { $_ })
     foreach ($b in ($e2eBrowsers -split ',' | Where-Object { $_ })) {
         $e2eArgs += @("--browser", $b)
     }
