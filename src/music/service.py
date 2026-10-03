@@ -61,9 +61,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Optional
 
+from src.config import data_dir
 from src.live.actions import Action, register
 from src.live.hub import LiveHub, now_ms
 from src.music.backend import Backend, EventSink, MusicError, Track
@@ -81,6 +83,7 @@ RESET_FADE_S = 1.0
 STATE_KEY = "music"  # its section of live/state.json
 CUE_FADE_IN_S = 0.2  # a cue starts on its beat (a short ramp only, no click)
 CUE_FADE_OUT_S = 1.0
+SPOTIFY_NAMES_FILE = "spotify-names.json"  # real names of Spotify links, in the machine-local data/ dir
 
 BackendFactory = Callable[[EventSink], Backend]
 
@@ -88,8 +91,14 @@ BackendFactory = Callable[[EventSink], Backend]
 class MusicService:
     def __init__(self, live: LiveHub, backends: Optional[dict[str, BackendFactory]] = None) -> None:
         self.live = live
-        factories = backends if backends is not None else {"file": FileBackend, "spotify": SpotifyBackend}
+        factories = backends if backends is not None else {
+            "file": FileBackend,
+            "spotify": lambda sink: SpotifyBackend(sink, names_file=data_dir() / SPOTIFY_NAMES_FILE),
+        }
         self.backends: dict[str, Backend] = {kind: make(self._from_backend) for kind, make in factories.items()}
+        spotify = self.backends.get("spotify")
+        if spotify is not None and hasattr(spotify, "on_names"):
+            spotify.on_names = self._names_arrived
         self.state = "idle"
         self.detail = ""
         self.track: Optional[Track] = None  # what plays or is paused (or the last one, for the toggle)
@@ -139,7 +148,7 @@ class MusicService:
                 continue
             row = seen.get((m["source"], ref))
             if row is None:
-                row = {"n": len(out) + 1, "kind": m["source"], "ref": ref, "label": _label(m["source"], ref),
+                row = {"n": len(out) + 1, "kind": m["source"], "ref": ref, "label": self._label(m["source"], ref),
                        "items": [], "music": m}
                 seen[(m["source"], ref)] = row
                 out.append(row)
@@ -147,7 +156,7 @@ class MusicService:
         if self.live.folder is not None:
             for rel in audio_files(self.live.folder):
                 if ("file", rel) not in seen:
-                    out.append({"n": len(out) + 1, "kind": "file", "ref": rel, "label": _label("file", rel), "items": [], "music": None})
+                    out.append({"n": len(out) + 1, "kind": "file", "ref": rel, "label": self._label("file", rel), "items": [], "music": None})
         self._tracks = (key, out)
         return out
 
@@ -406,9 +415,9 @@ class MusicService:
             path = resolve(self.live.folder, ref)
             if not path.is_file():
                 raise MusicError(404, "missing_audio", f"{ref} is not in the session folder — pick it again in the Plan tab")
-            return Track("file", str(path), _label("file", ref), loop)
+            return Track("file", str(path), self._label("file", ref), loop)
         uri = normalize(ref)
-        return Track("spotify", uri, spotify_label(uri))
+        return Track("spotify", uri, self._spotify_label(uri))
 
     def _play_music(self, m: dict[str, Any], owner: Optional[str]) -> None:
         ref = m["path"] if m["source"] == "file" else m["uri"]
@@ -506,11 +515,30 @@ class MusicService:
         for b in self.backends.values():
             b.close()
 
+    # -------------------------------------------------------------- labels
 
-def _label(source: str, ref: str) -> str:
-    if source == "file":
-        return Path(ref).name
-    return spotify_label(normalize(ref)) if is_link(ref) else "Spotify (not a valid link)"
+    def _label(self, source: str, ref: str) -> str:
+        if source == "file":
+            return Path(ref).name
+        return self._spotify_label(normalize(ref)) if is_link(ref) else "Spotify (not a valid link)"
+
+    def _spotify_label(self, uri: str) -> str:
+        """The link's real name once Spotify has said it (asked in the background when the account
+        is connected), else the kind and the start of the id (#191)."""
+        backend = self.backends.get("spotify")
+        name = backend.name_of(uri) if backend is not None and hasattr(backend, "name_of") else ""
+        return name or spotify_label(uri)
+
+    def _names_arrived(self) -> None:
+        """A link's name came back (a worker thread): relabel the picker and what plays, push the state."""
+        if self.live.loop is not None:
+            self.live.loop.call_soon_threadsafe(self._apply_names)
+
+    def _apply_names(self) -> None:
+        self._tracks = (None, [])  # the picker is rebuilt with the names on the next snapshot
+        if self.track is not None and self.track.kind == "spotify":
+            self.track = replace(self.track, label=self._spotify_label(self.track.ref))
+        self.live.push_state()
 
 
 def _volume(arg: Optional[str]) -> int:

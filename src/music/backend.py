@@ -14,7 +14,7 @@ seconds, ``0`` = at once.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
 from src.errors import DomainError
@@ -34,7 +34,7 @@ class Track:
 
     kind: str  # "file" | "spotify"
     ref: str
-    label: str
+    label: str = field(compare=False)  # what it is called: a name that arrives later is still the same track
     loop: bool = False
 
     def as_dict(self) -> dict[str, Any]:
