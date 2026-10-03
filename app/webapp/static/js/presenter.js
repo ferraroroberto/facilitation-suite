@@ -695,6 +695,8 @@ function buildMusic() {
     `<button type="button" class="button-surface" data-mlinkplay>${icon('play')} Play link</button></div>` +
     `<div class="p-timer-actions">` +
     `<button type="button" class="button-primary" data-mtoggle></button>` +
+    `<button type="button" class="button-surface" data-mprev title="Previous track (Spotify)" aria-label="Previous track">${icon('skip-back')}</button>` +
+    `<button type="button" class="button-surface" data-mnext title="Next track (Spotify)" aria-label="Next track">${icon('skip-forward')}</button>` +
     `<button type="button" class="button-surface" data-mstop title="Stop (fades out)">${icon('square')} Stop</button>` +
     `<button type="button" class="button-surface" data-mfade title="Fade out slowly, then stop">${icon('volume-x')} Fade out</button></div>` +
     `<p class="small muted p-music-hint" data-mhint></p>`;
@@ -705,6 +707,8 @@ function buildMusic() {
     if (m && (m.state === 'playing' || m.state === 'paused')) live.send('music_toggle');
     else if (pick.value) live.send('music_play', pick.value);
   });
+  body.querySelector('[data-mprev]').addEventListener('click', () => live.send('music_prev'));
+  body.querySelector('[data-mnext]').addEventListener('click', () => live.send('music_next'));
   body.querySelector('[data-mstop]').addEventListener('click', () => live.send('music_stop'));
   body.querySelector('[data-mfade]').addEventListener('click', () => live.send('music_fade_out'));
   const link = body.querySelector('[data-mlink]');
@@ -745,6 +749,9 @@ function drawMusic(cur, s) {
   const label = playing ? `${icon('pause')} Pause` : paused ? `${icon('play')} Resume` : `${icon('play')} Play`;
   if (btn.dataset.label !== label) { btn.dataset.label = label; btn.innerHTML = label; }
   btn.disabled = !playing && !paused && !m.tracks.length;
+  const skippable = playing && !!m.track && m.track.kind === 'spotify'; // a file is one track
+  body.querySelector('[data-mprev]').disabled = !skippable;
+  body.querySelector('[data-mnext]').disabled = !skippable;
   body.querySelector('[data-mstop]').disabled = !playing && !paused;
   body.querySelector('[data-mfade]').disabled = !playing;
   const vol = body.querySelector('[data-mvol]');

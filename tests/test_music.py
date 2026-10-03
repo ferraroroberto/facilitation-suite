@@ -62,6 +62,9 @@ class FakeBackend:
     def fade(self, to: int, seconds: float) -> None:
         self.calls.append(("fade", to, seconds))
 
+    def skip(self, direction: str, volume: int) -> None:
+        self.calls.append(("skip", direction, volume))
+
     def snapshot(self) -> dict[str, Any]:
         return {"device": "fake"}
 
@@ -454,6 +457,7 @@ def test_a_session_without_music_has_no_music_check(client, isolated_env: Path) 
 def test_music_actions_are_stream_deck_buttons(client) -> None:
     rows = {a["id"]: a for a in client.get("/api/actions").json()["actions"]}
     assert rows["music_toggle"]["stream_deck"] and rows["music_stop"]["stream_deck"] and rows["music_fade_out"]["stream_deck"]
+    assert rows["music_next"]["stream_deck"] and rows["music_prev"]["stream_deck"]
     assert rows["music_volume"]["path"] == "/api/actions/music_volume/{n}"
     assert rows["music_play"]["stream_deck"] is False
 
