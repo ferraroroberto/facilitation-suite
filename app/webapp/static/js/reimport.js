@@ -52,7 +52,7 @@ export async function openReview(host, sid, { onClose }) {
   const when = data.imported_at ? new Date(data.imported_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   const head = document.createElement('div');
   head.className = 'card review-head';
-  head.innerHTML = `<button type="button" class="home-toggle" data-back aria-label="Back to the plan" title="Back to the plan — the review keeps waiting">${icon('chevron-left')}</button>` +
+  head.innerHTML = `<button type="button" class="home-toggle hit-target" data-back aria-label="Back to the plan" title="Back to the plan — the review keeps waiting">${icon('chevron-left')}</button>` +
     `<div class="grow"><div class="row-title">Re-import PowerPoint</div><div class="row-meta">${esc(deckName)}${when ? ` · exported ${esc(when)}` : ''}</div></div>`;
   head.querySelector('[data-back]').addEventListener('click', () => onClose(false));
   wrap.appendChild(head);
