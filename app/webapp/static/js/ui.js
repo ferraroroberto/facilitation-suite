@@ -3,6 +3,7 @@
 // appearance, toasts, escaping.
 
 import { icon } from '/static/_vendored/icons/icons.js';
+import { showToast } from '/static/_vendored/toast/toast.js';
 
 export const APP = 'facilitation-suite';
 
@@ -43,16 +44,9 @@ export function oneLine(s) {
   return String(s == null ? '' : s).replace(/\s*(?:\\n|\r?\n)\s*/g, ' ').trim();
 }
 
-let toastTimer = null;
-/** Global toast — reserved for user-initiated command results (design.md). */
+/** Global toast — reserved for user-initiated command results (design.md); the vendored neutral one, only an error tints. */
 export function toast(message, kind = 'info') {
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = message;
-  el.dataset.kind = kind;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, kind === 'error' ? 6000 : 3000);
+  showToast(message, kind === 'error' ? 'error' : undefined);
 }
 
 // ---- Appearance (#92) --------------------------------------------------------

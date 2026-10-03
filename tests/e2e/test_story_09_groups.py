@@ -4,6 +4,8 @@ edit of an already open plan, drawn with the real rooms."""
 
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import shot, small_targets
@@ -21,6 +23,11 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     page.locator('[data-item="slide-105"]').click()
     page.click("#tabGroups")
     expect(page.locator("#paneGroups .home-head .status")).to_have_text("38 of 40 present")
+
+    # #184: a switch that is on is drawn in the accent, not green
+    assert page.evaluate("""() => { const on = document.querySelector('#paneGroups [role=switch][aria-checked=true]');
+      const probe = document.createElement('i'); probe.style.background = 'var(--accent-fill)'; document.body.appendChild(probe);
+      const same = getComputedStyle(on).backgroundColor === getComputedStyle(probe).backgroundColor; probe.remove(); return same; }""")
 
     # one more person is away today
     page.locator(".person-row", has_text="Alex R.").locator("[role=switch]").click()
@@ -51,6 +58,7 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
 
     page.locator("[data-reveal]").click()
     expect(page.locator("#toast")).to_contain_text("added to Personal readme")
+    expect(page.locator("#toast")).to_have_css("backdrop-filter", re.compile("blur"))  # #184: the neutral frosted toast
     page.click("#tabPlan")
     # right after the selected slide, unsaved, drawn with the rooms just shuffled
     expect(page.locator(".sec-row", has_text="Personal readme")).to_contain_text("6 items")
