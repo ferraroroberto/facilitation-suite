@@ -126,9 +126,10 @@ ready_selector = ".session-row"
 wide_views = ["plan", "live"]
 
 [design.review]
-# The stage preview in the Plan editor is the real stage drawn by the session theme
-# (themes/*.css), not the fleet design: not the app's own UI, so nothing in it is measured.
-exclude_selectors = [".preview-frame"]
+# The stage preview in the Plan editor and the stage-font sample in Settings are the real stage
+# drawn by the session theme (themes/*.css), not the fleet design: not the app's own UI, so
+# nothing in them is measured.
+exclude_selectors = [".preview-frame", ".font-sample-host"]
 
 # Settings is a pane behind the header gear, not a tab: open it once so the walk sees the
 # vendored text-size control (A11Y-02) and measures the Settings pane at all.
