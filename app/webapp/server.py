@@ -50,6 +50,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 from starlette.responses import Response
 from starlette.types import Scope
 
@@ -95,6 +96,16 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
+
+
+# Bodies under this size go out as they are: gzip framing would cost more than it saves.
+GZIP_MIN_BYTES = 1000
+# Starlette already leaves PNG/JPEG/WebP/woff2/audio/video alone; these two downloads are zip/PDF inside.
+GZIP_EXCLUDED_TYPES = (
+    *DEFAULT_EXCLUDED_CONTENT_TYPES,
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
 
 class NoCacheStaticFiles(StaticFiles):
@@ -251,6 +262,11 @@ def _install_quiz(app: FastAPI) -> None:
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
+    # Gzip the pages, JS/CSS and JSON for a phone on cellular (#166). Registered first so it is the
+    # innermost middleware: the ``@app.middleware("http")`` in ``_install_chat`` re-streams every body,
+    # and a gzip outside it would ignore the minimum size and compress even the bodyless 304.
+    # WebSocket scopes pass through untouched; Starlette skips ``text/event-stream``.
+    app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES, compresslevel=6, exclude_content_types=GZIP_EXCLUDED_TYPES)
     app.state.config = load_config()
     app.state.build = BUILD
     store = SessionStore(app.state.config)
