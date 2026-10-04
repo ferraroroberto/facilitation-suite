@@ -106,9 +106,24 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     expect(page.locator(".preview-frame .st-question")).to_have_js_property("innerHTML", "One word<br>you take home")
     expect(page.locator(".item-row.selected .item-title")).to_have_text("Take-home word")
-    # #205: music on the item — "When the timer ends" shows only with a timer (the music editor's
-    # volume slider is under the 44px floor, so this sits after the check above)
+    # #205: music on the item — "When the timer ends" shows only with a timer
     page.locator(".music-box .toggle").click()
+    # #207: the music editor's controls, the volume slider included, reach 44px; dragging and arrows still work
+    for width, mode in ((1440, theme), (390, "dark"), (390, "light")):  # desktop, then the phone in both themes
+        page.set_viewport_size({"width": width, "height": 900})
+        page.evaluate("t => { document.documentElement.dataset.theme = t; }", mode)
+        assert page.get_by_label("Music volume").bounding_box()["height"] >= 44
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
+    assert small_targets(page) == []
+    volume = page.get_by_label("Music volume")
+    assert page.locator(".music-volume output").evaluate("e => e.textContent") == "80%"  # the default
+    volume.focus()
+    page.keyboard.press("ArrowLeft")
+    expect(page.locator(".music-volume output")).to_have_text("75%")
+    box = volume.bounding_box()
+    page.mouse.click(box["x"] + box["width"] * 0.25, box["y"] + box["height"] / 2)
+    assert 15 <= int(page.locator(".music-volume output").evaluate("e => parseInt(e.textContent)")) <= 35
     ends = page.get_by_label("When the timer ends")
     expect(ends).to_have_value("fade_out")
     expect(page.locator(".music-box .ed-hint").last).to_contain_text("At 00:00 it fades out and stops.")
