@@ -80,7 +80,7 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     expect(stage.locator("[data-pill]")).to_have_class("st-pill paused")
     page.keyboard.press("t")
     expect(page.locator("[data-captoggle]")).to_contain_text("Stop capture")
-    expect(stage.locator("[data-pill]")).to_have_class("st-pill")
+    expect(stage.locator("[data-pill]")).to_have_class("st-pill running")  # #211
     # a timer reset stops the capture instead of leaving it open
     page.locator("[data-treset]").click()
     expect(page.locator("[data-captoggle]")).to_contain_text("Reopen capture")

@@ -184,6 +184,43 @@ def test_title_colour_and_size_are_checked_and_become_theme_variables() -> None:
     assert normal_font(s.font) is not None and normal_font(parse_session({"title": "x", "font": {"title_size": 0}}).font) is None
 
 
+def test_timer_colours_are_checked_and_become_theme_variables() -> None:
+    """#211: font.timer_idle / _running / _paused / _done — a #rrggbb colour each, with an ink that reads on it."""
+    from src.defaults import normal_font
+    from src.sessions.theme import TIMER_DEFAULTS, lettering_css, timer_ink
+
+    s = parse_session({"title": "x", "font": {"timer_running": " #1565C0 ", "timer_paused": "#fafafa"}})
+    assert s.font is not None and s.font.timer_running == "#1565c0" and s.font.timer_idle == ""
+    css = font_css(s, "/f")
+    # a pale fill gets dark ink, a saturated one white
+    assert "--st-timer-running: #1565c0; --st-timer-running-ink: #ffffff;" in css
+    assert "--st-timer-paused: #fafafa; --st-timer-paused-ink: #1f1f1f;" in css
+    assert "--st-timer-idle" not in css and "--st-timer-done" not in css  # says nothing: the theme's
+    for bad in ("red", "#fff", "#12345g", "rgb(1,2,3)"):
+        with pytest.raises(ValidationError):
+            parse_session({"title": "x", "font": {"timer_done": bad}})
+    # the Settings sample states all four, so a session's colour never shows through it
+    sample = lettering_css(None, "/f", scope=".font-sample", complete=True)
+    for state, colour in TIMER_DEFAULTS.items():
+        assert f"--st-timer-{state}: {colour};" in sample and f"--st-timer-{state}-ink: {timer_ink(colour)};" in sample
+    # a colour is a real difference from the theme (a default block saves as nothing)
+    assert normal_font(s.font) is not None and normal_font(parse_session({"title": "x", "font": {"timer_idle": ""}}).font) is None
+
+
+def test_timer_defaults_match_the_theme_and_their_inks_hold_contrast() -> None:
+    """#211: the defaults are Roberto's four colours, the theme (themes/default.css) says the same, and the
+    pill's ink is white where white holds 3:1 (large text) on the fill, else the dark ink."""
+    from src.sessions.theme import TIMER_DEFAULTS, contrast, timer_ink
+
+    assert TIMER_DEFAULTS == {"idle": "#1f1f1f", "running": "#00a44e", "paused": "#f2b705", "done": "#c40c0c"}
+    css = (Path(__file__).resolve().parent.parent / "themes" / "default.css").read_text(encoding="utf-8")
+    for state, colour in TIMER_DEFAULTS.items():
+        assert f"--st-timer-{state}: {colour};" in css.lower(), state
+        assert f"--st-timer-{state}-ink: {timer_ink(colour)};" in css.lower(), state
+        assert contrast(timer_ink(colour), colour) >= 3, state
+    assert [timer_ink(c) for c in TIMER_DEFAULTS.values()] == ["#ffffff", "#ffffff", "#1f1f1f", "#ffffff"]
+
+
 def test_a_run_item_has_a_size_only_when_it_sets_one_or_is_not_an_activity() -> None:
     """#191: an activity's title size is the session's (font.title_size) unless the item sets its own;
     the other kinds keep their 72 px."""

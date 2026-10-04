@@ -13,6 +13,7 @@ import yaml
 from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import shot
+from tests.e2e.timer_states import DEFAULT_STATES, TIMER_STATES, WHITE, assert_states
 from tests.fixtures.demo import build_demo_session
 
 # A font every Windows PC has, so the change is visible; else a renamed copy of the vendored one.
@@ -77,6 +78,13 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     card.locator("[data-title-size]").fill("96")
     card.locator("[data-title-size]").press("Tab")
     _until(lambda: (_saved(folder).get("font") or {}).get("title_size") == 96)
+    # #211: this session's own timer colours (idle and running here); the sample pills follow at once
+    card.locator("[data-timer-color=idle]").fill("#6a1b9a")
+    card.locator("[data-timer-color=running]").fill("#1565c0")
+    _until(lambda: (_saved(folder).get("font") or {}).get("timer_running") == "#1565c0")
+    assert _saved(folder)["font"]["timer_idle"] == "#6a1b9a"
+    expect(card.locator(".st-pill.idle")).to_have_css("background-color", "rgb(106, 27, 154)")
+    expect(card.locator(".st-pill.running")).to_have_css("background-color", "rgb(21, 101, 192)")
     page.wait_for_function("() => document.fonts.check('64px \"Session Font\"')")
     card.scroll_into_view_if_needed()
     shot(page, shots / "story-15-font-1-sessions.png")
@@ -155,3 +163,13 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     # the deleted slides are still in the deck, to add back
     deck = page.request.get(f"{webapp.base_url}/api/sessions/{sid}/slides").json()
     assert {101, 107, 108} <= {s["slide_id"] for s in deck["slides"]}
+
+    # #211: the session's timer colours on a preview — the break's clock, not started, is the idle override —
+    # and a stage drawn with each timer state wears the override for idle and running, the default for the rest.
+    # (Last: opening a break before the multi-select above stops its drag from reordering — see the PR.)
+    page.locator('[data-item="brk-coffee"]').click()
+    expect(page.locator(".preview-frame [data-clock]")).to_have_css("color", "rgb(106, 27, 154)")
+    want = {name: dict(colours) for name, colours in DEFAULT_STATES.items()}
+    want["idle"] = {"pill": (106, 27, 154), "ink": WHITE, "clock": (106, 27, 154)}
+    want["running"] = {"pill": (21, 101, 192), "ink": WHITE, "clock": (21, 101, 192)}
+    assert_states(page.evaluate(TIMER_STATES), want)

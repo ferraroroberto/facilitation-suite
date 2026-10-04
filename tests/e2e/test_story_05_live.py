@@ -10,6 +10,7 @@ from PIL import Image
 from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e.conftest import set_stage_click, shot
+from tests.e2e.timer_states import DEFAULT_STATES, TIMER_STATES, assert_states
 from tests.fixtures.demo import build_demo_session
 
 # #190: draw items with the stage's own renderer into a 1920×1080 host (scale 1, so every number is a
@@ -164,10 +165,16 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.keyboard.press("t")
     expect(stage.locator("[data-pill]")).to_be_visible()
     expect(page.locator("[data-tstate]")).to_have_text("running")
+    # #211: a running timer is green on the stage (white on it), not the not-started black
+    expect(stage.locator("[data-pill]")).to_have_css("background-color", "rgb(0, 164, 78)")
+    expect(stage.locator("[data-pill]")).to_have_css("color", "rgb(255, 255, 255)")
     page.locator("[data-tadd]").click()
     expect(page.locator("[data-tclock]")).to_have_text(re.compile(r"^(02:5\d|03:00)$"))  # 2 min + 1 min
     page.keyboard.press("t")
     expect(page.locator("[data-tstate]")).to_have_text("paused")
+    expect(stage.locator("[data-pill]")).to_have_css("background-color", "rgb(242, 183, 5)")
+    # #211: all four states, pill and big clock, as colours (the stage-render code the stage runs)
+    assert_states(stage.evaluate(TIMER_STATES), DEFAULT_STATES)
 
     # #191: the server holds the position, so a reloaded stage, and one opened again, come back on
     # the same item with its (paused) timer rather than on a start or blank state

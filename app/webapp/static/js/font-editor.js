@@ -17,13 +17,28 @@ export const STAGE_FONTS = [
   ['Segoe Print', 'Segoe Print (handwriting)'],
 ];
 
-export const FONT_DEFAULTS = { file: '', family: '', weight: 400, stroke_px: 0, caps: true, title_color: '', title_size: 0, text_family: '', text_weight: 400, roles: {} };
+export const FONT_DEFAULTS = {
+  file: '', family: '', weight: 400, stroke_px: 0, caps: true, title_color: '', title_size: 0,
+  timer_idle: '', timer_running: '', timer_paused: '', timer_done: '', text_family: '', text_weight: 400, roles: {},
+};
+
+/** The stage timer's four states (#211): the key in the block, its words, and the theme's colour (themes/default.css). */
+export const TIMER_STATES = [
+  ['idle', 'Not started', '#1f1f1f'],
+  ['running', 'Running', '#00a44e'],
+  ['paused', 'Paused', '#f2b705'],
+  ['done', 'Ended', '#c40c0c'],
+];
 
 /** A lettering block that says nothing the theme doesn't: saved as no block at all. */
 export function isThemeLettering(f) {
   return !f.file && !f.family && f.weight === 400 && !f.stroke_px && f.caps !== false && !f.title_color && !f.title_size &&
+    !TIMER_STATES.some(([key]) => f[`timer_${key}`]) &&
     !f.text_family && f.text_weight === 400 && !Object.keys(f.roles || {}).length;
 }
+
+/** The pill's text on a fill: white while it holds 3:1 (large text), else the dark ink — src/sessions/theme.py `timer_ink`. */
+const timerInk = (fill) => (contrastRatio(fill, 'rgb(255, 255, 255)') >= 3 ? '#ffffff' : '#1f1f1f');
 
 /** WCAG contrast ratio of a #rrggbb text colour on a CSS `rgb(r, g, b)` background, or null if unreadable. */
 export function contrastRatio(hex, bg) {
@@ -71,11 +86,15 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
   const color = f.title_color || '';
   const size = Number(f.title_size) || 0;
   const inLibrary = library.some((l) => l.path === file);
+  const timerVars = TIMER_STATES.filter(([key]) => f[`timer_${key}`])
+    .map(([key]) => `;--st-timer-${key}:${esc(f[`timer_${key}`])};--st-timer-${key}-ink:${timerInk(f[`timer_${key}`])}`).join('');
   return `<div class="font-sample-host"><div class="stage-canvas font-sample ${esc(sampleClass)}" style="--st-font-stroke:${stroke}px` +
-    `${color ? `;--st-title-color:${esc(color)}` : ''}${size ? `;--st-title-size:${size}px` : ''}">` +
+    `${color ? `;--st-title-color:${esc(color)}` : ''}${size ? `;--st-title-size:${size}px` : ''}${timerVars}">` +
     `<h1 class="st-question">Hello, group!</h1>` +
     `<div class="font-sample-row"><span class="st-hint">${icon('message-square')}${esc(hint)}</span>` +
-    `<div class="st-body"><span class="font-sample-words">meetings · focus</span></div></div></div></div>` +
+    `<div class="st-body"><span class="font-sample-words">meetings · focus</span></div></div>` +
+    `<div class="font-sample-row font-sample-timers">${TIMER_STATES.map(([key, label]) =>
+      `<span class="st-pill ${key}">${icon('timer')}${esc(label)}</span>`).join('')}</div></div></div>` +
     `<h4 class="font-group">Title font</h4><div class="font-rows">` +
     `<label class="font-row"><span class="small">Font</span><span class="inline-controls"><select class="select-native" aria-label="Title font" data-title-family>` +
     STAGE_FONTS.map(([v, l]) => `<option value="${esc(v)}"${!file && v === f.family ? ' selected' : ''}>${esc(l)}</option>`).join('') +
@@ -107,7 +126,15 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
       return `<div class="role-row" data-role="${r.key}"><span class="small">${esc(r.label)}</span>` +
         tabs(`${r.label}: font`, 'data-role-font', [['title', 'Title font'], ['text', 'Text font']], now.font === 'title' ? 'title' : 'text') +
         tabs(`${r.label}: capitals`, 'data-role-caps', [['true', 'ALL CAPS'], ['false', 'As typed']], String(now.caps)) + '</div>';
-    }).join('') + `</div>`;
+    }).join('') + `</div>` +
+    `<h4 class="font-group">Timer colours</h4><div class="font-rows">` +
+    TIMER_STATES.map(([key, label, theme]) =>
+      `<div class="font-row"><span class="small">${esc(label)}</span><span class="inline-controls">` +
+      `<input type="color" class="font-color" aria-label="Timer colour: ${esc(label.toLowerCase())}" data-timer-color="${key}" value="${esc(f[`timer_${key}`] || theme)}">` +
+      `</span></div>`).join('') +
+    `<div class="font-row"><span class="small"></span><button type="button" class="button-surface" data-timer-reset` +
+    `${TIMER_STATES.some(([key]) => f[`timer_${key}`]) ? '' : ' disabled'}>Theme colours</button></div></div>` +
+    `<p class="small muted font-note">The stage timer — the pill on an activity or slide, the big clock on a break or breakout — takes the colour of its state: the pill as its fill, the clock as its text.</p>`;
 }
 
 /**
@@ -170,6 +197,18 @@ export function wireFontEditor(card, { current, save, redraw, pickFile }) {
   });
   colorEl.addEventListener('change', () => again(saveFont({ title_color: colorEl.value })));
   card.querySelector('[data-title-color-reset]').addEventListener('click', () => again(saveFont({ title_color: '' })));
+  // the timer's four colours (#211): the sample pills follow as you pick, a change saves; the theme's own colour saves as none
+  TIMER_STATES.forEach(([key, , theme]) => {
+    const el = card.querySelector(`[data-timer-color=${key}]`);
+    el.addEventListener('input', () => {
+      sample.style.setProperty(`--st-timer-${key}`, el.value);
+      sample.style.setProperty(`--st-timer-${key}-ink`, timerInk(el.value));
+      card.querySelector('[data-timer-reset]').disabled = false;
+    });
+    el.addEventListener('change', () => again(saveFont({ [`timer_${key}`]: el.value === theme ? '' : el.value })));
+  });
+  card.querySelector('[data-timer-reset]').addEventListener('click',
+    () => again(saveFont(Object.fromEntries(TIMER_STATES.map(([key]) => [`timer_${key}`, ''])))));
   sizeEl.addEventListener('input', () => sample.style.setProperty('--st-title-size', `${Number(sizeEl.value) || 72}px`));
   sizeEl.addEventListener('change', async () => {
     const n = Math.round(Number(sizeEl.value)) || 0;

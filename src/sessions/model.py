@@ -17,7 +17,7 @@ import unicodedata
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from src.activities.registry import editors
 
@@ -145,18 +145,24 @@ class StageFont(_Open):
     # "" / 0 = the theme's ink and 72 px. An item's own size (``Item.font``) still wins.
     title_color: str = ""
     title_size: int = Field(0, ge=0, le=240)
+    # The colour (#rrggbb) of the stage timer — the pill and the big clock — before it starts,
+    # while it runs, paused and at the end (#211); "" = the theme's.
+    timer_idle: str = ""
+    timer_running: str = ""
+    timer_paused: str = ""
+    timer_done: str = ""
     text_family: str = ""
     text_weight: Literal[400, 700] = 400
     roles: dict[str, TextRole] = Field(default_factory=dict)
 
     _roles = field_validator("roles", mode="before")(classmethod(lambda cls, v: _known_roles(v)))
 
-    @field_validator("title_color")
+    @field_validator("title_color", "timer_idle", "timer_running", "timer_paused", "timer_done")
     @classmethod
-    def _title_color(cls, v: str) -> str:
+    def _colour(cls, v: str, info: ValidationInfo) -> str:
         v = v.strip().lower()
         if v and not re.fullmatch(r"#[0-9a-f]{6}", v):
-            raise ValueError("title_color must be a #rrggbb colour (or empty for the theme's)")
+            raise ValueError(f"{info.field_name} must be a #rrggbb colour (or empty for the theme's)")
         return v
 
 

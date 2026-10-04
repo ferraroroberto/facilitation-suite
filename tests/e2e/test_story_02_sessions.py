@@ -16,6 +16,21 @@ from tests.e2e.conftest import shot
 def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> None:
     defaults = webapp.base_url + "/api/settings/defaults"
     assert page.request.put(defaults, data={"stage": {"font": {"family": "Georgia", "weight": 700}}}).ok
+    # #211: the timer colours are a global default too — set here in Settings, then copied into a new session
+    page.goto(webapp.base_url + "/#settings/stage")
+    default_card = page.locator(".defaults-font-card")
+    expect(default_card.locator("[data-timer-color]")).to_have_count(4)
+    expect(default_card.locator("[data-timer-color=running]")).to_have_value("#00a44e")
+    expect(default_card.locator("[data-timer-reset]")).to_be_disabled()
+    default_card.locator("[data-timer-color=running]").fill("#1565c0")
+    expect(default_card.locator("[data-timer-reset]")).to_be_enabled()
+    expect(default_card.locator(".st-pill.running")).to_have_css("background-color", "rgb(21, 101, 192)")
+    for _ in range(50):  # the change saves on its own
+        saved_font = page.request.get(defaults).json()["stage"]["font"] or {}
+        if saved_font.get("timer_running") == "#1565c0":
+            break
+        page.wait_for_timeout(100)
+    assert saved_font.get("timer_running") == "#1565c0" and saved_font["family"] == "Georgia"
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(webapp.base_url + "/")
     page.click("[data-new]")
@@ -49,13 +64,14 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     expect(state).to_have_text("Using the default")
     expect(card.locator("[data-lettering]")).to_have_text("Georgia (serif)")
     assert yaml.safe_load(session_yaml.read_text(encoding="utf-8"))["font"]["family"] == "Georgia"
+    assert yaml.safe_load(session_yaml.read_text(encoding="utf-8"))["font"]["timer_running"] == "#1565c0"  # #211
     card.locator("select[aria-label='Title font']").select_option("system-ui")
     expect(state).to_have_text("Overridden")
     card.locator("[data-look-reset]").click()
     expect(state).to_have_text("Using the default")
     expect(card.locator("[data-look-reset]")).to_have_count(0)
     saved = yaml.safe_load(session_yaml.read_text(encoding="utf-8"))["font"]
-    assert saved["family"] == "Georgia" and saved["weight"] == 700
+    assert saved["family"] == "Georgia" and saved["weight"] == 700 and saved["timer_running"] == "#1565c0"
     assert page.request.put(defaults, data={"stage": {"font": None}}).ok  # the theme's lettering for the stories after this
 
     # #150: X closes to the list (the session stays selected), Esc and Back do too, a deep link reopens it

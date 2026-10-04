@@ -33,6 +33,30 @@ FALLBACK = '"Patrick Hand", system-ui, sans-serif'
 CSS_ROLE = {"title": "title", "sub": "sub", "hint": "hint", "answers": "answers", "slide_text": "slide"}
 
 
+# The stage timer's colour in each state (#211); themes/default.css says the same (a test holds them equal).
+TIMER_DEFAULTS = {"idle": "#1f1f1f", "running": "#00a44e", "paused": "#f2b705", "done": "#c40c0c"}
+PILL_INK = "#ffffff"
+PILL_INK_DARK = "#1f1f1f"
+LARGE_TEXT_CONTRAST = 3.0  # WCAG: the pill's digits are 40 px bold
+
+
+def _luminance(hex_colour: str) -> float:
+    lin = [((c / 255 + 0.055) / 1.055) ** 2.4 if c / 255 > 0.03928 else c / 255 / 12.92
+           for c in (int(hex_colour[i:i + 2], 16) for i in (1, 3, 5))]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def contrast(a: str, b: str) -> float:
+    """The WCAG contrast ratio of two ``#rrggbb`` colours."""
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def timer_ink(fill: str) -> str:
+    """The pill's text colour on ``fill``: white while it holds large-text contrast (3:1), else the dark ink."""
+    return PILL_INK if contrast(PILL_INK, fill) >= LARGE_TEXT_CONTRAST else PILL_INK_DARK
+
+
 def font_file(session: Session) -> Optional[Path]:
     """The session's font file when it is set, a font, and on this PC; else ``None``."""
     return stage_font_file(session.font)
@@ -113,6 +137,10 @@ def lettering_css(font: Optional[StageFont], font_url: str, *, scope: str = ".st
         props.append(f"--st-title-color: {font.title_color or 'var(--st-ink)'};")
     if font.title_size or complete:
         props.append(f"--st-title-size: {font.title_size or 72}px;")
+    for state, default in TIMER_DEFAULTS.items():
+        colour = getattr(font, f"timer_{state}") or (default if complete else "")
+        if colour:
+            props.append(f"--st-timer-{state}: {colour}; --st-timer-{state}-ink: {timer_ink(colour)};")
     if font.text_family.strip() and _family(font.text_family) != '""':
         props.append(f"--st-text-font: {_family(font.text_family)}, var(--st-ui-font);")
     elif complete:
