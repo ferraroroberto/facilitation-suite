@@ -102,11 +102,17 @@ class StageClickConfig:
 # OBS profiles (epic §11): each item's profile picks an OBS scene, and the
 # stage keeps that profile's camera zone empty. Zones are fractions of the
 # 1920×1080 canvas (x0, y0, x1, y1); the strip matches the house slides' grey box.
+# The PiP is OBS's corner scene: a 16:9 camera flush in the top-right corner, about 503 × 283 px
+# (#190: the text beside it centres on this zone, so the zone must be where the camera really is).
 DEFAULT_PROFILES: dict[str, dict[str, Any]] = {
     "camera_strip": {"label": "Camera strip", "scene": "", "zone": [0.583, 0.23, 0.983, 0.77]},
-    "camera_pip": {"label": "Camera PiP", "scene": "", "zone": [0.72, 0.04, 0.98, 0.3]},
+    "camera_pip": {"label": "Camera PiP", "scene": "", "zone": [0.738, 0.0, 1.0, 0.262]},
     "screen_only": {"label": "Screen only", "scene": "", "zone": None},
 }
+# The corner zone this app shipped before #190 was corrected: inset from the corner, about 40 px
+# below the real camera's middle. A saved config still holding exactly it was never customised
+# (Settings writes the default back when a profile is saved), so it follows the new default.
+LEGACY_PIP_ZONE = [0.72, 0.04, 0.98, 0.3]
 
 
 @dataclass(frozen=True)
@@ -156,6 +162,8 @@ def profiles(cfg: AppConfig) -> dict[str, dict[str, Any]]:
             "scene": str(mine.get("scene") or ""),
             "zone": _zone(mine["zone"], base["zone"]) if "zone" in mine else base["zone"],
         }
+        if key == "camera_pip" and out[key]["zone"] == LEGACY_PIP_ZONE:
+            out[key]["zone"] = base["zone"]
     return out
 
 

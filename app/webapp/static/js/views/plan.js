@@ -1335,7 +1335,7 @@ function previewCard(it) {
 
 const ZONES = {
   camera_strip: [0.583, 0.23, 0.983, 0.77],
-  camera_pip: [0.72, 0.04, 0.98, 0.3],
+  camera_pip: [0.738, 0, 1, 0.262],
   screen_only: null,
 };
 

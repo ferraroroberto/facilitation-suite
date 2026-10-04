@@ -96,3 +96,16 @@ def test_settings_cannot_be_changed_remotely(isolated_env: Path) -> None:
     with paired_remote(create_app(), "10.1.2.3") as remote:
         assert remote.get("/api/settings").status_code == 200
         assert remote.put("/api/settings", json={"obs": {"enabled": True}}).json()["error"]["code"] == "local_only"
+
+
+def test_corner_zone_follows_the_default_unless_customised() -> None:
+    """#190: the zone shipped before the fix (inset, 40 px low) is not a customisation; any other is."""
+    from src.config import DEFAULT_PROFILES, LEGACY_PIP_ZONE, AppConfig, profiles
+
+    def zone(saved: object) -> object:
+        return profiles(AppConfig(profiles={"camera_pip": {"scene": "x", "zone": saved}}))["camera_pip"]["zone"]
+
+    assert DEFAULT_PROFILES["camera_pip"]["zone"] == [0.738, 0.0, 1.0, 0.262]
+    assert zone(list(LEGACY_PIP_ZONE)) == DEFAULT_PROFILES["camera_pip"]["zone"]
+    assert zone([0.7, 0.05, 0.97, 0.32]) == [0.7, 0.05, 0.97, 0.32]
+    assert profiles(AppConfig())["camera_pip"]["zone"] == DEFAULT_PROFILES["camera_pip"]["zone"]

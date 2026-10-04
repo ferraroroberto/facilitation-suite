@@ -3,8 +3,10 @@ clocks, and starting the session over."""
 
 from __future__ import annotations
 
+import io
 import re
 
+from PIL import Image
 from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e.conftest import set_stage_click, shot
@@ -34,7 +36,11 @@ CENTRE_ON_CAMERA = """async (cases) => {
   }
   return out;
 }"""
-PIP = [0.72, 0.04, 0.98, 0.3]
+PIP = [0.738, 0.0, 1.0, 0.262]
+# #190 reopened: where the camera really sits on the stage (canvas px at 1920x1080), read off the live
+# stage: OBS's corner scene puts the 16:9 camera flush in the top-right corner, about 503 x 283. The
+# centring is only as good as the profile's zone, so the shipped zone must be this box.
+REAL_CAMERA = (1417, 0, 1920, 283)
 CAMERA_CASES = [
     {"name": f"q{n}", "kind": "activity", "zone": PIP,
      "item": {"kind": "activity", "title": "\\n".join(["Where is the group strong?"] * n)}}
@@ -48,6 +54,30 @@ CAMERA_CASES = [
     {"name": "screen_only", "kind": "activity", "zone": None, "item": {"kind": "activity", "title": "One line", "profile": "screen_only"}},
     {"name": "strip", "kind": "activity", "zone": [0.75, 0, 1, 1], "item": {"kind": "activity", "title": "One line", "profile": "camera_strip"}},
 ]
+
+
+# Draw an n-line question beside the corner camera and leave it on the page (the host is removed by the
+# caller), so a screenshot can be measured for its ink rather than its DOM box.
+DRAW_QUESTION = """async ([zone, lines]) => {
+  const { createStage } = await import('/static/js/stage-render.js');
+  await document.fonts.ready;
+  const host = document.createElement('div');
+  host.id = 'ink-host';
+  host.style.cssText = 'position:fixed;left:0;top:0;width:1920px;height:1080px;z-index:99;background:#f2f2f2';
+  document.body.appendChild(host);
+  const ctx = { plan: { session: { id: 'x' }, run: { language: 'en' } }, state: {}, now: 0, result: null };
+  createStage(host).render({ id: 'ink', profile: 'camera_pip', zone, font: {}, kind: 'activity',
+                             title: Array(lines).fill('¿Qué has aprendido sobre la kriptonita?').join('\\n') }, ctx);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+}"""
+
+
+def _ink_rows(png: bytes, x_end: int) -> tuple[int, int]:
+    """First and last pixel row, left of ``x_end``, that differ from the slide's #F2F2F2 background."""
+    left = Image.open(io.BytesIO(png)).convert("L").crop((0, 0, x_end, 1080))
+    box = left.point(lambda v: 255 if abs(v - 242) > 24 else 0).getbbox()
+    assert box, "no ink on the stage"
+    return box[1], box[3] - 1
 
 
 def _reflowed(page: Page) -> None:
@@ -112,6 +142,23 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
         assert abs(got[name]["mid"] - got[name]["zoneMid"]) <= 4, got[name]
         assert got[name]["lineHeight"] <= 1.05, got[name]
     assert got["screen_only"]["mid"] < 140 and got["strip"]["mid"] < 140, got
+
+    # #190 reopened: judge the rendered INK, not the DOM box. The shipped Camera PiP zone is what the
+    # centring follows, so 1, 2 and 3 lines drawn beside it must sit with their ink midline on the real
+    # camera's midline (the first fix centred the box on a zone that sat 40 px below the camera)
+    zone = page.request.get(f"{webapp.base_url}/api/settings").json()["profiles"]["camera_pip"]["zone"]
+    camera_mid = (REAL_CAMERA[1] + REAL_CAMERA[3]) / 2
+    ink_ctx = browser.new_context(viewport={"width": 1920, "height": 1080})
+    ink = ink_ctx.new_page()
+    ink.goto(f"{webapp.base_url}/stage")
+    off = {}
+    for lines in (1, 2, 3):
+        ink.evaluate(DRAW_QUESTION, [zone, lines])
+        top, bottom = _ink_rows(ink.screenshot(), REAL_CAMERA[0] - 20)
+        off[lines] = (top + bottom) / 2 - camera_mid
+        ink.evaluate("document.getElementById('ink-host').remove()")
+    ink_ctx.close()
+    assert all(abs(v) <= 3 for v in off.values()), f"ink midline minus camera midline (px at 1920x1080), by line count: {off}"
 
     # the item's own timer: T starts it on both screens
     page.keyboard.press("t")
