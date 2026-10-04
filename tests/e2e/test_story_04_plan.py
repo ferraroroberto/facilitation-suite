@@ -106,6 +106,19 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     expect(page.locator(".preview-frame .st-question")).to_have_js_property("innerHTML", "One word<br>you take home")
     expect(page.locator(".item-row.selected .item-title")).to_have_text("Take-home word")
+    # #205: music on the item — "When the timer ends" shows only with a timer (the music editor's
+    # volume slider is under the 44px floor, so this sits after the check above)
+    page.locator(".music-box .toggle").click()
+    ends = page.get_by_label("When the timer ends")
+    expect(ends).to_have_value("fade_out")
+    expect(page.locator(".music-box .ed-hint").last).to_contain_text("At 00:00 it fades out and stops.")
+    ends.select_option("keep_playing")
+    expect(page.locator(".music-box .ed-hint").last).to_contain_text("At 00:00 the music keeps playing until you stop it")
+    page.locator(".timer-box .toggle").click()  # no timer: the choice goes away (the timer's own settings stay)
+    expect(page.get_by_label("When the timer ends")).to_have_count(0)
+    expect(page.get_by_label("When leaving the item")).to_be_visible()
+    page.locator(".timer-box .toggle").click()
+    expect(page.get_by_label("When the timer ends")).to_have_value("keep_playing")
     # answers verbatim: the preview's sample "saying yes to everything" stops being split into words
     whole = page.locator(".preview-frame .wc-text", has_text="saying yes to everything")
     expect(page.locator(".preview-frame .wc-text", has_text="everything")).to_have_text("everything")
@@ -179,6 +192,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     assert act["font"]["size_px"] == 88
     assert act["notes"] == "Read the top three aloud."
     assert act["options"] == {"terms": "verbatim"}
+    assert act["music"]["on_timer_end"] == "keep_playing" and act["music"]["on_leave"] == "fade_out"
     assert act["timer"] == {"enabled": True, "seconds": 90, "start": "with_capture", "show_on": "stage", "end": "stop_capture"}
     assert copy["id"] != act["id"] and {k: v for k, v in copy.items() if k != "id"} == {k: v for k, v in act.items() if k != "id"}
     # untouched items keep no timer: timers are decided item by item

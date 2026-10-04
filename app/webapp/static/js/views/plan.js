@@ -35,6 +35,7 @@ const TIMER_END = { keep: 'Keep showing 00:00', hide: 'Remove the timer', stop_c
 const MUSIC_START = { with_timer: 'With the timer', on_enter: 'When the item opens', manual: 'Only from the presenter' };
 const SPOTIFY_LINK = /^(spotify:(playlist|album|artist|track|show|episode):[A-Za-z0-9]+|https?:\/\/open\.spotify\.com\/(intl-[A-Za-z-]+\/)?(playlist|album|artist|track|show|episode)\/[A-Za-z0-9]+)/;
 const MUSIC_LEAVE = { fade_out: 'Fade out and stop', keep_playing: 'Keep playing' };
+const MUSIC_TIMER_END = { fade_out: 'Fade out and stop', keep_playing: 'Keep playing until I stop it' };
 const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
 const ROUNDS = [['pairs', 'Pairs'], ['g4a', 'Groups of 4 · A'], ['g4b', 'Groups of 4 · B'], ['', 'No rooms shown']];
 
@@ -1212,7 +1213,7 @@ function musicField(it) {
   wrap.appendChild(switchRow(on, on ? '' : 'No music on this item', (next) => {
     if (next) {
       it.music = Object.assign({ source: 'file', path: '', volume: 80, fade_in_s: musicDefaults.fade_in_s, fade_out_s: musicDefaults.fade_out_s,
-        loop: false, start: 'with_timer', on_leave: 'fade_out' },
+        loop: false, start: 'with_timer', on_leave: 'fade_out', on_timer_end: 'fade_out' },
         it.music || {}, { enabled: true });
     } else if (it.music) {
       it.music.enabled = false;
@@ -1305,12 +1306,16 @@ function musicField(it) {
     return line(label, s);
   };
   grid.appendChild(sel('Starts', MUSIC_START, 'start', true));
+  const timed = !!(it.timer && it.timer.enabled);
+  if (timed) grid.appendChild(sel('When the timer ends', MUSIC_TIMER_END, 'on_timer_end', true));
   grid.appendChild(sel('When leaving the item', MUSIC_LEAVE, 'on_leave', false));
   wrap.appendChild(grid);
   if (m.source !== 'spotify') wrap.appendChild(switchRow(!!m.loop, 'Start over at the end (loop)', (next) => { m.loop = next; markDirty(); }));
   const how = document.createElement('p');
   how.className = 'ed-hint';
-  how.textContent = 'Pausing the timer fades the music out and pauses it; a reset or 00:00 fades it out and stops it.';
+  how.textContent = !timed ? 'With no timer, the music stops from the presenter, or when you leave the item (as set above).'
+    : 'Pausing the timer fades the music out and pauses it; a reset fades it out and stops it. '
+      + (m.on_timer_end === 'keep_playing' ? 'At 00:00 the music keeps playing until you stop it (Stop, in the presenter).' : 'At 00:00 it fades out and stops.');
   wrap.appendChild(how);
   return field('Music', wrap);
 }

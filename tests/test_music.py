@@ -176,6 +176,47 @@ def test_leaving_an_item_follows_on_leave(rig: tuple[LiveHub, MusicService, Fake
     assert fake.calls[-1] == ("stop", 2.0) and music.state == "idle"
 
 
+def keep_playing_at_end(hub: LiveHub, item_id: str) -> None:
+    hub.item_by_id(item_id)["music"]["on_timer_end"] = "keep_playing"
+
+
+def test_keep_playing_survives_00_00_but_not_a_stop_a_reset_or_leaving(rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:
+    hub, music, fake = rig
+    goto_id(hub, "slide-105")
+    keep_playing_at_end(hub, "slide-105")
+    run_action(hub, "timer_toggle")
+    before = list(fake.calls)
+    end_timer(hub, "slide-105")  # 00:00: the music carries on, still the item's
+    assert fake.calls == before and music.state == "playing" and music.owner == "slide-105"
+    run_action(hub, "music_stop")  # the presenter's own stop
+    assert fake.calls[-1][0] == "stop" and music.state == "idle"
+
+    run_action(hub, "timer_reset")
+    run_action(hub, "timer_toggle")
+    end_timer(hub, "slide-105")
+    assert music.state == "playing"
+    run_action(hub, "timer_reset")  # a reset is explicit: it still fades out and stops
+    assert fake.calls[-1] == ("stop", 4.0) and music.state == "idle" and music.owner is None
+
+    run_action(hub, "timer_toggle")
+    end_timer(hub, "slide-105")
+    run_action(hub, "next")  # leaving follows on_leave (fade_out by default)
+    assert fake.calls[-1] == ("stop", 4.0) and music.state == "idle"
+
+
+def test_keep_playing_after_00_00_keeps_playing_across_a_restart(rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:
+    hub, music, fake = rig
+    goto_id(hub, "slide-105")
+    keep_playing_at_end(hub, "slide-105")
+    run_action(hub, "timer_toggle")
+    end_timer(hub, "slide-105")
+    saved = music.saved()
+    assert saved is not None and saved["owner"] == "slide-105"
+    music._stop(0)
+    music._restore(saved)
+    assert fake.calls[-1][0] == "play" and music.state == "playing" and music.owner == "slide-105"
+
+
 def test_ad_hoc_music_is_not_touched_by_item_timers(rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:
     hub, music, fake = rig
     with pytest.raises(MusicError) as err:
@@ -407,6 +448,10 @@ def test_music_round_trips_and_stays_out_when_absent() -> None:
     items = dump_session(session)["sections"][0]["items"]
     assert items[0]["music"]["path"] == "audio/x.mp3" and items[0]["music"]["start"] == "with_timer"
     assert items[0]["music"]["on_leave"] == "fade_out" and items[0]["music"]["loop"] is True
+    assert items[0]["music"]["on_timer_end"] == "fade_out"  # an old plan keeps today's behaviour
+    kept = parse_session(dict(PLAN, sections=[{"name": "S", "items": [
+        {"kind": "slide", "slide_id": 1, "music": {"path": "audio/x.mp3", "on_timer_end": "keep_playing"}}]}]))
+    assert dump_session(kept)["sections"][0]["items"][0]["music"]["on_timer_end"] == "keep_playing"
     assert "music" not in items[1]
     with pytest.raises(ValueError):
         parse_session(dict(PLAN, sections=[{"name": "S", "items": [{"kind": "slide", "music": {"volume": 101}}]}]))

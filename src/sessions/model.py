@@ -60,8 +60,9 @@ class Music(_Open):
     playlist, album or track (``uri``: a ``spotify:`` URI or an
     ``open.spotify.com`` link). It starts with the item's timer, when the item
     opens, or only by hand from the presenter; pausing the timer fades it out
-    and pauses it, a reset or 00:00 fades it out and stops it, and leaving the
-    item fades it out or keeps it playing."""
+    and pauses it, a reset fades it out and stops it, 00:00 does the same or
+    (``on_timer_end: keep_playing``) lets it carry on until it is stopped by
+    hand, and leaving the item fades it out or keeps it playing."""
 
     enabled: bool = True
     source: Literal["file", "spotify"] = "file"
@@ -73,6 +74,7 @@ class Music(_Open):
     loop: bool = False  # files: start over at the end
     start: Literal["with_timer", "on_enter", "manual"] = "with_timer"
     on_leave: Literal["fade_out", "keep_playing"] = "fade_out"
+    on_timer_end: Literal["fade_out", "keep_playing"] = "fade_out"  # at 00:00 (a reset always stops it)
 
 
 THEME_FONT = "theme"
