@@ -132,8 +132,8 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
       `<div class="font-row"><span class="small">${esc(label)}</span><span class="inline-controls">` +
       `<input type="color" class="font-color" aria-label="Timer colour: ${esc(label.toLowerCase())}" data-timer-color="${key}" value="${esc(f[`timer_${key}`] || theme)}">` +
       `</span></div>`).join('') +
-    `<div class="font-row"><span class="small"></span><button type="button" class="button-surface" data-timer-reset` +
-    `${TIMER_STATES.some(([key]) => f[`timer_${key}`]) ? '' : ' disabled'}>Theme colours</button></div></div>` +
+    `<div class="font-row"><span class="small"></span><span class="inline-controls"><button type="button" class="button-surface" data-timer-reset` +
+    `${TIMER_STATES.some(([key]) => f[`timer_${key}`]) ? '' : ' disabled'}>Theme colours</button></span></div></div>` +
     `<p class="small muted font-note">The stage timer — the pill on an activity or slide, the big clock on a break or breakout — takes the colour of its state: the pill as its fill, the clock as its text.</p>`;
 }
 
