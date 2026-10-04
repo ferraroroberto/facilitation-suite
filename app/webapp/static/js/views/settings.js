@@ -131,7 +131,7 @@ function remoteCard() {
     '<p class="small muted settings-note">Next, previous, capture, timer and blackout from your phone, over Tailscale. Open the link once on the phone: it pairs that phone. ' +
     'Other devices never get in without it; this PC never needs it.</p>';
   if (r.bind_loopback) {
-    card.insertAdjacentHTML('beforeend', '<p class="small settings-note">This PC only accepts connections from itself (<code>config.json</code> → <code>"host": "127.0.0.1"</code>) — a phone can\'t reach it. Set <code>host</code> to <code>"0.0.0.0"</code> and restart the tray.</p>');
+    card.insertAdjacentHTML('beforeend', '<p class="small settings-note">This PC only accepts connections from itself (<code>"host": "127.0.0.1"</code> in <code>config.json</code>) — a phone can\'t reach it. Set <code>host</code> to <code>"0.0.0.0"</code> and restart the tray.</p>');
     return card;
   }
   if (!r.https) {
@@ -275,7 +275,7 @@ async function editConnection() {
     fields: [
       { name: 'enabled', label: 'Scene switching', type: 'select', value: o.enabled ? '1' : '0', options: [{ value: '1', label: 'On' }, { value: '0', label: 'Off' }] },
       { name: 'host', label: 'Host', value: o.host, required: true },
-      { name: 'port', label: 'Port', type: 'number', value: o.port, required: true, hint: 'OBS → Tools → WebSocket Server Settings (default 4455).' },
+      { name: 'port', label: 'Port', type: 'number', value: o.port, required: true, hint: 'In OBS, Tools, then WebSocket Server Settings (default 4455).' },
       { name: 'password', label: 'Password', type: 'password', value: '', placeholder: o.password_set ? 'Leave empty to keep the current one' : 'Only if OBS asks for one' },
     ],
   });
@@ -390,7 +390,7 @@ function themeCard() {
     `<div class="card-head"><h3 class="card-title">${icon('presentation')} Stage theme</h3></div>` +
     `<div class="font-rows"><label class="font-row"><span class="small">New sessions</span>` +
     `<select class="select-native" aria-label="Default stage theme" data-default-theme>${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
-    '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (Sessions → Session settings → Stage look, where “Reset to default” takes the current one).</p>';
+    '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (on the Sessions tab, in Session settings under Stage look, where “Reset to default” takes the current one).</p>';
   card.querySelector('[data-default-theme]').addEventListener('change', async (e) => {
     if (await saveDefaults({ stage: { theme: e.target.value } })) render();
   });
@@ -521,7 +521,7 @@ function spotifyCard() {
     (sp ? `<div class="list">${fact('Account', sp.detail)}${fact('Plays on', sp.device || 'The Spotify desktop app on this PC')}${fact('Last check', whenText(sp.checked_at))}</div>` : '') +
     (waiting ? `<p class="status-line unknown" data-login-line>${icon('refresh-cw')} ${esc(sp.login.detail)}. This card updates by itself.</p>` : '') +
     (sp && sp.login.state === 'failed' ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
-    (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (README → Spotify setup).</p>' : '') +
+    (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (see Spotify setup in the README).</p>' : '') +
     '<p class="small muted settings-note">Music plays on the Spotify desktop app of this PC (a Premium account). Connecting opens Spotify’s login in the browser; the login is saved on this PC only.</p>' +
     `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-connect${!sp || !sp.client_id_set || waiting ? ' disabled' : ''}>${icon('link')} ${sp && sp.logged_in ? 'Reconnect Spotify' : 'Connect Spotify'}</button>` +
     `<button type="button" class="button-surface" data-check${sp ? '' : ' disabled'}>${icon('refresh-cw')} Check now</button></div>`;
