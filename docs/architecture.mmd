@@ -143,3 +143,4 @@ flowchart LR
   stage --> pages
   pages --> cfg["src/config.py<br/>config.json · env overrides"]
   pages --> build["src/build_info.py"]
+  pages --> assets["app/webapp/assets.py + src/static_versioning.py<br/>fleet hash ?v= on every .js/.css URL · immutable under it · pages no-cache"]

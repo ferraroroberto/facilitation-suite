@@ -21,14 +21,17 @@ const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${nam
 // subtitle(item, lang) — a line under the title; an optional stage.css is
 // linked once. render runs again only when the result, the names switch or the
 // quiz snapshot change. Loaded on first use, then cached.
+// The server stamps this module's own URL with the asset hash (?v=…) and every literal import in it, but
+// not a template one: the plug-in URLs reuse this module's stamp so they cache and invalidate with it.
+const VERSION = new URL(import.meta.url).search;
 const plugins = {};
 export function loadPlugin(type) {
   if (!plugins[type]) {
-    plugins[type] = import(`/activities/${type}/stage.js`).then((mod) => {
+    plugins[type] = import(`/activities/${type}/stage.js${VERSION}`).then((mod) => {
       if (!document.querySelector(`link[data-plugin="${type}"]`)) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = `/activities/${type}/stage.css`;
+        link.href = `/activities/${type}/stage.css${VERSION}`;
         link.dataset.plugin = type;
         link.onerror = () => link.remove(); // stage.css is optional
         document.head.appendChild(link);

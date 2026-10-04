@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from app.webapp.assets import versioned_response
 from app.webapp.errors import AppError
 from src.activities.registry import ACTIVITIES_DIR, editors
 from src.errors import DomainError
@@ -90,13 +91,16 @@ def frozen_capture(request: Request, item_id: str) -> dict[str, Any]:
 
 
 @router.get("/activities/{activity_type}/{name}", include_in_schema=False)
-def plugin_asset(activity_type: str, name: str) -> Response:
-    """An activity plug-in's stage renderer (``stage.js``) and style (``stage.css``)."""
+def plugin_asset(request: Request, activity_type: str, name: str) -> Response:
+    """An activity plug-in's stage renderer (``stage.js``) and style (``stage.css``): hash-stamped and
+    cached like the static assets (``app/webapp/assets.py``); the map's ``world.svg`` revalidates."""
     if name not in PLUGIN_ASSETS or activity_type not in editors():
         raise AppError(404, "not_found", "No such plug-in file")
     path = ACTIVITIES_DIR / activity_type / name
     if not path.is_file():
         raise AppError(404, "not_found", "No such plug-in file")
+    if path.suffix in (".js", ".css"):
+        return versioned_response(request.app.state.assets, f"/activities/{activity_type}/{name}", path.read_text(encoding="utf-8"), request.scope)
     return FileResponse(path, media_type=PLUGIN_ASSETS[name], headers={"Cache-Control": "no-cache"})
 
 
