@@ -461,7 +461,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .music-file { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 160px; font-weight: 600; overflow-wrap: anywhere; }
 .music-file .icon { flex: none; width: 16px; height: 16px; }
 .music-volume { display: flex; align-items: center; gap: var(--space-sm); }
-.music-volume input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.music-volume input { flex: 1; min-width: 0; accent-color: var(--accent); height: 44px; margin: 0; } /* #207: the input box is the 44px target; the native track inside stays thin */
 .music-volume output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
 .input.invalid { border-color: var(--danger); }
 .ed-tools { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: 12px 0; border-top: 1px solid var(--line-muted); }
