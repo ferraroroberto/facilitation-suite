@@ -116,6 +116,16 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.locator("#panePlan select[aria-label=\"Answers (word cloud, cards, feed…): capitals\"]").select_option("typed")
     expect(body).to_have_css("text-transform", "none")
 
+    # #211: the session's timer colours on a preview — the break's clock, not started, is the idle override —
+    # and a stage drawn with each timer state wears the override for idle and running, the default for the rest.
+    # Opened before the multi-select on purpose: it leaves the page scrolled down, which the drag below must survive (#213).
+    page.locator('[data-item="brk-coffee"]').click()
+    expect(page.locator(".preview-frame [data-clock]")).to_have_css("color", "rgb(106, 27, 154)")
+    want = {name: dict(colours) for name, colours in DEFAULT_STATES.items()}
+    want["idle"] = {"pill": (106, 27, 154), "ink": WHITE, "clock": (106, 27, 154)}
+    want["running"] = {"pill": (21, 101, 192), "ink": WHITE, "clock": (21, 101, 192)}
+    assert_states(page.evaluate(TIMER_STATES), want)
+
     # -- multi-select: click, Shift+click a range, Ctrl+click one out
     rows = page.locator(".item-row")
     page.locator('[data-item="slide-104"]').click()
@@ -129,7 +139,12 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     shot(page, shots / "story-15-font-2-multiselect.png")
 
     # drag the three onto the top half of an earlier slide: they land before it, in order
-    page.locator('[data-item="slide-105"]').drag_to(page.locator('[data-item="slide-102"]'), target_position={"x": 40, "y": 4})
+    # Both rows are scrolled into view first (#213): Playwright's `drag_to` scrolls only the source, so with
+    # the page left scrolled down (the break above was opened) the target sat off-screen and the drag never began.
+    source, target = page.locator('[data-item="slide-105"]'), page.locator('[data-item="slide-102"]')
+    source.scroll_into_view_if_needed()
+    target.scroll_into_view_if_needed()
+    source.drag_to(target, target_position={"x": 40, "y": 4})
     order = rows.evaluate_all("rs => rs.map(r => r.dataset.item)")
     assert order[:6] == ["slide-101", "act-map", "slide-104", "slide-105", "act-kryptonite", "slide-102"], order
     expect(page.locator(".item-row.selected")).to_have_count(3)
@@ -163,13 +178,3 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     # the deleted slides are still in the deck, to add back
     deck = page.request.get(f"{webapp.base_url}/api/sessions/{sid}/slides").json()
     assert {101, 107, 108} <= {s["slide_id"] for s in deck["slides"]}
-
-    # #211: the session's timer colours on a preview — the break's clock, not started, is the idle override —
-    # and a stage drawn with each timer state wears the override for idle and running, the default for the rest.
-    # (Last: opening a break before the multi-select above stops its drag from reordering — see the PR.)
-    page.locator('[data-item="brk-coffee"]').click()
-    expect(page.locator(".preview-frame [data-clock]")).to_have_css("color", "rgb(106, 27, 154)")
-    want = {name: dict(colours) for name, colours in DEFAULT_STATES.items()}
-    want["idle"] = {"pill": (106, 27, 154), "ink": WHITE, "clock": (106, 27, 154)}
-    want["running"] = {"pill": (21, 101, 192), "ink": WHITE, "clock": (21, 101, 192)}
-    assert_states(page.evaluate(TIMER_STATES), want)
