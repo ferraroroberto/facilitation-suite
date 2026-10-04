@@ -43,7 +43,7 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 
 **HTTPS (for the phone remote):** `& .venv\Scripts\python.exe scripts\gen_tailscale_cert.py` writes a Tailscale certificate (a real Let's Encrypt leaf for this PC's tailnet name) to `webapp/certificates/`; after `tray.bat --restart` the server speaks HTTPS only, on the tailnet name. The leaf lasts ~90 days and renews itself at every start (`--check`), so there is no date to remember.
 
-**Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. Static files (`app/webapp/static/`) are served `no-cache`, so a browser reload picks them up without a restart.
+**Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. The `.js`/`.css` under `app/webapp/static/`, `themes/` and `app/activities/` are stamped with one hash taken at startup and cached for good under it (the pages stay `no-cache`), so an edit to them shows up after the restart, not on a reload.
 
 **Logs** live in `data/logs/` (under `FS_DATA_DIR` when it is set). Each file has exactly one writer, because Windows cannot rotate a file another process holds open; each rotates at 1 MB and keeps 3 backups (`.log.1`–`.log.3`):
 

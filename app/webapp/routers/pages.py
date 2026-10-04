@@ -19,8 +19,8 @@ _NO_CACHE = {"Cache-Control": "no-cache"}
 
 def _etag(html: str) -> str:
     """Weak validator for a page: a digest of the exact bytes served. Weak because the bytes on the
-    wire vary with ``Content-Encoding``. The pages are sent verbatim (assets are revalidated by their
-    own ETag, not stamped into the page), so the body alone decides whether a 304 is still true."""
+    wire vary with ``Content-Encoding``. The asset hashes are stamped into the body, so the body alone
+    decides whether a 304 is still true: an edited asset moves its URL and with it the validator."""
     return f'W/"{hashlib.sha256(html.encode("utf-8")).hexdigest()[:20]}"'
 
 
@@ -36,12 +36,13 @@ def _if_none_match_hits(header: str, etag: str) -> bool:
 
 
 def _page(request: Request, name: str) -> Response:
-    """The page with the Lucide sprite inlined at its marker (read per request: the pages are small and
-    a restart-free edit shows up on reload). ``no-cache`` + an ETag: a relaunch revalidates and gets a
-    bodyless 304 when nothing changed."""
+    """The page with the Lucide sprite inlined at its marker and every ``.css``/``.js`` URL stamped with the
+    fleet hash (read per request: the pages are small). ``no-cache`` + an ETag: a relaunch revalidates and
+    gets a bodyless 304 when nothing changed — and a page that did change points at the new asset URLs."""
     html = (STATIC_DIR / name).read_text(encoding="utf-8")
     if SPRITE_MARKER in html:
         html = html.replace(SPRITE_MARKER, (STATIC_DIR / "sprite.html").read_text(encoding="utf-8"), 1)
+    html = request.app.state.assets.stamp_html(html)
     headers = {**_NO_CACHE, "ETag": _etag(html)}
     if _if_none_match_hits(request.headers.get("if-none-match", ""), headers["ETag"]):
         return Response(status_code=304, headers=headers)

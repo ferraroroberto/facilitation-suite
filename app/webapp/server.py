@@ -21,10 +21,9 @@ The lifespan also runs the **quiz player listener** — a second, separate app o
 Cloudflare tunnel publishes (``src/tunnel.py``, run by the tray). It shares this
 loop and the one ``QuizService``, never this app's routes.
 
-Static assets are served ``no-cache`` (revalidated by ETag on every load):
-the app runs on this PC and on a phone over the tailnet, so a stale asset
-after a restart is the only real risk, and revalidation removes it without a
-hash-stamping build step.
+Static assets carry one fleet hash (``?v=``, ``src/static_versioning.py``) and are cached for good
+under it (``app/webapp/assets.py``); the pages stay ``no-cache``, so a restart with changed assets
+moves every URL and a stale asset cannot be served (#209).
 
 Errors are one JSON envelope everywhere — ``{"error": {"code", "message",
 "detail"?}}``.
@@ -40,7 +39,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -48,13 +46,12 @@ from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 from starlette.responses import Response
-from starlette.types import Scope
 
 from app.player.listener import PlayerListener
+from app.webapp.assets import CachingStaticFiles
 from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import error_response
 from app.webapp.routers import (
@@ -70,6 +67,7 @@ from app.webapp.routers import (
     settings,
     slides,
 )
+from src.activities.registry import ACTIVITIES_DIR
 from src.build_info import build_identity
 from src.certs import cert_paths
 from src.chat.hub import ChatHub
@@ -89,12 +87,14 @@ from src.quiz.cues import QuizCues
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.sessions.store import SessionStore
+from src.static_versioning import AssetVersions
 
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
+ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
 
 
@@ -106,21 +106,6 @@ GZIP_EXCLUDED_TYPES = (
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 )
-
-
-class NoCacheStaticFiles(StaticFiles):
-    """``StaticFiles`` that always revalidates (``no-cache`` + the ETag)."""
-
-    def file_response(
-        self,
-        full_path: os.PathLike[str],
-        stat_result: os.stat_result,
-        scope: Scope,
-        status_code: int = 200,
-    ) -> Response:
-        response = super().file_response(full_path, stat_result, scope, status_code)
-        response.headers["Cache-Control"] = "no-cache"
-        return response
 
 
 @asynccontextmanager
@@ -269,6 +254,7 @@ def create_app() -> FastAPI:
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES, compresslevel=6, exclude_content_types=GZIP_EXCLUDED_TYPES)
     app.state.config = load_config()
     app.state.build = BUILD
+    app.state.assets = ASSETS
     store = SessionStore(app.state.config)
     app.state.store = store
     app.state.importer = Importer(load=store.load, save=store.save, folder=store.folder)
@@ -289,9 +275,9 @@ def create_app() -> FastAPI:
     # Outermost: other devices need the phone-remote token before anything else runs.
     app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)
     redact_server_logs()
-    app.mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.mount("/static", CachingStaticFiles(directory=str(STATIC_DIR), prefix="/static", versions=ASSETS), name="static")
     # Stage themes (public, repo-level): the stage follows the session theme, not the fleet design.
-    app.mount("/themes", NoCacheStaticFiles(directory=str(THEMES_DIR)), name="themes")
+    app.mount("/themes", CachingStaticFiles(directory=str(THEMES_DIR), prefix="/themes", versions=ASSETS), name="themes")
     app.include_router(pages.router)
     app.include_router(sessions.router)
     app.include_router(slides.router)
