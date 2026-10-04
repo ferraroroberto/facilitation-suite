@@ -8,7 +8,9 @@ reset and end, and items change, and it registers its actions.
 - the timer starts or resumes → the music fades in and plays (``start:
   with_timer``; music that item already started and paused resumes);
 - the timer pauses → it fades out and pauses;
-- the timer is reset or reaches 00:00 → it fades out and stops;
+- the timer is reset → it fades out and stops; at 00:00 it does the same, unless
+  the item's ``on_timer_end`` is ``keep_playing`` (it carries on, still the item's,
+  until the presenter stops it, the timer is reset or the item is left);
 - ``start: on_enter`` plays when the item comes on stage; ``manual`` only
   from the presenter;
 - leaving the item follows its ``on_leave``: ``fade_out`` (stop) or
@@ -48,7 +50,8 @@ as played, like the timer's):
 - an item's music resumes, fading in, only while that item is still on stage
   and its timer — if it started one — is running; with the timer paused it
   comes back paused (the timer's resume resumes it); anything else (another
-  item on stage, the timer reset or ended) stays silent;
+  item on stage, the timer reset, or ended while the music fades out at 00:00)
+  stays silent;
 - ad-hoc music resumes, fading in, if it was playing, or comes back paused;
 - a sound cue is never saved.
 
@@ -327,8 +330,9 @@ class MusicService:
             self._stop((m or {}).get("fade_out_s", self.fade_out_s))
 
     def _on_timer_end(self, item: dict[str, Any]) -> None:
-        if self.owner == item["id"]:
-            self._stop((item.get("music") or {}).get("fade_out_s", self.fade_out_s))
+        m = item.get("music") or {}
+        if self.owner == item["id"] and m.get("on_timer_end", "fade_out") == "fade_out":
+            self._stop(m.get("fade_out_s", self.fade_out_s))
 
     def _on_item(self, prev: Optional[dict[str, Any]], cur: dict[str, Any]) -> None:
         if prev and self.owner == prev["id"]:
@@ -382,11 +386,12 @@ class MusicService:
         play = was == "playing"
         if owner:
             cur, timer = self.live.current(), self.live.timers.get(owner)
-            if cur is None or cur["id"] != owner or (timer is not None and timer.done):
+            keeps_playing = bool(cur and (cur.get("music") or {}).get("on_timer_end") == "keep_playing")
+            if cur is None or cur["id"] != owner or (timer is not None and timer.done and not keeps_playing):
                 logger.info("ℹ️ music: %s's music not resumed — %s", owner,
                             "its timer ended" if cur and cur["id"] == owner else "its item is no longer on stage")
                 return
-            if timer is not None and timer.running_since is None:
+            if timer is not None and timer.running_since is None and not timer.done:
                 play = False  # the timer is paused: so is its music
         track = self._track(str(saved.get("kind")), str(saved.get("ref") or ""), bool(saved.get("loop")))
         volume = int(saved.get("volume", self.volume))
