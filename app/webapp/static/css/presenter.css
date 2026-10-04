@@ -20,7 +20,6 @@
 
 /* ---- top bar ---------------------------------------------------------- */
 .p-top { display: flex; align-items: center; gap: var(--space-md); min-width: 0; }
-.p-brand { width: 40px; height: 40px; border-radius: var(--radius-md); flex: none; }
 .p-titles { min-width: 140px; flex: 1; }
 .p-title { font-size: var(--font-heading-md); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-sub { color: var(--muted); font-size: var(--font-body-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

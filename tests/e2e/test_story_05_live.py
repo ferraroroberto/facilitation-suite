@@ -129,6 +129,11 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     assert "Patrick Hand" not in tagline.evaluate("e => getComputedStyle(e).fontFamily")
     expect(tagline).to_have_css("text-transform", "none")
     expect(page.locator(".p-chips")).to_contain_text("Stage · 1280×720")
+    # #211: the presenter's header has no app icon, so the title starts at the header's left edge
+    expect(page.locator(".p-top img")).to_have_count(0)
+    left = page.evaluate("() => [document.querySelector('.p-top'), document.querySelector('.p-title')]"
+                         ".map((e) => e.getBoundingClientRect().left)")
+    assert abs(left[1] - left[0]) <= 1, left
 
     # → on the presenter moves the stage to the map activity (camera PiP, question on stage)
     page.keyboard.press("ArrowRight")

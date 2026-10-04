@@ -102,7 +102,6 @@ function buildShell() {
   root.className = 'presenter';
   root.innerHTML =
     `<header class="p-top">` +
-      `<img class="p-brand" src="/static/icons/icon-192.png" alt="">` +
       `<div class="p-titles"><div class="p-title">${esc(plan.session.title)}</div><div class="p-sub" data-sub></div></div>` +
       `<div class="p-chips" data-chips></div>` +
       `<button type="button" class="p-icon-btn" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
