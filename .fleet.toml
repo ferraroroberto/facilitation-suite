@@ -74,10 +74,11 @@ path = "tests/conftest.py"
 [[e2e.rule]]
 tier = "full"
 path = "config/config.sample.json"
+# Every e2e instance boots the app, which imports src/, so any src/ change runs the browser
+# suite (#171; the owner chose this over the gate-time trade of skipping it).
 [[e2e.rule]]
-tier       = "none"
-prefix     = "src/"
-extensions = ["py"]
+tier   = "full"
+prefix = "src/"
 [[e2e.rule]]
 tier       = "none"
 prefix     = "tests/"
