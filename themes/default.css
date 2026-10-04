@@ -57,10 +57,24 @@
   /* Line spacing of titles, questions and a slide's text (#190): tight, as the hand-lettered
      font already carries generous ascent and descent. One value for every item. */
   --st-leading: 1.04;
+  /* The quiz leaderboard's first row. */
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
-  /* A paused timer: the pill turns yellow, a break clock amber. */
-  --st-paused: #f2b705;
+  /* The timer by state (#211): before it starts, running, paused, ended. The pill takes the colour
+     as its fill and the -ink as its text; the big clock takes it as its text. Set globally in
+     Settings and per session (session.yaml → font.timer_idle / timer_running / timer_paused /
+     timer_done; src/sessions/theme.py states the same defaults and picks the ink). The paused
+     clock is the yellow darkened a third: the yellow itself is 1.6:1 on the grey. */
+  --st-timer-idle: #1f1f1f;
+  --st-timer-idle-ink: #ffffff;
+  --st-timer-running: #00a44e;
+  --st-timer-running-ink: #ffffff;
+  --st-timer-paused: #f2b705;
+  --st-timer-paused-ink: #1f1f1f;
+  --st-timer-done: #c40c0c;
+  --st-timer-done-ink: #ffffff;
+  /* A paused quiz: the note's border and icon. */
+  --st-paused: var(--st-timer-paused);
   --st-paused-ink: #b37f00;
   --st-chip-bg: #ffffff;
   --st-chip-line: #d6d6d6;
@@ -181,17 +195,18 @@
   gap: 12px;
   padding: 10px 26px;
   border-radius: 9999px;
-  background: var(--st-pill-bg);
-  color: var(--st-pill-ink);
+  background: var(--st-timer-idle);
+  color: var(--st-timer-idle-ink);
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 40px;
   font-weight: 700;
 }
-.stage-canvas .st-pill.done { background: var(--st-c1); }
+.stage-canvas .st-pill.running { background: var(--st-timer-running); color: var(--st-timer-running-ink); }
+.stage-canvas .st-pill.paused { background: var(--st-timer-paused); color: var(--st-timer-paused-ink); }
+.stage-canvas .st-pill.done { background: var(--st-timer-done); color: var(--st-timer-done-ink); }
 /* A slide's timer: over the slide, in a bottom corner. */
 .stage-canvas .st-slide-pill { position: absolute; right: 48px; bottom: 40px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); }
 .stage-canvas .st-slide-pill.left { right: auto; left: 48px; }
-.stage-canvas .st-pill.paused { background: var(--st-paused); color: var(--st-ink); }
 
 /* Break: the title and a big clock, centred in the content area. */
 .stage-canvas .st-break {
@@ -218,8 +233,10 @@
   font-size: 200px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--st-timer-idle);
 }
-.stage-canvas .st-break-clock.done { color: var(--st-c1); }
-.stage-canvas .st-break-clock.paused { color: var(--st-paused-ink); }
+.stage-canvas .st-break-clock.running { color: var(--st-timer-running); }
+.stage-canvas .st-break-clock.paused { color: color-mix(in srgb, var(--st-timer-paused) 68%, #000000); }
+.stage-canvas .st-break-clock.done { color: var(--st-timer-done); }
 
 .stage-canvas .st-blackout { position: absolute; inset: 0; background: #000000; }

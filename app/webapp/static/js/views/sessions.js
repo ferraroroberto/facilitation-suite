@@ -380,7 +380,7 @@ function settingsCard(sid, s, look, onDetails) {
     `<span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
     (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset>${icon('rotate-ccw')} Reset to default</button>`) +
     `<span class="card-head-meta" data-lettering>${esc(letteringLabel(s.font))}</span></div>` +
-    `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. New sessions start from Settings → Stage defaults.</p>` +
+    `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. The timer’s colours are at the end. New sessions start from Settings → Stage defaults.</p>` +
     `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
     themeOptions(look.themes, s.theme) +
     `</select></label></div>` +

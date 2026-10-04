@@ -297,6 +297,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .font-sample-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
 .stage-canvas.font-sample .st-hint { flex: none; white-space: nowrap; font-size: 20px; padding: 8px 18px; }
 .stage-canvas.font-sample .st-body { flex: 0 1 auto; min-width: 0; }
+.stage-canvas.font-sample .st-pill { flex: none; white-space: nowrap; font-size: 18px; padding: 6px 16px; gap: 8px; }
+.stage-canvas.font-sample .st-pill svg { width: 18px; height: 18px; }
 .font-sample-words { font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-weight: var(--st-font-weight); font-size: 44px; color: var(--st-c3); white-space: nowrap; }
 .role-row { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; align-items: center; gap: var(--space-sm); }
 .role-rows { display: grid; gap: var(--space-sm); }

@@ -403,9 +403,9 @@ function letteringCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card defaults-font-card';
   card.innerHTML =
-    `<div class="card-head"><h3 class="card-title">${icon('type')} Stage lettering</h3>` +
+    `<div class="card-head"><h3 class="card-title">${icon('type')} Stage lettering and timer colours</h3>` +
     `<span class="card-head-meta">${esc(letteringLabel(font))}</span></div>` +
-    '<p class="small muted settings-note">The title font and the text font every new session starts from, and which one each kind of text uses. A session can change its own; an item can set exceptions in the Plan tab.</p>' +
+    '<p class="small muted settings-note">The title font and the text font every new session starts from, which one each kind of text uses, and the colours of the timer (under Timer colours). A session can change its own; an item can set exceptions in the Plan tab.</p>' +
     fontEditorHtml(font, { hint: words('en').chat_hint, sampleClass: 'defaults-sample', library: defs.library.fonts });
   linkDefaultsFont(font);
   wireFontEditor(card, {

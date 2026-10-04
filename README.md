@@ -73,7 +73,7 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to reorder, rename, collapse — or **Collapse all / Expand all**; every load opens them all), and inside each section the slides, activities and breaks in order (drag, or Alt+↑/↓, or Move up/down). **Add slide or activity** at the end of a section also adds a **section after this one**. Each item has:
 
 - a **Camera layout** (the item's OBS profile: Camera strip / Camera PiP / Screen only; slides start with the detected one),
-- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); a paused timer shows yellow on the stage, the presenter and the phone; on a slide it sits in a bottom corner over the slide (the left one when the camera takes the right),
+- its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); on the stage the timer takes the colour of its state — black before it starts, **green** while it runs, **yellow** paused, **red** at 00:00 (the pill on an activity or slide takes it as its fill, the big clock on a break or breakout as its text; set them under *Stage lettering*); a paused timer is yellow on the presenter and the phone too; on a slide it sits in a bottom corner over the slide (the left one when the camera takes the right),
 - its **music** (optional — see *Music*): a track from the session's `audio/` folder that plays with the item's timer or when the item opens,
 - **In this session** (off = skipped live, kept in the plan),
 - for a **breakout** (Add slide or activity → Breakout): its title, the round in the rooms (Pairs, Groups of 4 · A or B — the stage says it with the room count from the Groups tab) and its clock, ten minutes by default,
@@ -93,6 +93,10 @@ font:
   caps: true              # titles and questions in capitals
   title_color: "#c62828"  # colour of activity titles and questions (empty = the theme's ink)
   title_size: 84          # their size in stage px (0 or absent = 72)
+  timer_idle: "#1f1f1f"   # the stage timer before it starts, while it runs, paused, at the end
+  timer_running: "#00a44e"
+  timer_paused: "#f2b705"
+  timer_done: "#c40c0c"   # each empty or absent = the theme's colour (the four shown)
   caps: true              # titles and questions in capitals
   text_family: Georgia    # empty = the chat hint's plain sans
   text_weight: 400
@@ -102,6 +106,8 @@ font:
 ```
 
 The title **colour** and **size** (#191) letter activity titles and questions, beside a camera strip too; imported slides keep their PowerPoint size and colour. The editor shows the colour's contrast on the stage background and warns under 3:1 (a pale colour on the light grey is hard to read from a distance); the theme's own ink is 14:1. Set them for every new session in **Settings → Stage defaults** (the same editor), and per presentation on the session's own card — a session keeps what it was made with until you change it there.
+
+**Timer colours** (#211) — the same editor, under *Timer colours*: four pickers (not started, running, paused, ended) and **Theme colours** to put them back. The stage timer wears the colour of its state: on an activity's or a slide's **pill** it is the fill, with white digits (dark digits on a fill white cannot hold 3:1 on, the yellow), on a break's or a breakout's **big clock** it is the text. Defaults: black `#1f1f1f`, green `#00a44e`, yellow `#f2b705` (the paused clock is that yellow darkened by a third, since the yellow itself is 1.6:1 on the light stage), red `#c40c0c`. In `session.yaml` they are `font.timer_idle` / `timer_running` / `timer_paused` / `timer_done` (`#rrggbb`), copied from **Settings → Stage lettering and timer colours** into a new session, and a session's own wins; the stage themes and the plan previews both follow.
 
 Every item follows it; in the Plan tab an item's title **font** row (font, size, capitals — "as the session" by default) and its **Other text** rows (the chat hint and answers of an activity, a breakout's subtitle, a slide's text: font — the title font, the text font or an installed one — and capitals) are the exceptions for that item only (`font.roles` on the item).
 

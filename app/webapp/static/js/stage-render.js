@@ -164,6 +164,20 @@ export function clock(sec) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
+const TIMER_STATES = ['idle', 'running', 'paused', 'done'];
+
+/** Where a stage timer is (#211): not started, running, paused or ended — the class that colours it. */
+function timerState(t) {
+  if (!t) return 'idle';
+  if (t.done) return 'done';
+  return t.running_since == null ? 'paused' : 'running';
+}
+
+function setTimerState(el, state) {
+  el.classList.remove(...TIMER_STATES);
+  el.classList.add(state);
+}
+
 /**
  * createStage(host, { guides }) → { render(item, ctx), update(ctx), el }
  *   item: a run item (src/live/plan.py) or null
@@ -296,25 +310,21 @@ export function createStage(host, opts = {}) {
     if (blk) blk.hidden = !(opts.blackout !== false && state.blackout);
     if (!item) return;
     const t = stageTimer(item, state);
-    const paused = !!(t && t.running_since == null && !t.done);
+    const phase = timerState(t);
     // "Remove the timer" at 00:00: it leaves the stage once done.
     const gone = !!(t && t.done && item.timer && item.timer.end === 'hide');
     const clockEl = canvas.querySelector('[data-clock]');
     if (clockEl) {
       const left = t ? remaining(t, ctx.now) : item.timer.seconds;
       clockEl.textContent = clock(left);
-      clockEl.classList.toggle('done', !!(t && t.done));
-      clockEl.classList.toggle('paused', paused);
+      setTimerState(clockEl, phase);
       clockEl.hidden = gone;
     }
     const pill = canvas.querySelector('[data-pill]');
     if (pill) {
       pill.hidden = !t || !!opts.noTimers || gone;
-      if (t) {
-        pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
-        pill.classList.toggle('done', !!t.done);
-        pill.classList.toggle('paused', paused);
-      }
+      if (t) pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
+      setTimerState(pill, phase);
     }
     const quizHint = canvas.querySelector('[data-quizhint]');
     if (quizHint) {
