@@ -12,6 +12,18 @@ const STORE = 'facilitation-suite.play';
 const THEME = 'facilitation-suite.play.theme';
 const POLL_MS = 1000;
 const FLAKY_WINDOW_MS = 30000;
+// Retry schedules: each waits min(MAX, BASE * 2^attempt) ms. None of these was measured; they are
+// stated guesses, kept short because a phone on a flaky mobile link is waiting on them.
+const JOIN_BASE_MS = 500; // a first retry soon enough to ride out a dropped packet
+const JOIN_MAX_MS = 4000; // the join button is spinning: cap the wait (the five waits sum to 11.5 s)
+const JOIN_MAX_RETRIES = 5; // then say "unreachable" instead of spinning forever on a dead link
+const RESUME_BASE_MS = 500; // as JOIN_BASE_MS
+const RESUME_MAX_MS = 5000; // never gives up (the identity is kept), so it backs off a little more than join
+const ANSWER_BASE_MS = 300; // a tap should land fast: the question is on a clock
+const ANSWER_MAX_MS = 3000; // short, so a retry after a long outage can still land inside the answer window
+const WS_RETRY_BASE_MS = 1000; // polling covers the gap, so the socket need not hurry
+const WS_RETRY_MAX_MS = 15000; // many phones reconnect after a server restart: spread them out
+const WS_OPEN_TIMEOUT_MS = 5000; // a socket not open by now is stuck behind a proxy or a dead link
 // Every word the phone says, in the game's language (#91): the view's `lang` once joined, the
 // live session's (/play/api/ping) before. play.html's own words carry data-t="<key>" (and
 // data-t-placeholder / data-t-label). tests/test_quiz_language.py checks both languages have
@@ -243,7 +255,7 @@ function connectWs() {
   const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/play/ws`);
   ws = sock;
   let opened = false;
-  const giveUp = setTimeout(() => { if (!opened) sock.close(); }, 5000);
+  const giveUp = setTimeout(() => { if (!opened) sock.close(); }, WS_OPEN_TIMEOUT_MS);
   sock.onopen = () => {
     opened = true;
     clearTimeout(giveUp);
@@ -265,7 +277,7 @@ function connectWs() {
     wsOpen = false;
     drops.push(Date.now());
     updatePolling();
-    wsTimer = setTimeout(connectWs, Math.min(15000, 1000 * 2 ** wsRetry++));
+    wsTimer = setTimeout(connectWs, Math.min(WS_RETRY_MAX_MS, WS_RETRY_BASE_MS * 2 ** wsRetry++));
   };
 }
 
@@ -308,8 +320,8 @@ async function join(ev) {
       let r = null;
       try { r = await post('/play/api/join', { pin, nickname, key }); } catch { r = null; }
       if (r === null || r.status >= 500) {
-        if (attempt >= 5) return showJoin(T.unreachable);
-        await sleep(Math.min(4000, 500 * 2 ** attempt));
+        if (attempt >= JOIN_MAX_RETRIES) return showJoin(T.unreachable);
+        await sleep(Math.min(JOIN_MAX_MS, JOIN_BASE_MS * 2 ** attempt));
         continue;
       }
       clock(r.data);
@@ -346,7 +358,7 @@ async function resume() {
     }
     online = false;
     setConn();
-    await sleep(Math.min(5000, 500 * 2 ** attempt)); // offline or the server is restarting: keep the identity, retry
+    await sleep(Math.min(RESUME_MAX_MS, RESUME_BASE_MS * 2 ** attempt)); // offline or the server is restarting: keep the identity, retry
   }
 }
 
@@ -562,7 +574,7 @@ async function answer(itemId, choice) {
     mine.retrying = true;
     redraw();
     const wait = r && r.status === 429 ? (r.data?.error?.detail?.retry_after_s || 1) * 1000 : 0;
-    await sleep(Math.max(wait, Math.min(3000, 300 * 2 ** attempt)));
+    await sleep(Math.max(wait, Math.min(ANSWER_MAX_MS, ANSWER_BASE_MS * 2 ** attempt)));
   }
 }
 
