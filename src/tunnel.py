@@ -46,6 +46,9 @@ READY_TIMEOUT_S = 2.0
 RESPAWN_FIRST_S = 30.0
 RESPAWN_MAX_S = 300.0
 LOG_ROTATE_BYTES = 5_000_000
+# The orphan scan is a PowerShell CIM query before every (re)start. 20 s is a stated guess, not a
+# measurement: generous for a cold WMI start, short enough that a hung query cannot stall the supervisor.
+ORPHAN_SCAN_TIMEOUT_S = 20
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 
@@ -104,7 +107,7 @@ def _own_orphans(path: Path) -> list[int]:
     try:
         out = subprocess.run([POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
                              capture_output=True, text=True, encoding="oem", errors="replace",
-                             timeout=20, creationflags=NO_WINDOW, check=False)
+                             timeout=ORPHAN_SCAN_TIMEOUT_S, creationflags=NO_WINDOW, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
         logger.warning("⚠️ tunnel: could not list cloudflared processes (%s)", exc)
         return []
