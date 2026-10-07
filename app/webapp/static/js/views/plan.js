@@ -342,11 +342,11 @@ function renderList() {
     h.draggable = true;
     h.innerHTML =
       `<span class="grip" aria-hidden="true">${icon('grip-vertical')}</span>` +
-      `<button type="button" class="sec-toggle hit-target" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
+      `<button type="button" class="icon-button sec-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
       `<button type="button" class="sec-name" title="Rename">${esc(sec.name)}</button>` +
       `<span class="sec-meta">${sec.items.length} item${sec.items.length === 1 ? '' : 's'}${collapsed ? ' · collapsed' : ''}</span>` +
       `<label class="sec-min"><input type="number" min="0" max="1440" value="${sec.minutes}" aria-label="Planned minutes for ${esc(sec.name)}"><span>min</span></label>` +
-      `<button type="button" class="kebab hit-target" aria-label="Section actions">${icon('ellipsis-vertical')}</button>`;
+      `<button type="button" class="icon-button kebab" aria-label="Section actions">${icon('ellipsis-vertical')}</button>`;
     h.querySelector('.sec-toggle').addEventListener('click', () => {
       if (collapsed) st.collapsed.delete(sec.id); else st.collapsed.add(sec.id);
       renderList();

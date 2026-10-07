@@ -224,7 +224,7 @@ function sessionRow(s) {
     `<div class="grow"><div class="row-title">${esc(s.title)}</div>` +
     `<div class="row-meta">${bad ? `<span class="chip bad">${esc(s.status === 'missing' ? 'folder missing' : 'unreadable')}</span> ` : ''}` +
     `${esc(fmtDate(s.date))} · ${esc(s.crumbs.slice(-3).join(' › '))}</div></div>` +
-    `<button type="button" class="kebab hit-target" aria-label="More actions">${icon('ellipsis-vertical')}</button>`;
+    `<button type="button" class="icon-button kebab" aria-label="More actions">${icon('ellipsis-vertical')}</button>`;
   const select = () => openSession(s.id);
   row.addEventListener('click', (e) => { if (!e.target.closest('.kebab')) select(); });
   row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });

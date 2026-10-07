@@ -27,22 +27,10 @@
 .p-chips .chip { min-height: 30px; padding: 4px 12px; font-size: var(--font-body-sm); border: 0; cursor: default; }
 .p-chips button.chip { cursor: pointer; font: inherit; font-size: var(--font-body-sm); font-weight: 600; }
 .p-chips a.chip { cursor: pointer; font-weight: 600; text-decoration: none; }
-/* A side-by-side cluster, so real 44px geometry (like .p-nav), not a ::before
-   expansion (design.md Touch targets: adjacent clusters never overlap). */
-.p-icon-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--card);
-  color: var(--ink);
-  cursor: pointer;
-}
-.p-icon-btn .icon { width: 20px; height: 20px; }
-.p-icon-btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+/* Icon buttons (vendored icon-button/) in real 44px boxes: the header cluster, the filmstrip arrows, the music skips
+   and the quiz kick sit side by side, so the box carries the touch size, not a ::before expansion (design.md Touch
+   targets: adjacent clusters never overlap). Blackout shows its state as aria-pressed (the glyph takes the accent). */
+.p-top .icon-button-group, .p-strip .icon-button, .p-quiz-players .icon-button, .p-music .icon-button { --icon-btn-box: 44px; }
 
 /* ---- cards ------------------------------------------------------------ */
 .p-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
@@ -184,11 +172,6 @@
 
 /* ---- filmstrip -------------------------------------------------------- */
 .p-strip { display: flex; align-items: center; gap: var(--space-sm); padding: 10px var(--space-sm); }
-.p-nav {
-  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
-  border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--card); color: var(--ink); cursor: pointer;
-}
-.p-nav:disabled { color: var(--muted); cursor: default; opacity: 0.5; }
 .p-thumbs { flex: 1; min-width: 0; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: thin; padding: 4px 2px; }
 .p-thumb {
   flex: none; width: 128px; display: grid; gap: 4px; justify-items: center;
@@ -280,9 +263,3 @@
 .p-quiz-players li.muted { border-bottom: 0; }
 .p-quiz-players .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p-quiz-players .chip { display: inline-flex; min-height: 22px; padding: 0 8px; font-size: var(--font-caption); }
-.p-quiz-kick {
-  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
-  border: 0; border-radius: var(--radius-md); background: none; color: var(--muted); cursor: pointer;
-}
-.p-quiz-kick:hover { color: var(--danger-text); background: var(--danger-soft); }
-.p-quiz-kick .icon { width: 18px; height: 18px; }
