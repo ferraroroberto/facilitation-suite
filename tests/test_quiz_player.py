@@ -17,8 +17,10 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import connect
 
+from app.player import app as player_app
 from app.player import ratelimit
 from app.player.app import STATIC_DIR as PLAYER_STATIC
 from app.player.app import create_player_app
@@ -296,6 +298,16 @@ def test_a_socket_that_never_says_hello_is_closed(game) -> None:
     with connect(base.replace("http://", "ws://") + "/play/ws", open_timeout=5) as ws:
         ws.send(json.dumps({"op": "answer", "choice": 1}))  # not a hello: refused
         with pytest.raises(Exception):  # noqa: B017 — the server closes it
+            ws.recv(timeout=5)
+
+
+def test_the_hello_deadline_holds_after_a_ping(game, monkeypatch) -> None:
+    _, base = game
+    monkeypatch.setattr(player_app, "HELLO_TIMEOUT_S", 0.5)
+    with connect(base.replace("http://", "ws://") + "/play/ws", open_timeout=5) as ws:
+        ws.send(json.dumps({"op": "ping", "t": 1}))
+        assert json.loads(ws.recv(timeout=5))["type"] == "pong"  # a ping is answered before the hello…
+        with pytest.raises(ConnectionClosed):  # …but the socket still has to say hello in time
             ws.recv(timeout=5)
 
 

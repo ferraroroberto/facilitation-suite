@@ -206,11 +206,13 @@ def create_player_app(quiz: QuizService) -> FastAPI:
             return
         await ws.accept()
         conn: Optional[Conn] = None
+        hello_by = time.monotonic() + HELLO_TIMEOUT_S
         try:
-            first = True
             while True:
-                raw = await (asyncio.wait_for(ws.receive_text(), HELLO_TIMEOUT_S) if first else ws.receive_text())
-                first = False
+                if conn is None:  # pings are answered meanwhile, but the hello deadline keeps running
+                    raw = await asyncio.wait_for(ws.receive_text(), max(0.0, hello_by - time.monotonic()))
+                else:
+                    raw = await ws.receive_text()
                 try:
                     msg = json.loads(raw)
                 except ValueError:
