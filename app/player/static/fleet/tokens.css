@@ -30,6 +30,7 @@
   --input-bg: var(--card-off);
   --toggle-knob: #ffffff;
   --close-bg: transparent;
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.5); /* the toast's glass shadow: the nav bar's, as design.md Elevation says */
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --accent-border-soft: color-mix(in srgb, var(--accent) 24%, transparent);
   --accent-border-strong: color-mix(in srgb, var(--accent) 28%, transparent);
