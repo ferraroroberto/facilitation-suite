@@ -203,21 +203,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .session-row:hover { background: var(--card-off); }
 .session-row.selected { background: var(--accent-soft); }
 .session-row .grow { flex: 1; min-width: 0; }
-.kebab {
-  width: 44px;
-  height: 44px;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-.kebab:hover { background: var(--neutral-soft); }
-.kebab::before { display: none; }
+/* The row's ... menu is an icon button (vendored icon-button/) in a real 44px box: it sits at the edge of a row
+   that is itself a click target, so the box carries the touch size instead of a ::before expansion. */
+.kebab { --icon-btn-box: 44px; }
 .stack-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
 .stack-actions p { margin: 0 4px; }
 .big-action { min-height: 64px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -352,9 +340,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .result-row.selected { --muted: var(--ink); }
 .grip { color: var(--muted); cursor: grab; display: inline-flex; }
 .grip .icon { width: var(--icon-inline); height: var(--icon-inline); }
-.sec-toggle, .sec-name { border: 0; background: transparent; cursor: pointer; color: var(--ink); padding: 0; }
-/* 34px visual + the shared .hit-target (co-applied in plan.js) = 44px effective (design.md Touch targets). */
-.sec-toggle { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+.sec-name { border: 0; background: transparent; cursor: pointer; color: var(--ink); padding: 0; }
+/* An icon button (vendored icon-button/): a 34px box, its ::before grows the target to the 44px floor (design.md Touch targets). */
+.sec-toggle { --icon-btn-box: 34px; }
 .sec-name { min-height: var(--hit-min); font-weight: 700; text-align: left; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sec-meta { font-size: var(--font-body-sm); color: var(--muted); white-space: nowrap; }
 .sec-min { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-body-sm); color: var(--muted); }

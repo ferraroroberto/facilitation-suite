@@ -119,8 +119,8 @@ function buildShell() {
       '<div class="r-music-now"><span data-r-mnow></span></div>' +
       '<div class="r-more">' +
         `<button type="button" class="button-surface" data-r-mtoggle></button>` +
-        `<button type="button" class="button-surface" data-r-mprev aria-label="Previous track">${icon('skip-back')}</button>` +
-        `<button type="button" class="button-surface" data-r-mnext aria-label="Next track">${icon('skip-forward')}</button>` +
+        `<button type="button" class="icon-button" data-r-mprev aria-label="Previous track">${icon('skip-back')}</button>` +
+        `<button type="button" class="icon-button" data-r-mnext aria-label="Next track">${icon('skip-forward')}</button>` +
         `<button type="button" class="button-surface" data-r-mstop>${icon('square')} Stop music</button></div>` +
       `<label class="r-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-r-mvol aria-label="Music volume"></label></div>` +
     '<p class="small muted r-foot">The presenter on the PC does the same; this is for when you stand up or walk away from the keyboard.</p>');

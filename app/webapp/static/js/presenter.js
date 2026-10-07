@@ -104,11 +104,12 @@ function buildShell() {
     `<header class="p-top">` +
       `<div class="p-titles"><div class="p-title">${esc(plan.session.title)}</div><div class="p-sub" data-sub></div></div>` +
       `<div class="p-chips" data-chips></div>` +
-      `<button type="button" class="p-icon-btn" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
-      `<button type="button" class="p-icon-btn" data-blackout title="Blackout (B)" aria-label="Blackout">${icon('eye-off')}</button>` +
-      `<button type="button" class="p-icon-btn" data-theme-toggle title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
-      `<button type="button" class="p-icon-btn" data-reset title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
-      `<button type="button" class="p-icon-btn" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button>` +
+      `<span class="icon-button-group">` +
+      `<button type="button" class="icon-button" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
+      `<button type="button" class="icon-button" data-blackout title="Blackout (B)" aria-label="Blackout" aria-pressed="false">${icon('eye-off')}</button>` +
+      `<button type="button" class="icon-button" data-theme-toggle title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
+      `<button type="button" class="icon-button" data-reset title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
+      `<button type="button" class="icon-button" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button></span>` +
     `</header>` +
     // Four columns on a wide screen (#149): what is on stage, its notes and the session clocks ·
     // what comes next and the music · the item's controls (quiz, capture, timer) · the Zoom chat.
@@ -131,9 +132,9 @@ function buildShell() {
       `</div>` +
     `</div>` +
     `<footer class="card p-strip">` +
-      `<button type="button" class="p-nav" data-prev aria-label="Previous (←)">${icon('chevron-left')}</button>` +
+      `<button type="button" class="icon-button" data-prev aria-label="Previous (←)">${icon('chevron-left')}</button>` +
       `<div class="p-thumbs" data-thumbs></div>` +
-      `<button type="button" class="p-nav" data-next aria-label="Next (→)">${icon('chevron-right')}</button>` +
+      `<button type="button" class="icon-button" data-next aria-label="Next (→)">${icon('chevron-right')}</button>` +
     `</footer>` +
     `<div class="card p-keys" data-keypop hidden><p class="overline">Keys · stage or presenter window</p><dl class="p-keylist"></dl></div>`;
 
@@ -219,7 +220,7 @@ function draw() {
   const flag = root.querySelector('[data-flag]');
   flag.hidden = !s.blackout;
   flag.textContent = s.blackout ? 'Blackout — the stage is black' : '';
-  root.querySelector('[data-blackout]').classList.toggle('on', !!s.blackout);
+  root.querySelector('[data-blackout]').setAttribute('aria-pressed', String(!!s.blackout));
 
   if (s.index !== lastIndex) {
     lastIndex = s.index;
@@ -500,7 +501,7 @@ function drawQuiz(body, q) {
     list.dataset.sig = sig;
     list.innerHTML = players.length ? players.map((p) =>
       `<li><span class="grow">${esc(p.name)}</span>${p.source === 'chat' ? '<span class="chip">chat</span>' : ''}` +
-      `<button type="button" class="p-quiz-kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="Remove ${esc(p.name)}" title="Remove from the game">${icon('x')}</button></li>`).join('')
+      `<button type="button" class="icon-button danger" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="Remove ${esc(p.name)}" title="Remove from the game">${icon('x')}</button></li>`).join('')
       : `<li class="muted small">${phase === 'lobby' ? 'Nobody has joined yet.' : 'No players.'}</li>`;
   }
   tickQuiz(body, q);
@@ -694,8 +695,8 @@ function buildMusic() {
     `<button type="button" class="button-surface" data-mlinkplay>${icon('play')} Play link</button></div>` +
     `<div class="p-timer-actions">` +
     `<button type="button" class="button-primary" data-mtoggle></button>` +
-    `<button type="button" class="button-surface" data-mprev title="Previous track (Spotify)" aria-label="Previous track">${icon('skip-back')}</button>` +
-    `<button type="button" class="button-surface" data-mnext title="Next track (Spotify)" aria-label="Next track">${icon('skip-forward')}</button>` +
+    `<button type="button" class="icon-button" data-mprev title="Previous track (Spotify)" aria-label="Previous track">${icon('skip-back')}</button>` +
+    `<button type="button" class="icon-button" data-mnext title="Next track (Spotify)" aria-label="Next track">${icon('skip-forward')}</button>` +
     `<button type="button" class="button-surface" data-mstop title="Stop (fades out)">${icon('square')} Stop</button>` +
     `<button type="button" class="button-surface" data-mfade title="Fade out slowly, then stop">${icon('volume-x')} Fade out</button></div>` +
     `<p class="small muted p-music-hint" data-mhint></p>`;

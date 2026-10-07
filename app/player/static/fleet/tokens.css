@@ -29,7 +29,7 @@
   --tile-yellow: #bf8700;
   --input-bg: var(--card-off);
   --toggle-knob: #ffffff;
-  --close-bg: var(--card-off);
+  --close-bg: transparent;
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --accent-border-soft: color-mix(in srgb, var(--accent) 24%, transparent);
   --accent-border-strong: color-mix(in srgb, var(--accent) 28%, transparent);
@@ -110,7 +110,7 @@
   --tile-yellow: #9e6a03;
   --input-bg: var(--bg);
   --toggle-knob: var(--ink);
-  --close-bg: var(--line);
+  --close-bg: transparent;
   --tabbar-bg: rgba(22, 27, 34, 0.85);
   --tabbar-border: rgba(240, 246, 252, 0.1);
   color-scheme: dark;

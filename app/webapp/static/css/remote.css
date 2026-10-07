@@ -49,6 +49,8 @@ body.offline .remote { opacity: 0.6; }
 .r-music { display: grid; gap: 10px; }
 .r-music[hidden] { display: none; }
 .r-music-now { font-weight: 600; overflow-wrap: anywhere; }
+/* The skip buttons are icon buttons (vendored icon-button/) in real 44px boxes, beside labelled buttons. */
+.r-more .icon-button { --icon-btn-box: 44px; flex: none; min-height: 0; padding: 0; }
 .r-music-vol { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; }
 .r-music-vol .icon { width: 20px; height: 20px; color: var(--muted); flex: none; }
 .r-music-vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
