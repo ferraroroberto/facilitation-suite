@@ -10,7 +10,10 @@ import re
 import yaml
 from playwright.sync_api import Page, expect
 
+from tests.e2e._geometry import assert_min_target
 from tests.e2e.conftest import shot
+
+UNPAINTED = "el => { const s = getComputedStyle(el); return [s.backgroundColor, s.borderTopWidth]; }"
 
 
 def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> None:
@@ -35,6 +38,10 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     page.goto(webapp.base_url + "/")
     page.click("[data-new]")
     dlg = page.locator("dialog[open]")
+    # the dialog close is an .icon-button (project-scaffolding#339): unpainted at rest, a 44px target
+    close = dlg.locator(".detail-close")
+    assert close.evaluate(UNPAINTED) == ["rgba(0, 0, 0, 0)", "0px"]
+    assert_min_target(close)
     dlg.locator("[name=title]").fill("Workshop · cohort A")
     dlg.locator("[name=workshop]").fill("demo-workshop")
     dlg.locator("[name=folder]").fill("cohort-a")

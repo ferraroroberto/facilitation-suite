@@ -173,8 +173,8 @@ export function pageHead({ glyph, title, status = '', settings = true }) {
   head.innerHTML =
     `<h2 class="home-title">${icon(glyph)}<span class="home-title-text">${esc(title)}</span></h2>` +
     `<span class="status">${esc(status)}</span>` +
-    `<button type="button" class="home-toggle hit-target" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">${icon(themeGlyph)}</button>` +
-    (settings ? `<button type="button" class="home-toggle hit-target" data-open-settings aria-label="Settings" title="Settings">${icon('settings')}</button>` : '');
+    `<button type="button" class="icon-button home-toggle hit-target" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">${icon(themeGlyph)}</button>` +
+    (settings ? `<button type="button" class="icon-button home-toggle hit-target" data-open-settings aria-label="Settings" title="Settings">${icon('settings')}</button>` : '');
   head.querySelector('[data-theme-toggle]').addEventListener('click', toggleTheme);
   return head;
 }

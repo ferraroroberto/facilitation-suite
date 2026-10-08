@@ -82,7 +82,7 @@ const items = () => (plan && plan.run ? plan.run.items : []);
 function headHtml() {
   return `<div class="card home-head remote-head"><span class="home-title">${icon('presentation')}` +
     '<span class="remote-titles"><span class="home-title-text">Live</span><span class="remote-sub" data-r-sub></span></span></span>' +
-    `<button type="button" class="home-toggle" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button></div>`;
+    `<button type="button" class="icon-button home-toggle" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button></div>`;
 }
 
 function buildShell() {

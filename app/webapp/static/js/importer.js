@@ -12,7 +12,7 @@ export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
     dlg.innerHTML =
       `<div class="detail-card">` +
       `<div class="detail-header"><h2>${reimport ? 'Re-import PowerPoint' : 'Import PowerPoint'}</h2>` +
-      `<button type="button" class="detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
+      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
       `<label class="row"><span>Deck</span><span class="pick-row">` +
       `<input class="input-native" name="pptx" type="text" placeholder="C:\\…\\deck.pptx" value="${esc(lastPath)}">` +
       `<button type="button" class="button-surface" data-browse>${icon('folder-open')} Browse</button></span></label>` +

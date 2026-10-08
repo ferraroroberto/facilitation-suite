@@ -17,6 +17,7 @@ from tests.fixtures.demo import build_demo_session
 PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
 # top = safe area (0 in emulation) · sides = --gap · bottom = 21 + 61 + 21 + --gap
 PHONE_PADDING = ["0px", "12px", "115px", "12px"]
+UNPAINTED = "el => { const s = getComputedStyle(el); return [s.backgroundColor, s.borderTopWidth]; }"
 APP_PADDING = """() => {
   const s = getComputedStyle(document.querySelector('.app'));
   return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft];
@@ -29,6 +30,10 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(webapp.base_url + "/")
     expect(page.locator("#paneSessions .home-head")).to_have_count(1)
+    # the head toggles are .icon-button's (project-scaffolding#339): unpainted at rest, a 44px target
+    toggle = page.locator("#paneSessions .home-head .home-toggle").first
+    assert toggle.evaluate(UNPAINTED) == ["rgba(0, 0, 0, 0)", "0px"]
+    assert_min_target(toggle)
     expect(page.locator("#buildReadout")).to_contain_text("Build:")
     # desktop keeps the app's own --gap padding on the sides and bottom
     assert page.evaluate(APP_PADDING)[1:] == ["12px", "12px", "12px"]
