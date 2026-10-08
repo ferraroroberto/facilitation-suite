@@ -128,13 +128,15 @@ ready_selector = ".session-row"
 [design]
 wide_views = ["plan", "groups", "results", "live"]
 
-# Verdicts on two /design-sync WARNs (#224), written as comments because [[design.accepted]] cannot
-# hold them: both findings carry no evidence file, and an entry needs a `target` equal to it.
-#  - glyph-icons: the → ← characters are keyboard-key legends, aria-label text, menu-path prose
-#    ("Settings → Phone remote") and code comments, not icons drawn in place of a Lucide glyph.
-#  - icon-sizes: every size outside 16/18/20/24 is on the projector stage (app/activities/*/stage.css,
-#    css/stage.css) or in the presenter's miniature slide thumbnail (.p-thumb-text, 12px beside 11px
-#    text); the stage follows the session theme, not the fleet design.
+# Verdicts on two /design-sync WARNs (#224, #233). Neither finding names an evidence file, so each is
+# a two-line repo-level entry that matches the check whatever its detail says.
+[[design.accepted]]
+check  = "glyph-icons"
+reason = "the arrow characters are keyboard-key legends, aria-label text, menu-path prose and code comments, not icons drawn in place of a Lucide glyph"
+
+[[design.accepted]]
+check  = "icon-sizes"
+reason = "every size outside 16/18/20/24 is on the projector stage or in the presenter's miniature slide thumbnail (12px beside 11px text); the stage follows the session theme, not the fleet design"
 
 [design.review]
 # The stage preview in the Plan editor and the stage-font sample in Settings are the real stage
