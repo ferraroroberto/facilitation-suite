@@ -32,6 +32,7 @@ tray_watchdog   = { src = "app/tray/watchdog.py", sha = "10b2f9424b6d0272d511048
 classify_e2e    = { src = "scripts/classify_e2e.py", sha = "bede95f00aee0b17d5007246a29fa881a71f24f4", dest = "scripts/classify_e2e.py" }
 no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/build_info.py" }
+geometry        = { src = "tests/e2e/_geometry.py", sha = "aa820f1215151087588433f290cd2ba55b34658d", dest = "tests/e2e/_geometry.py" }
 # Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's
 # (via task-os), code verbatim; src/certs.py and scripts/gen_tailscale_cert.py are
 # copy-to-adapt (project-scaffolding#232), so they carry no [vendored] entry.
@@ -126,6 +127,14 @@ ready_selector = ".session-row"
 # not a tab of the walked page. Only the Sessions list keeps the 772px measure (app.css).
 [design]
 wide_views = ["plan", "groups", "results", "live"]
+
+# Verdicts on two /design-sync WARNs (#224), written as comments because [[design.accepted]] cannot
+# hold them: both findings carry no evidence file, and an entry needs a `target` equal to it.
+#  - glyph-icons: the → ← characters are keyboard-key legends, aria-label text, menu-path prose
+#    ("Settings → Phone remote") and code comments, not icons drawn in place of a Lucide glyph.
+#  - icon-sizes: every size outside 16/18/20/24 is on the projector stage (app/activities/*/stage.css,
+#    css/stage.css) or in the presenter's miniature slide thumbnail (.p-thumb-text, 12px beside 11px
+#    text); the stage follows the session theme, not the fleet design.
 
 [design.review]
 # The stage preview in the Plan editor and the stage-font sample in Settings are the real stage

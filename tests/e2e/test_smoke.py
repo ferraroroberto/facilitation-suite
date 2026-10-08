@@ -1,7 +1,8 @@
 """Smoke: the app shell loads in both themes, the nav switches panes, Settings opens in its five
 sections and the presenter's music chip deep-links to Settings → Music (#110),
 and on a phone the vendored nav owns `.app`'s padding (safe area on top, the
-floating tab bar's reserve at the bottom) on both nav pages. The quiz player
+floating tab bar's reserve at the bottom) on both nav pages, where the rendered geometry also
+holds: no sideways scroll, tabs that reach 44px and never overlap (#224). The quiz player
 page answers beside it on its own port."""
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import yaml
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._geometry import assert_min_target, assert_no_horizontal_overflow, assert_no_overlap
 from tests.fixtures.demo import build_demo_session
 
 # A touch phone (coarse pointer, <=520px): the vendored nav-tabs.css phone rule applies.
@@ -85,5 +87,10 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
             p.goto(webapp.base_url + path)
             expect(p.locator(".app")).to_have_count(1)
             assert p.evaluate(APP_PADDING) == PHONE_PADDING, path
+            # #224: the rendered leg -- effective hit rectangles and overflow, which no static scan proves
+            tabs = p.locator(".tabs .tab")
+            assert_no_horizontal_overflow(p)
+            assert_min_target(tabs)
+            assert_no_overlap(tabs)
     finally:
         phone.close()
