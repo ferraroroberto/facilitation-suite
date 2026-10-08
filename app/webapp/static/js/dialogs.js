@@ -30,7 +30,7 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
     dlg.innerHTML =
       `<form class="detail-card" method="dialog">` +
       `<div class="detail-header"><h2>${esc(title)}</h2>` +
-      `<button type="button" class="detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
+      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
       rows +
       `<div class="detail-actions"><button type="submit" class="button-primary detail-save-btn">${esc(saveLabel)}</button></div>` +
       `</form>`;
@@ -64,7 +64,7 @@ export function confirmDialog({ title, message, actionLabel = 'Confirm', danger 
     dlg.innerHTML =
       `<div class="detail-card">` +
       `<div class="detail-header"><h2>${esc(title)}</h2>` +
-      `<button type="button" class="detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
+      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
       `<p class="dialog-message">${esc(message)}</p>` +
       `<div class="detail-actions"><button type="button" class="${danger ? 'button-tint danger' : 'button-primary detail-save-btn'} dialog-confirm" data-ok>${esc(actionLabel)}</button></div>` +
       `</div>`;

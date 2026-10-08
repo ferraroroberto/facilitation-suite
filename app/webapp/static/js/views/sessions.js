@@ -266,7 +266,7 @@ async function renderDetail() {
   const title = document.createElement('div');
   title.className = 'detail-title';
   title.innerHTML = `<h1 data-title></h1><p class="muted" data-summary></p>` +
-    `<button type="button" class="detail-close" aria-label="Close" title="Close (Esc)" data-close-session>${icon('x')}</button>`;
+    `<button type="button" class="icon-button detail-close" aria-label="Close" title="Close (Esc)" data-close-session>${icon('x')}</button>`;
   title.querySelector('[data-close-session]').addEventListener('click', () => closeSession());
   paintTitle(title, s);
   detailEl.appendChild(title);
