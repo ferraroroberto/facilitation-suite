@@ -1,7 +1,8 @@
-"""The chat reader (Zoom, or Teams with ``reader.source = "teams"``, #237) —
-its own process, so a crash never takes the server down.
+"""The chat reader (Zoom, or Teams with ``reader.source = "teams"``, #237;
+the server passes the presenter's choice as ``--source``, #239) — its own
+process, so a crash never takes the server down.
 
-    python -m src.chat.reader --server http://127.0.0.1:8449 [--parent-pid N]
+    python -m src.chat.reader --server http://127.0.0.1:8449 [--parent-pid N] [--source zoom|teams]
     python -m src.chat.reader --server … --simulate burst:50
     python -m src.chat.reader --server … --simulate script.yaml
 
@@ -342,6 +343,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--simulate", help="burst:N | random:N[:every_ms] | script.yaml")
     ap.add_argument("--answers", help="comma-separated answers for burst/random simulations")
     ap.add_argument("--stop-file", type=Path, help="exit cleanly when this file appears")
+    ap.add_argument("--source", choices=SOURCES, help="the chat to read (default: the config's reader.source)")
     args = ap.parse_args(argv)
     configure_logging(log_file=log_path("chat-reader"))
     poster = Poster(args.server)
@@ -352,8 +354,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         logger.error("❌ the chat reader needs Windows (MSAA)")
         return 2
     cfg = load_config().reader
-    source = cfg.source if cfg.source in SOURCES else "zoom"
-    if source != cfg.source:
+    source = args.source or (cfg.source if cfg.source in SOURCES else "zoom")
+    if not args.source and source != cfg.source:
         logger.warning("⚠️ config reader.source %r is not one of %s — reading Zoom", cfg.source, ", ".join(SOURCES))
     if source == "teams":
         logger.info("✅ reader up — Teams, a window titled …%r… every %d ms, posting to %s", cfg.teams_title, cfg.poll_ms, args.server)

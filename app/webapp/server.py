@@ -158,7 +158,8 @@ def _install_chat(app: FastAPI) -> None:
     live = app.state.live
     chat_hub = ChatHub(live)
     scheme = "https" if cert_paths() else "http"  # the reader falls back to the other scheme itself
-    proc = ReaderProcess(f"{scheme}://127.0.0.1:{cfg.port}")
+    # Each start reads the chosen source from the live config: the presenter's switch saves it (#239).
+    proc = ReaderProcess(f"{scheme}://127.0.0.1:{cfg.port}", source=lambda: app.state.config.reader.source)
 
     capture = CaptureService(live, chat_hub)
     capture.freeze_url = f"{scheme}://127.0.0.1:{cfg.port}"
@@ -173,6 +174,7 @@ def _install_chat(app: FastAPI) -> None:
             proc.server_url = capture.freeze_url = f"{request.url.scheme}://127.0.0.1:{server[1]}"
         return await call_next(request)
     chat_hub.process_running = proc.running
+    chat_hub.chosen_source = proc.source
     app.state.chat = chat_hub
     app.state.reader = chat_hub  # readiness facts (sessions router)
     app.state.reader_process = proc

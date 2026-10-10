@@ -609,8 +609,9 @@ const READER_CHIP = {
   error: ['bad', 'error'],
   off: ['', 'off', 'start-reader'],
 };
-// The reader's source (#237): its last heartbeat says Teams or Zoom (the simulator counts as Zoom).
-const isTeams = (r) => r.source === 'teams';
+// The reader's source (#237): its last heartbeat says Teams or Zoom (the simulator counts as Zoom);
+// a stopped reader shows the source chosen on the switch, the one it starts on (#239).
+const isTeams = (r) => (r.state === 'off' || !r.source ? r.chosen : r.source) === 'teams';
 
 function drawChips() {
   const box = root.querySelector('[data-chips]');
@@ -899,11 +900,15 @@ function drawChatFoot() {
       ? 'In Teams: open the meeting chat. In a browser, keep the Teams tab the active tab of its window.'
       : 'In Zoom: Chat → … → Pop out. The reader only sees the popped-out chat.';
   } else if (r.state === 'stale' || r.state === 'error') hint = r.detail || '';
-  else if (!chat.length && r.state === 'off') hint = 'Start the reader to see the Zoom chat here, or simulate answers to rehearse.';
-  const key = `${r.state}|${hint}`;
+  else if (!chat.length && r.state === 'off') hint = `Start the reader to see the ${isTeams(r) ? 'Teams' : 'Zoom'} chat here, or simulate answers to rehearse.`;
+  const chosen = r.chosen === 'teams' ? 'teams' : 'zoom';
+  root.querySelector('.p-chat .p-label').textContent = `${isTeams(r) ? 'Teams' : 'Zoom'} chat`;
+  const key = `${r.state}|${hint}|${chosen}`;
   if (foot.dataset.key === key) return;
   foot.dataset.key = key;
   foot.innerHTML = (hint ? `<p class="small muted p-chat-hint">${esc(hint)}</p>` : '') +
+    `<div class="range-tabs" role="group" aria-label="Chat source">${[['zoom', 'Zoom'], ['teams', 'Teams']].map(([v, l]) =>
+      `<button type="button" class="range-tab${v === chosen ? ' active' : ''}" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
     `<div class="row-actions">` +
     (running && r.state !== 'simulating'
       ? `<button type="button" class="button-surface" data-reader="stop">${icon('square')} Stop reader</button>`
@@ -912,6 +917,23 @@ function drawChatFoot() {
   const rb = foot.querySelector('[data-reader]');
   rb.addEventListener('click', () => (rb.dataset.reader === 'stop' ? stopReader() : startReader()));
   foot.querySelector('[data-sim]').addEventListener('click', simulateAnswers);
+  foot.querySelectorAll('[data-source]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.source !== chosen) chooseSource(b.dataset.source, foot);
+  }));
+}
+
+// Zoom · Teams (#239): saved for the next session too; a running reader restarts on it.
+async function chooseSource(source, foot) {
+  const name = source === 'teams' ? 'Teams' : 'Zoom';
+  foot.querySelectorAll('[data-source]').forEach((b) => { b.disabled = true; });
+  try {
+    const res = await api('/api/chat/reader/source', { method: 'PUT', body: { source } });
+    toast(res.restarted ? `Reading the ${name} chat now` : `${name} chat chosen — the reader reads it when it starts`);
+  } catch (e) {
+    toast(e.message, 'error');
+    foot.dataset.key = '';
+    drawChatFoot();
+  }
 }
 
 async function startReader() {
