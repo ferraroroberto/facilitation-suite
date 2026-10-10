@@ -301,8 +301,8 @@ function readerCard() {
   const note = document.createElement('p');
   note.className = 'small muted settings-note';
   note.textContent = teams
-    ? `It reads the Teams chat open in a window titled “… ${data.reader.teams_title}” every ${data.reader.poll_ms} ms (reader.source in config.json).`
-    : `It reads the popped-out Zoom window titled “${data.reader.window_title}” every ${data.reader.poll_ms} ms.`;
+    ? `It reads the Teams chat open in a window titled “… ${data.reader.teams_title}” every ${data.reader.poll_ms} ms. Choose Zoom or Teams on the presenter, under the chat.`
+    : `It reads the popped-out Zoom window titled “${data.reader.window_title}” every ${data.reader.poll_ms} ms. Choose Zoom or Teams on the presenter, under the chat.`;
   card.appendChild(note);
   return card;
 }

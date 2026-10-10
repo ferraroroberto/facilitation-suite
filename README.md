@@ -403,13 +403,7 @@ Participants answer in the Zoom chat; a separate local process reads it — no b
 
 ### Teams instead of Zoom
 
-The same reader reads a Microsoft Teams meeting chat, locally and read only — no bot, no Microsoft Graph app, nothing clicked or typed in Teams. Set it in `config/config.json` (no restart needed: the reader reads the config each time it starts):
-
-```json
-"reader": { "source": "teams" }
-```
-
-then **Stop reader** / **Start reader** on the presenter (or go live). Back to Zoom: `"source": "zoom"` (the default).
+The same reader reads a Microsoft Teams meeting chat, locally and read only — no bot, no Microsoft Graph app, nothing clicked or typed in Teams. Choose the platform on the presenter: the **Zoom · Teams** switch under the chat panel. While the reader runs, a switch restarts it on the other platform; its first read is a baseline, so what is already in that chat is history, never new answers. While it is stopped, the switch only saves the choice, and the next start (by hand, or going live) reads that platform. The choice is saved as `reader.source` in `config/config.json` (`zoom`, the default, or `teams`), so it survives an app restart and is where the next session starts. A simulation keeps running through a switch.
 
 - **Open the meeting chat** in Teams on the web (Chrome or Edge) in a browser window of its own: **Chat** in Teams' left bar → the meeting's chat. Keep that Teams tab the **active tab of its window** — a browser exposes only the active tab to Windows accessibility. The reader finds the window whose title carries `Microsoft Teams` (`reader.teams_title`), an open chat (`Chat | … | Microsoft Teams`) first, and reads its message list through UI Automation twice a second.
 - **Tested:** a meeting chat opened from Teams' Chat list, in Teams on the web. **Not tested yet:** the chat panel inside a running meeting, and Teams desktop (the new Teams is the same engine, but whether its popped-out meeting chat is a window of its own is not known) — before a live session, check that the chip says *Teams chat · reading* with the count you expect.

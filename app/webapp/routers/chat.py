@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import require_local
+from src import settings as settings_file
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat")
 
@@ -41,6 +45,10 @@ class Beat(BaseModel):
     model_config = {"extra": "allow"}
     state: str = Field(max_length=40)
     detail: str = Field("", max_length=400)
+
+
+class SourceChoice(BaseModel):
+    source: Literal["zoom", "teams"]
 
 
 class Simulate(BaseModel):
@@ -84,6 +92,23 @@ async def reader_stop(request: Request) -> dict[str, Any]:
     await asyncio.to_thread(_proc(request).stop)
     _chat(request).refresh()
     return {"running": None}
+
+
+@router.put("/reader/source")
+async def reader_source(request: Request, body: SourceChoice) -> dict[str, Any]:
+    """The presenter's Zoom · Teams switch (#239): save the choice; a running
+    reader restarts on it (its first read is a baseline, so nothing already in
+    the chat is posted again). A stopped reader or a simulation only saves it."""
+    require_local(request, "The chat source can only be changed on this PC")
+    request.app.state.config = await asyncio.to_thread(settings_file.update, {"reader": {"source": body.source}})
+    proc = _proc(request)
+    restarted = proc.running() and proc.mode != "simulator" and proc.mode != body.source
+    if restarted:
+        await asyncio.to_thread(proc.start)
+    logger.info("ℹ️ chat source: %s%s", body.source, " — reader restarted" if restarted else "")
+    _chat(request).refresh()
+    request.app.state.live.push_state()  # every open presenter shows the choice now
+    return {"source": body.source, "restarted": restarted, "running": proc.mode}
 
 
 @router.post("/simulate")

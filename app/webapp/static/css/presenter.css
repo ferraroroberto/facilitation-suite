@@ -146,6 +146,7 @@
 .p-chat-foot { padding: var(--space-sm) var(--space-md) var(--space-md); border-top: 1px solid var(--line-muted); display: grid; gap: 6px; }
 .p-chat-foot .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
 .p-chat-hint { margin: 0; }
+.p-chat-foot .range-tabs { margin-bottom: 0; max-width: 240px; }
 
 /* The keys popover under the top bar. */
 .p-keys { position: fixed; top: 64px; right: var(--gap); z-index: 20; width: 300px; display: grid; gap: var(--space-sm);

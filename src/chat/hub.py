@@ -48,6 +48,7 @@ class ChatHub:
         self.tested: Optional[dict[str, Any]] = None
         self._state = "off"
         self.process_running: Callable[[], bool] = lambda: False
+        self.chosen_source: Callable[[], str] = lambda: "zoom"  # the presenter's Zoom · Teams switch (#239)
         self.listeners: list[Callable[[list[dict[str, Any]]], None]] = []
         live.extra_state.append(self.state_fields)
         live.reset_listeners.append(self.forget)
@@ -176,7 +177,7 @@ class ChatHub:
     def state_fields(self) -> dict[str, Any]:
         state, detail = self.reader_state()
         self.sync_session()
-        return {"reader": {"state": state, "detail": detail, "source": self.beat.get("source"),
+        return {"reader": {"state": state, "detail": detail, "source": self.beat.get("source"), "chosen": self.chosen_source(),
                            "last_read_ms": self.last_read_ms, "pending": self.beat.get("pending", 0)},
                 "chat_count": len(self.messages)}
 
