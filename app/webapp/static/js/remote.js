@@ -260,8 +260,10 @@ async function loadChat() {
 function drawChat() {
   const hidden = new Set((live && live.state && live.state.hidden) || []);
   const reader = live && live.state && live.state.reader;
-  chatPane.innerHTML = `<div class="card home-head"><span class="home-title">${icon('message-square')}<span class="home-title-text">Zoom chat</span></span>` +
-    `<span class="status">${esc(reader ? READER_TEXT[reader.state] || reader.state : '')}</span></div>`;
+  const teams = !!reader && reader.source === 'teams';
+  const status = reader ? (teams && reader.state === 'window_not_found' ? 'open the chat on the PC' : READER_TEXT[reader.state] || reader.state) : '';
+  chatPane.innerHTML = `<div class="card home-head"><span class="home-title">${icon('message-square')}<span class="home-title-text">${teams ? 'Teams' : 'Zoom'} chat</span></span>` +
+    `<span class="status">${esc(status)}</span></div>`;
   const shown = chat.filter((m) => !m.own).slice(-80).reverse();
   const card = document.createElement('div');
   card.className = 'card list-card';

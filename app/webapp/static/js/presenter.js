@@ -601,14 +601,16 @@ function drawTiming(cur, s) {
 }
 
 const READER_CHIP = {
-  reading: ['ok', 'Zoom chat · reading'],
-  simulating: ['accent', 'Zoom chat · simulating'],
-  starting: ['warn', 'Zoom chat · starting'],
-  window_not_found: ['warn', 'Zoom chat · pop out the chat'],
-  stale: ['bad', 'Zoom chat · no answer'],
-  error: ['bad', 'Zoom chat · error'],
-  off: ['', 'Zoom chat · off', 'start-reader'],
+  reading: ['ok', 'reading'],
+  simulating: ['accent', 'simulating'],
+  starting: ['warn', 'starting'],
+  window_not_found: ['warn', 'pop out the chat'],
+  stale: ['bad', 'no answer'],
+  error: ['bad', 'error'],
+  off: ['', 'off', 'start-reader'],
 };
+// The reader's source (#237): its last heartbeat says Teams or Zoom (the simulator counts as Zoom).
+const isTeams = (r) => r.source === 'teams';
 
 function drawChips() {
   const box = root.querySelector('[data-chips]');
@@ -617,8 +619,9 @@ function drawChips() {
   const chips = [];
   if (!live.online) chips.push(['bad', 'Server · reconnecting']);
   const r = s.reader || { state: 'off' };
-  const rc = READER_CHIP[r.state] || ['bad', `Zoom chat · ${r.state}`];
-  chips.push([rc[0], rc[1], rc[2], r.detail]);
+  const rc = READER_CHIP[r.state] || ['bad', r.state];
+  const what = isTeams(r) && r.state === 'window_not_found' ? 'open the chat' : rc[1];
+  chips.push([rc[0], `${isTeams(r) ? 'Teams' : 'Zoom'} chat · ${what}`, rc[2], r.detail]);
   const o = s.obs || { state: 'off' };
   const profileLabel = { camera_strip: 'Camera strip', camera_pip: 'Camera PiP', screen_only: 'Screen only' }[o.profile] || '';
   if (o.state === 'connected') {
@@ -891,8 +894,11 @@ function drawChatFoot() {
   const r = live.state.reader || { state: 'off' };
   const running = r.state !== 'off';
   let hint = '';
-  if (r.state === 'window_not_found') hint = 'In Zoom: Chat → … → Pop out. The reader only sees the popped-out chat.';
-  else if (r.state === 'stale' || r.state === 'error') hint = r.detail || '';
+  if (r.state === 'window_not_found') {
+    hint = isTeams(r)
+      ? 'In Teams: open the meeting chat. In a browser, keep the Teams tab the active tab of its window.'
+      : 'In Zoom: Chat → … → Pop out. The reader only sees the popped-out chat.';
+  } else if (r.state === 'stale' || r.state === 'error') hint = r.detail || '';
   else if (!chat.length && r.state === 'off') hint = 'Start the reader to see the Zoom chat here, or simulate answers to rehearse.';
   const key = `${r.state}|${hint}`;
   if (foot.dataset.key === key) return;

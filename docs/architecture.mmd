@@ -41,6 +41,7 @@ flowchart LR
   stage <-->|WS snapshots / intents| liver
   presenter --> themes[("themes/*.css + session theme.css")]
   zoom["Zoom · popped-out Meeting chat"] -->|MSAA walk every 0.5 s| reader["src/chat/reader.py<br/>own process · diff by order · simulator"]
+  teams["Teams · open meeting chat (reader.source = teams)"] -->|UI Automation every 0.5 s<br/>src/chat/uia.py → teams.py| reader
   reader -->|POST /api/chat/messages · heartbeat| chatr["routers/chat.py (loopback only)"]
   chatr --> chathub["src/chat/hub.py<br/>ChatHub · reader state · stale monitor"]
   chathub --> hub

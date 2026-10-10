@@ -15,7 +15,7 @@ The design and the build plan are the epic issue (#1); each step is a sub-issue.
 
 - Windows 10/11, Python 3.14
 - PowerPoint desktop (slide import through COM)
-- Zoom desktop with the meeting chat **popped out** (the chat reader targets that window)
+- Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams with the meeting chat open (see *Teams instead of Zoom*)
 - OBS Studio 28+ with obs-websocket enabled (optional: scene switching per item)
 
 ## Setup
@@ -51,7 +51,7 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 |---|---|
 | `facilitation-suite.log` | the webapp (the server, including `✅ facilitation-suite up — build <sha>`), plus the lines of the freeze-PNG and session-PDF helpers it spawns — they log to stderr and the server relays them |
 | `tray.log` | the tray: starting, adopting and restarting the webapp |
-| `chat-reader.log` | the Zoom chat reader |
+| `chat-reader.log` | the chat reader (Zoom or Teams) |
 | `cloudflared.log` | cloudflared, the quiz player's tunnel (its own writer; the tray moves it to `.log.1` past 5 MB when it starts cloudflared) |
 | `webapp/watchdog.log` (repo root) | the tray's watchdog breadcrumbs |
 
@@ -391,7 +391,7 @@ Every live control is one URL: `POST /api/actions/{action_id}` (or `/{action_id}
 
 The physical keys come from the fleet Stream Deck plugin (`fleet-config/stream-deck`, its `Call Action` key with `"app": "facilitation-suite"` — fleet-config#1006).
 
-## The Zoom chat reader
+## The chat reader (Zoom or Teams)
 
 Participants answer in the Zoom chat; a separate local process reads it — no bot, no Zoom app. In Zoom, **pop out the meeting chat** (Chat → … → Pop out): the reader finds that window (`Meeting chat`) and reads every message through Windows accessibility (MSAA) twice a second, then posts the new ones to the server, which appends them to the session's `live/chat.jsonl` and shows them on the presenter.
 
@@ -400,6 +400,23 @@ Participants answer in the Zoom chat; a separate local process reads it — no b
 - Messages already in the window when it starts are history (Zoom keeps chat across meetings in the same room), so a restarted reader never duplicates what was stored. Emoji arrive as nothing, so prompts should ask for words or numbers. Private messages are not read.
 - While it runs, the Windows "screen reader present" flag is on (Zoom may need it to expose the chat); the reader restores it when it stops.
 - **Rehearse alone:** *Simulate answers* on the presenter replays fake answers through the same pipeline; from a terminal, `python -m src.chat.reader --server http://127.0.0.1:8449 --simulate burst:50` (or `random:30`, or a YAML script `{messages: [{after, sender, text}]}`).
+
+### Teams instead of Zoom
+
+The same reader reads a Microsoft Teams meeting chat, locally and read only — no bot, no Microsoft Graph app, nothing clicked or typed in Teams. Set it in `config/config.json` (no restart needed: the reader reads the config each time it starts):
+
+```json
+"reader": { "source": "teams" }
+```
+
+then **Stop reader** / **Start reader** on the presenter (or go live). Back to Zoom: `"source": "zoom"` (the default).
+
+- **Open the meeting chat** in Teams on the web (Chrome or Edge) in a browser window of its own: **Chat** in Teams' left bar → the meeting's chat. Keep that Teams tab the **active tab of its window** — a browser exposes only the active tab to Windows accessibility. The reader finds the window whose title carries `Microsoft Teams` (`reader.teams_title`), an open chat (`Chat | … | Microsoft Teams`) first, and reads its message list through UI Automation twice a second.
+- **Tested:** a meeting chat opened from Teams' Chat list, in Teams on the web. **Not tested yet:** the chat panel inside a running meeting, and Teams desktop (the new Teams is the same engine, but whether its popped-out meeting chat is a window of its own is not known) — before a live session, check that the chip says *Teams chat · reading* with the count you expect.
+- The chip and the remote say *Teams chat · …*; *open the chat* means no Teams window shows a chat list.
+- Times come from Teams' message ids (your PC's clock, `HH:MM`); system lines (meeting started or ended, someone invited) are dropped; your own messages arrive as *You*, as in Zoom, so they never count as answers unless the rehearsal switch is on.
+- **Opening another chat** in that window while the reader runs: the reader takes the other chat's messages as history (logged), not as new answers. Messages that arrive in the meeting chat while another chat is shown are not read.
+- Like Zoom's, Teams' chat list holds only the messages it has drawn: keep the chat scrolled to the bottom.
 
 Log: `data/logs/chat-reader.log` (see **Logs** under Run).
 
@@ -412,7 +429,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | **Appearance** | light / dark / system for the app, the presenter and the phone remote · text size | global (every device) · text size per device |
 | **Stage defaults** | the stage theme and lettering (title font, text font, each kind of text) new sessions start from · the **stage library** of fonts and themes | defaults only: a new session **copies** them into its `session.yaml`, then owns them |
 | **Music** | the Spotify account (state, device, last check, **Connect / Reconnect Spotify**) · the fades a newly switched-on music item starts with | global (the login is in `.env`, the fades in `config/config.json`) |
-| **Live tools** | OBS profiles and connection · the Zoom chat reader · what a click on the stage does · the Stream Deck buttons · the phone remote | global |
+| **Live tools** | OBS profiles and connection · the chat reader (Zoom or Teams) · what a click on the stage does · the Stream Deck buttons · the phone remote | global |
 | **About** | the build and the credits | — |
 
 **Per session** stays in the session's own plan: its stage theme and lettering (Sessions tab → **Session settings** → *Stage look*), each item's own font exceptions and music (Plan tab). Changing a default never touches an existing session. The session's Stage look says **Using the default** or **Overridden**, and **Reset to default** copies the current defaults in (the session's theme and lettering; items keep their own exceptions). The stage always follows the session's own look.
@@ -432,7 +449,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | `appearance` | `system` (default), `light` or `dark` for the app, the presenter and the phone remote — set from any sun/moon button or Settings → Appearance |
 | `obs` | obs-websocket host / port / password (the password stays in this file only), `enabled` = scene switching on/off |
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |
-| `reader` | Zoom chat reader: poll interval and the chat window's class and title |
+| `reader` | the chat reader: `source` (`zoom`, the default, or `teams`), poll interval, the Zoom chat window's class and title, and `teams_title` (what a Teams window's title carries) |
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 | `defaults` | what new sessions start from (Settings → Stage defaults and Music): `stage.theme` (a repo theme or `library/<name>`), `stage.font` (a `session.yaml` `font` block; absent = the theme's lettering), `music.fade_in_s` / `fade_out_s` (0–60, default 2) — a bad value falls back, logged |
 | `stage_click` | what a click on the stage window does (Settings → Live tools → Clicking the stage; the open stage follows a change at once): `advance` goes to the next item (default `false`), `restore_camera` re-applies the item's OBS profile when `advance` is off (default `true`) |

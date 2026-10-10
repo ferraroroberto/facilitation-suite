@@ -50,12 +50,16 @@ class ObsConfig:
 
 @dataclass(frozen=True)
 class ReaderConfig:
-    """The Zoom chat reader process (``python -m src.chat.reader``)."""
+    """The chat reader process (``python -m src.chat.reader``). ``source`` is
+    ``"zoom"`` (the popped-out chat: ``window_class`` + ``window_title``) or
+    ``"teams"`` (a window whose title carries ``teams_title``, #237)."""
 
     enabled: bool = True
+    source: str = "zoom"
     poll_ms: int = 500
     window_class: str = "ZConfChatPopupContainerWndClass"
     window_title: str = "Meeting chat"
+    teams_title: str = "Microsoft Teams"
 
 
 @dataclass(frozen=True)

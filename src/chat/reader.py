@@ -1,4 +1,5 @@
-"""The Zoom chat reader — its own process, so a crash never takes the server down.
+"""The chat reader (Zoom, or Teams with ``reader.source = "teams"``, #237) —
+its own process, so a crash never takes the server down.
 
     python -m src.chat.reader --server http://127.0.0.1:8449 [--parent-pid N]
     python -m src.chat.reader --server … --simulate burst:50
@@ -7,11 +8,16 @@
 Every ``poll_ms`` (500 ms): find the popped-out chat window (class + title
 from the config) → MSAA walk → the message rows of the "Chat messages
 history" list → diff against the previous snapshot by order → POST the new
-rows to ``/api/chat/messages``. A heartbeat with the state goes to
-``/api/chat/heartbeat`` every second. States, each with its own message:
+rows to ``/api/chat/messages``. With ``reader.source = "teams"`` the window is
+the one titled ``… Microsoft Teams`` showing a chat, read through UI Automation
+(``src/chat/uia.py`` → ``src/chat/teams.py``); everything after the snapshot —
+diff, baseline, retry, heartbeat, stop file — is shared. A heartbeat with the
+state goes to ``/api/chat/heartbeat`` every second. States, each with its own
+message:
 
 - ``reading``          — the window was read
-- ``window_not_found`` — Zoom closed, or the chat is not popped out
+- ``window_not_found`` — Zoom closed, or the chat is not popped out (Teams:
+  no window shows a chat)
 - ``error``            — the walk raised (the detail says what)
 - ``simulating``       — replaying a script instead of reading Zoom
 
@@ -53,6 +59,7 @@ from src.logger import configure_logging, log_path
 
 logger = logging.getLogger("chat_reader")
 
+SOURCES = ("zoom", "teams")
 HISTORY_LIST_PREFIX = "Chat messages history"
 ROLE_LIST, ROLE_LISTITEM = 33, 34
 
@@ -155,13 +162,16 @@ class Poster:
 
 class Reader:
     def __init__(self, poster: Poster, window_class: str, window_title: str, poll_ms: int, parent_pid: Optional[int],
-                 stop_file: Optional[Path] = None) -> None:
+                 stop_file: Optional[Path] = None, source: str = "zoom", teams_title: str = "Microsoft Teams") -> None:
         self.poster = poster
         self.stop_file = stop_file
         self.window_class, self.window_title = window_class, window_title
+        self.source, self.teams_title = source, teams_title
         self.poll = max(0.1, poll_ms / 1000)
         self.parent_pid = parent_pid
         self.prev: Optional[list[Row]] = None
+        self.prev_ids: set[str] = set()
+        self.hwnd: Optional[int] = None
         self.state, self.detail = "starting", ""
         self.rows = 0
         self.nodes = 0
@@ -172,6 +182,9 @@ class Reader:
         self.state, self.detail = state, detail
 
     def read_once(self) -> None:
+        if self.source == "teams":
+            self._read_teams()
+            return
         from src.chat import msaa
 
         hwnd = msaa.find_window(self.window_class, self.window_title)
@@ -184,19 +197,56 @@ class Reader:
             self._set("error", f"Reading the chat failed: {exc}")
             return
         names, found = message_names(nodes)
-        rows = rows_from_names(names)
-        self.nodes, self.rows = len(nodes), len(rows)
+        self._publish(rows_from_names(names), len(nodes), f"history list {'found' if found else 'NOT found — using every list item'}")
+
+    def _publish(self, rows: list[Row], nodes: int, note: str) -> None:
+        """The shared tail of a read: the first snapshot is the baseline, later
+        ones post only what follows the previous snapshot."""
+        self.nodes, self.rows = nodes, len(rows)
         if self.prev is None:
-            self.poster.messages(rows, baseline=True, source="zoom")
-            logger.info("ℹ️ reader: baseline of %d rows (%d nodes, history list %s)", len(rows), len(nodes),
-                        "found" if found else "NOT found — using every list item")
+            self.poster.messages(rows, baseline=True, source=self.source)
+            logger.info("ℹ️ reader: baseline of %d rows (%d nodes, %s)", len(rows), nodes, note)
         else:
             fresh, how = new_rows(self.prev, rows)
             if how == "realign":
                 logger.warning("⚠️ reader: snapshot realigned (a message may have been deleted); %d new", len(fresh))
-            self.poster.messages(fresh, baseline=False, source="zoom")
+            self.poster.messages(fresh, baseline=False, source=self.source)
         self.prev = rows
         self._set("reading", f"{len(rows)} messages in the window")
+
+    def _read_teams(self) -> None:
+        from src.chat import teams, uia
+
+        try:
+            hwnds = teams.candidates(uia.visible_titles(), self.teams_title)
+            if self.hwnd in hwnds:  # stay with the window that worked last time
+                hwnds.remove(self.hwnd)
+                hwnds.insert(0, self.hwnd)
+            nodes = None
+            for hwnd in hwnds:
+                nodes = uia.chat_list(hwnd)
+                if nodes is not None:
+                    self.hwnd = hwnd
+                    break
+        except Exception as exc:  # noqa: BLE001 — COM errors vary; the detail tells them apart
+            self._set("error", f"Reading the Teams chat failed: {exc}")
+            return
+        if not hwnds:
+            self._set("window_not_found", "Open the Teams meeting chat (in a browser, as the active tab of its window)")
+            return
+        if nodes is None:
+            self._set("window_not_found", "Teams is open but shows no chat: open the meeting chat")
+            return
+        pairs, _ = teams.rows_from_tree(nodes)
+        ids = {mid for mid, _ in pairs}
+        rows = [r for _, r in pairs]
+        if self.prev is not None and self.prev_ids and ids and not ids & self.prev_ids:
+            # Not one message in common with the last read: the facilitator opened
+            # another chat. Its history is not new — start over from it.
+            logger.warning("⚠️ reader: the Teams window now shows another chat; its %d messages are history", len(rows))
+            self.prev = rows
+        self.prev_ids = ids
+        self._publish(rows, len(nodes), "Teams chat list found")
 
     def run(self) -> int:
         from src.chat import msaa
@@ -213,14 +263,14 @@ class Reader:
                     return 0
                 if self.stop_file and self.stop_file.exists():
                     logger.info("ℹ️ stop requested by the server — reader exiting")
-                    self.poster.heartbeat("stopped", "The chat reader was stopped", source="zoom")
+                    self.poster.heartbeat("stopped", "The chat reader was stopped", source=self.source)
                     return 0
                 started = time.monotonic()
                 self.read_once()
                 self.poster.flush()
                 if started - last_beat >= 1.0:
                     last_beat = started
-                    self.poster.heartbeat(self.state, self.detail, rows=self.rows, nodes=self.nodes, source="zoom")
+                    self.poster.heartbeat(self.state, self.detail, rows=self.rows, nodes=self.nodes, source=self.source)
                 time.sleep(max(0.0, self.poll - (time.monotonic() - started)))
         finally:
             if not was_on:
@@ -286,7 +336,7 @@ def simulate(poster: Poster, script: list[dict[str, Any]], parent_pid: Optional[
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="Read the popped-out Zoom chat (or simulate it) and post to the server.")
+    ap = argparse.ArgumentParser(description="Read the Zoom or Teams meeting chat (or simulate it) and post to the server.")
     ap.add_argument("--server", required=True)
     ap.add_argument("--parent-pid", type=int)
     ap.add_argument("--simulate", help="burst:N | random:N[:every_ms] | script.yaml")
@@ -302,8 +352,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         logger.error("❌ the chat reader needs Windows (MSAA)")
         return 2
     cfg = load_config().reader
-    logger.info("✅ reader up — window %r / %r every %d ms, posting to %s", cfg.window_class, cfg.window_title, cfg.poll_ms, args.server)
-    return Reader(poster, cfg.window_class, cfg.window_title, cfg.poll_ms, args.parent_pid, args.stop_file).run()
+    source = cfg.source if cfg.source in SOURCES else "zoom"
+    if source != cfg.source:
+        logger.warning("⚠️ config reader.source %r is not one of %s — reading Zoom", cfg.source, ", ".join(SOURCES))
+    if source == "teams":
+        logger.info("✅ reader up — Teams, a window titled …%r… every %d ms, posting to %s", cfg.teams_title, cfg.poll_ms, args.server)
+    else:
+        logger.info("✅ reader up — window %r / %r every %d ms, posting to %s", cfg.window_class, cfg.window_title, cfg.poll_ms, args.server)
+    return Reader(poster, cfg.window_class, cfg.window_title, cfg.poll_ms, args.parent_pid, args.stop_file,
+                  source=source, teams_title=cfg.teams_title).run()
 
 
 if __name__ == "__main__":
