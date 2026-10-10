@@ -288,7 +288,8 @@ async function editConnection() {
 function readerCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
-  card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('message-square')} Zoom chat reader</h3></div>`;
+  const teams = data.reader.source === 'teams';
+  card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('message-square')} ${teams ? 'Teams' : 'Zoom'} chat reader</h3></div>`;
   const line = document.createElement('div');
   line.className = 'switch-line';
   const sw = switchEl(data.reader.enabled, {
@@ -299,7 +300,9 @@ function readerCard() {
   card.appendChild(line);
   const note = document.createElement('p');
   note.className = 'small muted settings-note';
-  note.textContent = `It reads the popped-out Zoom window titled “${data.reader.window_title}” every ${data.reader.poll_ms} ms.`;
+  note.textContent = teams
+    ? `It reads the Teams chat open in a window titled “… ${data.reader.teams_title}” every ${data.reader.poll_ms} ms (reader.source in config.json).`
+    : `It reads the popped-out Zoom window titled “${data.reader.window_title}” every ${data.reader.poll_ms} ms.`;
   card.appendChild(note);
   return card;
 }

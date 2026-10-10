@@ -33,7 +33,7 @@ class Row(BaseModel):
 class Batch(BaseModel):
     batch: str = Field("", max_length=64)
     baseline: bool = False
-    source: Literal["zoom", "simulator"] = "zoom"
+    source: Literal["zoom", "teams", "simulator"] = "zoom"
     messages: list[Row] = Field(default_factory=list, max_length=5000)
 
 
