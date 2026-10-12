@@ -124,7 +124,9 @@ def test_the_reveal_item_carries_its_rooms() -> None:
     rounds = {"pairs": [["A", "B"]], "g4a": [["A", "B", "C", "D"]], "g4b": [["A", "C", "B", "D"]]}
     plan = dict(PLAN)
     run = build_run(parse_session(plan), None, rounds)
-    assert all("rooms" not in it for it in run["items"])  # the demo's reveal is switched off
+    # the demo's reveal is hidden (#249): it stays in the run, so jumping to it still shows the rooms
+    assert [it["id"] for it in run["items"] if "rooms" in it] == ["act-pairs"]
+    assert next(it for it in run["items"] if it["id"] == "act-pairs")["hidden"] is True
     plan["sections"] = [{"name": "S", "items": [{"kind": "activity", "type": "groups_reveal", "options": {"round": "g4a"}}]}]
     run = build_run(parse_session(plan), None, rounds)
     assert run["items"][0]["rooms"] == [["A", "B", "C", "D"]]
