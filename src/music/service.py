@@ -144,7 +144,7 @@ class MusicService:
         seen: dict[tuple[str, str], dict[str, Any]] = {}
         for it in self.live.items:
             m = it.get("music")
-            if not m:
+            if not m or it.get("hidden"):
                 continue
             ref = m["path"] if m["source"] == "file" else m["uri"]
             if not ref:

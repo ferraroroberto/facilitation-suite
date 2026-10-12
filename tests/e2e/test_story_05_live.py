@@ -93,7 +93,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(f"{webapp.base_url}/presenter?session={sid}")
-    expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     expect(page.locator(".p-music")).to_be_hidden()  # a session without music: no Music card, no chip
 
     # #98: the header wraps at phone width instead of pushing the page sideways
@@ -194,7 +194,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
 
     # the clicker on the stage window drives the presenter too (PageDown = next)
     stage.keyboard.press("PageDown")
-    expect(page.locator(".p-sub")).to_contain_text("3 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("3 of 18")
 
     # presenter-only clocks
     page.locator("[data-cstart]").click()
@@ -218,26 +218,44 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
 
     # a click on "on stage now" goes on; End and Home jump to the ends
     page.locator(".p-now .p-stage").click()
-    expect(page.locator(".p-sub")).to_contain_text("11 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("12 of 18")
     # #191: a click on the stage window does not go on by default (a stray click must not move the
     # presentation); Settings → Live tools → "A click on the stage goes to the next item" turns it on
     stage.mouse.click(640, 360)
     stage.wait_for_timeout(600)  # past the click's 280 ms wait
-    expect(page.locator(".p-sub")).to_contain_text("11 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("12 of 18")
     set_stage_click(page, webapp, True)
     stage.mouse.click(640, 360)
-    expect(page.locator(".p-sub")).to_contain_text("12 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("13 of 18")
     set_stage_click(page, webapp, False)
     page.keyboard.press("End")
-    expect(page.locator(".p-sub")).to_contain_text("17 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("18 of 18")
     stage.keyboard.press("Home")
-    expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("1 of 18")
+
+    # #249: a hidden item (the demo's "Who are you with?", 8) is dimmed and marked in the filmstrip; Next and
+    # Previous step over it, and a click on it still opens it
+    page.locator('.p-thumb[data-goto="7"]').click()
+    expect(page.locator(".p-sub")).to_contain_text("7 of 18")
+    hidden = page.locator(".p-thumb.hidden-item")
+    expect(hidden).to_have_count(1)
+    expect(hidden).to_have_attribute("data-goto", "8")
+    expect(hidden.locator(".p-thumb-hidden")).to_be_visible()
+    expect(hidden.locator(".p-thumb-text")).to_have_css("opacity", "0.4")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(".p-sub")).to_contain_text("9 of 18")
+    page.keyboard.press("ArrowLeft")
+    expect(page.locator(".p-sub")).to_contain_text("7 of 18")
+    hidden.click()
+    expect(page.locator(".p-sub")).to_contain_text("8 of 18 (hidden)")
+    page.keyboard.press("ArrowRight")  # from a hidden item Next goes on to the next shown one
+    expect(page.locator(".p-sub")).to_contain_text("9 of 18")
 
     # start over after the rehearsal: first item, no clock; the run so far is kept aside
     page.keyboard.press("End")
     page.locator("[data-reset]").click()
     page.locator(".dialog-confirm").click()
-    expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     expect(page.locator("[data-cstart]")).to_be_visible()
     assert [d.name.startswith("live-") for d in folder.iterdir()].count(True) == 1
     stage_ctx.close()

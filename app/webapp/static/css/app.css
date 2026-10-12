@@ -365,8 +365,17 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 }
 .item-row:hover { background: var(--card-off); }
 .item-row.selected { background: var(--accent-soft); }
-.item-row.excluded .item-title { text-decoration: line-through; color: var(--muted); }
-.item-row.excluded .thumb { opacity: 0.5; }
+/* A hidden item reads like PowerPoint's hidden slide (#249): a dimmed thumbnail with an eye-off mark, the title muted. */
+.item-row.hidden-item .item-title { color: var(--muted); }
+.item-row.hidden-item .thumb { opacity: 0.4; }
+.thumb-box { position: relative; display: inline-flex; flex: none; }
+.thumb-hidden {
+  position: absolute; inset: 0; margin: auto; display: grid; place-items: center;
+  width: calc(var(--icon-inline) + var(--space-sm)); height: calc(var(--icon-inline) + var(--space-sm));
+  border-radius: var(--radius-pill); background: var(--card); border: 1px solid var(--line); color: var(--ink);
+}
+.thumb-hidden .icon { width: var(--icon-inline); height: var(--icon-inline); }
+.item-row .kebab { --icon-btn-box: 34px; flex: none; }
 .item-row.dragging { opacity: 0.4; }
 /* Several selected: the last clicked keeps an inset edge. */
 .item-row.focused { box-shadow: inset 3px 0 0 var(--accent); }

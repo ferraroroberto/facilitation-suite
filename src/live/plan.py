@@ -1,7 +1,8 @@
 """The run order of a live session: the plan flattened for the stage and presenter.
 
-Items switched off ("In this session" off) are left out — they stay in the
-plan but are skipped live. Every run item carries what the stage and the
+Items switched off ("In this session" off, a hidden slide) stay in the run,
+marked ``hidden``: Next and Previous step over them, the presenter can still
+jump to one, and the planned timing ignores them. Every run item carries what the stage and the
 presenter need to render it without another lookup: the display title, the
 slide file and notes, the section it belongs to and that section's planned
 start (minutes from the session start), and the per-item timer.
@@ -78,7 +79,7 @@ def _slide_text(item: Any, slide: Optional[dict[str, Any]]) -> dict[str, Any]:
 
 def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional[dict[str, Any]] = None,
               zones: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    """``{"items": [...], "sections": [...]}`` in live order (included items only).
+    """``{"items": [...], "sections": [...]}`` in live order (hidden items marked ``hidden``).
 
     ``rounds`` (from groups.yaml) gives each "who are you with?" item its rooms.
     """
@@ -89,13 +90,13 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
     sections: list[dict[str, Any]] = []
     start = 0
     for sec in session.sections:
-        run_items = [it for it in sec.items if it.include]
+        first = next((i for i, it in enumerate(sec.items) if it.include), None)
         sections.append({
             "id": sec.id, "name": sec.name, "minutes": sec.minutes, "planned_start": start,
-            "has_break": any(it.kind == "break" for it in run_items),
-            "first_index": len(items) if run_items else None,
+            "has_break": any(it.kind == "break" and it.include for it in sec.items),
+            "first_index": len(items) + first if first is not None else None,
         })
-        for it in run_items:
+        for it in sec.items:
             slide = slides.get(it.slide_id) if it.kind == "slide" and it.slide_id is not None else None
             profile = it.profile or (slide or {}).get("profile") or "screen_only"
             spec = types.get(it.type or "") or {}
@@ -103,6 +104,7 @@ def build_run(session: Session, meta: Optional[dict[str, Any]], rounds: Optional
                 "index": len(items),
                 "id": it.id,
                 "kind": it.kind,
+                "hidden": not it.include,
                 "type": it.type,
                 "type_label": spec.get("label"),
                 "capture": bool(spec.get("capture", False)) if it.kind == "activity" else False,

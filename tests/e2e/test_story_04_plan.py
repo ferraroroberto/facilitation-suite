@@ -6,6 +6,7 @@ quiz's answer tiles. Picking another OBS profile re-lays a quiz preview out arou
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -147,6 +148,53 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     # skip the slide after it, and move the closing section's slide to the top
     page.locator(".item-row", has_text="Thank you!").click()
     page.locator(".ed-row", has_text="In this session").locator(".toggle").click()
+
+    # #249: hide a slide like PowerPoint -- the row's kebab and the H key drive the same flag as the switch
+    thanks = page.locator(".item-row", has_text="Thank you!")
+    take_home = page.locator(".item-row", has_text="Take-home word").first
+    switch = page.locator(".ed-row", has_text="In this session").locator(".toggle")
+    hidden = re.compile("hidden-item")
+    expect(thanks).to_have_class(hidden)
+    for mode in ("light", "dark"):  # a dimmed thumbnail with an eye-off mark, not a strikethrough, in both themes
+        page.evaluate("t => { document.documentElement.dataset.theme = t; }", mode)
+        expect(thanks.locator(".thumb-hidden")).to_be_visible()
+        expect(thanks.locator(".thumb")).to_have_css("opacity", "0.4")
+        expect(thanks.locator(".item-title")).to_have_css("text-decoration-line", "none")
+    page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
+    thanks.locator(".kebab").click()
+    expect(page.locator(".row-menu-item")).to_have_text("Show slide")  # in step with the switch
+    page.locator(".row-menu-item").click()
+    expect(thanks).not_to_have_class(hidden)
+    expect(switch).to_have_attribute("aria-checked", "true")
+    thanks.locator(".kebab").click()
+    expect(page.locator(".row-menu-item")).to_have_text("Hide slide")
+    page.locator(".row-menu-item").click()
+    expect(thanks).to_have_class(hidden)
+    expect(switch).to_have_attribute("aria-checked", "false")
+    # the kebab acts on the whole selection when its row is part of one
+    take_home.click(modifiers=["Control"])
+    take_home.locator(".kebab").click()
+    expect(page.locator(".row-menu-item")).to_have_text("Hide 2 items")
+    page.locator(".row-menu-item").click()
+    expect(take_home).to_have_class(hidden)
+    expect(thanks).to_have_class(hidden)
+    take_home.locator(".kebab").click()
+    expect(page.locator(".row-menu-item")).to_have_text("Show 2 items")
+    page.locator(".row-menu-item").click()
+    expect(take_home).not_to_have_class(hidden)
+    expect(thanks).not_to_have_class(hidden)
+    # H on a focused row toggles it, and the switch follows
+    thanks.click()
+    page.keyboard.press("h")
+    expect(thanks).to_have_class(hidden)
+    expect(switch).to_have_attribute("aria-checked", "false")
+    page.keyboard.press("h")
+    expect(thanks).not_to_have_class(hidden)
+    expect(switch).to_have_attribute("aria-checked", "true")
+    page.keyboard.press("h")  # hidden again for the save below
+    expect(thanks).to_have_class(hidden)
+    assert small_targets(page) == []  # the kebab reaches 44px
+
     page.locator("[data-up]").click()
     page.locator("[data-up]").click()
 

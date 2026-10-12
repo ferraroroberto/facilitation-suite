@@ -75,7 +75,7 @@ The **Plan** tab edits `session.yaml`: sections with planned minutes (drag to re
 - a **Camera layout** (the item's OBS profile: Camera strip / Camera PiP / Screen only; slides start with the detected one),
 - its **own timer** — no global defaults, decided item by item: duration, when it starts (manually, when the item opens, with the capture), where it shows (stage / presenter / both) and what happens at 00:00 (keep showing 00:00, remove the timer from the stage, stop the capture, next item, chime); on the stage the timer takes the colour of its state — black before it starts, **green** while it runs, **yellow** paused, **red** at 00:00 (the pill on an activity or slide takes it as its fill, the big clock on a break or breakout as its text; set them under *Stage lettering*); a paused timer is yellow on the presenter and the phone too; on a slide it sits in a bottom corner over the slide (the left one when the camera takes the right),
 - its **music** (optional — see *Music*): a track from the session's `audio/` folder that plays with the item's timer or when the item opens,
-- **In this session** (off = skipped live, kept in the plan),
+- **In this session** (off = **hidden**, like PowerPoint's *Hide slide*: kept in the plan, dimmed with an eye-off mark, skipped by Next and Previous live but still reachable from the presenter's filmstrip). The row's **⋮ menu** (*Hide slide* / *Show slide*, by kind) and the **H** key on a selected row flip the same switch, for the whole selection when several rows are picked; a hidden item's time stays out of the planned timing,
 - for a **breakout** (Add slide or activity → Breakout): its title, the round in the rooms (Pairs, Groups of 4 · A or B — the stage says it with the room count from the Groups tab) and its clock, ten minutes by default,
 - for activities: type, title (the name in the plan and on the presenter; the question when empty), question, question font (the session's stage font, or one installed on this PC) and size (in stage pixels on the 1920×1080 canvas), the prompt to paste in the chat, and the type's own answer options,
 - **Notes** for the presenter's Notes card — a slide starts from its PowerPoint notes, and editing them here leaves the deck as it is (clear the box to get the deck's back).
@@ -122,12 +122,12 @@ Activity types are plug-ins: one folder per type under `app/activities/<type>/` 
 | Key (stage or presenter window) | Action |
 |---|---|
 | → · PageDown · ↓ · N · click | next item (a presentation clicker works; so does a click on the presenter's "on stage now". A click on the **stage window** goes on only when **Settings → Live tools → Clicking the stage** is on — off by default, so a stray click cannot move the presentation; a double-click on the stage is always full screen. With it off, a click on the stage **re-applies the item's camera layout** in OBS instead — see *OBS*) |
-| ← · PageUp · ↑ · P | previous item |
+| ← · PageUp · ↑ · P | previous item (hidden items are skipped, as by next; click one in the presenter's filmstrip to open it) |
 | B · . | blackout |
 | T | the item's timer: start / pause |
 | M · + | the item's timer: +1 min |
 | Space | capture start / stop (activities); on a quiz question while its answers are open, **lock the answers** (the reveal); on any other item with a timer, timer start / pause |
-| Home · End | the first · the last item |
+| Home · End | the first · the last item that is not hidden |
 
 The presenter shows what is on stage, the next item and the four after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there. **Start the session over** (the ↺ next to ×) goes back to the first item with no clocks, timers, captures or chat — after a rehearsal, say; nothing is deleted: the run so far stays in the session folder as `live-<date>-<time>/`. On a wide screen (a 1920×1080 second monitor) the cockpit fits one screen with no page scroll, in four columns: what is on stage with its notes and the clocks · what comes next with the music · the item's own card (quiz, capture or timer) · the Zoom chat, full height. Notes, clocks and music take only the room their content needs (long notes scroll inside their card); below 1500 px wide the chat moves under the item card.
 

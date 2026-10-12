@@ -195,6 +195,8 @@ def scopes_of(items: list[dict[str, Any]]) -> dict[str, Scope]:
     out: dict[str, Scope] = {}
     scope: Optional[Scope] = None
     for it in items:
+        if it.get("hidden"):  # a hidden item can be jumped to, but it is not part of a game
+            continue
         kind = it.get("type") if it.get("kind") == "activity" else None
         if kind == LOBBY:
             scope = Scope(it["id"])

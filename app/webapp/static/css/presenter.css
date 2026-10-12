@@ -189,6 +189,15 @@
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 .p-thumb-text .icon { width: 12px; height: 12px; }
+/* A hidden item (PowerPoint's "Hide slide", #249): Next and Previous skip it, a click still jumps to it. */
+.p-thumb-img { position: relative; }
+.p-thumb.hidden-item .p-thumb-img > img, .p-thumb.hidden-item .p-thumb-text { opacity: 0.4; }
+.p-thumb-hidden {
+  position: absolute; right: var(--space-xs); bottom: var(--space-xs); display: grid; place-items: center;
+  width: calc(var(--icon-inline) + var(--space-sm)); height: calc(var(--icon-inline) + var(--space-sm));
+  border-radius: var(--radius-pill); background: var(--card); border: 1px solid var(--line); color: var(--ink);
+}
+.p-thumb-hidden .icon { width: var(--icon-inline); height: var(--icon-inline); }
 .p-thumb.current .p-thumb-img { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .p-thumb.current .p-thumb-n { color: var(--accent-text); font-weight: 700; }
 
