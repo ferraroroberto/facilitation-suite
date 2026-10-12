@@ -254,8 +254,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .plan-row { min-height: var(--row-sm); padding: 8px 0; }
 .ready-card { padding-bottom: 4px; }
 .ready-row { gap: 10px; min-height: var(--row-sm); padding: 8px 0; }
-.ready-icon { display: inline-flex; width: var(--icon-feature); justify-content: center; }
-.ready-icon .icon { width: 20px; height: 20px; }
+.ready-icon { display: inline-flex; width: var(--icon-feature); justify-content: flex-start; flex: none; }
+.ready-icon .icon { width: var(--icon-title); height: var(--icon-title); }
 .state-ok .ready-icon { color: var(--success); }
 .state-warn .ready-icon { color: var(--attention); }
 .state-todo .ready-icon { color: var(--muted); }

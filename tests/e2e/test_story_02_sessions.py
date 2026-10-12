@@ -55,6 +55,15 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     expect(page).to_have_url(re.compile(r"/#sessions/[0-9a-f]+$"))
     deep_link = page.url
     expect(page.locator(".ready-row")).to_have_count(8)
+    # #249: each row's status tick lines up on the left with the heading's tick, at the same rendered size
+    ticks = page.evaluate("""() => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.width, r.height]; };
+        return { head: box(document.querySelector('.ready-card .card-title .icon')),
+                 rows: [...document.querySelectorAll('.ready-row .ready-icon .icon')].map(box) };
+    }""")
+    assert len(ticks["rows"]) == 8
+    for left, width, height in ticks["rows"]:
+        assert abs(left - ticks["head"][0]) <= 1 and abs(width - ticks["head"][1]) <= 0.5 and abs(height - ticks["head"][2]) <= 0.5, ticks
     expect(page.locator(".status-line.ok")).to_contain_text("files on this PC")
     session_yaml = webapp.root / "sessions" / "demo-workshop" / "cohort-a" / "session.yaml"
     assert session_yaml.is_file()
