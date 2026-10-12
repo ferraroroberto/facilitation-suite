@@ -324,6 +324,37 @@ def test_248_6_a_restart_while_the_account_plays_something_else_starts_the_sessi
     b.close()
 
 
+@pytest.mark.parametrize("other_is_playing", [False, True])
+def test_251_resume_after_other_music_was_started_plays_the_sessions_music(other_is_playing: bool) -> None:
+    """#251: the session's music is paused, the owner loads other music in Spotify (left paused, or
+    playing), then Resume. A bare resume would carry on with the other music — or be refused with 403;
+    the session's item is started with its context instead, and the play is confirmed."""
+    fake, events = FakeSpotify(), []
+    b = backend(fake, events)
+    b.play(1, SPOTIFY_PL, 60, 0)
+    wait_for(lambda: events)
+    b.pause(0)
+    wait_for(lambda: fake.player["is_playing"] is False)
+    fake.player.update(context={"uri": "spotify:playlist:other"}, item={"uri": "spotify:track:o1"},
+                       is_playing=other_is_playing, progress_ms=9000)
+    fake.calls.clear()
+    events.clear()
+    b.resume(60, 0)
+    wait_for(lambda: events)
+    assert events == [("playing", 1, "Spotify playlist abc on STUDIO-PC")]
+    play = next(c for c in fake.api() if c[1] == "/me/player/play")
+    assert play[2] == {"context_uri": "spotify:playlist:abc"}  # not a bare resume
+    assert fake.player["context"] == {"uri": "spotify:playlist:abc"} and fake.player["is_playing"]
+    # Still the session's music loaded: the plain resume carries on in place, no context sent.
+    b.pause(0)
+    wait_for(lambda: fake.player["is_playing"] is False)
+    fake.calls.clear()
+    b.resume(60, 0)
+    wait_for(lambda: any(c[1] == "/me/player/play" for c in fake.api()) and fake.player["is_playing"])
+    assert next(c for c in fake.api() if c[1] == "/me/player/play")[2] == {"device_id": "dev-pc"}
+    b.close()
+
+
 def test_248_7_every_text_says_desktop_app_only() -> None:
     """Observation 7: the Settings note, the not-open message and the module's own docstring agree on
     the owner's policy — the desktop app of this PC, never a web player."""
@@ -344,15 +375,15 @@ def test_backend_plays_fades_pauses_and_stops_by_volume_steps() -> None:
     b.pause(1.0)
     wait_for(lambda: len(fake.api()) == 10)
     b.resume(60, 0.5)
-    wait_for(lambda: len(fake.api()) == 15)
+    wait_for(lambda: len(fake.api()) == 16)
     b.stop(0.5)
-    wait_for(lambda: len(fake.api()) == 18)
+    wait_for(lambda: len(fake.api()) == 19)
     vol = lambda c: ("vol", int(c[2]["volume_percent"])) if c[1] == "/me/player/volume" else (c[0], c[1])  # noqa: E731
     confirm = [("GET", "/me/player")] * 2  # playing on the chosen device, its position moving (#248)
     assert [vol(c) for c in fake.api()] == [
         ("GET", "/me/player/devices"), ("vol", 0), ("PUT", "/me/player/play"), *confirm, ("vol", 30), ("vol", 60),  # play, fade in
         ("vol", 30), ("vol", 0), ("PUT", "/me/player/pause"),  # pause: fade out, then pause
-        ("vol", 0), ("PUT", "/me/player/play"), *confirm, ("vol", 60),  # resume
+        ("GET", "/me/player"), ("vol", 0), ("PUT", "/me/player/play"), *confirm, ("vol", 60),  # resume: still the session's music? (#251)
         ("vol", 0), ("PUT", "/me/player/pause"), ("vol", 65),  # stop: fade, pause, the app's own volume back
     ]
     play = next(c for c in fake.api() if c[1] == "/me/player/play")

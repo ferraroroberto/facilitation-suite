@@ -16,10 +16,11 @@ the API cannot tell a ghost from the tab you are looking at.
 A command Spotify accepts is not proof of sound. After every play or resume the
 backend reads ``GET /me/player`` until it shows the chosen device playing with
 its progress moving (``CONFIRM_S`` at most); only then is the music reported
-playing — otherwise ``not_playing`` says so. A carry-on after a restart resumes
-in place only when the account still has the session's music loaded; anything
-else playing gets the session's music started over it, never a bare resume
-Spotify would refuse ("Restriction violated").
+playing — otherwise ``not_playing`` says so. A carry-on after a restart, and a
+plain resume after a pause (#251), continue in place only when the account still
+has the session's music loaded; anything else loaded gets the session's music
+started over it, never a bare resume that would carry on with the other music or
+that Spotify would refuse ("Restriction violated").
 
 Fades step the volume (``PUT /me/player/volume``) every ``STEP_S`` — at most
 two requests a second, far under Spotify's rolling rate limit; a 429 says so
@@ -299,6 +300,7 @@ class SpotifyBackend:
         self.volume_now: Optional[int] = None  # what Spotify's volume was last set to
         self.restore_volume: Optional[int] = None  # the app's own volume before the music started
         self.play_id = 0
+        self._track: Optional[Track] = None  # the session's music last started: what a resume must find loaded (#251)
         self._status: tuple[str, str, float, int] = ("", "", 0.0, -1)  # state, detail, when, .env generation
         self.checked_at: Optional[float] = None  # wall clock of the last status check (Settings → Music)
         self.status_device = ""  # the device the last status check found
@@ -493,7 +495,7 @@ class SpotifyBackend:
     def _play(self, play_id: int, track: Track, volume: int, fade_in_s: float, carry_on: bool = False) -> None:
         """``carry_on`` (a resume after a restart): when the account still has this music loaded, the
         desktop app keeps its own position — play on from there instead of starting it over."""
-        self.play_id = play_id
+        self.play_id, self._track = play_id, track
         gen = self.client.generation()
         self.device = self.client.device()  # the app may have been reopened since
         if self.restore_volume is None:
@@ -561,6 +563,13 @@ class SpotifyBackend:
         self._fade(0, volume, SKIP_RISE_S)
 
     def _resume(self, volume: int, fade_s: float) -> None:
+        """Carry on — but only with the session's music: when other music was loaded since (the owner
+        started it while this was paused, #251), start the session's item over it, with its context."""
+        track = self._track
+        if track is not None and not self._loaded(track.ref):
+            logger.info("ℹ️ spotify: the account no longer has %s loaded — starting it over", track.ref)
+            self._play(self.play_id, track, volume, fade_s)
+            return
         self._volume(0)
         self.client.call("PUT", "/me/player/play", query={"device_id": self._device_id()})
         if self._confirm():
@@ -574,4 +583,5 @@ class SpotifyBackend:
             self._volume(int(self.restore_volume))  # the app keeps the volume it had before the music
         self.restore_volume = None
         self.volume_now = None
+        self._track = None
         logger.info("ℹ️ spotify: stopped")
