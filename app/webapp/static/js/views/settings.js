@@ -40,8 +40,9 @@ const SPOTIFY_CHIP = {
   ok: ['ok', 'Connected'],
   not_configured: ['warn', 'Not set up'],
   token_expired: ['bad', 'Login expired'],
-  no_device: ['warn', 'Not open on this PC'],
-  several_players: ['warn', 'Several web players'],
+  no_device: ['warn', 'Desktop app not open'],
+  not_playing: ['warn', 'Not playing'],
+  restricted: ['warn', 'Command refused'],
   not_premium: ['bad', 'Premium needed'],
   unknown: ['', 'Unknown'],
 };
@@ -526,7 +527,7 @@ function spotifyCard() {
     (waiting ? `<p class="status-line unknown" data-login-line>${icon('refresh-cw')} ${esc(sp.login.detail)}. This card updates by itself.</p>` : '') +
     (sp && sp.login.state === 'failed' ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
     (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (see Spotify setup in the README).</p>' : '') +
-    '<p class="small muted settings-note">Music plays on the Spotify desktop app of this PC (a Premium account). Connecting opens Spotify’s login in the browser; the login is saved on this PC only.</p>' +
+    '<p class="small muted settings-note">Music plays on the Spotify desktop app of this PC only, never a web player (a Premium account): open the app before the session. Connecting opens Spotify’s login in the browser; the login is saved on this PC only.</p>' +
     `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-connect${!sp || !sp.client_id_set || waiting ? ' disabled' : ''}>${icon('link')} ${sp && sp.logged_in ? 'Reconnect Spotify' : 'Connect Spotify'}</button>` +
     `<button type="button" class="button-surface" data-check${sp ? '' : ' disabled'}>${icon('refresh-cw')} Check now</button></div>`;
   card.querySelector('[data-connect]').addEventListener('click', async (e) => {

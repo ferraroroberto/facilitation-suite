@@ -15,12 +15,14 @@ from src.env_file import read_env, set_value
 from src.music.backend import MusicError, Track
 from src.music.library import spotify_check
 from src.music.spotify import (
+    MESSAGES,
     NO_DEVICE,
     NOT_CONFIGURED,
+    NOT_PLAYING,
     NOT_PREMIUM,
     OK,
     REFRESH_KEY,
-    SEVERAL_PLAYERS,
+    RESTRICTED,
     TOKEN_EXPIRED,
     UNKNOWN,
     SpotifyBackend,
@@ -47,6 +49,32 @@ class FakeSpotify:
         self.unauthorized_once = False
         self.down = False
         self.bodies: dict[str, dict[str, Any]] = {}  # "GET /playlists/abc" → the JSON it answers
+        self.player: dict[str, Any] = {}  # what GET /me/player answers; {} → 204, no active player
+        self.sounds = True  # a play makes the device sound; False: Spotify accepts it and nothing plays (#248)
+
+    def _player(self, method: str, path: str, query: dict[str, str], body: Optional[bytes]) -> tuple[int, dict[str, str], bytes]:
+        """Spotify's player as #248 saw it: a bare resume while something plays is refused (403)."""
+        if method == "GET":
+            if not self.player:
+                return 204, {}, b""
+            if self.player["is_playing"]:
+                self.player["progress_ms"] += 500
+            return 200, {}, json.dumps(self.player).encode()
+        if path == "/me/player/pause":
+            if self.player:
+                self.player["is_playing"] = False
+            return 204, {}, b""
+        start = json.loads(body) if body else None
+        if start is None and self.player.get("is_playing"):
+            return 403, {}, b'{"error": {"status": 403, "message": "Player command failed: Restriction violated", "reason": "UNKNOWN"}}'
+        dev = next((d for d in self.devices if d["id"] == query.get("device_id")), {"id": query.get("device_id"), "name": "?"})
+        if start is not None:
+            uri = start.get("context_uri") or start["uris"][0]
+            self.player = {"context": {"uri": uri} if "context_uri" in start else None,
+                           "item": {"uri": start["uris"][0] if "uris" in start else "spotify:track:first"}, "progress_ms": 0}
+        self.player.update(device={"id": dev["id"], "name": dev["name"]}, is_playing=self.sounds)
+        self.player.setdefault("progress_ms", 0)
+        return 204, {}, b""
 
     def __call__(self, method: str, url: str, headers: dict[str, str], body: Optional[bytes]) -> tuple[int, dict[str, str], bytes]:
         if self.down:
@@ -68,6 +96,8 @@ class FakeSpotify:
             return status, {"Retry-After": "7"}, json.dumps(data).encode()
         if key == "GET /me/player/devices":
             return 200, {}, json.dumps({"devices": self.devices}).encode()
+        if key in ("GET /me/player", "PUT /me/player/play", "PUT /me/player/pause"):
+            return self._player(method, path, query, body)
         if key in self.bodies:
             return 200, {}, json.dumps(self.bodies[key]).encode()
         return 204, {}, b""
@@ -173,27 +203,6 @@ def test_the_desktop_app_wins_under_any_name_and_over_an_active_web_player(monke
     assert client(fake, no_name).device()["id"] == "dev-host"  # named like this PC still first
 
 
-def test_the_active_web_player_is_the_device_when_no_desktop_app_is_open(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
-    no_name = {k: v for k, v in ENV.items() if k != "SPOTIFY_DEVICE_NAME"}
-    fake = FakeSpotify()
-    fake.devices = [web_player("web-stale", active=False), web_player("web-live", active=True), PHONE]
-    assert client(fake, no_name).device()["id"] == "web-live"  # never the stale same-named one
-    fake.devices = [web_player("web-only", active=False), PHONE]
-    assert client(fake, no_name).device()["id"] == "web-only"  # a lone web player is the target even when idle
-
-
-def test_several_idle_web_players_are_their_own_visible_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
-    no_name = {k: v for k, v in ENV.items() if k != "SPOTIFY_DEVICE_NAME"}
-    fake = FakeSpotify()
-    fake.devices = [web_player("web-a", active=False), web_player("web-b", active=False), PHONE]
-    with pytest.raises(SpotifyError) as err:
-        client(fake, no_name).device()
-    assert err.value.state == SEVERAL_PLAYERS and "Web Player (Chrome), Web Player (Chrome)" in err.value.detail
-    assert "web-a" not in err.value.detail  # device ids stay out of the message
-
-
 def wait_for(cond: Any, timeout: float = 3.0) -> None:
     deadline = time.monotonic() + timeout
     while not cond():
@@ -201,36 +210,165 @@ def wait_for(cond: Any, timeout: float = 3.0) -> None:
         time.sleep(0.01)
 
 
+# ---------------------------------------------------------------- #248: the seven live observations
+
+
+NO_NAME = {k: v for k, v in ENV.items() if k != "SPOTIFY_DEVICE_NAME"}
+SPOTIFY_PL = Track("spotify", "spotify:playlist:abc", "Spotify playlist abc")
+
+
+def backend(fake: FakeSpotify, events: list, env: Optional[dict[str, str]] = None) -> SpotifyBackend:
+    return SpotifyBackend(lambda *e: events.append(e), client=client(fake, env), sleep=lambda s: None)
+
+
+def test_248_1_with_nothing_open_a_ghost_web_player_is_never_played_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Observation 1: no tab, no app — Spotify still lists a closed web player as active. No play is
+    sent to it; the error says the desktop app is not open and names no device id."""
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    fake, events = FakeSpotify(), []
+    fake.devices = [web_player("web-ghost", active=True), PHONE]
+    b = backend(fake, events, NO_NAME)
+    b.play(1, SPOTIFY_PL, 60, 0)
+    wait_for(lambda: events)
+    assert events == [("error", 1, events[0][2])]
+    assert "desktop app is not open" in events[0][2] and "never plays on a web player" in events[0][2]
+    assert "web-ghost" not in events[0][2]
+    assert not [c for c in fake.api() if c[1] == "/me/player/play"]
+    b.close()
+
+
+def test_248_2_an_open_web_tab_alone_is_not_a_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Observation 2: a Chrome tab the owner opened, next to the ghost; both are "Web Player (Chrome)".
+    Desktop app only: neither is picked, and the state says to open the app."""
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    fake = FakeSpotify()
+    for devices in ([web_player("web-ghost", active=True), web_player("web-tab", active=False)],
+                    [web_player("web-tab", active=False)]):
+        fake.devices = devices
+        with pytest.raises(SpotifyError) as err:
+            client(fake, NO_NAME).device()
+        assert err.value.state == NO_DEVICE and "web-" not in err.value.detail
+
+
+def test_248_3_a_play_that_spotify_accepts_but_does_not_sound_is_never_playing() -> None:
+    """Observation 3: Spotify answers 204 to a play on a device that stays silent. The backend reads
+    GET /me/player, reports ``not_playing`` with the reason, and never emits "playing"."""
+    fake, events = FakeSpotify(), []
+    fake.sounds = False
+    b = backend(fake, events)
+    b.play(1, SPOTIFY_PL, 60, 2.0)
+    wait_for(lambda: events)
+    assert events[0][0] == "error" and len(events) == 1
+    assert "nothing is playing on STUDIO-PC (Spotify reports it paused)" in events[0][2]
+    assert b.status()[0] == NOT_PLAYING  # the readiness check sees it too, never ok
+    assert [c[1] for c in fake.api()].count("/me/player") == 11  # read for CONFIRM_S, then gave up
+    assert all(int(c[2]["volume_percent"]) == 0 for c in fake.api() if c[1] == "/me/player/volume")  # never faded in
+    # The account plays on another device: said so, by its name.
+    fake.sounds, events[:] = True, []
+    fake.player = {"device": {"id": "dev-phone", "name": "Phone"}, "is_playing": True, "progress_ms": 0}
+    with pytest.raises(SpotifyError) as err:
+        b._confirm()
+    assert err.value.state == NOT_PLAYING and "Spotify reports it on Phone" in err.value.detail
+    # A resume that does not sound says so the same way.
+    fake.player, fake.sounds = {}, False
+    b.resume(60, 0.5)
+    wait_for(lambda: events)
+    assert events == [("error", 1, events[0][2])] and "nothing is playing" in events[0][2]
+    b.close()
+
+
+def test_248_4_settings_never_calls_a_web_player_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Observation 4: the tab is closed, Spotify still lists it. Settings › Music says the desktop app
+    is not open — never "the web player is ready"."""
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    fake = FakeSpotify()
+    fake.devices = [web_player("web-ghost", active=True)]
+    b = backend(fake, [], NO_NAME)
+    state, detail = b.status(fresh=True)
+    assert state == NO_DEVICE and "web player is ready" not in detail and b.status_device == ""
+
+
+def test_248_5_the_desktop_app_plays_and_is_confirmed_before_it_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Observation 5, the path that worked: the app (named like this PC) wins over a web tab, and the
+    play only counts once GET /me/player shows it playing there with its position moving."""
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    fake, events = FakeSpotify(), []
+    fake.devices = [web_player("web-tab", active=True), dict(PC, id="dev-tower", name="TOWER"), PHONE]
+    b = backend(fake, events, NO_NAME)
+    assert b.status(fresh=True) == (OK, "Logged in · the desktop app on TOWER is ready")
+    b.play(1, SPOTIFY_PL, 60, 0)
+    wait_for(lambda: events)
+    assert events == [("playing", 1, "Spotify playlist abc on TOWER")]
+    assert [(c[0], c[1]) for c in fake.api()][-4:] == [
+        ("PUT", "/me/player/volume"), ("PUT", "/me/player/play"), ("GET", "/me/player"), ("GET", "/me/player")]
+    assert fake.api()[-3][2] == {"context_uri": "spotify:playlist:abc"}
+    assert all(c[2]["device_id"] == "dev-tower" for c in fake.api() if c[1] == "/me/player/volume")
+    b.close()
+
+
+def test_248_6_a_restart_while_the_account_plays_something_else_starts_the_session_music() -> None:
+    """Observation 6: the owner plays something else, then restarts the session. A bare resume would
+    be refused (403 "Restriction violated"); the carry-on starts the session's music instead."""
+    fake, events = FakeSpotify(), []
+    fake.player = {"device": {"id": "dev-pc", "name": "STUDIO-PC"}, "is_playing": True, "progress_ms": 0,
+                   "context": {"uri": "spotify:playlist:other"}, "item": {"uri": "spotify:track:o1"}}
+    b = backend(fake, events)
+    b.play(1, SPOTIFY_PL, 60, 0, start_s=42.0)  # what MusicService._restore does after a restart
+    wait_for(lambda: events)
+    assert events == [("playing", 1, "Spotify playlist abc on STUDIO-PC")]
+    play = next(c for c in fake.api() if c[1] == "/me/player/play")
+    assert play[2] == {"context_uri": "spotify:playlist:abc"}
+    # Any 403 "Restriction violated" left is a clear, distinct state — not a raw "Spotify answered 403".
+    assert state_of(lambda: client(fake).call("PUT", "/me/player/play")) == RESTRICTED
+    assert "Restriction violated" in MESSAGES[RESTRICTED] and "403" not in MESSAGES[RESTRICTED]
+    b.close()
+
+
+def test_248_7_every_text_says_desktop_app_only() -> None:
+    """Observation 7: the Settings note, the not-open message and the module's own docstring agree on
+    the owner's policy — the desktop app of this PC, never a web player."""
+    import src.music.spotify as spotify
+
+    note = (Path(__file__).parents[1] / "app/webapp/static/js/views/settings.js").read_text(encoding="utf-8")
+    assert "desktop app of this PC only, never a web player" in note
+    assert "several_players" not in note
+    assert "web player" not in MESSAGES[NO_DEVICE].lower()
+    assert "never a web player" in spotify.__doc__.splitlines()[0]
+
+
 def test_backend_plays_fades_pauses_and_stops_by_volume_steps() -> None:
     fake, events = FakeSpotify(), []
     b = SpotifyBackend(lambda *e: events.append(e), client=client(fake), sleep=lambda s: None)
     b.play(3, Track("spotify", "spotify:playlist:abc", "Spotify playlist abc"), 60, 1.0)  # 2 steps of 0.5 s
-    wait_for(lambda: len(fake.api()) == 5)
+    wait_for(lambda: len(fake.api()) == 7)
     b.pause(1.0)
-    wait_for(lambda: len(fake.api()) == 8)
+    wait_for(lambda: len(fake.api()) == 10)
     b.resume(60, 0.5)
-    wait_for(lambda: len(fake.api()) == 11)
+    wait_for(lambda: len(fake.api()) == 15)
     b.stop(0.5)
-    wait_for(lambda: len(fake.api()) == 14)
+    wait_for(lambda: len(fake.api()) == 18)
     vol = lambda c: ("vol", int(c[2]["volume_percent"])) if c[1] == "/me/player/volume" else (c[0], c[1])  # noqa: E731
+    confirm = [("GET", "/me/player")] * 2  # playing on the chosen device, its position moving (#248)
     assert [vol(c) for c in fake.api()] == [
-        ("GET", "/me/player/devices"), ("vol", 0), ("PUT", "/me/player/play"), ("vol", 30), ("vol", 60),  # play, fade in
+        ("GET", "/me/player/devices"), ("vol", 0), ("PUT", "/me/player/play"), *confirm, ("vol", 30), ("vol", 60),  # play, fade in
         ("vol", 30), ("vol", 0), ("PUT", "/me/player/pause"),  # pause: fade out, then pause
-        ("vol", 0), ("PUT", "/me/player/play"), ("vol", 60),  # resume
+        ("vol", 0), ("PUT", "/me/player/play"), *confirm, ("vol", 60),  # resume
         ("vol", 0), ("PUT", "/me/player/pause"), ("vol", 65),  # stop: fade, pause, the app's own volume back
     ]
     play = next(c for c in fake.api() if c[1] == "/me/player/play")
     assert play[2] == {"context_uri": "spotify:playlist:abc"}
     assert all(c[2].get("device_id") == "dev-pc" for c in fake.api() if c[1] == "/me/player/volume")
     assert events == [("playing", 3, "Spotify playlist abc on STUDIO-PC")]
-    # A newer command cuts a fade short (the latest command wins): play, then stop at once.
+    # A newer command cuts a play short (the latest command wins): play, then stop at once.
     fake.calls.clear()
     b._transitions += 1  # as if a stop were already queued behind the play
     b._play(4, Track("spotify", "spotify:track:t", "t"), 60, 1.0)
     b._transitions -= 1
     assert [vol(c) for c in fake.api()] == [("GET", "/me/player/devices"), ("vol", 0), ("PUT", "/me/player/play")]
-    # A resume after a server restart carries on from the desktop app's own position: no context sent.
+    # A resume after a server restart, the app still holding the session's music (paused): it carries on
+    # from the desktop app's own position — no context sent.
     fake.calls.clear()
+    fake.player.update(context={"uri": "spotify:playlist:abc"}, is_playing=False)
     b._play(5, Track("spotify", "spotify:playlist:abc", "Spotify playlist abc"), 60, 0, carry_on=True)
     play = next(c for c in fake.api() if c[1] == "/me/player/play")
     assert play[2] == {"device_id": "dev-pc"}
@@ -447,7 +585,7 @@ def test_backend_skips_with_a_dip_in_the_volume() -> None:
     fake = FakeSpotify()
     b = SpotifyBackend(lambda *e: None, client=client(fake), sleep=lambda s: None)
     b.play(1, Track("spotify", "spotify:playlist:abc", "Spotify playlist abc"), 60, 0)
-    wait_for(lambda: len(fake.api()) == 3)
+    wait_for(lambda: len(fake.api()) == 5)
     fake.calls.clear()
     b.skip("next", 60)
     wait_for(lambda: len(fake.api()) == 4)
