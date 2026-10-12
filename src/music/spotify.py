@@ -1,18 +1,25 @@
-"""Spotify through the official Web API, playing on the Spotify desktop app of this PC (or its web player).
+"""Spotify through the official Web API, playing on the Spotify desktop app of this PC — never a web player.
 
 Setup is one login (Settings → Music → Connect Spotify, or
 ``scripts/spotify_login.py``; PKCE — no client secret):
 ``.env`` then holds ``SPOTIFY_CLIENT_ID`` and ``SPOTIFY_REFRESH_TOKEN``
 (never the repo, never ``config.json``). A refresh token Spotify rotates is
 written back to ``.env``. Controlling playback needs a **Premium** account and
-the desktop app (or the open.spotify.com web player) open on this PC. The
-backend targets, in this order: the ``Computer`` device named like this PC
-(``SPOTIFY_DEVICE_NAME`` in ``.env`` overrides the name); else any other
-desktop-app computer (the active one first); else the web player — the active
-"Web Player (…)" one, or the only one — and starts playback there by its
-device id (an idle app is woken without a separate transfer, #246). The desktop
-app wins whenever Spotify lists it, whatever name it reports; a web player
-never beats it, and an inactive web player never beats the active one.
+the desktop app open on this PC. The backend targets the ``Computer`` device
+named like this PC (``SPOTIFY_DEVICE_NAME`` in ``.env`` overrides the name),
+else any other desktop-app computer (the active one first), and starts
+playback there by its device id. A web player ("Web Player (…)") is never a
+target, whatever Spotify says about it (#248): Spotify keeps listing a closed
+tab, and reports it active, for a while, and every tab has the same name, so
+the API cannot tell a ghost from the tab you are looking at.
+
+A command Spotify accepts is not proof of sound. After every play or resume the
+backend reads ``GET /me/player`` until it shows the chosen device playing with
+its progress moving (``CONFIRM_S`` at most); only then is the music reported
+playing — otherwise ``not_playing`` says so. A carry-on after a restart resumes
+in place only when the account still has the session's music loaded; anything
+else playing gets the session's music started over it, never a bare resume
+Spotify would refuse ("Restriction violated").
 
 Fades step the volume (``PUT /me/player/volume``) every ``STEP_S`` — at most
 two requests a second, far under Spotify's rolling rate limit; a 429 says so
@@ -22,9 +29,9 @@ the app's volume back where it was before the music started.
 Every failure is one of distinct, visible states (``status()`` and the error
 the presenter shows): ``not_configured`` (no client id / refresh token, or a
 wrong client id), ``token_expired`` (the refresh token was revoked or
-expired — log in again), ``no_device`` (neither the desktop app nor the web
-player is open on this PC), ``several_players`` (Spotify lists several web
-players and none is playing — close the extra tabs or open the desktop app),
+expired — log in again), ``no_device`` (the desktop app is not open on this
+PC), ``not_playing`` (Spotify accepted a play but the app is not playing it),
+``restricted`` (Spotify refused the command: "Restriction violated"),
 ``not_premium``, ``ok`` — and ``unknown`` when it could not be
 established (Spotify unreachable, rate-limited, a 5xx), never folded into ok.
 
@@ -74,14 +81,16 @@ TIMEOUT_S = 5.0
 STATUS_TTL_S = 30.0  # the readiness check reuses a recent answer
 CONFIGURED_TTL_S = 10.0
 NAME_RETRY_S = 300.0  # a link Spotify would not name (private playlist, offline) is asked again after this
+CONFIRM_S = 5.0  # a play or resume must show on GET /me/player within this …
+CONFIRM_STEP_S = 0.5  # … read every half second
 
-OK, NOT_CONFIGURED, TOKEN_EXPIRED, NO_DEVICE, SEVERAL_PLAYERS, NOT_PREMIUM, UNKNOWN = (
-    "ok", "not_configured", "token_expired", "no_device", "several_players", "not_premium", "unknown")
+OK, NOT_CONFIGURED, TOKEN_EXPIRED, NO_DEVICE, NOT_PLAYING, RESTRICTED, NOT_PREMIUM, UNKNOWN = (
+    "ok", "not_configured", "token_expired", "no_device", "not_playing", "restricted", "not_premium", "unknown")
 MESSAGES = {
     NOT_CONFIGURED: "Spotify is not set up — put SPOTIFY_CLIENT_ID in .env, then Settings → Music → Connect Spotify",
     TOKEN_EXPIRED: "The Spotify login expired or was revoked — Settings → Music → Reconnect Spotify",
-    NO_DEVICE: "Spotify is not open on this PC — open the Spotify desktop app or web player (same account) and try again",
-    SEVERAL_PLAYERS: "Spotify lists several web players and none is playing — close the extra Spotify tabs, or open the desktop app",
+    NO_DEVICE: "The Spotify desktop app is not open on this PC — open it (same account) and try again",
+    RESTRICTED: "Spotify refused the command (Restriction violated) — press Play again, or check the Spotify app on this PC",
     NOT_PREMIUM: "Spotify Premium is needed to control playback from the app",
 }
 
@@ -222,6 +231,8 @@ class SpotifyClient:
         reason, message = str(err.get("reason") or ""), str(err.get("message") or "")
         if status == 403 and (reason == "PREMIUM_REQUIRED" or "premium" in message.lower()):
             raise SpotifyError(NOT_PREMIUM)
+        if status == 403 and "restriction" in message.lower():
+            raise SpotifyError(RESTRICTED)
         if status == 404 and (reason == "NO_ACTIVE_DEVICE" or "device" in message.lower()):
             raise SpotifyError(NO_DEVICE)
         if status == 401:
@@ -243,23 +254,18 @@ class SpotifyClient:
         return f"{name} — {artists}" if artists and kind in ("album", "track") else name
 
     def device(self) -> dict[str, Any]:
-        """Where the music plays: the computer named like this PC, else another desktop app (the
-        active one first), else the web player — the active one, or the only one (#246)."""
+        """Where the music plays: the desktop app named like this PC, else another desktop app (the
+        active one first). Never a web player, active or not (#248)."""
         devices = self.call("GET", "/me/player/devices").get("devices") or []
-        computers = [d for d in devices if str(d.get("type", "")).lower() == "computer" and not d.get("is_restricted")]
+        desktops = [d for d in devices if str(d.get("type", "")).lower() == "computer"
+                    and not d.get("is_restricted") and not is_web_player(d)]
         name = (self.env(DEVICE_KEY) or socket.gethostname()).lower()
-        named = next((d for d in computers if str(d.get("name", "")).lower() == name), None)
-        desktops = [d for d in computers if not is_web_player(d)]
+        named = next((d for d in desktops if str(d.get("name", "")).lower() == name), None)
         pick = named or next((d for d in desktops if d.get("is_active")), None) or (desktops[0] if desktops else None)
         if pick is None:
-            players = [d for d in computers if is_web_player(d)]
-            pick = next((d for d in players if d.get("is_active")), None) or (players[0] if len(players) == 1 else None)
-            if pick is None and players:
-                names = ", ".join(str(d.get("name")) for d in players)
-                raise SpotifyError(SEVERAL_PLAYERS, f"{MESSAGES[SEVERAL_PLAYERS]} (Spotify sees: {names})")
-        if pick is None:
             others = ", ".join(str(d.get("name")) for d in devices)
-            raise SpotifyError(NO_DEVICE, MESSAGES[NO_DEVICE] + (f" (Spotify sees only: {others})" if others else ""))
+            web = " — the suite never plays on a web player" if any(is_web_player(d) for d in devices) else ""
+            raise SpotifyError(NO_DEVICE, MESSAGES[NO_DEVICE] + (f" (Spotify sees only: {others}{web})" if others else ""))
         return pick
 
 
@@ -408,10 +414,8 @@ class SpotifyBackend:
             logger.info("ℹ️ spotify: .env was saved since the last status check (%s): checking again", state)
         device = ""
         try:
-            dev = self.client.device()
-            device = str(dev.get("name") or "")
-            what = "the web player" if is_web_player(dev) else f"the desktop app on {device or 'this PC'}"
-            state, detail = OK, f"Logged in · {what} is ready"
+            device = str(self.client.device().get("name") or "")
+            state, detail = OK, f"Logged in · the desktop app on {device or 'this PC'} is ready"
         except SpotifyError as exc:
             state, detail = exc.state, exc.detail
         self._status = (state, detail, time.monotonic(), gen)
@@ -487,22 +491,61 @@ class SpotifyBackend:
         return True
 
     def _play(self, play_id: int, track: Track, volume: int, fade_in_s: float, carry_on: bool = False) -> None:
-        """``carry_on`` (a resume after a restart): the desktop app keeps its own position — play on
-        from there instead of starting the track or playlist over."""
+        """``carry_on`` (a resume after a restart): when the account still has this music loaded, the
+        desktop app keeps its own position — play on from there instead of starting it over."""
         self.play_id = play_id
         gen = self.client.generation()
         self.device = self.client.device()  # the app may have been reopened since
         if self.restore_volume is None:
             self.restore_volume = self.device.get("volume_percent")
+        if carry_on and not self._loaded(track.ref):
+            # The account plays (or holds) something else: a bare resume would carry on with that, or
+            # be refused with 403 "Restriction violated" (#248) — start the session's music instead.
+            logger.info("ℹ️ spotify: the account no longer has %s loaded — starting it over", track.ref)
+            carry_on = False
         self._volume(0 if fade_in_s > 0 else volume)
         self.client.call("PUT", "/me/player/play", body=None if carry_on else play_body(track.ref),
                          query={"device_id": self.device["id"]})
+        if not self._confirm():
+            return
         self._status = (OK, "Playing", time.monotonic(), gen)
         logger.info("ℹ️ spotify: %s %s on %s (volume %d, fade in %.1f s)", "carry on with" if carry_on else "play",
                     track.ref, self.device.get("name"), volume, fade_in_s)
         self._emit("playing", play_id, f"{track.label} on {self.device.get('name', 'Spotify')}")
         if fade_in_s > 0:
             self._fade(0, volume, fade_in_s)
+
+    def _loaded(self, uri: str) -> bool:
+        """The account's player holds ``uri`` — as its context (a playlist, album, artist) or its track."""
+        now = self.client.call("GET", "/me/player")
+        return uri in (str((now.get("context") or {}).get("uri") or ""), str((now.get("item") or {}).get("uri") or ""))
+
+    def _confirm(self) -> bool:
+        """After a play or resume: True once ``GET /me/player`` shows the chosen device playing with its
+        progress moving; False when a newer command took over first. A command Spotify accepted on a
+        device that does not sound (#248) raises ``not_playing`` after ``CONFIRM_S`` — never "Playing"."""
+        want, name = str(self.device["id"]), self.device.get("name") or "this PC"
+        seen: Optional[int] = None
+        now: dict[str, Any] = {}
+        for i in range(round(CONFIRM_S / CONFIRM_STEP_S) + 1):
+            if i:
+                self._sleep(CONFIRM_STEP_S)
+            if self._interrupted():
+                return False
+            now = self.client.call("GET", "/me/player")
+            progress = now.get("progress_ms")
+            if str((now.get("device") or {}).get("id")) == want and now.get("is_playing") and isinstance(progress, int):
+                if seen is not None and progress > seen:
+                    return True
+                seen = progress
+            else:
+                seen = None
+        dev = now.get("device") or {}
+        said = ("Spotify reports no active player" if not now else
+                f"Spotify reports it on {dev.get('name') or 'another device'}" if str(dev.get("id")) != want else
+                "Spotify reports it paused" if not now.get("is_playing") else "its position is not moving")
+        raise SpotifyError(NOT_PLAYING, f"Spotify accepted the command but nothing is playing on {name} ({said}) "
+                                        "— check the Spotify desktop app on this PC")
 
     def _pause(self, fade_s: float) -> None:
         if not self._fade(self.volume_now or 0, 0, fade_s):
@@ -520,7 +563,8 @@ class SpotifyBackend:
     def _resume(self, volume: int, fade_s: float) -> None:
         self._volume(0)
         self.client.call("PUT", "/me/player/play", query={"device_id": self._device_id()})
-        self._fade(0, volume, fade_s)
+        if self._confirm():
+            self._fade(0, volume, fade_s)
 
     def _stop(self, fade_s: float) -> None:
         if not self._fade(self.volume_now or 0, 0, fade_s):
