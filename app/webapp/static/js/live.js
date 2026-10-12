@@ -122,6 +122,14 @@ export function clickToAdvance(el, live, { wait = 0, cancelOn = null, enabled = 
   if (cancelOn) el.addEventListener(cancelOn, () => clearTimeout(pending));
 }
 
+/** The item Next (`dir` 1) or Previous (-1) lands on from `index`: hidden items are stepped over. null at either end. */
+export function neighbour(items, index, dir) {
+  for (let i = index + dir; i >= 0 && i < items.length; i += dir) {
+    if (!items[i].hidden) return items[i];
+  }
+  return null;
+}
+
 /** The keyboard map shared by the stage and the presenter (PowerPoint-like). */
 export const KEYS = {
   ArrowRight: 'next', PageDown: 'next', ArrowDown: 'next', n: 'next', N: 'next',
@@ -132,10 +140,16 @@ export const KEYS = {
   '+': 'timer_add_minute', m: 'timer_add_minute', M: 'timer_add_minute',
 };
 
-/** Home / End: the first and the last item (they take an argument, so they are not in KEYS). */
+/** Home / End: the first and the last shown item (they take an argument, so they are not in KEYS). */
 const JUMPS = {
-  Home: (live) => live.send('goto', '1'),
-  End: (live) => { if (live.state && live.state.count) live.send('goto', String(live.state.count)); },
+  Home: (live) => {
+    const first = live.plan && live.plan.run.items.find((it) => !it.hidden);
+    if (first) live.send('goto', String(first.index + 1));
+  },
+  End: (live) => {
+    const last = live.plan && live.plan.run.items.findLast((it) => !it.hidden);
+    if (last) live.send('goto', String(last.index + 1));
+  },
 };
 
 /** Wire the keyboard map to live.send, ignoring keys typed into fields. */

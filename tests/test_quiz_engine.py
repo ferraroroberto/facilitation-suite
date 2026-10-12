@@ -337,8 +337,15 @@ def test_prev_is_never_taken_and_a_question_left_open_is_locked(rig: tuple[LiveH
 def test_next_and_prev_on_every_other_item_are_unchanged(rig: tuple[LiveHub, QuizService]) -> None:
     hub, _ = rig
     last = len(hub.items) - 1
+
+    def shown(i: int, step: int) -> int:  # the next item that is not hidden (#249), else stay put
+        j = i + step
+        while 0 <= j <= last and hub.items[j]["hidden"]:
+            j += step
+        return j if 0 <= j <= last else i
+
     for it in hub.items:
-        for move, expected in (("next", min(it["index"] + 1, last)), ("prev", max(it["index"] - 1, 0))):
+        for move, expected in (("next", shown(it["index"], 1)), ("prev", shown(it["index"], -1))):
             hub.goto(0 if it["index"] else 1)
             hub.goto(it["index"])
             if move == "next" and it["type"] == "quiz" and it["id"] != "qz-orphan":

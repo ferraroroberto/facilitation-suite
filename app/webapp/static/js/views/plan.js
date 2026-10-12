@@ -122,6 +122,36 @@ function thumbHtml(it) {
   return `<span class="thumb thumb-icon">${icon(glyph)}</span>`;
 }
 
+/** A hidden item's thumbnail, dimmed and marked like PowerPoint's hidden slide. */
+function hiddenThumbHtml(it) {
+  return `<span class="thumb-box">${thumbHtml(it)}<span class="thumb-hidden" role="img" aria-label="Hidden" title="Hidden: skipped by Next and Previous, still reachable from the presenter">${icon('eye-off')}</span></span>`;
+}
+
+/** The items a row's menu or the H key acts on: the whole selection when the row is part of one, else the row alone. */
+function targetItems(id) {
+  const ids = st.picked.has(id) && st.picked.size > 1 ? st.picked : new Set([id]);
+  return allItems().filter((x) => ids.has(x.it.id)).map((x) => x.it);
+}
+
+const allHidden = (items) => items.every((it) => it.include === false);
+
+/** "Hide slide" / "Show slide" (by kind), or "Hide 3 items" for a selection. */
+function hideLabel(items) {
+  const verb = allHidden(items) ? 'Show' : 'Hide';
+  return items.length === 1 ? `${verb} ${items[0].kind === 'slide' ? 'slide' : items[0].kind}` : `${verb} ${items.length} items`;
+}
+
+/** Hide (or, when every one is already hidden, show) the items: PowerPoint's "Hide slide". Drives the same `include` flag as the editor switch. */
+function toggleHidden(ids) {
+  const items = allItems().filter((x) => ids.includes(x.it.id)).map((x) => x.it);
+  if (!items.length) return;
+  const show = allHidden(items);
+  items.forEach((it) => { it.include = show; });
+  markDirty();
+  renderList();
+  renderEditor();
+}
+
 function chipHtml(it) {
   const chips = [];
   if (it.kind === 'activity') chips.push(`<span class="chip accent">${esc((st.types[it.type] || {}).label || it.type)}</span>`);
@@ -375,15 +405,23 @@ function renderList() {
       n += 1;
       if (collapsed) return;
       const row = document.createElement('div');
-      row.className = 'item-row' + (st.picked.has(it.id) ? ' selected' : '') + (it.id === st.selected && st.picked.size > 1 ? ' focused' : '') + (it.include === false ? ' excluded' : '');
+      row.className = 'item-row' + (st.picked.has(it.id) ? ' selected' : '') + (it.id === st.selected && st.picked.size > 1 ? ' focused' : '') + (it.include === false ? ' hidden-item' : '');
       row.dataset.item = it.id;
       row.tabIndex = 0;
       row.draggable = true;
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', String(st.picked.has(it.id)));
       row.innerHTML =
-        `<span class="num">${n}</span>${thumbHtml(it)}` +
-        `<span class="item-title">${esc(labelOf(it))}</span><span class="chips">${chipHtml(it)}</span>`;
+        `<span class="num">${n}</span>${it.include === false ? hiddenThumbHtml(it) : thumbHtml(it)}` +
+        `<span class="item-title">${esc(labelOf(it))}</span><span class="chips">${chipHtml(it)}</span>` +
+        `<button type="button" class="icon-button kebab" aria-label="Item actions" aria-haspopup="menu">${icon('ellipsis-vertical')}</button>`;
+      row.querySelector('.kebab').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targets = targetItems(it.id);
+        rowMenu(e.currentTarget, [
+          { label: hideLabel(targets), icon: allHidden(targets) ? 'eye' : 'eye-off', onClick: () => toggleHidden(targets.map((x) => x.id)) },
+        ]);
+      });
       row.addEventListener('mousedown', (e) => { if (e.shiftKey) e.preventDefault(); }); // no text selection on Shift+click
       row.addEventListener('click', (e) => clickItem(it.id, e));
       row.addEventListener('keydown', (e) => rowKey(it.id, e));
@@ -570,6 +608,12 @@ function rowKey(id, e) {
     return;
   }
   if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateItems([...st.picked]); return; }
+  if (!mod && !e.altKey && e.key.toLowerCase() === 'h') {
+    e.preventDefault();
+    toggleHidden(targetItems(id).map((x) => x.id));
+    focusRow(id);
+    return;
+  }
   if (e.key === 'Escape' && st.picked.size > 1) { e.preventDefault(); select(st.selected); focusRow(st.selected); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteItems([...st.picked]); }
 }
@@ -898,7 +942,7 @@ function renderEditor() {
   form.appendChild(timerField(it));
   form.appendChild(musicField(it));
 
-  form.appendChild(field('In this session', switchRow(it.include !== false, 'Off = skipped live, kept in the plan', (next) => {
+  form.appendChild(field('In this session', switchRow(it.include !== false, 'Off = hidden: Next skips it, the presenter can still open it', (next) => {
     it.include = next;
     markDirty();
     renderList();
@@ -995,7 +1039,7 @@ function renderBulk() {
   if (profiles.size > 1) form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">They differ now — a pick sets all of them.</p>');
 
   const allIn = items.every((it) => it.include !== false);
-  form.appendChild(field('In this session', switchRow(allIn, allIn ? 'All in · off = skip them live' : 'Some are skipped · on = all in', (next) => {
+  form.appendChild(field('In this session', switchRow(allIn, allIn ? 'All in · off = hide them' : 'Some are hidden · on = all in', (next) => {
     items.forEach((it) => { it.include = next; });
     markDirty();
     renderList();

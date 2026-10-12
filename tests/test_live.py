@@ -30,18 +30,67 @@ def hub(demo: tuple[str, Path]) -> LiveHub:
     return h
 
 
-def test_run_skips_excluded_items_and_plans_section_starts() -> None:
+def test_run_keeps_hidden_items_marked_and_plans_section_starts() -> None:
     run = build_run(parse_session(PLAN), None)
     ids = [it["id"] for it in run["items"]]
-    assert "act-pairs" not in ids  # "In this session" off
-    assert len(ids) == 17
+    assert len(ids) == 18 and [it["id"] for it in run["items"] if it["hidden"]] == ["act-pairs"]  # "In this session" off
+    assert [it["index"] for it in run["items"]] == list(range(18))
     starts = [s["planned_start"] for s in run["sections"]]
-    assert starts == [0, 20, 60, 70, 110]
+    assert starts == [0, 20, 60, 70, 110]  # a hidden item adds and removes no planned time
     assert run["sections"][2]["has_break"] is True
     brk = next(it for it in run["items"] if it["kind"] == "break")
     assert brk["title"] == "Coffee break" and brk["timer"]["start"] == "on_enter"
     # an untitled slide without slides.json falls back to "Slide <id>"
     assert run["items"][0]["title"] == "Slide 101" and run["items"][0]["slide_missing"] is True
+
+
+def test_a_section_opens_on_its_first_shown_item() -> None:
+    session = parse_session(PLAN)
+    session.sections[1].items[0].include = False  # the readme section's first slide
+    run = build_run(session, None)
+    assert run["sections"][1]["first_index"] == 6  # slide 105, not the hidden slide 104 at 5
+    for it in session.sections[1].items:
+        it.include = False
+    assert build_run(session, None)["sections"][1]["first_index"] is None
+
+
+def test_next_and_prev_step_over_hidden_items_but_goto_opens_one(hub: LiveHub) -> None:
+    hidden = next(it for it in hub.items if it["hidden"])
+    before, after = hub.items[hidden["index"] - 1], hub.items[hidden["index"] + 1]
+    hub.goto(before["index"])
+    run_action(hub, "next")
+    assert hub.current()["id"] == after["id"]  # Next skips the hidden item
+    run_action(hub, "prev")
+    assert hub.current()["id"] == before["id"]  # and so does Previous
+    run_action(hub, "goto", str(hidden["index"] + 1))
+    assert hub.current()["id"] == hidden["id"]  # the presenter can still open it on purpose
+    run_action(hub, "next")
+    assert hub.current()["id"] == after["id"]  # Next from a hidden item goes on to the next shown one
+    hub.goto(hidden["index"])
+    run_action(hub, "prev")
+    assert hub.current()["id"] == before["id"]
+
+
+def test_next_and_prev_stop_at_the_ends_when_the_edge_items_are_hidden(hub: LiveHub) -> None:
+    last, first = len(hub.items) - 1, 0
+    hub.items[last]["hidden"] = hub.items[first]["hidden"] = True
+    hub.goto(last - 1)
+    hub.next()  # nothing shown after: stay
+    assert hub.index == last - 1
+    hub.goto(first + 1)
+    hub.prev()
+    assert hub.index == first + 1
+
+
+def test_a_timer_that_advances_skips_a_hidden_item(hub: LiveHub) -> None:
+    item = hub.items[3]
+    hub.items[4]["hidden"] = True
+    item["timer"] = {"enabled": True, "seconds": 5, "start": "manual", "show_on": "stage", "end": "advance"}
+    hub.goto(3)
+    hub.timer_toggle()
+    hub.timers[item["id"]].running_since = now_ms() - 6_000
+    hub._timer_end(item["id"])
+    assert hub.index == 5
 
 
 def test_movement_and_bounds(hub: LiveHub) -> None:
@@ -232,10 +281,10 @@ def test_plan_save_reloads_and_keeps_the_current_item(hub: LiveHub, demo: tuple[
     hub.goto(4)
     current = hub.current()["id"]
     session = hub.store.load(sid)
-    session.sections[0].items[0].include = False  # drop an item before the current one
+    session.sections[0].items[0].include = False  # hide an item before the current one
     hub.store.save(sid, session)
     hub._reload(sid)
-    assert hub.current()["id"] == current and hub.index == 3
+    assert hub.current()["id"] == current and hub.index == 4  # a hidden item stays in the run, so nothing shifts
 
 
 def test_ws_keeps_stage_and_presenter_in_sync(client, demo: tuple[str, Path]) -> None:

@@ -232,7 +232,7 @@ def _install_quiz(app: FastAPI) -> None:
     live = app.state.live
 
     def quiz_live() -> bool:  # the live session plays a quiz: the public link is checked every few minutes
-        return live.session_id is not None and any(it.get("type") in QUIZ_TYPES for it in live.items)
+        return live.session_id is not None and any(it.get("type") in QUIZ_TYPES and not it.get("hidden") for it in live.items)
 
     def pushed() -> None:  # called from the checking thread
         if live.loop is not None:

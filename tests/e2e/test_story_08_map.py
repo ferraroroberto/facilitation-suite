@@ -17,7 +17,7 @@ def test_people_land_on_the_map(page: Page, browser: Browser, webapp, shots) -> 
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(f"{webapp.base_url}/presenter?session={sid}")
-    expect(page.locator(".p-sub")).to_contain_text("1 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     page.keyboard.press("ArrowRight")  # item 2: the map
     expect(page.locator(".p-item .p-meta")).to_contain_text("Where are you joining from?")
 
@@ -70,7 +70,7 @@ def test_people_land_on_the_map(page: Page, browser: Browser, webapp, shots) -> 
     stage.mouse.click(area["x"] + 8, area["y"] + 8)  # closes the popover — a click that only closes it does not go on
     expect(stage.locator(".mp-pop")).to_have_count(0)
     stage.wait_for_timeout(600)  # past the click's 280 ms wait
-    expect(page.locator(".p-sub")).to_contain_text("2 of 17")
+    expect(page.locator(".p-sub")).to_contain_text("2 of 18")
     set_stage_click(page, webapp, False)
 
     # every cluster shows its count, and no two labels cover each other

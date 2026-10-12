@@ -64,7 +64,7 @@ function runLive() {
   function preload() {
     // The next two slides are fetched ahead so a click never shows a blank frame.
     const i = live.state ? live.state.index : 0;
-    plan.run.items.slice(i + 1, i + 3).forEach((it) => {
+    plan.run.items.slice(i + 1).filter((it) => !it.hidden).slice(0, 2).forEach((it) => {
       const file = it.slide_bg || it.slide_file; // the picture the stage will draw
       if (!file || preloaded.has(file)) return;
       preloaded.add(file);

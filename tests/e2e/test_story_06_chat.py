@@ -83,8 +83,8 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     qsid, _ = build_demo_session(qfolder, webapp.root / "sessions.local.yaml")
     add_quiz_section(qfolder)  # lobby, four questions, podium: the plan's last six items
     page.goto(f"{base}/presenter?session={qsid}")
-    expect(page.locator(".p-sub")).to_contain_text("1 of 23")
-    assert page.request.post(f"{base}/api/actions/goto/18").ok  # the quiz lobby
+    expect(page.locator(".p-sub")).to_contain_text("1 of 24")
+    assert page.request.post(f"{base}/api/actions/goto/19").ok  # the quiz lobby
     card = page.locator(".p-item")
     expect(card.locator(".p-label")).to_have_text("Quiz")
     expect(card.locator("[data-qphase]")).to_have_text("Lobby — players are joining")

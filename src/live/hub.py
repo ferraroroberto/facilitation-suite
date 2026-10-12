@@ -382,15 +382,28 @@ class LiveHub:
             fn(prev, cur)
         self.commit()
 
+    def _step(self, direction: int) -> Optional[int]:
+        """The index of the next (``+1``) or previous (``-1``) item that is not hidden, or ``None``."""
+        i = self.index + direction
+        while 0 <= i < len(self.items):
+            if not self.items[i].get("hidden"):
+                return i
+            i += direction
+        return None
+
     def next(self) -> None:
         if any(take() for take in self.next_handlers):
             return
-        self.goto(self.index + 1)
+        target = self._step(1)
+        if target is not None:
+            self.goto(target)
 
     def prev(self) -> None:
         if any(take() for take in self.prev_handlers):
             return
-        self.goto(self.index - 1)
+        target = self._step(-1)
+        if target is not None:
+            self.goto(target)
 
     def goto_section(self, number: int) -> None:
         secs = self.run["sections"]
@@ -550,8 +563,8 @@ class LiveHub:
             fn(item, end)
         if end == "chime":
             self.broadcast({"type": "chime", "item_id": item_id})
-        if end == "advance" and self.current() is item and self.index < len(self.items) - 1:
-            self.goto(self.index + 1)
+        if end == "advance" and self.current() is item and (target := self._step(1)) is not None:
+            self.goto(target)
             return
         self.commit()
 

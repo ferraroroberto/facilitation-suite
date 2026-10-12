@@ -51,7 +51,7 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             _until(page, lambda: fake.switched[-1] == "Slides + camera")
             stage.mouse.click(300, 300)
             _until(page, lambda: fake.switched[-1] == "Camera PiP")
-            expect(page.locator(".p-sub")).to_contain_text("2 of 17")  # the click did not go on
+            expect(page.locator(".p-sub")).to_contain_text("2 of 18")  # the click did not go on
             stage.close()
 
             # Settings: give Camera PiP another scene
