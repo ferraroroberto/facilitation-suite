@@ -1,14 +1,18 @@
-"""Spotify through the official Web API, playing on the Spotify desktop app of this PC.
+"""Spotify through the official Web API, playing on the Spotify desktop app of this PC (or its web player).
 
 Setup is one login (Settings → Music → Connect Spotify, or
 ``scripts/spotify_login.py``; PKCE — no client secret):
 ``.env`` then holds ``SPOTIFY_CLIENT_ID`` and ``SPOTIFY_REFRESH_TOKEN``
 (never the repo, never ``config.json``). A refresh token Spotify rotates is
 written back to ``.env``. Controlling playback needs a **Premium** account and
-the desktop app open on this PC: the backend targets the ``Computer`` device
-named like this PC (``SPOTIFY_DEVICE_NAME`` in ``.env`` overrides the name),
-else the active computer, and starts playback there by its device id — an idle
-app is woken without a separate transfer.
+the desktop app (or the open.spotify.com web player) open on this PC. The
+backend targets, in this order: the ``Computer`` device named like this PC
+(``SPOTIFY_DEVICE_NAME`` in ``.env`` overrides the name); else any other
+desktop-app computer (the active one first); else the web player — the active
+"Web Player (…)" one, or the only one — and starts playback there by its
+device id (an idle app is woken without a separate transfer, #246). The desktop
+app wins whenever Spotify lists it, whatever name it reports; a web player
+never beats it, and an inactive web player never beats the active one.
 
 Fades step the volume (``PUT /me/player/volume``) every ``STEP_S`` — at most
 two requests a second, far under Spotify's rolling rate limit; a 429 says so
@@ -18,8 +22,10 @@ the app's volume back where it was before the music started.
 Every failure is one of distinct, visible states (``status()`` and the error
 the presenter shows): ``not_configured`` (no client id / refresh token, or a
 wrong client id), ``token_expired`` (the refresh token was revoked or
-expired — log in again), ``no_device`` (the desktop app is not open on this
-PC), ``not_premium``, ``ok`` — and ``unknown`` when it could not be
+expired — log in again), ``no_device`` (neither the desktop app nor the web
+player is open on this PC), ``several_players`` (Spotify lists several web
+players and none is playing — close the extra tabs or open the desktop app),
+``not_premium``, ``ok`` — and ``unknown`` when it could not be
 established (Spotify unreachable, rate-limited, a 5xx), never folded into ok.
 
 A link is shown by its real name (playlist, album and artist, track) fetched once the
@@ -69,14 +75,17 @@ STATUS_TTL_S = 30.0  # the readiness check reuses a recent answer
 CONFIGURED_TTL_S = 10.0
 NAME_RETRY_S = 300.0  # a link Spotify would not name (private playlist, offline) is asked again after this
 
-OK, NOT_CONFIGURED, TOKEN_EXPIRED, NO_DEVICE, NOT_PREMIUM, UNKNOWN = (
-    "ok", "not_configured", "token_expired", "no_device", "not_premium", "unknown")
+OK, NOT_CONFIGURED, TOKEN_EXPIRED, NO_DEVICE, SEVERAL_PLAYERS, NOT_PREMIUM, UNKNOWN = (
+    "ok", "not_configured", "token_expired", "no_device", "several_players", "not_premium", "unknown")
 MESSAGES = {
     NOT_CONFIGURED: "Spotify is not set up — put SPOTIFY_CLIENT_ID in .env, then Settings → Music → Connect Spotify",
     TOKEN_EXPIRED: "The Spotify login expired or was revoked — Settings → Music → Reconnect Spotify",
-    NO_DEVICE: "Spotify is not open on this PC — open the Spotify desktop app (same account) and try again",
+    NO_DEVICE: "Spotify is not open on this PC — open the Spotify desktop app or web player (same account) and try again",
+    SEVERAL_PLAYERS: "Spotify lists several web players and none is playing — close the extra Spotify tabs, or open the desktop app",
     NOT_PREMIUM: "Spotify Premium is needed to control playback from the app",
 }
+
+WEB_PLAYER = re.compile(r"^web player\b", re.IGNORECASE)  # how Spotify names every open.spotify.com tab: "Web Player (Chrome)"
 
 # (method, url, headers, body) → (status, headers, body); raises OSError when unreachable.
 Http = Callable[[str, str, dict[str, str], Optional[bytes]], tuple[int, dict[str, str], bytes]]
@@ -234,17 +243,28 @@ class SpotifyClient:
         return f"{name} — {artists}" if artists and kind in ("album", "track") else name
 
     def device(self) -> dict[str, Any]:
-        """The desktop app on this PC (by name), else the active computer, else any computer."""
+        """Where the music plays: the computer named like this PC, else another desktop app (the
+        active one first), else the web player — the active one, or the only one (#246)."""
         devices = self.call("GET", "/me/player/devices").get("devices") or []
         computers = [d for d in devices if str(d.get("type", "")).lower() == "computer" and not d.get("is_restricted")]
         name = (self.env(DEVICE_KEY) or socket.gethostname()).lower()
-        pick = (next((d for d in computers if str(d.get("name", "")).lower() == name), None)
-                or next((d for d in computers if d.get("is_active")), None)
-                or (computers[0] if computers else None))
+        named = next((d for d in computers if str(d.get("name", "")).lower() == name), None)
+        desktops = [d for d in computers if not is_web_player(d)]
+        pick = named or next((d for d in desktops if d.get("is_active")), None) or (desktops[0] if desktops else None)
+        if pick is None:
+            players = [d for d in computers if is_web_player(d)]
+            pick = next((d for d in players if d.get("is_active")), None) or (players[0] if len(players) == 1 else None)
+            if pick is None and players:
+                names = ", ".join(str(d.get("name")) for d in players)
+                raise SpotifyError(SEVERAL_PLAYERS, f"{MESSAGES[SEVERAL_PLAYERS]} (Spotify sees: {names})")
         if pick is None:
             others = ", ".join(str(d.get("name")) for d in devices)
             raise SpotifyError(NO_DEVICE, MESSAGES[NO_DEVICE] + (f" (Spotify sees only: {others})" if others else ""))
         return pick
+
+
+def is_web_player(device: dict[str, Any]) -> bool:
+    return bool(WEB_PLAYER.match(str(device.get("name") or "").strip()))
 
 
 # ------------------------------------------------------------------ backend
@@ -390,7 +410,8 @@ class SpotifyBackend:
         try:
             dev = self.client.device()
             device = str(dev.get("name") or "")
-            state, detail = OK, f"Logged in · the desktop app on {device or 'this PC'} is ready"
+            what = "the web player" if is_web_player(dev) else f"the desktop app on {device or 'this PC'}"
+            state, detail = OK, f"Logged in · {what} is ready"
         except SpotifyError as exc:
             state, detail = exc.state, exc.detail
         self._status = (state, detail, time.monotonic(), gen)

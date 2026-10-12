@@ -41,6 +41,7 @@ const SPOTIFY_CHIP = {
   not_configured: ['warn', 'Not set up'],
   token_expired: ['bad', 'Login expired'],
   no_device: ['warn', 'Not open on this PC'],
+  several_players: ['warn', 'Several web players'],
   not_premium: ['bad', 'Premium needed'],
   unknown: ['', 'Unknown'],
 };
@@ -521,7 +522,7 @@ function spotifyCard() {
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('music')} Spotify</h3>` +
     `<span class="chip ${kind}" data-spotify-state><span class="dot"></span>${esc(label)}</span></div>` +
-    (sp ? `<div class="list">${fact('Account', sp.detail)}${fact('Plays on', sp.device || 'The Spotify desktop app on this PC')}${fact('Last check', whenText(sp.checked_at))}</div>` : '') +
+    (sp ? `<div class="list">${fact('Account', sp.detail)}${fact('Plays on', sp.device || 'The Spotify app on this PC')}${fact('Last check', whenText(sp.checked_at))}</div>` : '') +
     (waiting ? `<p class="status-line unknown" data-login-line>${icon('refresh-cw')} ${esc(sp.login.detail)}. This card updates by itself.</p>` : '') +
     (sp && sp.login.state === 'failed' ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
     (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (see Spotify setup in the README).</p>' : '') +

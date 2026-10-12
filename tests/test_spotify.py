@@ -20,6 +20,7 @@ from src.music.spotify import (
     NOT_PREMIUM,
     OK,
     REFRESH_KEY,
+    SEVERAL_PLAYERS,
     TOKEN_EXPIRED,
     UNKNOWN,
     SpotifyBackend,
@@ -154,6 +155,43 @@ def test_the_desktop_app_on_this_pc_is_the_device() -> None:
     with pytest.raises(SpotifyError) as err:
         client(fake).device()
     assert err.value.state == NO_DEVICE and "Phone" in err.value.detail
+
+
+def web_player(ident: str, *, active: bool) -> dict[str, Any]:
+    return {"id": ident, "name": "Web Player (Chrome)", "type": "Computer", "is_active": active, "is_restricted": False}
+
+
+def test_the_desktop_app_wins_under_any_name_and_over_an_active_web_player(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#246: no ``SPOTIFY_DEVICE_NAME``, a hostname that is not the app's name, an active web player — the app still wins."""
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    no_name = {k: v for k, v in ENV.items() if k != "SPOTIFY_DEVICE_NAME"}
+    desktop = dict(PC, id="dev-app", name="Studio (Windows 11)")
+    fake = FakeSpotify()
+    fake.devices = [web_player("web-live", active=True), desktop, PHONE]
+    assert client(fake, no_name).device()["id"] == "dev-app"
+    fake.devices = [web_player("web-live", active=True), dict(PC, id="dev-host", name="TOWER"), desktop]
+    assert client(fake, no_name).device()["id"] == "dev-host"  # named like this PC still first
+
+
+def test_the_active_web_player_is_the_device_when_no_desktop_app_is_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    no_name = {k: v for k, v in ENV.items() if k != "SPOTIFY_DEVICE_NAME"}
+    fake = FakeSpotify()
+    fake.devices = [web_player("web-stale", active=False), web_player("web-live", active=True), PHONE]
+    assert client(fake, no_name).device()["id"] == "web-live"  # never the stale same-named one
+    fake.devices = [web_player("web-only", active=False), PHONE]
+    assert client(fake, no_name).device()["id"] == "web-only"  # a lone web player is the target even when idle
+
+
+def test_several_idle_web_players_are_their_own_visible_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.music.spotify.socket.gethostname", lambda: "tower")
+    no_name = {k: v for k, v in ENV.items() if k != "SPOTIFY_DEVICE_NAME"}
+    fake = FakeSpotify()
+    fake.devices = [web_player("web-a", active=False), web_player("web-b", active=False), PHONE]
+    with pytest.raises(SpotifyError) as err:
+        client(fake, no_name).device()
+    assert err.value.state == SEVERAL_PLAYERS and "Web Player (Chrome), Web Player (Chrome)" in err.value.detail
+    assert "web-a" not in err.value.detail  # device ids stay out of the message
 
 
 def wait_for(cond: Any, timeout: float = 3.0) -> None:
