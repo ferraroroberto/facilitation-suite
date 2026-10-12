@@ -109,7 +109,7 @@
   --tile-purple: #8957e5;
   --tile-orange: #bd561d;
   --tile-yellow: #9e6a03;
-  --input-bg: var(--bg);
+  --input-bg: var(--line-muted);
   --toggle-knob: var(--ink);
   --close-bg: transparent;
   --tabbar-bg: rgba(22, 27, 34, 0.85);
