@@ -4,8 +4,8 @@
 // presenter-only clocks (session vs plan, section time left).
 
 import { icon } from '/static/_vendored/icons/icons.js';
-import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
-import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, fmtMinutes } from '/static/js/ui.js';
+import { setSwitch } from '/static/_vendored/switch/switch.js';
+import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, fmtMinutes, switchRow } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
 import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
@@ -319,21 +319,13 @@ function drawItemCard(cur, s) {
       body.querySelector('[data-treset]').addEventListener('click', () => live.send('timer_reset'));
     }
     if (cur && cur.kind === 'activity') {
-      const line = document.createElement('div');
-      line.className = 'switch-line p-switch';
-      const sw = switchEl(!!s.names, { label: 'Show names on stage', onToggle: () => live.send('names_toggle') });
-      sw.dataset.names = '';
-      line.append(sw, Object.assign(document.createElement('span'), { textContent: 'Show names on stage' }));
-      body.appendChild(line);
+      const row = switchRow(!!s.names, 'Show names on stage', () => live.send('names_toggle'));
+      row.className += ' p-switch';
+      row.firstElementChild.dataset.names = '';
+      body.appendChild(row);
     }
     if (cap) {
-      const line = document.createElement('div');
-      line.className = 'switch-line p-switch';
-      const label = 'Count my own messages (rehearsal)';
-      const sw = switchEl(!!s.count_own, { label, onToggle: () => live.send('capture_count_own') });
-      sw.dataset.countOwn = '';
-      line.append(sw, Object.assign(document.createElement('span'), { textContent: label }));
-      body.appendChild(line);
+      body.appendChild(countOwnSwitch(!!s.count_own, 'Count my own messages (rehearsal)'));
     }
   }
   const sw = body.querySelector('[data-names]');
@@ -343,6 +335,14 @@ function drawItemCard(cur, s) {
   if (cap) drawCapture(body, s.capture);
   if (quiz) drawQuiz(body, s.quiz);
   if (t) tickItemTimer(cur, s);
+}
+
+/** The same "count my own chat / rehearsal" switch, shown during a capture and during a quiz. */
+function countOwnSwitch(on, label) {
+  const row = switchRow(on, label, () => live.send('capture_count_own'));
+  row.className += ' p-switch';
+  row.firstElementChild.dataset.countOwn = '';
+  return row;
 }
 
 // ------------------------------------------------------------------------ quiz
@@ -394,14 +394,9 @@ function buildQuiz(body) {
       api('/api/quiz/reach', { method: 'POST' }).catch((err) => toast(err.message, 'error')).finally(() => { check.disabled = false; });
     }
   });
-  const line = document.createElement('div');
-  line.className = 'switch-line p-switch';
-  line.dataset.qown = '';
-  const label = 'Count my own chat answers (rehearsal)';
-  const sw = switchEl(!!(live.state && live.state.count_own), { label, onToggle: () => live.send('capture_count_own') });
-  sw.dataset.countOwn = '';
-  line.append(sw, Object.assign(document.createElement('span'), { textContent: label }));
-  body.appendChild(line);
+  const row = countOwnSwitch(!!(live.state && live.state.count_own), 'Count my own chat answers (rehearsal)');
+  row.dataset.qown = '';
+  body.appendChild(row);
 }
 
 function quizPhaseText(q) {

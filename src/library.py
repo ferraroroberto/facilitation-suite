@@ -16,15 +16,14 @@ scoped under ``.stage-canvas``.
 
 from __future__ import annotations
 
-import filecmp
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import Any
 
 from src.config import PROJECT_ROOT, AppConfig, session_root
 from src.errors import DomainError
+from src.files import copy_into
 from src.sessions.theme import FONT_TYPES
 
 logger = logging.getLogger(__name__)
@@ -102,17 +101,10 @@ def add(cfg: AppConfig, kind: str, source: str) -> Path:
         raise LibraryError(404, "file_not_found", "That file is not on this PC")
     stem = re.sub(r"[^A-Za-z0-9 ._-]+", "-", src.stem).strip(" .-") or kind
     try:
-        folder.mkdir(parents=True, exist_ok=True)
-        n = 1
-        while True:
-            dest = folder / f"{stem}{'' if n == 1 else f'-{n}'}{src.suffix.lower()}"
-            if not dest.exists():
-                shutil.copy2(src, dest)
-                logger.info("✅ library: added %s %s", kind, dest.name)
-                return dest
-            if dest.resolve() == src.resolve() or filecmp.cmp(src, dest, shallow=False):
-                return dest  # already in the library
-            n += 1
+        dest, copied = copy_into(folder, src, stem, src.suffix.lower())
+        if copied:
+            logger.info("✅ library: added %s %s", kind, dest.name)
+        return dest
     except OSError as exc:
         logger.error("❌ library: could not copy %s into %s: %s", src.name, folder, exc)
         raise LibraryError(500, "library_write_failed", f"Could not copy the file into {folder}") from exc

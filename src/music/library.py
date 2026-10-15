@@ -10,10 +10,10 @@ covers it. ``session.yaml`` refers to it by its session-relative path
 from __future__ import annotations
 
 import logging
-import shutil
 from pathlib import Path
 from typing import Any, Optional
 
+from src.files import copy_into
 from src.music.backend import MusicError
 from src.sessions.model import Session
 from src.sessions.offline import OfflineReport
@@ -74,33 +74,10 @@ def import_audio(folder: Path, source: Path) -> dict[str, Any]:
     if not source.is_file():
         raise MusicError(404, "not_found", "That file does not exist")
     duration = probe(source)
-    target_dir = folder / AUDIO_DIR
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / source.name
-    n = 1
-    while target.exists() and not _same(source, target):
-        n += 1
-        target = target_dir / f"{source.stem}-{n}{source.suffix}"
-    if not target.exists():
-        tmp = target.with_name(target.name + ".tmp")
-        shutil.copyfile(source, tmp)
-        tmp.replace(target)
+    target, copied = copy_into(folder / AUDIO_DIR, source, source.stem, source.suffix)
+    if copied:
         logger.info("ℹ️ music: %s copied into the session as %s", source.name, target.relative_to(folder).as_posix())
     return {"path": target.relative_to(folder).as_posix(), "name": target.name, "duration_s": round(duration, 1)}
-
-
-def _same(a: Path, b: Path) -> bool:
-    if a.resolve() == b.resolve():
-        return True
-    if a.stat().st_size != b.stat().st_size:
-        return False
-    with open(a, "rb") as fa, open(b, "rb") as fb:
-        while True:
-            x, y = fa.read(1 << 20), fb.read(1 << 20)
-            if x != y:
-                return False
-            if not x:
-                return True
 
 
 def readiness(folder: Path, session: Session, offline: OfflineReport) -> Optional[dict[str, Any]]:
