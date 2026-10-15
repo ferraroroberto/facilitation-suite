@@ -30,6 +30,7 @@ from pathlib import Path
 
 import pytest
 
+from src.no_window import NO_WINDOW
 from tests.conftest import write_test_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -38,7 +39,6 @@ LIVE_PORT = 8449
 LIVE_PLAYER_PORT = 8451
 LIVE_ENV = "FS_E2E_LIVE"
 LOOP_FACTORY = "app.webapp.event_loop:selector_loop_factory"
-NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
 def _free_port() -> int:
