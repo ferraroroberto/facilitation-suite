@@ -7,10 +7,9 @@
 // /#settings/<section> (the presenter's music chip opens /#settings/music).
 
 import { icon } from '/static/_vendored/icons/icons.js';
-import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
 import { bindTextSize } from '/static/_vendored/text-size/text-size.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
-import { APP, api, esc, pageHead, setStatus, toast, currentAppearance, onAppearance, setAppearance } from '/static/js/ui.js';
+import { APP, api, esc, pageHead, setStatus, toast, currentAppearance, onAppearance, setAppearance, switchRow } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
 import { words } from '/static/js/stage-words.js';
@@ -292,14 +291,7 @@ function readerCard() {
   card.className = 'card settings-card';
   const teams = data.reader.source === 'teams';
   card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('message-square')} ${teams ? 'Teams' : 'Zoom'} chat reader</h3></div>`;
-  const line = document.createElement('div');
-  line.className = 'switch-line';
-  const sw = switchEl(data.reader.enabled, {
-    label: 'Start the reader when a session goes live',
-    onToggle: (next, btn) => { setSwitch(btn, next); save({ reader: { enabled: next } }); },
-  });
-  line.append(sw, Object.assign(document.createElement('span'), { textContent: 'Start the reader when a session goes live' }));
-  card.appendChild(line);
+  card.appendChild(switchRow(data.reader.enabled, 'Start the reader when a session goes live', (next) => save({ reader: { enabled: next } })));
   const note = document.createElement('p');
   note.className = 'small muted settings-note';
   note.textContent = teams
@@ -315,13 +307,7 @@ function stageClickCard() {
   card.className = 'card settings-card';
   card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('monitor')} Clicking the stage</h3></div>`;
   const row = (key, label) => {
-    const line = document.createElement('div');
-    line.className = 'switch-line';
-    line.append(
-      switchEl(data.stage_click[key], { label, onToggle: (next, btn) => { setSwitch(btn, next); save({ stage_click: { [key]: next } }); } }),
-      Object.assign(document.createElement('span'), { textContent: label }),
-    );
-    card.appendChild(line);
+    card.appendChild(switchRow(data.stage_click[key], label, (next) => save({ stage_click: { [key]: next } })));
   };
   row('advance', 'A click on the stage goes to the next item');
   row('restore_camera', 'A click on the stage restores the item’s camera layout');

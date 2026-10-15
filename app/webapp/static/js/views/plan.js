@@ -10,8 +10,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { switchEl } from '/static/_vendored/switch/switch.js';
-import { api, esc, oneLine, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
+import { api, esc, oneLine, pageHead, setStatus, toast, fmtMinutes, switchRow } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
@@ -837,15 +836,26 @@ function input(value, onChange, attrs = {}) {
   return el;
 }
 
-function switchRow(on, text, onToggle, labelText) {
-  const wrap = document.createElement('div');
-  wrap.className = 'switch-line';
-  const sw = switchEl(on, { label: labelText || text, onToggle: (next, btn) => { onToggle(next); btn.className = 'toggle' + (next ? ' on' : ''); btn.setAttribute('aria-checked', String(next)); } });
-  const t = document.createElement('span');
-  t.className = 'muted small';
-  t.textContent = text;
-  wrap.append(sw, t);
-  return wrap;
+/** A native <select>: `options` as `[value, label]` pairs (an array, or `Object.entries(map)`),
+ *  the option matching `value` marked selected (compared as strings, so a numeric choice still
+ *  matches); `onChange` gets the matching option's own `value` back, not the raw string, so a
+ *  numeric choice keeps its type. */
+function selectField(label, options, value, onChange) {
+  const sel = document.createElement('select');
+  sel.className = 'select-native';
+  sel.setAttribute('aria-label', label);
+  options.forEach(([v, l]) => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = l;
+    o.selected = String(v) === String(value);
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => {
+    const picked = options.find(([v]) => String(v) === sel.value);
+    onChange(picked ? picked[0] : sel.value);
+  });
+  return sel;
 }
 
 function renderEditor() {
@@ -961,12 +971,8 @@ function renderEditor() {
         if (o.kind === 'switch') {
           box.appendChild(switchRow(!!cur, o.label, setOpt));
         } else if (o.kind === 'select') {
-          const sel = document.createElement('select');
-          sel.className = 'select-native';
-          sel.setAttribute('aria-label', o.label);
           // A choice keeps its type: a number stays a number in session.yaml (a quiz's time limit).
-          o.choices.forEach(([v, l]) => { const op = document.createElement('option'); op.value = v; op.textContent = l; op.selected = String(v) === String(cur); sel.appendChild(op); });
-          sel.addEventListener('change', () => { setOpt(o.choices.map(([v]) => v).find((v) => String(v) === sel.value)); renderList(); }); // the round shows as a chip
+          const sel = selectField(o.label, o.choices, cur, (v) => { setOpt(v); renderList(); }); // the round shows as a chip
           const line = document.createElement('label');
           line.className = 'opt-line';
           line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), sel);
@@ -1089,11 +1095,8 @@ function fontField(it, label, defaultSize) {
   };
   const row = document.createElement('div');
   row.className = 'inline-controls font-controls';
-  const fam = document.createElement('select');
-  fam.className = 'select-native';
-  fam.setAttribute('aria-label', label);
-  FONTS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === (font.family === 'Patrick Hand' ? 'theme' : font.family); fam.appendChild(o); });
-  fam.addEventListener('change', () => set({ family: fam.value }));
+  const famValue = font.family === 'Patrick Hand' ? 'theme' : font.family;
+  const fam = selectField(label, FONTS, famValue, (v) => set({ family: v }));
   row.appendChild(fam);
   if (defaultSize) {
     const size = input(font.size_px || shownSize(defaultSize), (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
@@ -1101,17 +1104,11 @@ function fontField(it, label, defaultSize) {
     row.append(size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
   }
   const sessionCaps = !(st.session.font && st.session.font.caps === false);
-  const caps = document.createElement('select');
-  caps.className = 'select-native';
-  caps.setAttribute('aria-label', 'Capitals');
-  [['', `Capitals as the session (${sessionCaps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']].forEach(([v, l]) => {
-    const o = document.createElement('option');
-    o.value = v;
-    o.textContent = l;
-    o.selected = v === (font.caps === true ? 'caps' : font.caps === false ? 'typed' : '');
-    caps.appendChild(o);
-  });
-  caps.addEventListener('change', () => set({ caps: caps.value === 'caps' ? true : caps.value === 'typed' ? false : null }));
+  const capsValue = font.caps === true ? 'caps' : font.caps === false ? 'typed' : '';
+  const caps = selectField('Capitals',
+    [['', `Capitals as the session (${sessionCaps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
+    capsValue,
+    (v) => set({ caps: v === 'caps' ? true : v === 'typed' ? false : null }));
   row.appendChild(caps);
   return field(label, row);
 }
@@ -1136,14 +1133,6 @@ function rolesField(it, keys, defaultSize) {
     markDirty();
     updatePreview(it);
   };
-  const select = (label, options, value, onChange) => {
-    const sel = document.createElement('select');
-    sel.className = 'select-native';
-    sel.setAttribute('aria-label', label);
-    options.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; o.selected = v === value; sel.appendChild(o); });
-    sel.addEventListener('change', () => onChange(sel.value));
-    return sel;
-  };
   keys.forEach((key) => {
     const role = ROLES.find((r) => r.key === key);
     const session = sessionRole(st.session.font, key);
@@ -1155,8 +1144,8 @@ function rolesField(it, keys, defaultSize) {
     const fonts = [['', `As the session (${fontName(session.font)})`], ['title', 'Title font'], ['text', 'Text font'],
       ...TEXT_FONTS.filter(([v]) => v)];
     if (mine.font && !fonts.some(([v]) => v === mine.font)) fonts.push([mine.font, mine.font]);
-    row.appendChild(select(`${role.label}: font`, fonts, mine.font || '', (v) => setRole(key, { font: v })));
-    row.appendChild(select(`${role.label}: capitals`,
+    row.appendChild(selectField(`${role.label}: font`, fonts, mine.font || '', (v) => setRole(key, { font: v })));
+    row.appendChild(selectField(`${role.label}: capitals`,
       [['', `As the session (${session.caps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
       mine.caps === true ? 'caps' : mine.caps === false ? 'typed' : '',
       (v) => setRole(key, { caps: v === 'caps' ? true : v === 'typed' ? false : null })));
@@ -1231,11 +1220,8 @@ function timerField(it) {
     const grid = document.createElement('div');
     grid.className = 'timer-grid';
     const sel = (label, map, value, onPick, skip = []) => {
-      const s = document.createElement('select');
-      s.className = 'select-native';
-      s.setAttribute('aria-label', label);
-      Object.entries(map).filter(([k]) => !skip.includes(k)).forEach(([k, l]) => { const o = document.createElement('option'); o.value = k; o.textContent = l; o.selected = k === value; s.appendChild(o); });
-      s.addEventListener('change', () => { onPick(s.value); markDirty(); });
+      const options = Object.entries(map).filter(([k]) => !skip.includes(k));
+      const s = selectField(label, options, value, (v) => { onPick(v); markDirty(); });
       const line = document.createElement('label');
       line.className = 'opt-line';
       line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: label }), s);
@@ -1342,11 +1328,7 @@ function musicField(it) {
   grid.appendChild(secs('fade_in_s', 'Fade in (s)'));
   grid.appendChild(secs('fade_out_s', 'Fade out (s)'));
   const sel = (label, map, key, rerender) => {
-    const s = document.createElement('select');
-    s.className = 'select-native';
-    s.setAttribute('aria-label', label);
-    Object.entries(map).forEach(([k, l]) => { const o = document.createElement('option'); o.value = k; o.textContent = l; o.selected = k === m[key]; s.appendChild(o); });
-    s.addEventListener('change', () => { m[key] = s.value; markDirty(); if (rerender) renderEditor(); });
+    const s = selectField(label, Object.entries(map), m[key], (v) => { m[key] = v; markDirty(); if (rerender) renderEditor(); });
     return line(label, s);
   };
   grid.appendChild(sel('Starts', MUSIC_START, 'start', true));

@@ -4,6 +4,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { showToast } from '/static/_vendored/toast/toast.js';
+import { switchEl, setSwitch } from '/static/_vendored/switch/switch.js';
 
 export const APP = 'facilitation-suite';
 
@@ -188,4 +189,23 @@ export function setStatus(head, text) {
 export function fmtMinutes(min) {
   const m = Math.max(0, Math.round(min));
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/**
+ * The "switch + label" row (design.md `switch`): a toggle plus its own caption, in one
+ * `.switch-line`. The switch flips at once on click (the real `setSwitch`, not a
+ * reimplementation), before `onToggle(next, btn)` runs — correct whether the caller then
+ * re-renders from scratch (Plan) or waits for the server's confirmed state to land
+ * (presenter, Settings). `labelText` is the switch's own aria-label, when it should
+ * differ from the caption `text`.
+ */
+export function switchRow(on, text, onToggle, labelText) {
+  const wrap = document.createElement('div');
+  wrap.className = 'switch-line';
+  const sw = switchEl(on, { label: labelText || text, onToggle: (next, btn) => { setSwitch(btn, next); onToggle(next, btn); } });
+  const t = document.createElement('span');
+  t.className = 'muted small';
+  t.textContent = text;
+  wrap.append(sw, t);
+  return wrap;
 }
