@@ -73,7 +73,10 @@ PAGE = HERE / "play.html"
 STATIC_DIR = HERE / "static"
 PREFIX = "/play"
 HELLO_TIMEOUT_S = 10.0  # a socket that does not say who it is by then is closed
-MAX_SOCKETS = 500
+# Open sockets at once, counted from the accept (a phone that has not said hello yet holds one too).
+# Five times the 60-player target; it stays under the listener's connection cap (``listener.py``),
+# which keeps the player side within what the main app's shared loop can watch.
+MAX_SOCKETS = 300
 LOG_REFUSALS_EVERY_S = 60.0
 
 
@@ -122,6 +125,8 @@ def create_player_app(quiz: QuizService) -> FastAPI:
 
     push = PlayerPush(view_message)
     app.state.push = push
+    sockets: set[WebSocket] = set()  # every accepted socket, said hello or not
+    app.state.sockets = sockets
     app.state.limiter = limiter
     app.state.detach = lambda: quiz.change_listeners.remove(push.notify)  # the listener calls it on stop
     quiz.change_listeners.append(push.notify)
@@ -201,18 +206,22 @@ def create_player_app(quiz: QuizService) -> FastAPI:
 
     @app.websocket(f"{PREFIX}/ws")
     async def socket(ws: WebSocket) -> None:
-        if len(push.conns) >= MAX_SOCKETS:
+        if len(sockets) >= MAX_SOCKETS:
             await ws.close(code=1013)  # try again later: the phone polls meanwhile
             return
-        await ws.accept()
+        sockets.add(ws)
         conn: Optional[Conn] = None
-        hello_by = time.monotonic() + HELLO_TIMEOUT_S
         try:
+            await ws.accept()
+            hello_by = time.monotonic() + HELLO_TIMEOUT_S
             while True:
                 if conn is None:  # pings are answered meanwhile, but the hello deadline keeps running
-                    raw = await asyncio.wait_for(ws.receive_text(), max(0.0, hello_by - time.monotonic()))
+                    raw = await asyncio.wait_for(_receive_text(ws), max(0.0, hello_by - time.monotonic()))
                 else:
-                    raw = await ws.receive_text()
+                    raw = await _receive_text(ws)
+                if raw is None:
+                    await ws.close(code=1003)  # the page only ever sends text frames
+                    return
                 try:
                     msg = json.loads(raw)
                 except ValueError:
@@ -232,7 +241,16 @@ def create_player_app(quiz: QuizService) -> FastAPI:
         except (WebSocketDisconnect, TimeoutError, RuntimeError):
             pass  # gone, silent past the hello timeout, or closed under a send
         finally:
+            sockets.discard(ws)
             if conn is not None:
                 push.conns.discard(conn)
 
     return app
+
+
+async def _receive_text(ws: WebSocket) -> Optional[str]:
+    """The next text frame's text; ``None`` for a frame that carries none (a binary one)."""
+    message = await ws.receive()
+    if message["type"] == "websocket.disconnect":
+        raise WebSocketDisconnect(message.get("code", 1000), message.get("reason"))
+    return message.get("text")

@@ -17,10 +17,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from websockets.exceptions import ConnectionClosed
+from websockets.exceptions import ConnectionClosed, InvalidStatus
 from websockets.sync.client import connect
 
 from app.player import app as player_app
+from app.player import listener as player_listener
 from app.player import ratelimit
 from app.player.app import STATIC_DIR as PLAYER_STATIC
 from app.player.app import create_player_app
@@ -309,6 +310,70 @@ def test_the_hello_deadline_holds_after_a_ping(game, monkeypatch) -> None:
         assert json.loads(ws.recv(timeout=5))["type"] == "pong"  # a ping is answered before the hello…
         with pytest.raises(ConnectionClosed):  # …but the socket still has to say hello in time
             ws.recv(timeout=5)
+
+
+def _eventually_no_sockets(main: TestClient) -> bool:
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if not main.app.state.player.app.state.sockets:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_every_open_socket_counts_toward_the_socket_cap(game, monkeypatch) -> None:
+    main, base = game
+    monkeypatch.setattr(player_app, "MAX_SOCKETS", 2)
+    url = base.replace("http://", "ws://") + "/play/ws"
+    with connect(url, open_timeout=5), connect(url, open_timeout=5):  # two that have not said hello yet
+        with pytest.raises(InvalidStatus):  # a third is turned away before it is accepted
+            connect(url, open_timeout=5)
+    assert _eventually_no_sockets(main)  # closed sockets give their place back
+    with connect(url, open_timeout=5) as ws:
+        ws.send(json.dumps({"op": "ping", "t": 1}))
+        assert json.loads(ws.recv(timeout=5))["type"] == "pong"
+
+
+def test_a_frame_that_is_not_text_closes_the_socket_cleanly(game) -> None:
+    _, base = game
+    with connect(base.replace("http://", "ws://") + "/play/ws", open_timeout=5) as ws:
+        ws.send(b"\x00\x01")
+        with pytest.raises(ConnectionClosed) as closed:
+            ws.recv(timeout=5)
+    assert closed.value.rcvd is not None and closed.value.rcvd.code == 1003  # unsupported data, not a server error
+
+
+def _closed_by_server(sock: socket.socket) -> bool:
+    try:
+        return sock.recv(1) == b""
+    except ConnectionResetError:
+        return True
+
+
+def test_the_player_listener_closes_connections_past_its_cap(game, monkeypatch) -> None:
+    # The player listener runs on the main app's selector loop; Windows select() takes at most 512
+    # sockets per call (probed on Python 3.14), so the player side must stay well under that.
+    assert player_app.MAX_SOCKETS < player_listener.MAX_CONNECTIONS < 512
+    main, base = game
+    held_now = main.app.state.player.server.server_state.connections
+    deadline = time.time() + 5
+    while held_now and time.time() < deadline:  # the go-live reachability ping may still be closing
+        time.sleep(0.05)
+    assert not held_now
+    monkeypatch.setattr(player_listener, "MAX_CONNECTIONS", 2)
+    port = int(base.rsplit(":", 1)[1])
+    held = [socket.create_connection(("127.0.0.1", port), timeout=5) for _ in range(2)]
+    try:
+        deadline = time.time() + 5
+        while len(held_now) < 2 and time.time() < deadline:
+            time.sleep(0.05)
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as extra:
+            assert _closed_by_server(extra)  # one past the cap is closed as it arrives
+        held[0].sendall(b"GET /play/api/ping HTTP/1.1\r\nHost: quiz\r\nConnection: close\r\n\r\n")
+        assert b" 200 " in held[0].recv(4096)  # the ones under the cap are served as before
+    finally:
+        for s in held:
+            s.close()
 
 
 # ---- rate limits (per client IP, as the tunnel reports it) ----
