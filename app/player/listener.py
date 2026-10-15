@@ -21,6 +21,8 @@ tray stay as they are.
   the polling URL carries each player's secret. The logger is shared with the main
   server, so this filters by path instead of uvicorn's ``access_log=False``, which
   would empty that logger's handlers for the main app too.
+- **Bounded.** It holds at most ``MAX_CONNECTIONS`` connections at once (``_CappedHTTPProtocol``);
+  the main app shares its loop and must keep room on it.
 - ``public_port = 0`` turns it off (the unit tests do; e2e uses a free port).
 """
 
@@ -30,11 +32,13 @@ import asyncio
 import contextlib
 import logging
 import socket
+import time
 from collections.abc import Generator
 from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI
+from uvicorn.protocols.http.auto import AutoHTTPProtocol
 
 from app.player.app import PREFIX, create_player_app
 from src.quiz.service import QuizService
@@ -44,8 +48,38 @@ logger = logging.getLogger(__name__)
 HOST = "127.0.0.1"
 START_TIMEOUT_S = 5.0
 STOP_TIMEOUT_S = 5.0
+# Connections the player listener holds open at once; one more is closed as it arrives and the phone
+# retries. It shares the main app's selector loop, and Windows select() takes at most 512 sockets per
+# call (probed on Python 3.14), so this leaves the rest for the main app.
+MAX_CONNECTIONS = 400
+LOG_TURNED_AWAY_EVERY_S = 60.0
 _EXCLUSIVE = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)  # Windows only
 ACCESS_LOGGER = "uvicorn.access"
+
+
+class _CappedHTTPProtocol(AutoHTTPProtocol):
+    """uvicorn's HTTP protocol, closing a connection that arrives while the listener already holds
+    ``MAX_CONNECTIONS`` (HTTP and WebSocket alike: uvicorn counts both in ``connections``). Closed
+    inside ``connection_made``, so the loop never starts watching its socket."""
+
+    _turned_away = False
+    _last_logged = -LOG_TURNED_AWAY_EVERY_S
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        if len(self.connections) >= MAX_CONNECTIONS:
+            self._turned_away = True
+            transport.close()
+            now = time.monotonic()
+            if now - _CappedHTTPProtocol._last_logged >= LOG_TURNED_AWAY_EVERY_S:
+                _CappedHTTPProtocol._last_logged = now
+                logger.warning("⚠️ quiz player listener: %d connections open — new ones are closed until some end "
+                               "(logged once a minute)", len(self.connections))
+            return
+        super().connection_made(transport)
+
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        if not self._turned_away:
+            super().connection_lost(exc)
 
 
 class QuietPlayerRequests(logging.Filter):
@@ -134,6 +168,7 @@ class PlayerListener:
             forwarded_allow_ips="127.0.0.1",
             ws_ping_interval=20.0,
             ws_ping_timeout=20.0,
+            http=_CappedHTTPProtocol,
         )
         self.server = _EmbeddedServer(config)
         self.task = asyncio.create_task(self.server.serve(sockets=[sock]), name="quiz-player-listener")
