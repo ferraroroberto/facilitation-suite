@@ -106,6 +106,7 @@ from src import tunnel  # noqa: E402 — needs the sys.path line above
 from src.activities.registry import options_with_defaults  # noqa: E402
 from src.config import load_config  # noqa: E402
 from src.jsonl import read_jsonl  # noqa: E402
+from src.no_window import NO_WINDOW  # noqa: E402
 from src.quiz.engine import points  # noqa: E402
 from src.quiz.model import QuizQuestion, question_from_item  # noqa: E402
 from src.quiz.reach import resolve_public  # noqa: E402
@@ -116,7 +117,6 @@ from tests.fixtures.quiz_plan import add_quiz_section  # noqa: E402
 
 logger = logging.getLogger("quiz_bots")
 
-NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 LIVE_PORTS = (8449, 8451)  # the live app and its player listener: never a bot target
 TIME_LIMIT = 30  # seconds per question (the restart question gets RESTART_TIME_LIMIT)
 RESTART_TIME_LIMIT = 90
