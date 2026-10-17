@@ -2,6 +2,10 @@
 // /ws, reconnecting with backoff; the server owns the state and pushes full
 // snapshots, clients only send intents (actions).
 
+// Reconnect backoff (stated guesses, not measured): doubles from first to max.
+const RECONNECT_FIRST_MS = 500; // soon enough that a dropped socket recovers before the room notices
+const RECONNECT_MAX_MS = 5000; // a handful of screens, so no herd to spread: cap how stale the stage gets after a restart
+
 /**
  * connectLive(role, handlers) → { send(action, arg), hello(w, h), now(), plan, state, online }
  * handlers: onPlan(plan), onState(state), onMessage(msg) for anything else
@@ -24,14 +28,14 @@ export function connectLive(role, handlers = {}) {
     now() { return Date.now() + this.skew; },
   };
   let ws = null;
-  let delay = 500;
+  let delay = RECONNECT_FIRST_MS;
   let helloMsg = null;
 
   function open() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${proto}://${location.host}/ws?role=${encodeURIComponent(role)}`);
     ws.onopen = () => {
-      delay = 500;
+      delay = RECONNECT_FIRST_MS;
       live.online = true;
       if (helloMsg) ws.send(JSON.stringify(helloMsg));
       if (handlers.onConnection) handlers.onConnection(true);
@@ -55,7 +59,7 @@ export function connectLive(role, handlers = {}) {
       live.online = false;
       if (was && handlers.onConnection) handlers.onConnection(false);
       setTimeout(open, delay);
-      delay = Math.min(delay * 2, 5000);
+      delay = Math.min(delay * 2, RECONNECT_MAX_MS);
     };
     ws.onerror = () => { /* onclose follows and reconnects */ };
   }
