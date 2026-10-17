@@ -13,6 +13,7 @@ from app.webapp.errors import require_local
 from src import settings as settings_file
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
+from src.sessions.readiness import reader_test_hint
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ async def get_messages(request: Request, since: int = 0) -> dict[str, Any]:
 async def reader_start(request: Request) -> dict[str, Any]:
     mode = await asyncio.to_thread(_proc(request).start)
     _chat(request).refresh()
-    return {"running": mode}
+    return {"running": mode, "hint": reader_test_hint(mode)}
 
 
 @router.post("/reader/stop")
