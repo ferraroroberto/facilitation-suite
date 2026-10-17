@@ -99,6 +99,35 @@ def test_ingest_writes_chat_jsonl_and_dedupes_batches(live_demo) -> None:
     assert [m["text"] for m in fresh.since(0)] == ["meetings", "the prompt"]
 
 
+def test_a_failed_chat_append_is_kept_and_written_with_the_next_one(live_demo, fail_append_once) -> None:
+    live, chat, folder = live_demo
+    sent: list[dict] = []
+    client = live.connect("presenter")
+    client.push = sent.append  # type: ignore[method-assign]
+    fail_append_once("chat.jsonl")
+    chat.ingest("b1", [_msg("Sam", "silos")], baseline=False, source="zoom")
+    warning = "Could not write chat.jsonl in the session folder — kept in memory"
+    assert live.write_error == warning
+    assert [m["state"]["write_error"] for m in sent if m["type"] == "state"][-1] == warning
+    chat.ingest("b2", [_msg("Ana", "meetings")], baseline=False, source="zoom")
+    assert live.write_error is None
+    assert [m["state"]["write_error"] for m in sent if m["type"] == "state"][-1] is None
+    lines = (folder / "live" / "chat.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [(json.loads(x)["id"], json.loads(x)["text"]) for x in lines] == [(1, "silos"), (2, "meetings")]
+
+
+def test_a_file_written_again_keeps_the_warning_of_another(live_demo, fail_append_once) -> None:
+    live, chat, _ = live_demo
+    fail_append_once("events.jsonl")
+    live.goto(2)
+    fail_append_once("chat.jsonl")
+    chat.ingest("b1", [_msg("Sam", "silos")], baseline=False, source="zoom")
+    chat.ingest("b2", [_msg("Ana", "meetings")], baseline=False, source="zoom")  # chat.jsonl is fine again
+    assert live.write_error == "Could not write events.jsonl in the session folder — kept in memory"
+    live.goto(3)
+    assert live.write_error is None
+
+
 def test_a_damaged_line_skips_only_itself_and_ids_never_collide(live_demo) -> None:
     live, chat, folder = live_demo
     chat.ingest("d-1", [_msg("Sam", "one"), _msg("Ana", "two"), _msg("Kim", "three")], baseline=False, source="zoom")

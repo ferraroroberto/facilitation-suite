@@ -289,6 +289,8 @@ class CaptureService:
                                                           "places": {str(k): v for k, v in self.places.items()}}, indent=1))
         except OSError as exc:
             self.live.write_failed(STATE_FILE, exc)
+            return
+        self.live.write_ok(STATE_FILE)
 
     def frozen_path(self, item_id: str, ext: str) -> Optional[Path]:
         d = self._dir()
@@ -321,6 +323,7 @@ class CaptureService:
         except OSError as exc:
             self.live.write_failed(f"captures/{path.name}", exc)
             return
+        self.live.write_ok(f"captures/{path.name}")
         self._render_png(item["id"])
 
     def _render_png(self, item_id: str) -> None:

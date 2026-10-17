@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import builtins
 import json
-from collections.abc import Iterator
+import os
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -48,6 +50,23 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pa
     monkeypatch.setattr(reach, "ping_edge", lambda *_: "tests are offline")
     monkeypatch.setattr(tunnel, "CONFIG_PATH", root / "cloudflared.yml")
     yield root
+
+
+@pytest.fixture
+def fail_append_once(monkeypatch: pytest.MonkeyPatch) -> Callable[[str], None]:
+    """``fail_append_once("events.jsonl")``: the next append to a file of that name fails, as when
+    OneDrive holds it open while it uploads; the one after goes through."""
+    real_open = builtins.open
+    armed: set[str] = set()
+
+    def flaky_open(file, mode="r", *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202 — builtins.open
+        if "a" in mode and isinstance(file, (str, os.PathLike)) and Path(file).name in armed:
+            armed.discard(Path(file).name)
+            raise PermissionError(13, "The file is in use by another process", str(file))
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", flaky_open)
+    return armed.add
 
 
 @pytest.fixture
