@@ -441,7 +441,6 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | `host` | bind address for the tray's and `webapp.bat`'s server: `0.0.0.0` (default) listens on every interface, which the phone remote and the Stream Deck over the tailnet need; `127.0.0.1` keeps the app on this PC only (off the LAN and the tailnet — the tray's **Open** then uses the loopback URL). Restart the tray after changing it |
 | `port` | server port (8449) |
 | `session_root` | default parent folder for new sessions (`<root>\<workshop>\<session>\`) |
-| `stage_display` | which display the stage window goes on (informational) |
 | `appearance` | `system` (default), `light` or `dark` for the app, the presenter and the phone remote — set from any sun/moon button or Settings → Appearance |
 | `obs` | obs-websocket host / port / password (the password stays in this file only), `enabled` = scene switching on/off |
 | `profiles` | the three OBS profiles: each one's OBS `scene` and the camera `zone` the stage keeps empty (`[left, top, right, bottom]` as fractions, `null` = no camera) |

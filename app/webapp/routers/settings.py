@@ -117,7 +117,6 @@ def payload(request: Request) -> dict[str, Any]:
         "profiles": profiles(cfg),
         "reader": {"enabled": cfg.reader.enabled, "source": cfg.reader.source, "window_title": cfg.reader.window_title,
                    "teams_title": cfg.reader.teams_title, "poll_ms": cfg.reader.poll_ms},
-        "stage_display": cfg.stage_display,
         "appearance": cfg.appearance,
         "stage_click": stage_click_state(cfg),
         "source": cfg.source,

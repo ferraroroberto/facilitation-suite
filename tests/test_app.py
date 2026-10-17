@@ -72,6 +72,17 @@ def test_config_wrong_type_falls_back(tmp_path: Path, monkeypatch: pytest.Monkey
     assert cfg.obs.enabled is True
 
 
+def test_a_saved_config_still_holding_the_retired_stage_display_key_loads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#256: ``stage_display`` was a knob nothing read; configs written before it went are still fine."""
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps({"port": 8601, "stage_display": 2, "appearance": "dark"}), encoding="utf-8")
+    monkeypatch.setenv("FS_CONFIG_PATH", str(path))
+    cfg = config_mod.load_config()
+    assert cfg.source == str(path)
+    assert (cfg.port, cfg.appearance) == (8601, "dark")
+    assert not hasattr(cfg, "stage_display")
+
+
 # ---- config.host / config.port are the one bind setting (#39) ----------------------
 
 def _loopback_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> config_mod.AppConfig:

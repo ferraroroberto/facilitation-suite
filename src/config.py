@@ -125,7 +125,6 @@ class AppConfig:
     port: int = DEFAULT_PORT
     # Default parent folder for new sessions: <session_root>/<workshop>/<session>.
     session_root: str = ""
-    stage_display: int = 2
     appearance: str = "system"  # one of APPEARANCES
     obs: ObsConfig = field(default_factory=ObsConfig)
     reader: ReaderConfig = field(default_factory=ReaderConfig)
