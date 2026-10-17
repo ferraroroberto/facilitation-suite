@@ -262,7 +262,8 @@ def test_248_3_a_play_that_spotify_accepts_but_does_not_sound_is_never_playing()
     assert "nothing is playing on STUDIO-PC (Spotify reports it paused)" in events[0][2]
     assert b.status()[0] == NOT_PLAYING  # the readiness check sees it too, never ok
     assert [c[1] for c in fake.api()].count("/me/player") == 11  # read for CONFIRM_S, then gave up
-    assert all(int(c[2]["volume_percent"]) == 0 for c in fake.api() if c[1] == "/me/player/volume")  # never faded in
+    # never faded in; the app's own volume back once it gave up (#254)
+    assert [int(c[2]["volume_percent"]) for c in fake.api() if c[1] == "/me/player/volume"] == [0, 65]
     # The account plays on another device: said so, by its name.
     fake.sounds, events[:] = True, []
     fake.player = {"device": {"id": "dev-phone", "name": "Phone"}, "is_playing": True, "progress_ms": 0}
@@ -352,6 +353,33 @@ def test_251_resume_after_other_music_was_started_plays_the_sessions_music(other
     b.resume(60, 0)
     wait_for(lambda: any(c[1] == "/me/player/play" for c in fake.api()) and fake.player["is_playing"])
     assert next(c for c in fake.api() if c[1] == "/me/player/play")[2] == {"device_id": "dev-pc"}
+    b.close()
+
+
+def test_254_a_start_that_fails_after_muting_puts_the_apps_volume_back() -> None:
+    """#254: a fade-in mutes the desktop app before the play. When Spotify never shows it playing — or
+    refuses the play — the app's own volume (65) is put back before the error, on a play and on a resume
+    alike: the facilitator who then presses play in the app hears it."""
+    fake, events = FakeSpotify(), []
+    fake.sounds = False
+    b = backend(fake, events)
+    volumes = lambda: [int(c[2]["volume_percent"]) for c in fake.api() if c[1] == "/me/player/volume"]  # noqa: E731
+    b.play(1, SPOTIFY_PL, 60, 2.0)
+    wait_for(lambda: events)
+    assert events[0][0] == "error" and b.status()[0] == NOT_PLAYING
+    assert volumes() == [0, 65]
+    fake.calls.clear()
+    events.clear()
+    b.resume(60, 2.0)  # the session's music is still loaded: the plain resume path
+    wait_for(lambda: events)
+    assert events[0][0] == "error" and volumes() == [0, 65]
+    # Spotify refuses the play itself (the app closed in between): the same.
+    fake.calls.clear()
+    events.clear()
+    fake.fail["PUT /me/player/play"] = (404, {"error": {"status": 404, "message": "Device not found"}})
+    b.play(2, SPOTIFY_PL, 60, 2.0)
+    wait_for(lambda: events)
+    assert events[0][0] == "error" and volumes() == [0, 65]
     b.close()
 
 
