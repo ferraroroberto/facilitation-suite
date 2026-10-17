@@ -510,8 +510,8 @@ async function readinessAction(sid, s, action) {
   if (action === 'import') return runImport(sid, s, false);
   if (action === 'test_reader') {
     try {
-      await api('/api/chat/reader/start', { method: 'POST' });
-      toast('Chat reader started — pop out the Zoom meeting chat; this check turns green once it has read it');
+      const started = await api('/api/chat/reader/start', { method: 'POST' });
+      toast(`Chat reader started — ${started.hint}; this check turns green once it has read it`);
       setTimeout(renderDetail, 4000);
     } catch (e) { toast(e.message, 'error'); }
     return;

@@ -68,11 +68,12 @@ def test_switch_saves_and_restarts_only_a_running_reader(client, fake_popen: lis
     assert res == {"source": "teams", "restarted": False, "running": None} and fake_popen == []
     assert load_config().reader.source == "teams"  # saved in the config file: survives an app restart
     assert client.get("/api/chat/messages").json()["reader"]["chosen"] == "teams"
-    assert client.post("/api/chat/reader/start").json() == {"running": "teams"}
+    assert client.post("/api/chat/reader/start").json() == {"running": "teams", "hint": "open the meeting chat as the active tab"}
     assert _arg(fake_popen[-1], "--source") == "teams"
     # Running: switching back restarts on Zoom; choosing the running source again changes nothing.
     res = client.put("/api/chat/reader/source", json={"source": "zoom"}).json()
     assert res == {"source": "zoom", "restarted": True, "running": "zoom"} and len(fake_popen) == 2
+    assert client.post("/api/chat/reader/start").json() == {"running": "zoom", "hint": "pop out the chat"}  # #256: the test-button toast says this
     assert _arg(fake_popen[-1], "--source") == "zoom"
     assert client.put("/api/chat/reader/source", json={"source": "zoom"}).json()["restarted"] is False
     assert len(fake_popen) == 2

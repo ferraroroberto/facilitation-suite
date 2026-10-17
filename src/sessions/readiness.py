@@ -28,6 +28,11 @@ READER_TEST_HINT = {"zoom": "pop out the chat",
                     "teams": "open the meeting chat as the active tab"}
 
 
+def reader_test_hint(source: Any) -> str:
+    """What to do before testing the reader on ``source`` (an unknown one reads as Zoom, the default)."""
+    return READER_TEST_HINT.get(source, READER_TEST_HINT["zoom"])
+
+
 def has_quiz(session: Session) -> bool:
     """The plan plays a quiz (an included quiz lobby, question or podium)."""
     from src.quiz.service import QUIZ_TYPES
@@ -132,8 +137,8 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
     if reader and reader.get("tested"):
         checks.append(_check("reader", "Chat reader", "ok", reader["detail"]))
     else:
-        how = READER_TEST_HINT.get((reader or {}).get("source"), READER_TEST_HINT["zoom"])
-        checks.append(_check("reader", "Chat reader", "unknown", f"Not tested yet — {how} and test", "test_reader"))
+        checks.append(_check("reader", "Chat reader", "unknown",
+                             f"Not tested yet — {reader_test_hint((reader or {}).get('source'))} and test", "test_reader"))
 
     obs = live.get("obs")
     if obs and obs.get("connected"):
