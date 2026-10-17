@@ -227,6 +227,36 @@ def test_readiness_skips_types_without_a_question_but_still_warns_on_empty_ones(
         assert (got["state"], got["detail"]) == ("warn", "1 without a question")
 
 
+def _reader_row(tmp_path: Path, reader: dict | None) -> dict:
+    from src.sessions import readiness
+    from src.sessions.offline import OfflineReport
+
+    session = parse_session({"schema": 1, "sections": [{"name": "S", "items": []}]})
+    live = {"reader": reader} if reader is not None else {}
+    return next(c for c in readiness.build(tmp_path, session, OfflineReport(), live) if c["key"] == "reader")
+
+
+@pytest.mark.parametrize("source, instruction", [
+    ("zoom", "pop out the chat"),
+    ("teams", "open the meeting chat as the active tab"),
+])
+def test_reader_row_is_source_neutral_and_the_instruction_follows_the_source(tmp_path: Path, source: str, instruction: str) -> None:
+    """#256: the row was "Zoom chat reader / pop out the chat" even when Teams was the chosen source."""
+    row = _reader_row(tmp_path, {"tested": False, "source": source, "detail": ""})
+    assert (row["label"], row["state"], row["action"]) == ("Chat reader", "unknown", "test_reader")
+    assert row["detail"] == f"Not tested yet — {instruction} and test"
+
+
+def test_reader_row_without_a_known_source_keeps_the_zoom_default(tmp_path: Path) -> None:
+    for reader in (None, {"tested": False}, {"tested": False, "source": "carrier-pigeon"}):
+        assert "pop out the chat" in _reader_row(tmp_path, reader)["detail"]
+
+
+def test_reader_row_is_ok_once_tested_whatever_the_source(tmp_path: Path) -> None:
+    row = _reader_row(tmp_path, {"tested": True, "source": "teams", "detail": "Read the meeting chat at 18:41 (3 messages in it)"})
+    assert (row["label"], row["state"]) == ("Chat reader", "ok")
+
+
 def test_demo_fixture_is_a_valid_session(tmp_path: Path) -> None:
     from tests.fixtures.demo import build_demo_session
 

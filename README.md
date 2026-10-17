@@ -339,7 +339,7 @@ End to end, from a Kahoot spreadsheet to the podium. The details of each part ar
 - [ ] *Quiz public URL reachable* is **reachable** (press **Check**); not *unknown*.
 - [ ] Open the join link on a phone **on mobile data**, join the lobby, answer one question — then **Remove** that test player (or **New game** on the lobby).
 - [ ] Sound cues in `audio/` play (optional).
-- [ ] The Zoom chat reader is tested (the chat fallback depends on it) and the lobby's chat switch is as you want it.
+- [ ] The chat reader is tested (the chat fallback depends on it) and the lobby's chat switch is as you want it.
 - [ ] The chat fallback is ready anyway (a network that blocks the quiz host, or the tunnel down mid-game).
 - [ ] A rehearsal with `scripts/quiz_bots.py` passed on this build.
 

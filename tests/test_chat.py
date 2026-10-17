@@ -166,6 +166,21 @@ def test_reader_state_machine(live_demo, monkeypatch: pytest.MonkeyPatch) -> Non
     assert chat.reader_state()[0] == "off"
 
 
+def test_readiness_names_the_chat_of_the_chosen_source(live_demo) -> None:
+    """#256: Teams has no pop-out, so a passed test must not say "popped-out chat"."""
+    _, chat, _ = live_demo
+    assert chat.readiness()["source"] == "zoom"
+    chat.chosen_source = lambda: "teams"
+    assert chat.readiness()["source"] == "teams"
+    chat.process_running = lambda: True
+    chat.heartbeat({"state": "reading", "detail": "3 messages", "rows": 3})
+    got = chat.readiness()
+    assert got["tested"] is True and got["source"] == "teams"
+    assert "meeting chat" in got["detail"] and "popped-out" not in got["detail"]
+    chat.chosen_source = lambda: "zoom"
+    assert "popped-out chat" in chat.readiness()["detail"]
+
+
 def test_chat_api_is_loopback_only_for_the_reader(isolated_env: Path) -> None:
     from fastapi.testclient import TestClient
 
