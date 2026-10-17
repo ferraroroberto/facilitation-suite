@@ -115,7 +115,6 @@ computed when the session goes live or the plan is saved, never per snapshot.
 
 from __future__ import annotations
 
-import json
 import logging
 import secrets
 from collections.abc import Callable
@@ -124,7 +123,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.activities.registry import options_with_defaults
-from src.jsonl import read_jsonl
+from src.jsonl import JsonlAppender, read_jsonl
 from src.live.actions import Action, register
 from src.live.hub import LiveError, LiveHub, now_ms
 from src.quiz.engine import (
@@ -253,7 +252,7 @@ class QuizService:
         self._session: Optional[str] = None
         self._scopes: tuple[Any, dict[str, Scope]] = (None, {})
         self._sounds: tuple[Any, dict[str, Any]] = (None, {})  # the Sounds chip, cached per plan revision (#102)
-        self._pending: list[dict[str, Any]] = []  # records not yet written to quiz.jsonl
+        self._log = JsonlAppender(QUIZ_FILE, live.write_failed, live.write_ok)
         self._reveal: Optional[Any] = None  # the pending reveal handle of the open question (time-up or early close)
         self._reveal_at: Optional[int] = None  # when that handle is due to fire (clock ms)
         self._push_pending = False
@@ -689,7 +688,8 @@ class QuizService:
         if self.live.session_id == self._session:
             return
         self._session = self.live.session_id
-        self.games, self.latest, self._pending = {}, {}, []
+        self.games, self.latest = {}, {}
+        self._log.forget()
         path = self._path()
         if path is None:
             return
@@ -705,17 +705,5 @@ class QuizService:
         game.apply(rec)
         self._notify()
         path = self._path()
-        if path is None:
-            return
-        self._pending.append(rec)
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a", encoding="utf-8", newline="\n") as fh:
-                fh.write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in self._pending))
-        except OSError as exc:
-            self.live.write_failed(QUIZ_FILE, exc)
-            return
-        self._pending = []
-        if self.live.write_error and QUIZ_FILE in self.live.write_error:
-            logger.info("✅ quiz: %s written again — the session folder is writable", QUIZ_FILE)
-            self.live.write_error = None
+        if path is not None:
+            self._log.append(path, [rec])

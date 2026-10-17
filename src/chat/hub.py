@@ -4,7 +4,8 @@ Messages come from the reader process (Zoom or the simulator) over loopback
 HTTP. While a session is live they are appended to its ``live/chat.jsonl``
 (one JSON object per line, append-only, epic §5.1) and pushed to every view
 as ``{"type": "chat", "messages": [...]}``; the full list is loaded back from
-the file when the session goes live again, so a restart loses nothing.
+the file when the session goes live again, so a restart loses nothing. A
+failed append keeps its messages and writes them first with the next one.
 
 Reader health is its own small state machine, reported on the presenter as
 one chip: ``off`` (no reader), ``reading``, ``window_not_found``, ``error``,
@@ -16,7 +17,6 @@ every second so a dead reader turns the chip red without anyone asking.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from collections import deque
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.chat.parse import Row, new_rows
-from src.jsonl import read_jsonl
+from src.jsonl import JsonlAppender, read_jsonl
 from src.live.hub import LiveHub, now_ms
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ class ChatHub:
         self.process_running: Callable[[], bool] = lambda: False
         self.chosen_source: Callable[[], str] = lambda: "zoom"  # the presenter's Zoom · Teams switch (#239)
         self.listeners: list[Callable[[list[dict[str, Any]]], None]] = []
+        self._log = JsonlAppender(CHAT_FILE, live.write_failed, live.write_ok)
         live.extra_state.append(self.state_fields)
         live.reset_listeners.append(self.forget)
 
@@ -64,6 +65,7 @@ class ChatHub:
         if sid == self._session:
             return
         self._session = sid
+        self._log.forget()
         path = self._file()
         # A damaged line (a crash mid-write) skips only itself; ids continue
         # after the highest one read, so a new message never reuses one.
@@ -82,13 +84,10 @@ class ChatHub:
         path = self._file()
         if path is None or not records:
             return
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a", encoding="utf-8", newline="\n") as fh:
-                for rec in records:
-                    fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        except OSError as exc:
-            self.live.write_failed(CHAT_FILE, exc)
+        had = self.live.write_error
+        self._log.append(path, records)
+        if had != self.live.write_error:  # the views hear when the warning comes or goes
+            self.live.push_state()
 
     # ------------------------------------------------------------ messages
 

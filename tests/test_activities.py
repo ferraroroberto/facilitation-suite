@@ -12,6 +12,7 @@ import pytest
 from src.activities.registry import parser, preview, result_for
 from src.chat.hub import ChatHub
 from src.config import load_config
+from src.live import capture
 from src.live.actions import run_action
 from src.live.capture import CaptureService
 from src.live.hub import LiveError, LiveHub, now_ms
@@ -231,6 +232,27 @@ def test_hide_and_unhide_a_message(svc) -> None:
     run_action(live, "unhide_message", str(noise))  # re-freezes the stopped capture
     frozen = json.loads((folder / "live" / "captures" / "act-enemy.json").read_text(encoding="utf-8"))
     assert frozen["result"]["answers"] == 2
+
+
+def test_a_failed_captures_json_warning_goes_with_the_next_good_write(svc, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, chat, cap, folder = svc
+    real = capture.atomic_write_text
+    failures = ["captures.json"]
+
+    def flaky(path: Path, text: str) -> None:
+        if path.name in failures:
+            failures.remove(path.name)
+            raise PermissionError(13, "The file is in use by another process", str(path))
+        real(path, text)
+
+    monkeypatch.setattr(capture, "atomic_write_text", flaky)
+    _goto(live, "act-enemy")
+    run_action(live, "capture_toggle")
+    assert live.write_error == "Could not write captures.json in the session folder — kept in memory"
+    run_action(live, "capture_toggle")
+    assert live.write_error is None
+    saved = json.loads((folder / "live" / "captures.json").read_text(encoding="utf-8"))
+    assert [w[1] is not None for w in saved["windows"]["act-enemy"]] == [True]  # the window, opened and closed
 
 
 def test_timer_end_stops_the_capture_and_state_survives_a_restart(svc) -> None:

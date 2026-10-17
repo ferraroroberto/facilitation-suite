@@ -29,8 +29,10 @@ them back from ``restored`` when the session goes live again), and every
 item change, clock and timer event is appended to ``live/events.jsonl``
 (which drives the session PDF order in step 12). A failed write is logged,
 kept in memory and surfaced on the presenter as ``write_error``; the state is
-written again two seconds later, and the warning goes once a write succeeds
-(OneDrive holding the file open while it uploads is the usual cause).
+written again two seconds later, an append-only log (events, chat, quiz —
+``src/jsonl.py``) writes the kept records first with its next append, and the
+warning goes once every file that failed has been written again (OneDrive
+holding the file open while it uploads is the usual cause).
 
 Resume after a restart (#95): the session that is live is also named in a
 machine-local pointer (``data/live.json``), removed when the presenter closes
@@ -59,6 +61,7 @@ from typing import Any, Optional
 from src.errors import DomainError
 from src.groups.roster import RosterError, load_groups
 from src.importer.review import read_meta
+from src.jsonl import JsonlAppender
 from src.live.plan import build_run
 from src.sessions.store import SessionError, SessionStore, atomic_write_text
 
@@ -137,7 +140,9 @@ class LiveHub:
         self.section_entered: dict[str, int] = {}
         self.timers: dict[str, TimerState] = {}
         self._timer_handles: dict[str, asyncio.TimerHandle] = {}
-        self.write_error: Optional[str] = None
+        # The session files whose last write failed → the warning each shows (the newest wins).
+        self._write_failures: dict[str, str] = {}
+        self._events = JsonlAppender(EVENTS_FILE, self.write_failed, self.write_ok)
         self._state_retry = False  # a retry of a failed state write is scheduled
         self.rev = 0
         # Step hooks: later services (capture, OBS) subscribe to item changes and timer ends.
@@ -274,7 +279,8 @@ class LiveHub:
         self.plan_rev += 1
         self.index, self.blackout, self.names = 0, False, False
         self.clock_started_at, self.section_entered, self.timers = None, {}, {}
-        self.write_error = None
+        self._write_failures.clear()
+        self._events.forget()
         self._restore_state()
         logger.info("✅ live: session %s is live (%d items, resumed at %d)", sid, len(self.items), self.index + 1)
         cur = self.current()
@@ -324,7 +330,8 @@ class LiveHub:
         self._cancel_timer_handles()
         self.index, self.blackout, self.names = 0, False, False
         self.clock_started_at, self.section_entered, self.timers = None, {}, {}
-        self.write_error = None
+        self._write_failures.clear()
+        self._events.forget()
         for fn in self.reset_listeners:
             fn()
         self.plan_rev += 1  # every view rebuilds (the presenter reloads its chat)
@@ -573,12 +580,24 @@ class LiveHub:
     def _live_dir(self) -> Optional[Path]:
         return self.folder / "live" if self.folder is not None else None
 
+    @property
+    def write_error(self) -> Optional[str]:
+        """The warning the views show while a session file could not be written (the newest failure)."""
+        return next(reversed(self._write_failures.values()), None)
+
     def write_failed(self, what: str, exc: OSError) -> None:
         """A session-folder write failed: log it once and show it on the views (``write_error``)."""
         msg = f"Could not write {what} in the session folder — kept in memory"
-        if self.write_error != msg:
+        if self._write_failures.pop(what, None) is None:
             logger.error("❌ live: %s (%s)", msg, exc)
-        self.write_error = msg
+        self._write_failures[what] = msg
+
+    def write_ok(self, what: str) -> bool:
+        """A session-folder write succeeded: its warning goes (True when there was one)."""
+        if self._write_failures.pop(what, None) is None:
+            return False
+        logger.info("✅ live: %s written again — the session folder is writable", what)
+        return True
 
     def event(self, event: str, **fields: Any) -> None:
         """Append one timestamped record to the session's ``live/events.jsonl``."""
@@ -586,12 +605,7 @@ class LiveHub:
         if live is None:
             return
         rec = {"at": datetime.now(UTC).isoformat(timespec="milliseconds"), "event": event, **fields}
-        try:
-            live.mkdir(parents=True, exist_ok=True)
-            with open(live / EVENTS_FILE, "a", encoding="utf-8", newline="\n") as fh:
-                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        except OSError as exc:
-            self.write_failed(EVENTS_FILE, exc)
+        self._events.append(live / EVENTS_FILE, [rec])
 
     def _save_state(self, *, closed: bool = False) -> None:
         live = self._live_dir()
@@ -614,9 +628,7 @@ class LiveHub:
                 self._state_retry = True
                 self.loop.call_later(2.0, self._retry_state)
             return
-        if self.write_error and STATE_FILE in self.write_error:
-            logger.info("✅ live: %s written again — the session folder is writable", STATE_FILE)
-            self.write_error = None
+        self.write_ok(STATE_FILE)
 
     def _retry_state(self) -> None:
         """A failed write of the state, tried once more; the views hear when it clears."""

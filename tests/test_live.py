@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from src.config import load_config
+from src.jsonl import read_jsonl
 from src.live.actions import run_action
 from src.live.hub import LiveError, LiveHub, now_ms
 from src.live.plan import DEFAULT_TITLES, build_run, one_line
@@ -274,6 +275,17 @@ def test_state_written_while_onedrive_holds_it_open(hub: LiveHub, demo: tuple[st
         assert hub.write_error == "Could not write state.json in the session folder — kept in memory"
     hub.goto(5)
     assert hub.write_error is None and json.loads(state.read_text(encoding="utf-8"))["item_id"] == hub.current()["id"]
+
+
+def test_a_failed_event_is_kept_and_written_with_the_next_one(hub: LiveHub, demo: tuple[str, Path],
+                                                              fail_append_once) -> None:
+    fail_append_once("events.jsonl")
+    hub.goto(3)
+    assert hub.write_error == "Could not write events.jsonl in the session folder — kept in memory"
+    hub.goto(4)
+    assert hub.write_error is None
+    moves = [r["index"] for r in read_jsonl(demo[1] / "live" / "events.jsonl") if r["event"] == "item"]
+    assert moves == [3, 4]  # the kept one first, each once
 
 
 def test_plan_save_reloads_and_keeps_the_current_item(hub: LiveHub, demo: tuple[str, Path]) -> None:
