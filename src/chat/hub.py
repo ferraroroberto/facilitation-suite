@@ -141,7 +141,7 @@ class ChatHub:
             self.live.broadcast({"type": "reader_beat", "last_read_ms": self.last_read_ms})
             if self.tested is None:
                 self.tested = {"at": self.last_beat_ms, "rows": payload.get("rows", 0)}
-                logger.info("✅ chat reader test passed: the popped-out chat was read (%s rows)", payload.get("rows"))
+                logger.info("✅ chat reader test passed: the %s was read (%s rows)", self.chat_noun(), payload.get("rows"))
         self.refresh()
 
     def reader_state(self) -> tuple[str, str]:
@@ -180,9 +180,15 @@ class ChatHub:
                            "last_read_ms": self.last_read_ms, "pending": self.beat.get("pending", 0)},
                 "chat_count": len(self.messages)}
 
+    def chat_noun(self) -> str:
+        """What the chosen source reads: Zoom's popped-out chat window, or the Teams meeting chat."""
+        return "meeting chat" if self.chosen_source() == "teams" else "popped-out chat"
+
     def readiness(self) -> dict[str, Any]:
+        source = self.chosen_source()
         if self.tested:
             at = time.strftime("%H:%M", time.localtime(self.tested["at"] / 1000))
-            return {"tested": True, "detail": f"Read the popped-out chat at {at} ({self.tested['rows']} messages in it)"}
+            return {"tested": True, "source": source,
+                    "detail": f"Read the {self.chat_noun()} at {at} ({self.tested['rows']} messages in it)"}
         state, detail = self.reader_state()
-        return {"tested": False, "detail": detail if state != "off" else ""}
+        return {"tested": False, "source": source, "detail": detail if state != "off" else ""}

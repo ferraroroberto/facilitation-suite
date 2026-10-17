@@ -23,6 +23,11 @@ def _check(key: str, label: str, state: str, detail: str, action: Optional[str] 
     return out
 
 
+# What the facilitator does before testing the chat reader, per source (``reader.source``, #239).
+READER_TEST_HINT = {"zoom": "pop out the chat",
+                    "teams": "open the meeting chat as the active tab"}
+
+
 def has_quiz(session: Session) -> bool:
     """The plan plays a quiz (an included quiz lobby, question or podium)."""
     from src.quiz.service import QUIZ_TYPES
@@ -125,9 +130,10 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
 
     reader = live.get("reader")
     if reader and reader.get("tested"):
-        checks.append(_check("reader", "Zoom chat reader", "ok", reader["detail"]))
+        checks.append(_check("reader", "Chat reader", "ok", reader["detail"]))
     else:
-        checks.append(_check("reader", "Zoom chat reader", "unknown", "Not tested yet — pop out the chat and test", "test_reader"))
+        how = READER_TEST_HINT.get((reader or {}).get("source"), READER_TEST_HINT["zoom"])
+        checks.append(_check("reader", "Chat reader", "unknown", f"Not tested yet — {how} and test", "test_reader"))
 
     obs = live.get("obs")
     if obs and obs.get("connected"):
