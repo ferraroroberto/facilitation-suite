@@ -506,10 +506,14 @@ class SpotifyBackend:
             logger.info("ℹ️ spotify: the account no longer has %s loaded — starting it over", track.ref)
             carry_on = False
         self._volume(0 if fade_in_s > 0 else volume)
-        self.client.call("PUT", "/me/player/play", body=None if carry_on else play_body(track.ref),
-                         query={"device_id": self.device["id"]})
-        if not self._confirm():
-            return
+        try:
+            self.client.call("PUT", "/me/player/play", body=None if carry_on else play_body(track.ref),
+                             query={"device_id": self.device["id"]})
+            if not self._confirm():
+                return
+        except SpotifyError:
+            self._put_volume_back()
+            raise
         self._status = (OK, "Playing", time.monotonic(), gen)
         logger.info("ℹ️ spotify: %s %s on %s (volume %d, fade in %.1f s)", "carry on with" if carry_on else "play",
                     track.ref, self.device.get("name"), volume, fade_in_s)
@@ -571,9 +575,27 @@ class SpotifyBackend:
             self._play(self.play_id, track, volume, fade_s)
             return
         self._volume(0)
-        self.client.call("PUT", "/me/player/play", query={"device_id": self._device_id()})
-        if self._confirm():
-            self._fade(0, volume, fade_s)
+        try:
+            self.client.call("PUT", "/me/player/play", query={"device_id": self._device_id()})
+            if not self._confirm():
+                return
+        except SpotifyError:
+            self._put_volume_back()
+            raise
+        self._fade(0, volume, fade_s)
+
+    def _put_volume_back(self) -> None:
+        """A play or resume failed after the volume was set for it (0 for a fade-in): the desktop app gets
+        its own volume back, so the error never leaves it silent — the service does not stop from the
+        error state (#254). A failure here is logged; the caller's error is the one reported."""
+        if self.restore_volume is None:
+            return
+        try:
+            self._volume(int(self.restore_volume))
+        except SpotifyError as exc:
+            logger.warning("⚠️ spotify: the app's volume (%s) could not be put back (%s)", self.restore_volume, exc.detail)
+            return
+        logger.info("ℹ️ spotify: the app's volume is back at %s after a failed start", self.restore_volume)
 
     def _stop(self, fade_s: float) -> None:
         if not self._fade(self.volume_now or 0, 0, fade_s):
