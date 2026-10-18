@@ -39,7 +39,7 @@ One local app for running a live online workshop: a **stage** (full-screen on th
 ## CI expectations
 
 - Workflow `.github/workflows/ci.yml`, job `gate`, on every PR and every push to `main`. **Advisory, not required** (no branch protection): the local gate (`scripts/verify-before-ship.ps1`) is the contract.
-- Typical green: **~10 min** (to be re-measured from the first runs). Investigate at **>20 min**; treat as wedged at **>~40 min**.
-- Flaky leg: the desktop chromium e2e leg can slow down on the hosted runner. `timeout-minutes: 30` caps a wedge. A wedge is a flake, not the diff. There is no phone/WebKit leg: the phone viewport is emulated inside chromium by the tests that need it.
-- CI runs the unit suite (`pytest --ignore=tests/e2e`) and the e2e suite; it does not run ruff, byte-compile or the personal-data guard (the local gate does). Windows-only paths (PowerPoint COM, the MSAA chat reader against real Zoom) are skipped by their own markers, never needed for green.
+- Typical green: **~6 min** (first run: unit 3m20 + e2e 1m30 + setup; measured 2026-10-18). Investigate at **>12 min**; treat as wedged at **>~24 min**.
+- Flaky leg: the desktop chromium e2e leg can slow down on the hosted runner. `timeout-minutes: 25` caps a wedge. A wedge is a flake, not the diff. There is no phone/WebKit leg: the phone viewport is emulated inside chromium by the tests that need it.
+- CI runs the unit suite (`pytest --ignore=tests/e2e`) and the e2e suite; it does not run ruff, byte-compile or the personal-data guard (the local gate does). The one test that drives real PowerPoint COM skips itself unless `FS_TEST_POWERPOINT=1`; the fake-Zoom MSAA burst test runs on the runner's desktop.
 - CI's only signal beyond the local gate is a clean machine: a fresh `.venv` from `requirements.txt`, committed files only. Its e2e surface = `app/`, `src/`, `themes/`, `tests/e2e/`, `tests/conftest.py`, `tests/fixtures/*.py`, `config/config.sample.json` (`.fleet.toml [e2e]` routes the same paths to `full`). A diff touching **none** of these gains nothing from CI.
