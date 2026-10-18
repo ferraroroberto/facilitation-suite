@@ -68,10 +68,10 @@ export function themeOptions(themes, now) {
   return all.map((t) => `<option value="${esc(t.value)}"${t.value === now ? ' selected' : ''}>${esc(t.source === 'library' ? 'Library · ' + t.label : t.label)}</option>`).join('');
 }
 
-/** Two buttons (or more) as range tabs; `value` is the active one. */
+/** Two buttons (or more) as a vendored segmented control; `value` is the pressed one. */
 function tabs(label, attr, options, value) {
-  return `<div class="range-tabs ed-tabs" role="group" aria-label="${esc(label)}">${options.map(([v, l]) =>
-    `<button type="button" class="range-tab${v === value ? ' active' : ''}" aria-pressed="${v === value}" ${attr}="${esc(String(v))}">${esc(l)}</button>`).join('')}</div>`;
+  return `<div class="segmented ed-tabs" role="group" aria-label="${esc(label)}">${options.map(([v, l]) =>
+    `<button type="button" class="segmented-item" aria-pressed="${v === value}" ${attr}="${esc(String(v))}">${esc(l)}</button>`).join('')}</div>`;
 }
 
 /**

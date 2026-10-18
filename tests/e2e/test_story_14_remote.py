@@ -71,8 +71,8 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
 
     page.click("#tabGroups")
     expect(page.locator(".r-rooms li").first).to_contain_text("Room 1")
-    page.locator(".range-tab", has_text="Groups of 4 · A").click()
-    expect(page.locator(".range-tab.active")).to_contain_text("Groups of 4 · A")
+    page.locator(".segmented-item", has_text="Groups of 4 · A").click()
+    expect(page.locator('.segmented-item[aria-pressed="true"]')).to_contain_text("Groups of 4 · A")
     shot(page, shots / "story-14-remote-3-groups.png")
 
     page.click("#tabLive")

@@ -159,7 +159,7 @@ _SMALL_TARGETS_JS = """(floor) => {
     if (el.disabled) continue;
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     if (!r.width || !r.height || s.visibility === 'hidden' || s.display === 'none') continue;
-    // an invisible ::before expansion (the shared .hit-target, the vendored range-tab) grows the effective box
+    // an invisible ::before expansion (the shared .hit-target, the vendored segmented) grows the effective box
     const b = getComputedStyle(el, '::before');
     const grow = (side) => (b.content !== 'none' && b.position === 'absolute') ? Math.max(0, -parseFloat(b[side]) || 0) : 0;
     const w = r.width + grow('left') + grow('right'), h = r.height + grow('top') + grow('bottom');

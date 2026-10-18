@@ -297,9 +297,11 @@ async function loadGroups() {
   } catch (e) { card.appendChild(emptyStateEl('triangle-alert', e.message)); return; }
   if (!data.rounds) { card.appendChild(emptyStateEl('shuffle', 'Not shuffled yet — shuffle in the Groups tab on the PC.')); return; }
   const tabs = document.createElement('div');
-  tabs.className = 'range-tabs';
+  tabs.className = 'segmented';
+  tabs.setAttribute('role', 'group');
+  tabs.setAttribute('aria-label', 'Round');
   tabs.innerHTML = ['pairs', 'g4a', 'g4b'].map((k) =>
-    `<button type="button" class="range-tab${k === groupsRound ? ' active' : ''}" data-round="${k}">${esc(data.labels[k])}</button>`).join('');
+    `<button type="button" class="segmented-item" aria-pressed="${k === groupsRound}" data-round="${k}">${esc(data.labels[k])}</button>`).join('');
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-round]');
     if (b) { groupsRound = b.dataset.round; loadGroups(); }

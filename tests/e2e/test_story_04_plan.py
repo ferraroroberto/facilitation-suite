@@ -207,7 +207,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     # a breakout card in it: the round under its title, a ten-minute clock
     page.locator(".add-row").nth(4).click()
     page.locator(".row-menu-item", has_text="Breakout").click()
-    page.locator("#panePlan .ed-row", has_text="Rooms").locator(".range-tab", has_text="Groups of 4 · A").click()
+    page.locator("#panePlan .ed-row", has_text="Rooms").locator(".segmented-item", has_text="Groups of 4 · A").click()
     expect(page.locator(".item-row.selected")).to_contain_text("Groups of 4 · A")
     expect(page.locator(".preview-frame .st-break-title")).to_have_text("Breakout rooms")
     expect(page.locator(".preview-frame .st-sub")).to_have_text("Groups of 4 · A")  # no shuffle yet: no room count
@@ -232,7 +232,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     assert page.evaluate(CLIPPED) == []
     # #148: picking another OBS profile re-lays the quiz preview out around that profile's camera box
     for label, profile in (("Camera strip", "camera_strip"), ("Camera PiP", "camera_pip"), ("Screen only", "screen_only")):
-        page.locator("#panePlan .ed-row", has_text="Camera layout").locator(".range-tab", has_text=label).click()
+        page.locator("#panePlan .ed-row", has_text="Camera layout").locator(".segmented-item", has_text=label).click()
         expect(page.locator(".preview-frame .st-item")).to_have_attribute("data-profile", profile)
         page.wait_for_function(f"() => ({UNDER_GUIDE})().length === 0 && ({CLIPPED})().length === 0")
 

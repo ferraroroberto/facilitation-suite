@@ -59,10 +59,10 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
 
     # #239: the Zoom · Teams switch. The reader is stopped, so a switch only saves the choice.
     switch = page.locator('[data-chatfoot] [role="group"][aria-label="Chat source"]')
-    expect(switch.locator(".range-tab.active")).to_have_text("Zoom")
+    expect(switch.locator('.segmented-item[aria-pressed="true"]')).to_have_text("Zoom")
     switch.get_by_role("button", name="Teams").click()
     expect(page.locator("#toast")).to_contain_text("Teams chat chosen")
-    expect(switch.locator(".range-tab.active")).to_have_text("Teams")
+    expect(switch.locator('.segmented-item[aria-pressed="true"]')).to_have_text("Teams")
     expect(page.locator(".p-chips")).to_contain_text("Teams chat · off")
     assert page.request.get(f"{webapp.base_url}/api/settings").json()["reader"]["source"] == "teams"
     switch.get_by_role("button", name="Zoom").click()

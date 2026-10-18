@@ -1,5 +1,5 @@
 // Plan tab: the item editor's fields — the generic rows and controls (field,
-// rangeTabs, input, selectField) and each item's font, other-text roles, timer,
+// segmentedChoice, input, selectField) and each item's font, other-text roles, timer,
 // music and notes. plan.js keeps the list, selection, editor shell and preview,
 // and binds the per-item fields to its state and redraws through planFields().
 
@@ -54,22 +54,22 @@ export function field(label, control, extraClass = '') {
   return row;
 }
 
-export function rangeTabs(options, value, onPick, label) {
-  const nav = document.createElement('div');
-  nav.className = 'range-tabs ed-tabs';
-  nav.setAttribute('role', 'group');
-  nav.setAttribute('aria-label', label);
+export function segmentedChoice(options, value, onPick, label) {
+  const group = document.createElement('div');
+  group.className = 'segmented ed-tabs';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', label);
   options.forEach(([v, text, trailing]) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'range-tab' + (v === value ? ' active' : '');
+    b.className = 'segmented-item';
     b.textContent = text;
     if (trailing) b.insertAdjacentHTML('beforeend', icon(trailing));
     b.setAttribute('aria-pressed', String(v === value));
     b.addEventListener('click', () => onPick(v));
-    nav.appendChild(b);
+    group.appendChild(b);
   });
-  return nav;
+  return group;
 }
 
 export function input(value, onChange, attrs = {}) {
@@ -270,7 +270,7 @@ export function planFields({ st, markDirty, updatePreview, renderList, renderEdi
     }, 'Music on this item'));
     if (!on) return field('Music', wrap);
     const m = it.music;
-    wrap.appendChild(rangeTabs([['file', 'File'], ['spotify', 'Spotify']], m.source || 'file', (v) => {
+    wrap.appendChild(segmentedChoice([['file', 'File'], ['spotify', 'Spotify']], m.source || 'file', (v) => {
       m.source = v;
       markDirty();
       renderList();

@@ -904,8 +904,8 @@ function drawChatFoot() {
   if (foot.dataset.key === key) return;
   foot.dataset.key = key;
   foot.innerHTML = (hint ? `<p class="small muted p-chat-hint">${esc(hint)}</p>` : '') +
-    `<div class="range-tabs" role="group" aria-label="Chat source">${[['zoom', 'Zoom'], ['teams', 'Teams']].map(([v, l]) =>
-      `<button type="button" class="range-tab${v === chosen ? ' active' : ''}" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
+    `<div class="segmented" role="group" aria-label="Chat source">${[['zoom', 'Zoom'], ['teams', 'Teams']].map(([v, l]) =>
+      `<button type="button" class="segmented-item" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
     `<div class="row-actions">` +
     (running && r.state !== 'simulating'
       ? `<button type="button" class="button-surface" data-reader="stop">${icon('square')} Stop reader</button>`
