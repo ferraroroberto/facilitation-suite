@@ -135,7 +135,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.locator('[data-item="act-pairs"]').click(modifiers=["Control"])
     expect(page.locator(".item-row.selected")).to_have_count(3)
     expect(page.locator(".plan-split .detail-title p")).to_contain_text("2 slides · 1 activity")
-    page.locator(".bulk-card .range-tab", has_text="Screen only").click()
+    page.locator(".bulk-card .segmented-item", has_text="Screen only").click()
     shot(page, shots / "story-15-font-2-multiselect.png")
 
     # drag the three onto the top half of an earlier slide: they land before it, in order

@@ -146,10 +146,13 @@ function renderRounds() {
   }
   const r = data.rounds;
   const tabs = document.createElement('div');
-  tabs.className = 'range-tabs round-tabs';
-  tabs.setAttribute('role', 'tablist');
+  // The segments carry the round's name only: a segmented control never wraps, and "Groups of 4 · A · 9 rooms"
+  // does not fit a third of a phone row. The room count is in the note under it.
+  tabs.className = 'segmented';
+  tabs.setAttribute('role', 'group');
+  tabs.setAttribute('aria-label', 'Round');
   tabs.innerHTML = ROUNDS.map((k) =>
-    `<button type="button" role="tab" class="range-tab${k === tab ? ' active' : ''}" aria-selected="${k === tab}" data-round="${k}">${esc(data.labels[k])} · ${r[k].length} rooms</button>`).join('');
+    `<button type="button" class="segmented-item" aria-pressed="${k === tab}" data-round="${k}">${esc(data.labels[k])}</button>`).join('');
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-round]');
     if (b) { tab = b.dataset.round; renderRounds(); }
@@ -167,7 +170,8 @@ function renderRounds() {
       g4a: 'Round A keeps each pair together.',
       g4b: `Round B: ${data.mixing} ${data.mixing === 1 ? 'person shares' : 'people share'} a room with someone from their round-A group.`,
     }[tab];
-    note.innerHTML = `${icon('circle-check')} <span>${esc(msg)}</span>`;
+    const rooms = r[tab].length;
+    note.innerHTML = `${icon('circle-check')} <span>${rooms} ${rooms === 1 ? 'room' : 'rooms'}. ${esc(msg)}</span>`;
   }
   detailEl.appendChild(note);
 

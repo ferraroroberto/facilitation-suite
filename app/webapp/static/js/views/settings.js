@@ -326,9 +326,9 @@ function appearanceCard() {
   card.className = 'card settings-card';
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('sun')} Light and dark</h3></div>` +
-    '<nav class="range-tabs" id="appearanceControl" aria-label="Appearance">' +
-    APPEARANCE_CHOICES.map(([v, l]) => `<button type="button" class="range-tab" data-appearance="${v}">${l}</button>`).join('') +
-    '</nav>' +
+    '<div class="segmented" id="appearanceControl" role="group" aria-label="Appearance">' +
+    APPEARANCE_CHOICES.map(([v, l]) => `<button type="button" class="segmented-item" aria-pressed="false" data-appearance="${v}">${l}</button>`).join('') +
+    '</div>' +
     '<p class="small muted settings-note">For the app, the presenter and the phone remote, on every device at once — the sun/moon buttons set it too. System follows each device\'s own setting. The stage keeps the session\'s look.</p>';
   card.querySelector('#appearanceControl').addEventListener('click', (e) => {
     const b = e.target.closest('[data-appearance]');
@@ -342,9 +342,7 @@ function appearanceCard() {
 function paintAppearanceControl(value, scope = root) {
   if (!scope) return;
   scope.querySelectorAll('#appearanceControl [data-appearance]').forEach((b) => {
-    const on = b.dataset.appearance === value;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-pressed', String(on));
+    b.setAttribute('aria-pressed', String(b.dataset.appearance === value));
   });
 }
 onAppearance((value) => paintAppearanceControl(value));
@@ -355,10 +353,10 @@ function textSizeCard() {
   card.className = 'card settings-card';
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('type')} Text size</h3></div>` +
-    '<nav class="range-tabs" id="textSizeControl" aria-label="Text size">' +
-    '<button type="button" class="range-tab" data-textsize="small">Small</button>' +
-    '<button type="button" class="range-tab" data-textsize="default">Default</button>' +
-    '<button type="button" class="range-tab" data-textsize="large">Large</button></nav>' +
+    '<div class="segmented" id="textSizeControl" role="group" aria-label="Text size">' +
+    '<button type="button" class="segmented-item" aria-pressed="false" data-textsize="small">Small</button>' +
+    '<button type="button" class="segmented-item" aria-pressed="true" data-textsize="default">Default</button>' +
+    '<button type="button" class="segmented-item" aria-pressed="false" data-textsize="large">Large</button></div>' +
     '<p class="small muted settings-note">For this app on this device; the stage keeps its own sizes.</p>';
   bindTextSize(card.querySelector('#textSizeControl'), APP);
   return card;

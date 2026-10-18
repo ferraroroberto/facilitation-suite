@@ -18,7 +18,7 @@ import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
 import { createStage, applySessionTheme } from '/static/js/stage-render.js';
 import { words } from '/static/js/stage-words.js';
-import { field, rangeTabs, input, selectField, fmtTimer, fontSeed, loadMusicDefaults, planFields } from '/static/js/views/plan-fields.js';
+import { field, segmentedChoice, input, selectField, fmtTimer, fontSeed, loadMusicDefaults, planFields } from '/static/js/views/plan-fields.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -797,21 +797,17 @@ function renderEditor() {
   const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = labelOf(it); };
 
   if (it.kind === 'activity') {
+    // More than five types, so a select, not a segmented control (design.md segmented: at most five peers).
+    // A type this PC doesn't have stays listed under its own name, so the select never shows another one.
     const types = Object.values(st.types).map((t) => [t.type, t.label]);
-    const extra = types.slice(5).find(([t]) => t === it.type);
-    const moreTab = types.length > 5 ? [[extra ? it.type : '__more', extra ? extra[1] : 'More…', extra ? 'chevron-down' : null]] : [];
-    form.appendChild(field('Type', rangeTabs(types.slice(0, 5).concat(moreTab), it.type, (v) => {
-      if (v === it.type && extra) v = '__more';
-      if (v === '__more') {
-        rowMenu(form.querySelector('.ed-tabs .range-tab:last-child'), types.slice(5).map(([t, l]) => ({ label: l, icon: (st.types[t] || {}).icon, onClick: () => { it.type = t; it.options = {}; markDirty(); renderList(); renderEditor(); } })));
-        return;
-      }
+    if (!types.some(([t]) => t === it.type)) types.push([it.type, it.type]);
+    form.appendChild(field('Type', selectField('Activity type', types, it.type, (v) => {
       it.type = v;
       it.options = {};
       markDirty();
       renderList();
       renderEditor();
-    }, 'Activity type')));
+    })));
     const spec = st.types[it.type] || {};
     form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : (it.options || {}).title || spec.label }), 'with-hint'));
     form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
@@ -837,7 +833,7 @@ function renderEditor() {
     if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 120));
     if (it.kind === 'breakout') form.appendChild(rolesField(it, ['sub'], 120));
     if (it.kind === 'breakout') {
-      form.appendChild(field('Rooms', rangeTabs(ROUNDS, (it.options || {}).round || '', (v) => {
+      form.appendChild(field('Rooms', segmentedChoice(ROUNDS, (it.options || {}).round || '', (v) => {
         it.options = Object.assign({}, it.options, { round: v });
         markDirty();
         renderList();
@@ -848,7 +844,7 @@ function renderEditor() {
     if (it.kind === 'slide') slideTextFields(form, it);
   }
 
-  form.appendChild(field('Camera layout', rangeTabs(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout')));
+  form.appendChild(field('Camera layout', segmentedChoice(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout')));
   if (it.kind === 'slide' && it.profile == null) {
     form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint warn">Detection was unsure for this slide — pick one.</p>');
   } else if (it.kind === 'slide') {
@@ -945,7 +941,7 @@ function renderBulk() {
   form.appendChild(field('Selected', strip));
 
   const profiles = new Set(items.map((it) => it.profile || null));
-  form.appendChild(field('Camera layout', rangeTabs(PROFILES, profiles.size === 1 ? [...profiles][0] : null, (v) => {
+  form.appendChild(field('Camera layout', segmentedChoice(PROFILES, profiles.size === 1 ? [...profiles][0] : null, (v) => {
     items.forEach((it) => { it.profile = v; });
     markDirty();
     renderList();
@@ -992,7 +988,7 @@ function slideTextFields(form, it) {
     return;
   }
   const live = it.live_text !== false;
-  form.appendChild(field('Slide text', rangeTabs([['live', 'In the stage lettering'], ['image', 'As in PowerPoint']], live ? 'live' : 'image', (v) => {
+  form.appendChild(field('Slide text', segmentedChoice([['live', 'In the stage lettering'], ['image', 'As in PowerPoint']], live ? 'live' : 'image', (v) => {
     it.live_text = v === 'image' ? false : null;
     markDirty();
     renderEditor();

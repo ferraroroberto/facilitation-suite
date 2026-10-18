@@ -439,9 +439,6 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .ed-control > .input { width: 100%; }
 .ed-hint { margin: 0; font-size: var(--font-body-sm); color: var(--muted); }
 .ed-hint.warn { color: var(--attention-text); font-weight: 600; }
-.ed-tabs { margin: 0; flex-wrap: wrap; }
-.ed-tabs .range-tab { flex: 1 1 auto; }
-.ed-tabs .range-tab .icon { margin-left: 4px; }
 .inline-controls { display: flex; align-items: center; gap: var(--space-sm); }
 .inline-controls .select-native { flex: 1; min-width: 0; }
 .font-controls { flex-wrap: wrap; }
@@ -480,9 +477,6 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 
 /* ---- Groups ------------------------------------------------------------- */
 .groups-filter { width: 100%; }
-/* the round tabs carry "label · N rooms" on one line each (range-tab is nowrap); three of them do not fit a phone row, so the row wraps. row-gap 8px keeps the 44px hit-target expansions (4px each side) from overlapping. */
-.round-tabs { flex-wrap: wrap; row-gap: 8px; }
-.round-tabs .range-tab { flex: 1 1 auto; }
 .person-row { padding-left: var(--space-md); padding-right: var(--space-md); }
 .person-row.absent .row-title { color: var(--muted); }
 .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--gap); }
@@ -639,7 +633,6 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .settings-row > .icon { color: var(--muted); }
 .settings-ico { width: 64px; display: grid; place-items: center; color: var(--muted); }
 .settings-note { margin: 0; }
-.settings-card .range-tabs { margin: 0; }
 .zone-thumb { position: relative; flex: none; width: 64px; height: 36px; border-radius: 6px; background: var(--card-off); border: 1px solid var(--line); overflow: hidden; }
 .zone-thumb span { position: absolute; background: var(--muted); border-radius: 3px; }
 .deck-row { gap: var(--space-md); padding: 8px 0; }

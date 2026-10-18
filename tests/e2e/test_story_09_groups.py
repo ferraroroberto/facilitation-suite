@@ -34,11 +34,11 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     expect(page.locator("#paneGroups .home-head .status")).to_have_text("37 of 40 present")
 
     page.locator("#paneGroups .empty-state button", has_text="Shuffle").click()
-    expect(page.locator(".range-tab", has_text="Pairs")).to_contain_text("18 rooms")  # 37 → 17 pairs + a trio
+    expect(page.locator(".banner.ok")).to_contain_text("18 rooms.")  # 37 → 17 pairs + a trio; Pairs is the round shown first
     expect(page.locator(".room-card")).to_have_count(18)
     expect(page.locator(".room-card", has_text="Alex R.")).to_have_count(0)
 
-    page.locator(".range-tab", has_text="Groups of 4 · B").click()
+    page.locator(".segmented-item", has_text="Groups of 4 · B").click()
     expect(page.locator(".banner.ok")).to_contain_text("Round B:")
     expect(page.locator("[data-csv]")).to_be_disabled()  # two people have no email
     expect(page.locator("#paneGroups")).to_contain_text("missing for")
