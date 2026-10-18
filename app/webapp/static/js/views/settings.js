@@ -327,7 +327,7 @@ function appearanceCard() {
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('sun')} Light and dark</h3></div>` +
     '<div class="segmented" id="appearanceControl" role="group" aria-label="Appearance">' +
-    APPEARANCE_CHOICES.map(([v, l]) => `<button type="button" class="segmented-item" aria-pressed="false" data-appearance="${v}">${l}</button>`).join('') +
+    APPEARANCE_CHOICES.map(([v, l]) => `<button type="button" class="segmented-item" aria-pressed="false" data-track="settings.appearance" data-appearance="${v}">${l}</button>`).join('') +
     '</div>' +
     '<p class="small muted settings-note">For the app, the presenter and the phone remote, on every device at once — the sun/moon buttons set it too. System follows each device\'s own setting. The stage keeps the session\'s look.</p>';
   card.querySelector('#appearanceControl').addEventListener('click', (e) => {
@@ -354,9 +354,9 @@ function textSizeCard() {
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('type')} Text size</h3></div>` +
     '<div class="segmented" id="textSizeControl" role="group" aria-label="Text size">' +
-    '<button type="button" class="segmented-item" aria-pressed="false" data-textsize="small">Small</button>' +
-    '<button type="button" class="segmented-item" aria-pressed="true" data-textsize="default">Default</button>' +
-    '<button type="button" class="segmented-item" aria-pressed="false" data-textsize="large">Large</button></div>' +
+    '<button type="button" class="segmented-item" aria-pressed="false" data-textsize="small" data-track="settings.textsize">Small</button>' +
+    '<button type="button" class="segmented-item" aria-pressed="true" data-textsize="default" data-track="settings.textsize">Default</button>' +
+    '<button type="button" class="segmented-item" aria-pressed="false" data-textsize="large" data-track="settings.textsize">Large</button></div>' +
     '<p class="small muted settings-note">For this app on this device; the stage keeps its own sizes.</p>';
   bindTextSize(card.querySelector('#textSizeControl'), APP);
   return card;

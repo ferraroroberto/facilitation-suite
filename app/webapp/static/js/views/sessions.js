@@ -65,8 +65,8 @@ export async function mount(el, context) {
   const actions = document.createElement('div');
   actions.className = 'stack-actions';
   actions.innerHTML =
-    `<button type="button" class="button-tint big-action" data-new>${icon('plus')} New session</button>` +
-    `<button type="button" class="button-ghost wide-ghost" data-add>Add an existing session folder</button>` +
+    `<button type="button" class="button-tint big-action" data-new data-track="sessions.new">${icon('plus')} New session</button>` +
+    `<button type="button" class="button-ghost wide-ghost" data-add data-track="sessions.add-folder">Add an existing session folder</button>` +
     `<p class="muted small">This list is only a ledger of names and folders. Each session lives in its own folder with its own session.yaml. Duplicate a past session from its menu.</p>`;
   listWrap.appendChild(actions);
   actions.querySelector('[data-new]').addEventListener('click', newSession);
@@ -219,12 +219,13 @@ function sessionRow(s) {
   row.className = 'session-row' + (s.id === ctx.sessionId ? ' selected' : '');
   row.tabIndex = 0;
   row.setAttribute('role', 'button');
+  row.setAttribute('data-track', 'sessions.open');
   const bad = s.status !== 'ok';
   row.innerHTML =
     `<div class="grow"><div class="row-title">${esc(s.title)}</div>` +
     `<div class="row-meta">${bad ? `<span class="chip bad">${esc(s.status === 'missing' ? 'folder missing' : 'unreadable')}</span> ` : ''}` +
     `${esc(fmtDate(s.date))} · ${esc(s.crumbs.slice(-3).join(' › '))}</div></div>` +
-    `<button type="button" class="icon-button kebab" aria-label="More actions">${icon('ellipsis-vertical')}</button>`;
+    `<button type="button" class="icon-button kebab" aria-label="More actions" data-track="sessions.row-menu">${icon('ellipsis-vertical')}</button>`;
   const select = () => openSession(s.id);
   row.addEventListener('click', (e) => { if (!e.target.closest('.kebab')) select(); });
   row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
@@ -266,7 +267,7 @@ async function renderDetail() {
   const title = document.createElement('div');
   title.className = 'detail-title';
   title.innerHTML = `<h1 data-title></h1><p class="muted" data-summary></p>` +
-    `<button type="button" class="icon-button detail-close" aria-label="Close" title="Close (Esc)" data-close-session>${icon('x')}</button>`;
+    `<button type="button" class="icon-button detail-close" aria-label="Close" title="Close (Esc)" data-close-session data-track="sessions.close-detail">${icon('x')}</button>`;
   title.querySelector('[data-close-session]').addEventListener('click', () => closeSession());
   paintTitle(title, s);
   detailEl.appendChild(title);
@@ -280,7 +281,7 @@ async function renderDetail() {
   const offLine = off.state === 'ok'
     ? `<p class="status-line ok">${icon('check')} ${off.local} of ${off.total} files on this PC${off.pinned ? ' · always kept offline' : ''}</p>`
     : off.state === 'cloud_only'
-      ? `<p class="status-line warn">${icon('cloud-off')} ${esc(off.detail)} <button type="button" class="button-ghost" data-pin>Keep on this PC</button></p>`
+      ? `<p class="status-line warn">${icon('cloud-off')} ${esc(off.detail)} <button type="button" class="button-ghost" data-pin data-track="sessions.pin">Keep on this PC</button></p>`
       : `<p class="status-line unknown">${icon('triangle-alert')} Offline status unknown · ${esc(off.detail)}</p>`;
   const folder = document.createElement('div');
   folder.className = 'card';
@@ -290,9 +291,9 @@ async function renderDetail() {
     `<div class="file-box mono">session.yaml${f.roster ? ' · roster.xlsx' : ''}${f.groups ? ' · groups.yaml' : ''}<br>` +
     `slides/ · ${f.slides ? f.slides + ' images, titles, notes' : 'not imported yet'}<br>live/ · chat log, captured visuals<br>exports/ · PDF, Excel</div>` +
     offLine +
-    `<div class="row-actions"><button type="button" class="button-surface" data-open="folder">${icon('folder-open')} Open folder</button>` +
-    `<button type="button" class="button-surface" data-open="yaml">${icon('file-text')} Open session.yaml</button>` +
-    `<button type="button" class="button-surface" data-import>${icon('upload')} ${f.slides ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button></div>`;
+    `<div class="row-actions"><button type="button" class="button-surface" data-open="folder" data-track="sessions.open-folder">${icon('folder-open')} Open folder</button>` +
+    `<button type="button" class="button-surface" data-open="yaml" data-track="sessions.open-yaml">${icon('file-text')} Open session.yaml</button>` +
+    `<button type="button" class="button-surface" data-import data-track="sessions.import">${icon('upload')} ${f.slides ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button></div>`;
   folder.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => openTarget(sid, b.dataset.open)));
   folder.querySelector('[data-import]').addEventListener('click', () => runImport(sid, s, f.slides > 0));
   const pinBtn = folder.querySelector('[data-pin]');
@@ -305,7 +306,7 @@ async function renderDetail() {
   const total = s.sections.reduce((a, x) => a + (x.minutes || 0), 0);
   plan.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('presentation')} Plan · ${fmtMinutes(total)}</h3>` +
-    `<button type="button" class="button-surface" data-edit-plan>Edit plan</button></div>` +
+    `<button type="button" class="button-surface" data-edit-plan data-track="sessions.edit-plan">Edit plan</button></div>` +
     (s.sections.length
       ? `<div class="list">${s.sections.map((x) => `<div class="list-row plan-row"><span class="grow">${esc(x.name)}</span><span class="muted small">${x.minutes} min</span></div>`).join('')}</div>`
       : `<p class="muted small">No sections yet — import the PowerPoint, then plan.</p>`);
@@ -378,7 +379,7 @@ function settingsCard(sid, s, look, onDetails) {
     `</div>` +
     `<div class="settings-sub"><h4 class="settings-sub-title">${icon('type')} Stage look</h4>` +
     `<span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
-    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset>${icon('rotate-ccw')} Reset to default</button>`) +
+    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset data-track="sessions.look-reset">${icon('rotate-ccw')} Reset to default</button>`) +
     `<span class="card-head-meta" data-lettering>${esc(letteringLabel(s.font))}</span></div>` +
     `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. The timer’s colours are at the end. New sessions start from Settings → Stage defaults.</p>` +
     `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
@@ -499,7 +500,7 @@ function settingsCard(sid, s, look, onDetails) {
 function readyRow(c) {
   const labels = { import: 'Import', pin: 'Keep on PC', test_reader: 'Test', confirm_zoom_update: 'Mark done', check_quiz_reach: 'Check' };
   const btn = c.action && labels[c.action]
-    ? `<button type="button" class="button-surface" data-action="${c.action}">${labels[c.action]}</button>` : '';
+    ? `<button type="button" class="button-surface" data-action="${c.action}" data-track="sessions.readiness">${labels[c.action]}</button>` : '';
   return `<div class="list-row ready-row state-${c.state}">` +
     `<span class="ready-icon">${icon(STATE_ICON[c.state] || 'circle-plus')}</span>` +
     `<span class="grow"><b>${esc(c.label)}</b> <span class="muted small">${esc(c.detail)}</span></span>${btn}</div>`;

@@ -88,6 +88,7 @@ from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.sessions.store import SessionStore
 from src.static_versioning import AssetVersions
+from src.usage_log import usage_router
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
 ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
+USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only, #244)
 
 
 # Bodies under this size go out as they are: gzip framing would cost more than it saves.
@@ -291,6 +293,10 @@ def create_app() -> FastAPI:
     app.include_router(settings.router)
     app.include_router(actions.router)
     app.include_router(quiz.router)
+    # Which views and controls the owner uses (#244): the vendored usage log, in the gitignored
+    # data/ (FS_DATA_DIR in tests). Behind RemoteAuth like every route; the quiz player app
+    # (app/player/) never mounts it.
+    app.include_router(usage_router(data_dir() / USAGE_DB_FILE))
     return app
 
 
