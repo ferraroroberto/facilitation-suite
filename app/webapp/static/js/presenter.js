@@ -9,6 +9,10 @@ import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, 
 import { confirmDialog } from '/static/js/dialogs.js';
 import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
+import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
+
+// The cockpit is one view; the stage and the phone remote never load the usage log (#244).
+initUsageLog().trackView('live');
 
 const root = document.getElementById('presenter');
 const KIND_LABEL = { slide: 'slide', break: 'break', breakout: 'breakout' };
@@ -105,11 +109,11 @@ function buildShell() {
       `<div class="p-titles"><div class="p-title">${esc(plan.session.title)}</div><div class="p-sub" data-sub></div></div>` +
       `<div class="p-chips" data-chips></div>` +
       `<span class="icon-button-group">` +
-      `<button type="button" class="icon-button" data-keys title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
-      `<button type="button" class="icon-button" data-blackout title="Blackout (B)" aria-label="Blackout" aria-pressed="false">${icon('eye-off')}</button>` +
-      `<button type="button" class="icon-button" data-theme-toggle title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
-      `<button type="button" class="icon-button" data-reset title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
-      `<button type="button" class="icon-button" data-close title="Close the live session" aria-label="Close the live session">${icon('x')}</button></span>` +
+      `<button type="button" class="icon-button" data-keys data-track="live.keys" title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
+      `<button type="button" class="icon-button" data-blackout data-track="live.blackout" title="Blackout (B)" aria-label="Blackout" aria-pressed="false">${icon('eye-off')}</button>` +
+      `<button type="button" class="icon-button" data-theme-toggle data-track="header.theme" title="Toggle theme" aria-label="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button>` +
+      `<button type="button" class="icon-button" data-reset data-track="live.reset-session" title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
+      `<button type="button" class="icon-button" data-close data-track="live.close-session" title="Close the live session" aria-label="Close the live session">${icon('x')}</button></span>` +
     `</header>` +
     // Four columns on a wide screen (#149): what is on stage, its notes and the session clocks ·
     // what comes next and the music · the item's controls (quiz, capture, timer) · the Zoom chat.
@@ -132,9 +136,9 @@ function buildShell() {
       `</div>` +
     `</div>` +
     `<footer class="card p-strip">` +
-      `<button type="button" class="icon-button" data-prev aria-label="Previous (←)">${icon('chevron-left')}</button>` +
+      `<button type="button" class="icon-button" data-prev data-track="live.prev" aria-label="Previous (←)">${icon('chevron-left')}</button>` +
       `<div class="p-thumbs" data-thumbs></div>` +
-      `<button type="button" class="icon-button" data-next aria-label="Next (→)">${icon('chevron-right')}</button>` +
+      `<button type="button" class="icon-button" data-next data-track="live.next" aria-label="Next (→)">${icon('chevron-right')}</button>` +
     `</footer>` +
     `<div class="card p-keys" data-keypop hidden><p class="overline">Keys · stage or presenter window</p><dl class="p-keylist"></dl></div>`;
 
@@ -189,7 +193,7 @@ function buildThumbs() {
       : `<span class="p-thumb-text">${KIND_ICON[it.kind] ? icon(KIND_ICON[it.kind]) : ''}${esc(oneLine(it.title))}</span>`;
     const mark = it.hidden ? `<span class="p-thumb-hidden" aria-hidden="true">${icon('eye-off')}</span>` : '';
     const label = esc(oneLine(it.title)) + (it.hidden ? ' (hidden)' : '');
-    return `<button type="button" class="p-thumb${it.hidden ? ' hidden-item' : ''}" data-goto="${i + 1}" title="${label}" aria-label="${i + 1}. ${label}"><span class="p-thumb-img">${inner}${mark}</span><span class="p-thumb-n">${i + 1}</span></button>`;
+    return `<button type="button" class="p-thumb${it.hidden ? ' hidden-item' : ''}" data-track="live.goto" data-goto="${i + 1}" title="${label}" aria-label="${i + 1}. ${label}"><span class="p-thumb-img">${inner}${mark}</span><span class="p-thumb-n">${i + 1}</span></button>`;
   }).join('');
   box.addEventListener('click', (e) => {
     const b = e.target.closest('[data-goto]');
@@ -266,7 +270,7 @@ function drawNotes(cur) {
     : `<p class="muted">${cur.kind === 'slide' ? 'No speaker notes on this slide.' : 'No notes — add them in the Plan tab.'}</p>`;
   if (cur.kind === 'activity' && cur.chat_prompt) {
     html += `<div class="p-prompt"><span class="muted">Prompt to paste in chat:</span> <span class="p-prompt-text">“${esc(cur.chat_prompt)}”</span>` +
-      `<button type="button" class="button-surface" data-copy>${icon('copy')} Copy prompt</button></div>`;
+      `<button type="button" class="button-surface" data-copy data-track="live.copy-prompt">${icon('copy')} Copy prompt</button></div>`;
   }
   body.innerHTML = html;
   const copy = body.querySelector('[data-copy]');
@@ -298,7 +302,7 @@ function drawItemCard(cur, s) {
       body.insertAdjacentHTML('beforeend',
         `<div class="p-cap-status"><span class="p-cap-dot" data-capdot></span><span data-capstate></span></div>` +
         `<p class="small muted p-cap-counts" data-capcounts></p>` +
-        `<button type="button" class="button-primary p-cap-btn" data-captoggle></button>`);
+        `<button type="button" class="button-primary p-cap-btn" data-captoggle data-track="live.capture-toggle"></button>`);
       body.querySelector('[data-captoggle]').addEventListener('click', () => live.send('capture_toggle'));
     }
     if (quiz) buildQuiz(body);
@@ -311,9 +315,9 @@ function drawItemCard(cur, s) {
         `<div class="p-timer${cap ? ' compact' : ''}"><span class="p-timer-clock" data-tclock></span><span class="p-timer-state small muted" data-tstate></span></div>` +
         `<p class="small muted">${esc(Math.round(t.seconds / 60 * 10) / 10)} min timer · ${esc(starts)} · shows ${esc(shows)}</p>` +
         `<div class="p-timer-actions">` +
-        `<button type="button" class="${cap ? 'button-surface' : 'button-primary'}" data-ttoggle></button>` +
-        `<button type="button" class="button-surface" data-tadd title="M">+1 min</button>` +
-        `<button type="button" class="button-surface" data-treset title="Reset">${icon('rotate-ccw')} Reset</button></div>`);
+        `<button type="button" class="${cap ? 'button-surface' : 'button-primary'}" data-ttoggle data-track="live.timer-toggle"></button>` +
+        `<button type="button" class="button-surface" data-tadd data-track="live.timer-add" title="M">+1 min</button>` +
+        `<button type="button" class="button-surface" data-treset data-track="live.timer-reset" title="Reset">${icon('rotate-ccw')} Reset</button></div>`);
       body.querySelector('[data-ttoggle]').addEventListener('click', () => live.send('timer_toggle'));
       body.querySelector('[data-tadd]').addEventListener('click', () => live.send('timer_add_minute'));
       body.querySelector('[data-treset]').addEventListener('click', () => live.send('timer_reset'));
@@ -361,9 +365,9 @@ function buildQuiz(body) {
     `<div class="p-quiz-join"><p class="small muted p-cap-counts" data-qcounts></p><span class="p-quiz-part" data-qsound></span></div>` +
     `<div class="p-quiz-join" data-qjoin></div>` +
     `<div class="p-timer-actions p-quiz-actions">` +
-    `<button type="button" class="button-primary p-cap-btn" data-qnext></button>` +
-    `<button type="button" class="button-surface" data-qlock>${icon('square')} Lock answers<kbd>Space</kbd></button>` +
-    `<button type="button" class="button-surface" data-qnew>${icon('rotate-ccw')} New game</button></div>` +
+    `<button type="button" class="button-primary p-cap-btn" data-qnext data-track="live.quiz-next"></button>` +
+    `<button type="button" class="button-surface" data-qlock data-track="live.quiz-lock">${icon('square')} Lock answers<kbd>Space</kbd></button>` +
+    `<button type="button" class="button-surface" data-qnew data-track="live.quiz-new">${icon('rotate-ccw')} New game</button></div>` +
     `<p class="overline p-quiz-head">${icon('users')} Players</p><ul class="p-quiz-players" data-qplayers></ul>`);
   body.querySelector('[data-qnext]').addEventListener('click', () => live.send('next'));
   body.querySelector('[data-qlock]').addEventListener('click', () => live.send('quiz_lock'));
@@ -456,7 +460,7 @@ function quizReachHtml(reach) {
   const r = reach || { state: 'unknown', label: 'unknown', detail: 'Not checked yet' };
   const when = r.checked_at ? ` · checked ${new Date(r.checked_at * 1000).toLocaleTimeString()}` : '';
   return `<span class="chip ${REACH_CHIP[r.state] ?? ''}" data-qreach="${esc(r.state)}" title="${esc(r.detail + when)}">Reachability · ${esc(r.label)}</span>` +
-    `<button type="button" class="button-surface" data-qreachcheck>${icon('refresh-cw')} Check</button>`;
+    `<button type="button" class="button-surface" data-qreachcheck data-track="live.quiz-reach-check">${icon('refresh-cw')} Check</button>`;
 }
 
 // The Sounds chip (#102): which of the four cue files (src/quiz/cues.py) are in audio/, and
@@ -558,7 +562,7 @@ function drawTiming(cur, s) {
       body.dataset.mode = 'idle';
       // Compact (#149): the clock and its one button share a row.
       body.innerHTML = `<div class="p-clock"><span class="p-clock-big">00:00</span><span class="p-clock-of">of ${hms(dur * 60)}</span>` +
-        `<button type="button" class="button-primary p-clock-start" data-cstart>${icon('clock')} Start the session clock</button></div>` +
+        `<button type="button" class="button-primary p-clock-start" data-cstart data-track="live.clock-start">${icon('clock')} Start the session clock</button></div>` +
         `<p class="small muted">The session clock starts when you say so; the section clock follows it.</p>`;
       body.querySelector('[data-cstart]').addEventListener('click', () => live.send('clock_start'));
     }
@@ -567,7 +571,7 @@ function drawTiming(cur, s) {
   if (body.dataset.mode !== 'run') {
     body.dataset.mode = 'run';
     body.innerHTML = `<div class="p-clock"><span class="p-clock-big" data-elapsed></span><span class="p-clock-of">of ${hms(dur * 60)}</span>` +
-      `<button type="button" class="button-ghost p-clock-reset" data-creset>${icon('rotate-ccw')} Reset clock</button></div>` +
+      `<button type="button" class="button-ghost p-clock-reset" data-creset data-track="live.clock-reset">${icon('rotate-ccw')} Reset clock</button></div>` +
       `<div class="p-sec"><span class="p-sec-name" data-secname></span><span class="p-sec-left small" data-secleft></span></div>` +
       `<div class="p-bar"><span data-bar></span></div><div class="p-break small muted" data-break></div>`;
     body.querySelector('[data-creset]').addEventListener('click', async () => {
@@ -660,7 +664,7 @@ function drawChips() {
   const html = chips.map(([k, t, act, title]) => act && act.startsWith('href:')
     ? `<a class="chip ${k}" href="${esc(act.slice(5))}" target="fs-app" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</a>`
     : act
-      ? `<button type="button" class="chip ${k}" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`
+      ? `<button type="button" class="chip ${k}" data-track="live.chip" data-act="${act}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</button>`
       : `<span class="chip ${k}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</span>`).join('');
   if (box.dataset.html !== html) {
     box.dataset.html = html;
@@ -695,11 +699,11 @@ function buildMusic() {
     `<div class="p-music-link" data-mlinkrow hidden><input class="input" data-mlink placeholder="Paste a Spotify link" aria-label="Spotify link">` +
     `<button type="button" class="button-surface" data-mlinkplay>${icon('play')} Play link</button></div>` +
     `<div class="p-timer-actions">` +
-    `<button type="button" class="button-primary" data-mtoggle></button>` +
-    `<button type="button" class="icon-button" data-mprev title="Previous track (Spotify)" aria-label="Previous track">${icon('skip-back')}</button>` +
-    `<button type="button" class="icon-button" data-mnext title="Next track (Spotify)" aria-label="Next track">${icon('skip-forward')}</button>` +
-    `<button type="button" class="button-surface" data-mstop title="Stop (fades out)">${icon('square')} Stop</button>` +
-    `<button type="button" class="button-surface" data-mfade title="Fade out slowly, then stop">${icon('volume-x')} Fade out</button></div>` +
+    `<button type="button" class="button-primary" data-mtoggle data-track="live.music-toggle"></button>` +
+    `<button type="button" class="icon-button" data-mprev data-track="live.music-prev" title="Previous track (Spotify)" aria-label="Previous track">${icon('skip-back')}</button>` +
+    `<button type="button" class="icon-button" data-mnext data-track="live.music-next" title="Next track (Spotify)" aria-label="Next track">${icon('skip-forward')}</button>` +
+    `<button type="button" class="button-surface" data-mstop data-track="live.music-stop" title="Stop (fades out)">${icon('square')} Stop</button>` +
+    `<button type="button" class="button-surface" data-mfade data-track="live.music-fade" title="Fade out slowly, then stop">${icon('volume-x')} Fade out</button></div>` +
     `<p class="small muted p-music-hint" data-mhint></p>`;
   musicPickFor = null;
   const pick = body.querySelector('[data-mpick]');
@@ -905,12 +909,12 @@ function drawChatFoot() {
   foot.dataset.key = key;
   foot.innerHTML = (hint ? `<p class="small muted p-chat-hint">${esc(hint)}</p>` : '') +
     `<div class="segmented" role="group" aria-label="Chat source">${[['zoom', 'Zoom'], ['teams', 'Teams']].map(([v, l]) =>
-      `<button type="button" class="segmented-item" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
+      `<button type="button" class="segmented-item" data-track="live.reader-source" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
     `<div class="row-actions">` +
     (running && r.state !== 'simulating'
-      ? `<button type="button" class="button-surface" data-reader="stop">${icon('square')} Stop reader</button>`
-      : `<button type="button" class="button-surface" data-reader="start">${icon('play')} Start reader</button>`) +
-    `<button type="button" class="button-surface" data-sim>${icon('wand-sparkles')} Simulate answers</button></div>`;
+      ? `<button type="button" class="button-surface" data-reader="stop" data-track="live.reader-toggle">${icon('square')} Stop reader</button>`
+      : `<button type="button" class="button-surface" data-reader="start" data-track="live.reader-toggle">${icon('play')} Start reader</button>`) +
+    `<button type="button" class="button-surface" data-sim data-track="live.simulate">${icon('wand-sparkles')} Simulate answers</button></div>`;
   const rb = foot.querySelector('[data-reader]');
   rb.addEventListener('click', () => (rb.dataset.reader === 'stop' ? stopReader() : startReader()));
   foot.querySelector('[data-sim]').addEventListener('click', simulateAnswers);

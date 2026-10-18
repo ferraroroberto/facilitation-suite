@@ -34,7 +34,7 @@ export async function mount(el, context) {
   list.appendChild(head);
   const tools = document.createElement('div');
   tools.className = 'row-actions';
-  tools.innerHTML = `<button type="button" class="button-surface" data-import title="An Excel file with a name column">${icon('upload')} Import roster</button>`;
+  tools.innerHTML = `<button type="button" class="button-surface" data-import data-track="groups.import-roster" title="An Excel file with a name column">${icon('upload')} Import roster</button>`;
   list.appendChild(tools);
   tools.querySelector('[data-import]').addEventListener('click', importRoster);
   const search = document.createElement('input');
@@ -152,7 +152,7 @@ function renderRounds() {
   tabs.setAttribute('role', 'group');
   tabs.setAttribute('aria-label', 'Round');
   tabs.innerHTML = ROUNDS.map((k) =>
-    `<button type="button" class="segmented-item" aria-pressed="${k === tab}" data-round="${k}">${esc(data.labels[k])}</button>`).join('');
+    `<button type="button" class="segmented-item" data-track="groups.round" aria-pressed="${k === tab}" data-round="${k}">${esc(data.labels[k])}</button>`).join('');
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-round]');
     if (b) { tab = b.dataset.round; renderRounds(); }
@@ -184,10 +184,10 @@ function renderRounds() {
   actions.className = 'row-actions groups-actions';
   const noCsv = data.missing_emails && data.missing_emails.length;
   actions.innerHTML =
-    `<button type="button" class="button-primary" data-shuffle>${icon('shuffle')} Shuffle again</button>` +
-    `<button type="button" class="button-tint" data-copy>${icon('copy')} Copy rooms for Zoom</button>` +
-    `<button type="button" class="button-surface" data-csv ${noCsv ? 'disabled' : ''}>${icon('download')} Export Zoom pre-assign CSV</button>` +
-    `<button type="button" class="button-surface" data-reveal>${icon('presentation')} Add reveal slide</button>`;
+    `<button type="button" class="button-primary" data-shuffle data-track="groups.shuffle">${icon('shuffle')} Shuffle again</button>` +
+    `<button type="button" class="button-tint" data-copy data-track="groups.copy-rooms">${icon('copy')} Copy rooms for Zoom</button>` +
+    `<button type="button" class="button-surface" data-csv data-track="groups.export-csv" ${noCsv ? 'disabled' : ''}>${icon('download')} Export Zoom pre-assign CSV</button>` +
+    `<button type="button" class="button-surface" data-reveal data-track="groups.reveal-slide">${icon('presentation')} Add reveal slide</button>`;
   detailEl.appendChild(actions);
   if (noCsv) {
     const p = document.createElement('p');

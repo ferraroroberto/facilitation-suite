@@ -6,6 +6,7 @@ import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
 import { api, APP, followAppearance } from '/static/js/ui.js';
 import { connectLive } from '/static/js/live.js';
+import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 
 const VIEWS = {
   sessions: () => import('/static/js/views/sessions.js'),
@@ -57,9 +58,18 @@ function leaveSessionHash(name) {
   }
 }
 
+const usage = initUsageLog();
+// The nav reports its restored tab, then showView() sets it again: one view event per real change.
+let lastView = null;
+function trackView(id) {
+  if (id !== lastView) usage.trackView(id);
+  lastView = id;
+}
+
 async function showView(name) {
   leaveSessionHash(name);
   if (name === 'settings') {
+    trackView('settings');
     document.querySelectorAll('.pane').forEach((p) => { p.hidden = p !== settingsPane; });
     document.querySelectorAll('.tabs .tab').forEach((t) => {
       t.classList.remove('active');
@@ -79,6 +89,7 @@ let navReady = false;
 const nav = initNavTabs({
   storageKey: APP + '.tab',
   onChange: (tab) => {
+    trackView(tab);
     if (navReady) leaveSessionHash(tab);
     settingsPane.hidden = true;
     ensureView(tab).then((mod) => { if (mod.show) mod.show(); });

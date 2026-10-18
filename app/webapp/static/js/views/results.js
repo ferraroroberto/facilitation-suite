@@ -94,7 +94,7 @@ function renderCheck() {
     card.className = 'card check-card';
     card.innerHTML = `<div class="grow"><div class="row-title">Check against Zoom's saved chat</div>` +
       `<div class="row-meta">Zoom saves the whole chat when the meeting ends — compare it with what the app caught.</div></div>` +
-      `<button type="button" class="button-tint" data-check>${icon('file-text')} Choose file</button>`;
+      `<button type="button" class="button-tint" data-check data-track="results.check-file">${icon('file-text')} Choose file</button>`;
     card.querySelector('[data-check]').addEventListener('click', check);
     checkEl.appendChild(card);
     return;
@@ -106,7 +106,7 @@ function renderCheck() {
     ? `Checked against Zoom's saved chat · ${r.matched} of ${r.zoom_messages} messages matched`
     : `Zoom's saved chat · ${r.matched} of ${r.zoom_messages} messages matched · ${r.missing_count} missing from the app's record`;
   banner.innerHTML = `${icon(allIn ? 'circle-check' : 'triangle-alert')}<span class="grow">${esc(text)}</span>` +
-    `<button type="button" class="banner-action" data-check title="Check another file">Check again</button>`;
+    `<button type="button" class="banner-action" data-check data-track="results.check-file" title="Check another file">Check again</button>`;
   banner.querySelector('[data-check]').addEventListener('click', check);
   checkEl.appendChild(banner);
   const notes = [];
@@ -274,7 +274,7 @@ function pdfCard() {
   strip.className = 'pdf-strip';
   strip.innerHTML = data.pages.map((p) => p.kind === 'slide'
     ? `<img class="pdf-tile" loading="lazy" alt="${esc(p.title)}" title="${esc(p.title)}" src="${base()}/slides/${encodeURIComponent(p.file)}">`
-    : `<button type="button" class="pdf-tile live" data-item="${esc(p.game ? quizKey(p.game) : p.item_id)}" title="${esc(p.title)}">` +
+    : `<button type="button" class="pdf-tile live" data-track="results.open-item" data-item="${esc(p.game ? quizKey(p.game) : p.item_id)}" title="${esc(p.title)}">` +
       `<span class="pdf-tile-text">${esc(p.label)}${p.tile ? ` · ${esc(p.tile)}` : ''}</span></button>`).join('') +
     '<span class="pdf-tile appendix">Answers appendix</span>';
   strip.addEventListener('click', (e) => {
@@ -289,8 +289,8 @@ function pdfCard() {
 function exportActions() {
   const row = document.createElement('div');
   row.className = 'row-actions export-actions';
-  row.innerHTML = `<button type="button" class="button-primary" data-pdf>${icon('download')} Export session PDF</button>` +
-    `<button type="button" class="button-surface" data-xlsx ${data.activities.length || data.quizzes.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
+  row.innerHTML = `<button type="button" class="button-primary" data-pdf data-track="results.export-pdf">${icon('download')} Export session PDF</button>` +
+    `<button type="button" class="button-surface" data-xlsx data-track="results.export-xlsx" ${data.activities.length || data.quizzes.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
   row.querySelector('[data-pdf]').addEventListener('click', exportPdf);
   row.querySelector('[data-xlsx]').addEventListener('click', () => download(`${base()}/exports/report.xlsx`, 'report.xlsx', 'Excel report saved in exports/'));
   return row;

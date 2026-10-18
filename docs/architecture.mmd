@@ -28,6 +28,7 @@ flowchart LR
     slidesr["routers/slides.py<br/>import jobs · re-import review · slides · native picker"]
     actr["routers/activities.py<br/>/api/activities"]
     liver["routers/live.py<br/>WS /ws · /api/live…"]
+    usager["src/usage_log.py (vendored)<br/>POST /api/usage/events · GET /api/usage/summary<br/>app + presenter only → data/usage.sqlite3"]
   end
   liver --> hub["src/live/hub.py<br/>LiveHub — the one live state<br/>position · clocks · item timers"]
   liver --> acts["src/live/actions.py<br/>intent registry"]

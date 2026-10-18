@@ -233,7 +233,7 @@ function renderReviewNote() {
   const b = document.createElement('div');
   b.className = 'banner warn review-banner';
   b.innerHTML = `${icon('refresh-cw')}<span class="grow">A re-import is waiting for your review — nothing has changed yet.</span>` +
-    '<button type="button" class="banner-action" data-review>Review</button>';
+    '<button type="button" class="banner-action" data-review data-track="plan.review">Review</button>';
   b.querySelector('[data-review]').addEventListener('click', showReview);
   reviewNote.appendChild(b);
 }
@@ -302,16 +302,16 @@ function renderToolbar() {
   const timers = allItems().reduce((a, x) => a + (x.it.timer && x.it.timer.enabled ? x.it.timer.seconds : 0), 0);
   const over = st.session && total > st.session.duration_minutes;
   toolbar.innerHTML =
-    `<button type="button" class="button-surface" data-reimport>${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
-    `<button type="button" class="button-surface" data-add-section>${icon('plus')} Add section</button>` +
-    `<button type="button" class="button-surface" data-kahoot title="A quiz from Kahoot's spreadsheet template (.xlsx)">${icon('upload')} Import Kahoot</button>` +
-    `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
-    `<button type="button" class="button-ghost" data-fold="expand" title="Expand all sections">${icon('chevrons-up-down')} Expand all</button></span>` +
+    `<button type="button" class="button-surface" data-reimport data-track="plan.import-deck">${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
+    `<button type="button" class="button-surface" data-add-section data-track="plan.add-section">${icon('plus')} Add section</button>` +
+    `<button type="button" class="button-surface" data-kahoot data-track="plan.import-kahoot" title="A quiz from Kahoot's spreadsheet template (.xlsx)">${icon('upload')} Import Kahoot</button>` +
+    `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" data-track="plan.fold-all" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
+    `<button type="button" class="button-ghost" data-fold="expand" data-track="plan.fold-all" title="Expand all sections">${icon('chevrons-up-down')} Expand all</button></span>` +
     `<span class="plan-totals ${over ? 'over' : ''}">Planned ${fmtMinutes(total)} of ${fmtMinutes(st.session ? st.session.duration_minutes : 0)}` +
     `${timers ? ` · ${Math.round(timers / 60)} min on timers` : ''}</span>` +
     (st.dirty ? `<span class="dirty-bar"><span class="chip warn">Unsaved changes</span>` +
-      `<button type="button" class="button-ghost" data-discard>Discard</button>` +
-      `<button type="button" class="button-primary save-small" data-save>Save</button></span>` : '');
+      `<button type="button" class="button-ghost" data-discard data-track="plan.discard">Discard</button>` +
+      `<button type="button" class="button-primary save-small" data-save data-track="plan.save">Save</button></span>` : '');
   toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
   toolbar.querySelector('[data-add-section]').addEventListener('click', () => addSection());
   toolbar.querySelector('[data-kahoot]').addEventListener('click', importKahoot);
@@ -343,11 +343,11 @@ function renderList() {
     h.draggable = true;
     h.innerHTML =
       `<span class="grip" aria-hidden="true">${icon('grip-vertical')}</span>` +
-      `<button type="button" class="icon-button sec-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
+      `<button type="button" class="icon-button sec-toggle" data-track="plan.section-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
       `<button type="button" class="sec-name" title="Rename">${esc(sec.name)}</button>` +
       `<span class="sec-meta">${sec.items.length} item${sec.items.length === 1 ? '' : 's'}${collapsed ? ' · collapsed' : ''}</span>` +
       `<label class="sec-min"><input type="number" min="0" max="1440" value="${sec.minutes}" aria-label="Planned minutes for ${esc(sec.name)}"><span>min</span></label>` +
-      `<button type="button" class="icon-button kebab" aria-label="Section actions">${icon('ellipsis-vertical')}</button>`;
+      `<button type="button" class="icon-button kebab" aria-label="Section actions" data-track="plan.section-menu">${icon('ellipsis-vertical')}</button>`;
     h.querySelector('.sec-toggle').addEventListener('click', () => {
       if (collapsed) st.collapsed.delete(sec.id); else st.collapsed.add(sec.id);
       renderList();
@@ -385,7 +385,7 @@ function renderList() {
       row.innerHTML =
         `<span class="num">${n}</span>${it.include === false ? hiddenThumbHtml(it) : thumbHtml(it)}` +
         `<span class="item-title">${esc(labelOf(it))}</span><span class="chips">${chipHtml(it)}</span>` +
-        `<button type="button" class="icon-button kebab" aria-label="Item actions" aria-haspopup="menu">${icon('ellipsis-vertical')}</button>`;
+        `<button type="button" class="icon-button kebab" aria-label="Item actions" data-track="plan.item-menu" aria-haspopup="menu">${icon('ellipsis-vertical')}</button>`;
       row.querySelector('.kebab').addEventListener('click', (e) => {
         e.stopPropagation();
         const targets = targetItems(it.id);
@@ -899,8 +899,8 @@ function renderEditor() {
   const tools = document.createElement('div');
   tools.className = 'ed-tools';
   tools.innerHTML =
-    `<button type="button" class="button-surface" data-up>${icon('chevron-up')} Move up</button>` +
-    `<button type="button" class="button-surface" data-down>${icon('chevron-down')} Move down</button>` +
+    `<button type="button" class="button-surface" data-up data-track="plan.item-up">${icon('chevron-up')} Move up</button>` +
+    `<button type="button" class="button-surface" data-down data-track="plan.item-down">${icon('chevron-down')} Move down</button>` +
     `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate</button>` +
     `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>`;
   tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems([it.id]));

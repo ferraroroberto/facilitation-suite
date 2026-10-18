@@ -502,6 +502,8 @@ Personal-data guard → byte-compile → ruff → pytest → diff-routed Playwri
 
 The repository is public and holds no personal data: sessions, rosters, decks and chat logs live in session folders outside the repo, and tests use synthetic fixtures only.
 
+**Usage log (#244).** The app and the presenter note which views and controls you open or press, so a design review reads real frequency instead of asking. It is the fleet's vendored `usage-log` component, local-only: the browser posts to this app's own origin (`POST /api/usage/events`, behind the same phone-remote gate as every route) and the events land in `data/usage.sqlite3` (gitignored; under `FS_DATA_DIR` when it is set). A row holds only the event kind (`session_start`, `view`, `tap`, `session_end`), the view id, the control id, a random per-page-load session id, the device class (phone, tablet or desktop), a coarse OS class and a UTC timestamp. Never content, names, chat, file names, queries, form values, URLs, IP addresses or the raw user-agent; control ids are constants in the markup (`data-track`), never taken from element text. The stage, the phone remote and the public quiz player never load it. Rows older than a year go on their own; delete the file to clear the history (it is recreated empty).
+
 ## Credits
 
 - Cities and countries on the map: [GeoNames](https://www.geonames.org) (`cities15000`, `countryInfo`), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The data is compacted by `scripts/build_geo.py`.
