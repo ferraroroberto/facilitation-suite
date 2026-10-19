@@ -166,7 +166,7 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
         shown = int(stage.get_attribute("[data-qz-clock]", "data-left-ms"))
         assert abs(shown - (live["state"]["quiz"]["deadline_ms"] - live["server_now"])) < 500
         # the 240 s limit's 3-digit countdown fits inside the ring, not spilling past its edge (#93)
-        expect(stage.locator("[data-qz-secs]")).to_have_text("240")
+        expect(stage.locator("[data-qz-secs]")).to_have_text(re.compile(r"^\d{3}$"))  # three digits, not "240": it ticks on within a second (#278)
         assert stage.evaluate(COUNTDOWN_FITS)
         # 320 px: the four tiles fit, nothing scrolls sideways
         assert ana.evaluate("document.documentElement.scrollWidth") <= 320
