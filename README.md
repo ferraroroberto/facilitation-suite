@@ -498,6 +498,8 @@ webapp/              machine-local, gitignored: certificates/, cloudflared.yml (
 
 Personal-data guard → byte-compile → ruff → pytest → diff-routed Playwright e2e against a disposable instance.
 
+**Design inventory (#277).** Each e2e story calls `surface(page, "<tab>.<surface>")` (the vendored `tests/e2e/_surface.py`) once the surface is open, at the first test that opens it. It does nothing unless `DESIGN_SURFACE_CAPTURE` is set, which fleet-config's `/design-review measure facilitation-suite --e2e` does against `scripts/design_review_synthetic.py` (the suite's own disposable instance, never the live app). A new tab, sheet or dialog joins the inventory by adding one call to the test that opens it; the stage is never tagged, since it follows the session theme.
+
 ## Privacy
 
 The repository is public and holds no personal data: sessions, rosters, decks and chat logs live in session folders outside the repo, and tests use synthetic fixtures only.
