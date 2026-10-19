@@ -15,6 +15,7 @@ import uuid
 
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session, demo_person
 from tests.fixtures.quiz_run import add_quiz_section
@@ -73,8 +74,10 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     assert len(texts) == 50 and texts[0].endswith(" 1") and texts[-1].endswith(" 50")
     page.locator("[data-keys]").click()
     expect(page.locator("[data-keypop]")).to_be_visible()
+    surface(page, "presenter.keys")
     page.locator("[data-keys]").click()
     shot(page, shots / "story-06-chat-1-presenter.png")
+    surface(page, "presenter.chat")
     _cockpit_fits(page, then=4)  # #149: the first slide, 50 messages in the chat
 
     # ---- #54: a quiz, answered from the Zoom chat ----
@@ -102,6 +105,7 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     expect(card.locator("[data-qcounts]")).to_contain_text("2 players joined · 2 answered")
     expect(card.locator(".p-quiz-players li .chip")).to_have_count(2)  # both marked "chat"
     shot(page, shots / "story-06-chat-2-quiz.png")
+    surface(page, "presenter.quiz-live")
     _cockpit_fits(page, then=3)  # #149: a quiz question live (the plan's last three items under "Then")
 
     page.keyboard.press(" ")  # Space locks the open question
@@ -118,6 +122,7 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     expect(remote.locator("[data-r-qphase]")).to_have_text("Answers locked · question 1 of 4")
     expect(remote.locator("[data-r-qcounts]")).to_contain_text("1 player · 1 answered")
     expect(remote.locator("[data-r-qlock]")).to_be_disabled()
+    surface(remote, "remote.quiz-locked")
     remote.locator("[data-r-nextbtn]").click()  # the remote's Next steps the phases too
     expect(card.locator("[data-qphase]")).to_have_text("Leaderboard after question 1 of 4")
     remote.close()

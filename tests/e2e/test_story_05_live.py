@@ -9,6 +9,7 @@ import re
 from PIL import Image
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import set_stage_click, shot
 from tests.e2e.timer_states import DEFAULT_STATES, TIMER_STATES, assert_states
 from tests.fixtures.demo import build_demo_session
@@ -95,6 +96,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.goto(f"{webapp.base_url}/presenter?session={sid}")
     expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     expect(page.locator(".p-music")).to_be_hidden()  # a session without music: no Music card, no chip
+    surface(page, "presenter.opening")
 
     # #98: the header wraps at phone width instead of pushing the page sideways
     page.set_viewport_size({"width": 390, "height": 844})
@@ -215,6 +217,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     expect(stage.locator("[data-clock]")).to_contain_text("09:")
     shot(page, shots / "story-05-live-1-presenter.png")
     shot(stage, shots / "story-05-live-2-stage.png")
+    surface(page, "presenter.break-timer")
 
     # a click on "on stage now" goes on; End and Home jump to the ends
     page.locator(".p-now .p-stage").click()
@@ -254,6 +257,8 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     # start over after the rehearsal: first item, no clock; the run so far is kept aside
     page.keyboard.press("End")
     page.locator("[data-reset]").click()
+    expect(page.locator(".dialog-confirm")).to_be_visible()
+    surface(page, "presenter.confirm-reset")
     page.locator(".dialog-confirm").click()
     expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     expect(page.locator("[data-cstart]")).to_be_visible()

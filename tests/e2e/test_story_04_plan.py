@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 from playwright.sync_api import Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot, small_targets
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import LONG_ANSWERS, add_quiz_section
@@ -81,6 +82,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     expect(page.locator(".item-row")).to_have_count(0)
     page.locator("[data-fold=expand]").click()
     expect(page.locator(".item-row")).to_have_count(19)
+    surface(page, "plan.outline")
 
     # the closing word cloud: a title, a question on two lines, font size, its own 90 s timer, notes
     page.locator(".item-row", has_text="What do you take away today?").click()
@@ -96,6 +98,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     assert set(page.eval_on_selector_all(".sec-min input, .input:not(textarea), .select-native", "els => els.map(e => getComputedStyle(e).borderTopWidth)")) == {"1px"}
     # #167: a glyph in a button label is on the icons.size inline step (16px), not the label's 1em
     assert set(page.eval_on_selector_all(".button-surface .icon, .button-ghost .icon, .button-tint .icon", "els => els.map(e => e.getBoundingClientRect().width).filter(w => w > 0)")) == {16}
+    surface(page, "plan.editor")
     # #167: --muted is under 4.5:1 on a selected (accent-soft) row in both themes and on the dark section band,
     # so the secondary text there is the primary ink -- the same colour as the name beside it
     theme = page.evaluate("document.documentElement.dataset.theme")
@@ -117,6 +120,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.set_viewport_size({"width": 1440, "height": 900})
     page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     assert small_targets(page) == []
+    surface(page, "plan.music-editor")
     volume = page.get_by_label("Music volume")
     assert page.locator(".music-volume output").evaluate("e => e.textContent") == "80%"  # the default
     volume.focus()
@@ -163,6 +167,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     thanks.locator(".kebab").click()
     expect(page.locator(".row-menu-item")).to_have_text("Show slide")  # in step with the switch
+    surface(page, "plan.item-menu")
     page.locator(".row-menu-item").click()
     expect(thanks).not_to_have_class(hidden)
     expect(switch).to_have_attribute("aria-checked", "true")
@@ -202,6 +207,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.locator(".add-row").nth(3).click()
     page.locator(".row-menu-item", has_text="Section after this one").click()
     page.fill("#f-name", "Energiser")
+    surface(page, "plan.new-section")
     page.locator(".detail-save-btn").click()
     expect(page.locator(".sec-row").nth(4)).to_contain_text("Energiser")
     # a breakout card in it: the round under its title, a ten-minute clock
@@ -212,6 +218,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     expect(page.locator(".preview-frame .st-break-title")).to_have_text("Breakout rooms")
     expect(page.locator(".preview-frame .st-sub")).to_have_text("Groups of 4 · A")  # no shuffle yet: no room count
     expect(page.locator(".preview-frame [data-clock]")).to_have_text("10:00")
+    surface(page, "plan.breakout")
     page.locator(".item-row", has_text="Take-home word").first.click()
     expect(page.locator(".preview-frame .wc-word").first).to_be_visible()  # sample answers drawn
 
@@ -230,6 +237,7 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     _hide_and_rebuild(page, page.locator(".ed-row", has_text="Title").locator("input").first)
     expect(page.locator(".preview-frame .qz-tile")).to_have_count(4)
     assert page.evaluate(CLIPPED) == []
+    surface(page, "plan.quiz-editor")
     # #148: picking another OBS profile re-lays the quiz preview out around that profile's camera box
     for label, profile in (("Camera strip", "camera_strip"), ("Camera PiP", "camera_pip"), ("Screen only", "screen_only")):
         page.locator("#panePlan .ed-row", has_text="Camera layout").locator(".segmented-item", has_text=label).click()

@@ -12,6 +12,7 @@ import uuid
 from openpyxl import load_workbook
 from playwright.sync_api import Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import (
     LONG_TOP_ANSWER,
@@ -108,6 +109,7 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     expect(kryptonite_tile).to_contain_text(LONG_TOP_ANSWER)
     expect(pane.locator(".pdf-head")).to_contain_text("10 slides + 6 live results")
     shot(page, shots / "story-12-results-1-desktop.png")
+    surface(page, "results.detail")
 
     # a click on a live tile in the PDF strip selects that activity
     pane.locator(".pdf-tile.live", has_text="Live scale").click()
@@ -134,6 +136,7 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     expect(pane.locator(".check-banner.warn")).to_contain_text("40 of 41 messages matched · 1 missing")
     pane.locator("details.card--collapsible summary").click()
     expect(pane.locator(".diff-row")).to_contain_text("Hello from the lobby!")
+    surface(page, "results.reconcile-warning")
 
     page.set_viewport_size({"width": 390, "height": 844})
     page.reload()
@@ -162,3 +165,4 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
             f"overflows its row box (height={m['rowHeight']}) — it will paint over the next row"
         )
     shot(page, shots / "story-12-results-2-phone.png")
+    surface(page, "results.phone")

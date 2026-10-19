@@ -8,6 +8,7 @@ import json
 
 from playwright.sync_api import Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session, stage_demo_reimport
 
@@ -38,6 +39,7 @@ def test_review_a_reimport(page: Page, webapp, shots) -> None:
         page.wait_for_function("img => img.complete && img.naturalWidth > 0", arg=img.element_handle())
     expect(review.locator("[data-apply]")).to_have_text("Apply 6 changes")
     shot(page, shots / "story-13-reimport-1-review.png")
+    surface(page, "plan.reimport-review")
     page.set_viewport_size({"width": 390, "height": 844})
     expect(review.locator(".review-row").first).to_be_visible()
     shot(page, shots / "story-13-reimport-2-phone.png")
@@ -70,6 +72,7 @@ def test_review_a_reimport(page: Page, webapp, shots) -> None:
     page.locator(".review-banner [data-review]").click()
     expect(page.locator(".review .empty-state")).to_contain_text("Nothing changed in the deck")
     expect(page.locator(".review-tile.identical b")).to_have_text("10")
+    surface(page, "plan.reimport-empty")
     page.locator("[data-cancel]").click()
     page.locator("dialog [data-ok]").click()
     expect(page.locator("#toast")).to_contain_text("Re-import cancelled")

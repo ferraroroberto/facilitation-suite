@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 from playwright.sync_api import Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.e2e.timer_states import DEFAULT_STATES, TIMER_STATES, WHITE, assert_states
 from tests.fixtures.demo import build_demo_session
@@ -88,6 +89,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.wait_for_function("() => document.fonts.check('64px \"Session Font\"')")
     card.scroll_into_view_if_needed()
     shot(page, shots / "story-15-font-1-sessions.png")
+    surface(page, "sessions.stage-font")
     ready = page.locator(".ready-row", has_text="Stage font")
     expect(ready).to_have_class("list-row ready-row state-ok")
     # the title font letters titles only; the word cloud goes to capitals on its own
@@ -137,6 +139,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     expect(page.locator(".plan-split .detail-title p")).to_contain_text("2 slides · 1 activity")
     page.locator(".bulk-card .segmented-item", has_text="Screen only").click()
     shot(page, shots / "story-15-font-2-multiselect.png")
+    surface(page, "plan.multiselect")
 
     # drag the three onto the top half of an earlier slide: they land before it, in order
     # Both rows are scrolled into view first (#213): Playwright's `drag_to` scrolls only the source, so with
@@ -155,6 +158,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.locator('[data-item="slide-101"]').click()
     page.locator(".ed-tools [data-delete]").click()
     expect(page.locator(".dialog-message")).to_contain_text("stays in the deck")
+    surface(page, "plan.confirm-delete")
     page.locator(".dialog-confirm").click()
     expect(page.locator('[data-item="slide-101"]')).to_have_count(0)
 
