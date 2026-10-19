@@ -32,6 +32,7 @@ import pytest
 
 from src.no_window import NO_WINDOW
 from tests.conftest import write_test_config
+from tests.e2e._surface import pytest_collection_modifyitems  # noqa: F401
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"

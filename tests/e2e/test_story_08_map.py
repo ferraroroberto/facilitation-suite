@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import set_stage_click, shot
 from tests.fixtures.demo import build_demo_session
 
@@ -85,4 +86,5 @@ def test_people_land_on_the_map(page: Page, browser: Browser, webapp, shots) -> 
     assert overlaps == 0
     shot(page, shots / "story-08-map-1-presenter.png")
     shot(stage, shots / "story-08-map-2-stage.png")
+    surface(page, "presenter.map")
     stage_ctx.close()

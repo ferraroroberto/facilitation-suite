@@ -35,6 +35,7 @@ classify_e2e    = { src = "scripts/classify_e2e.py", sha = "bede95f00aee0b17d500
 no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/build_info.py" }
 geometry        = { src = "tests/e2e/_geometry.py", sha = "aa820f1215151087588433f290cd2ba55b34658d", dest = "tests/e2e/_geometry.py" }
+surface_capture = { src = "tests/e2e/_surface.py", sha = "5c4d3a7947dae8b3b4a028bf636c0f052ea3b1f7", dest = "tests/e2e/_surface.py" }
 # Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's
 # (via task-os), code verbatim; src/certs.py and scripts/gen_tailscale_cert.py are
 # copy-to-adapt (project-scaffolding#232), so they carry no [vendored] entry.
@@ -141,6 +142,10 @@ check  = "icon-sizes"
 reason = "every size outside 16/18/20/24 is on the projector stage or in the presenter's miniature slide thumbnail (12px beside 11px text); the stage follows the session theme, not the fleet design"
 
 [design.review]
+# /design-review's e2e capture (tests/e2e/_surface.py) flips light/dark in place on an open surface; every
+# page stamps html[data-theme] at load from facilitation-suite.theme, so the hook sets that key too or its
+# dark shots stay light. (The stage follows the session theme and is never tagged.)
+theme_storage_key = "facilitation-suite.theme"
 # The stage preview in the Plan editor and the stage-font sample in Settings are the real stage
 # drawn by the session theme (themes/*.css), not the fleet design: not the app's own UI, so
 # nothing in them is measured.
@@ -152,3 +157,10 @@ exclude_selectors = [".preview-frame", ".font-sample-host"]
 tab   = "sessions"
 id    = "settings"
 click = "[data-open-settings]"
+
+# `measure --e2e` and `--synthetic` walk this throwaway instance (the suite's own boot_instance: temp
+# config, ledger and data, free ports), never the live tray on :8449 (scripts/design_review_synthetic.py).
+# The suite boots its own server, so [design.review.e2e] needs no autoboot flag.
+[design.review.synthetic]
+command = ["scripts/design_review_synthetic.py"]
+startup_timeout_s = 60

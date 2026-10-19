@@ -11,6 +11,7 @@ import yaml
 from playwright.sync_api import Page, expect
 
 from tests.e2e._geometry import assert_min_target
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 
 UNPAINTED = "el => { const s = getComputedStyle(el); return [s.backgroundColor, s.borderTopWidth]; }"
@@ -34,6 +35,7 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
             break
         page.wait_for_timeout(100)
     assert saved_font.get("timer_running") == "#1565c0" and saved_font["family"] == "Georgia"
+    surface(page, "settings.stage-defaults")
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(webapp.base_url + "/")
     page.click("[data-new]")
@@ -42,6 +44,7 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     close = dlg.locator(".detail-close")
     assert close.evaluate(UNPAINTED) == ["rgba(0, 0, 0, 0)", "0px"]
     assert_min_target(close)
+    surface(page, "sessions.new-session")
     dlg.locator("[name=title]").fill("Workshop · cohort A")
     dlg.locator("[name=workshop]").fill("demo-workshop")
     dlg.locator("[name=folder]").fill("cohort-a")
@@ -68,6 +71,7 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     session_yaml = webapp.root / "sessions" / "demo-workshop" / "cohort-a" / "session.yaml"
     assert session_yaml.is_file()
     shot(page, shots / "story-02-sessions-1-desktop.png")
+    surface(page, "sessions.detail")
 
     # Mark the Zoom auto-update check done: it persists into session.yaml.
     page.locator(".ready-row.state-warn [data-action=confirm_zoom_update]").click()

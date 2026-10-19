@@ -8,6 +8,7 @@ import re
 
 from playwright.sync_api import Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot, small_targets
 from tests.fixtures.demo import build_demo_session
 
@@ -28,6 +29,7 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     assert page.evaluate("""() => { const on = document.querySelector('#paneGroups [role=switch][aria-checked=true]');
       const probe = document.createElement('i'); probe.style.background = 'var(--accent-fill)'; document.body.appendChild(probe);
       const same = getComputedStyle(on).backgroundColor === getComputedStyle(probe).backgroundColor; probe.remove(); return same; }""")
+    surface(page, "groups.empty")
 
     # one more person is away today
     page.locator(".person-row", has_text="Alex R.").locator("[role=switch]").click()
@@ -49,6 +51,7 @@ def test_shuffle_breakout_rounds(page: Page, webapp, shots) -> None:
     assert detail_box["x"] >= list_box["x"] + list_box["width"] - 1
     assert abs(detail_box["y"] - list_box["y"]) < 4
     shot(page, shots / "story-09-groups-1-desktop.png")
+    surface(page, "groups.rooms")
 
     # #167: the three round tabs wrap on a phone instead of widening the page
     page.set_viewport_size({"width": 390, "height": 844})

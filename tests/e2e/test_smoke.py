@@ -11,6 +11,7 @@ import yaml
 from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e._geometry import assert_min_target, assert_no_horizontal_overflow, assert_no_overlap
+from tests.e2e._surface import surface
 from tests.fixtures.demo import build_demo_session
 
 # A touch phone (coarse pointer, <=520px): the vendored nav-tabs.css phone rule applies.
@@ -37,15 +38,18 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     expect(page.locator("#buildReadout")).to_contain_text("Build:")
     # desktop keeps the app's own --gap padding on the sides and bottom
     assert page.evaluate(APP_PADDING)[1:] == ["12px", "12px", "12px"]
+    surface(page, "sessions.empty")
 
     page.click("#tabPlan")
     expect(page.locator("#panePlan")).to_be_visible()
     expect(page.locator("#paneSessions")).to_be_hidden()
+    surface(page, "plan.empty")
 
     page.locator("#panePlan [data-open-settings]").click()
     expect(page.locator("#paneSettings")).to_be_visible()
     expect(page.locator("#paneSettings .settings-section-title")).to_have_text(
         ["Appearance", "Stage defaults", "Music", "Live tools", "About"])
+    surface(page, "settings.pane")
 
     before = page.evaluate("document.documentElement.dataset.theme")
     with page.expect_response("**/api/settings/appearance"):  # #92: it sets the global appearance
@@ -81,6 +85,7 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     expect(page.locator("#joinForm")).to_be_visible()
     expect(page.locator("#pin")).to_have_value("123456")
     expect(page.locator("#conn")).to_have_attribute("data-state", "online")  # the ping answered
+    surface(page, "player.join")
     assert errors == []
 
     # #46: app.css loads after nav-tabs.css, so an unscoped `.app { padding }`
@@ -97,5 +102,6 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
             assert_no_horizontal_overflow(p)
             assert_min_target(tabs)
             assert_no_overlap(tabs)
+            surface(p, "sessions.phone-empty" if path == "/" else "remote.idle")
     finally:
         phone.close()

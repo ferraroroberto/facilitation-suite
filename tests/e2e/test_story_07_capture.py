@@ -11,6 +11,7 @@ import time
 
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session
 
@@ -62,6 +63,7 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     expect(stage.locator(".wc-word", has_text="hello 3")).to_have_count(0)
     shot(page, shots / "story-07-capture-1-presenter.png")
     shot(stage, shots / "story-07-capture-2-stage.png")
+    surface(page, "presenter.capture")
 
     page.keyboard.press("Space")
     expect(page.locator("[data-captoggle]")).to_contain_text("Reopen capture")

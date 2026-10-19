@@ -26,6 +26,7 @@ import re
 from playwright.sync_api import Browser, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
+from tests.e2e._surface import surface
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import LONG_ANSWERS, LONG_QUESTION, PLAYER_QUIZ, add_quiz_section
 
@@ -179,6 +180,7 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
                 phone.evaluate("(t) => { document.documentElement.dataset.theme = t; }", theme)
                 assert phone.evaluate(PHONE_FIT) == {"width": width, "clipped": []}, (width, theme)
 
+        surface(ana, "player.question")
         ana.locator('.tile[data-choice="2"]').click()  # right
         bo.locator('.tile[data-choice="1"]').click()  # wrong
         for phone in (ana, bo):

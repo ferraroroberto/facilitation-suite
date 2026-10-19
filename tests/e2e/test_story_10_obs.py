@@ -8,6 +8,7 @@ from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import boot_instance, shot, stop_instance
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.fake_obs import FakeObs
@@ -60,9 +61,11 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             expect(page.locator(".settings-card .chip", has_text="OBS")).to_contain_text("OBS connected")
             page.locator("[data-profile=camera_pip]").click()
             page.locator("dialog select[name=scene]").select_option("Camera big")
+            surface(page, "settings.obs-profile")
             page.locator("dialog .detail-save-btn").click()
             expect(page.locator("[data-profile=camera_pip]")).to_contain_text("Camera big")
             shot(page, shots / "story-10-obs-1-settings.png")
+            surface(page, "settings.obs")
 
             # #191: a click on the stage goes on only when this switch is on (off by default)
             card = page.locator(".settings-card", has_text="Clicking the stage")

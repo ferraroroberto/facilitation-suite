@@ -11,6 +11,7 @@ import uuid
 
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session, demo_person
 
@@ -58,6 +59,7 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     expect(page.locator("[data-r-elapsed]")).not_to_have_text("--:--")
     page.wait_for_function("() => document.fonts.ready.then(() => true)")
     shot(page, shots / "story-14-remote-1-live.png", settle=0.6)  # let the cloud settle
+    surface(page, "remote.live")
 
     # the chat: "can you hear me?" is not an answer — tap it to hide it
     page.click("#tabChat")
@@ -68,12 +70,14 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     expect(page.locator("[data-r-count]")).to_contain_text("5 answers")
     page.click("#tabChat")
     shot(page, shots / "story-14-remote-2-chat.png")
+    surface(page, "remote.chat")
 
     page.click("#tabGroups")
     expect(page.locator(".r-rooms li").first).to_contain_text("Room 1")
     page.locator(".segmented-item", has_text="Groups of 4 · A").click()
     expect(page.locator('.segmented-item[aria-pressed="true"]')).to_contain_text("Groups of 4 · A")
     shot(page, shots / "story-14-remote-3-groups.png")
+    surface(page, "remote.groups")
 
     page.click("#tabLive")
     page.locator("[data-r-capture]").click()
@@ -142,4 +146,5 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     expect(other.locator(".empty-state")).to_contain_text("Settings → Phone remote")
     expect(other.locator(".tabs")).to_be_hidden()
     shot(other, shots / "story-14-remote-4-unpaired.png")
+    surface(other, "remote.unpaired")
     stranger.close()
