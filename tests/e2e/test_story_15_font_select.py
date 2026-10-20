@@ -5,6 +5,7 @@ Shift/Ctrl+click, the bulk panel, dragging the selection, deleting slides."""
 
 from __future__ import annotations
 
+import re
 import shutil
 import time
 from pathlib import Path
@@ -144,7 +145,7 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.locator('[data-item="act-kryptonite"]').click()  # saved as "Patrick Hand" = the theme font
     q = page.locator(".preview-frame .st-question")
     expect(q).to_contain_text("kryptonite")
-    assert "Session Font" in q.evaluate("el => getComputedStyle(el).fontFamily")
+    expect(q).to_have_css("font-family", re.compile("Session Font"))
     expect(q).to_have_css("-webkit-text-stroke-width", "2px")
     expect(q).to_have_css("color", "rgb(198, 40, 40)")  # #191: the session's title colour on the preview
     expect(q).to_have_css("font-size", "72px")  # this item set its own size (the demo's): it wins
