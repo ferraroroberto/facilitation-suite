@@ -39,6 +39,28 @@ def _saved(folder: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))  # the last try raises what Windows says
 
 
+# #281: once armed (`__armRead()`), the first read of the open session reaches the page only on `__releaseRead()`,
+# though the server answered it at once (`__heldRead` says it did); `__readDone` says the page has taken the body,
+# after which whatever it draws from it is already drawn (the rest of the redraw runs in the same microtask turn).
+HOLD_NEXT_READ = """(path) => {
+  const real = window.fetch.bind(window);
+  let armed = false, release;
+  window.__armRead = () => { armed = true; };
+  window.__releaseRead = () => release();
+  window.fetch = async (input, init) => {
+    const res = await real(input, init);
+    if (armed && input === path && init.method === 'GET') {
+      armed = false;
+      window.__heldRead = true;
+      await new Promise((resolve) => { release = resolve; });
+      const text = res.text.bind(res);
+      res.text = async () => { const body = await text(); window.__readDone = true; return body; };
+    }
+    return res;
+  };
+}"""
+
+
 def _until(check, timeout: float = 5.0) -> None:
     end = time.time() + timeout
     while not check():
@@ -69,6 +91,25 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     _until(lambda: _saved(folder)["font"]["stroke_px"] == 2)
     sample = card.locator(".st-question")
     expect(sample).to_have_css("-webkit-text-stroke-width", "2px")
+    # #281: two reads of the session can be in flight (a save redraws the card, and so does the list's refresh),
+    # and on a loaded CI runner the older one landed last and drew a stale card. Hold the next read, rename the
+    # session behind it, draw the card again, then let the older read in: it must not draw over the newer card.
+    page.evaluate(HOLD_NEXT_READ, f"/api/sessions/{sid}")
+    page.click("#tabPlan")
+    expect(page.locator('[data-item="act-map"]')).to_be_visible()  # the Plan tab has read the session too
+    page.evaluate("() => window.__armRead()")
+    page.click("#tabSessions")  # opening a tab draws the open session again
+    page.wait_for_function("() => window.__heldRead === true")
+    current = page.request.get(f"{webapp.base_url}/api/sessions/{sid}").json()["session"]
+    current["title"] = "Renamed behind the held read"
+    assert page.request.put(f"{webapp.base_url}/api/sessions/{sid}", data={"session": current}).ok
+    page.click("#tabPlan")
+    page.click("#tabSessions")
+    title = card.locator("[data-meta=title]")
+    expect(title).to_have_value("Renamed behind the held read")
+    page.evaluate("() => window.__releaseRead()")
+    page.wait_for_function("() => window.__readDone === true")
+    expect(title).to_have_value("Renamed behind the held read")
     # #191: the title's colour and size; a pale colour is flagged against the grey stage
     card.locator("[data-title-color]").fill("#fafafa")
     expect(card.locator("[data-contrast]")).to_contain_text("hard to read")

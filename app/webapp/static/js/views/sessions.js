@@ -240,9 +240,14 @@ function sessionRow(s) {
   return row;
 }
 
+// A save redraws the card and so does the list's refresh, so two reads of the session can be in flight; the
+// older answer must not draw over the newer one (#281), so only the latest redraw gets to swap the card in.
+let detailDraw = 0;
+
 async function renderDetail() {
   const sid = openId;
   if (!sid) return;
+  const draw = ++detailDraw;
   detailEl.innerHTML = '';
   const loading = document.createElement('div');
   loading.className = 'card';
@@ -252,6 +257,7 @@ async function renderDetail() {
   try {
     data = await api(`/api/sessions/${sid}`);
   } catch (e) {
+    if (draw !== detailDraw) return;
     detailEl.innerHTML = '';
     const c = document.createElement('div');
     c.className = 'card';
@@ -259,7 +265,7 @@ async function renderDetail() {
     detailEl.appendChild(c);
     return;
   }
-  if (sid !== openId) return;
+  if (sid !== openId || draw !== detailDraw) return;
   detailEl.innerHTML = '';
   const s = data.session;
   const f = data.folder;
