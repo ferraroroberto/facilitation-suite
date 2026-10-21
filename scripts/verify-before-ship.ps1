@@ -9,8 +9,13 @@
                                outside tests/fixtures (the repo is public)
       2. byte-compile        - every .py under app/ src/ scripts/ tests/ + launcher.py
       3. ruff                - lint the whole repo (pyproject.toml owns strictness)
-      4. pytest (unit)       - hermetic suite, tests/e2e excluded
-      5. pytest (e2e)        - diff-proportionate: routed by scripts/classify_e2e.py
+      4. static ratchet      - no new duplicate block (jscpd via npx) or unused
+                               import/variable (ruff F401,F841) beyond
+                               .static-ratchet-baseline.json. Whole tree, never
+                               routed; exit 3 (a detector could not run) is
+                               NOT CONFIRMED and fails, never a pass or a skip.
+      5. pytest (unit)       - hermetic suite, tests/e2e excluded
+      6. pytest (e2e)        - diff-proportionate: routed by scripts/classify_e2e.py
                                against .fleet.toml [e2e] (skip / static / full),
                                fail-safe to full. Boots its own disposable webapp;
                                never the live :8449.
@@ -68,6 +73,9 @@ Invoke-Stage "personal-data guard" {
 }
 Invoke-Stage "byte-compile"            { & $py -m compileall -q app src scripts tests launcher.py }
 Invoke-Stage "ruff"                    { & $py -m ruff check . }
+# The wrapper maps the script's exit 3 to NOT CONFIRMED (tests/test_static_ratchet_gate.py
+# pins it); call it, never scripts/static_ratchet.py directly.
+Invoke-Stage "static ratchet"          { & $py -m scripts.static_ratchet_gate }
 Invoke-Stage "pytest (unit, non-e2e)"  { & $py -m pytest --ignore=tests/e2e }
 
 # ---------------------------------------------------------------- e2e routing
