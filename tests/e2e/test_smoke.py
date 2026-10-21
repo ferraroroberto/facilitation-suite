@@ -7,6 +7,8 @@ page answers beside it on its own port."""
 
 from __future__ import annotations
 
+import re
+
 import yaml
 from playwright.sync_api import Browser, Page, expect
 
@@ -35,7 +37,8 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     toggle = page.locator("#paneSessions .home-head .home-toggle").first
     assert toggle.evaluate(UNPAINTED) == ["rgba(0, 0, 0, 0)", "0px"]
     assert_min_target(toggle)
-    expect(page.locator("#buildReadout")).to_contain_text("Build:")
+    # sha plus the built_at timestamp: a missing field would drop the "· <ts>" half
+    expect(page.locator("#buildReadout")).to_have_text(re.compile(r"^Build: \S+ · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$"))
     # desktop keeps the app's own --gap padding on the sides and bottom
     assert page.evaluate(APP_PADDING)[1:] == ["12px", "12px", "12px"]
     surface(page, "sessions.empty")
