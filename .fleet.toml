@@ -33,7 +33,7 @@ single_instance = { src = "app/tray/single_instance.py", sha = "10b2f9424b6d0272
 tray_watchdog   = { src = "app/tray/watchdog.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/tray/watchdog.py" }
 classify_e2e    = { src = "scripts/classify_e2e.py", sha = "bede95f00aee0b17d5007246a29fa881a71f24f4", dest = "scripts/classify_e2e.py" }
 no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
-build_info      = { src = "src/build_info.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/build_info.py" }
+build_info      = { src = "src/build_info.py", sha = "c9e54e917fd3cbc96011d6c09f9d363af460b205", dest = "src/build_info.py" }
 geometry        = { src = "tests/e2e/_geometry.py", sha = "aa820f1215151087588433f290cd2ba55b34658d", dest = "tests/e2e/_geometry.py" }
 surface_capture = { src = "tests/e2e/_surface.py", sha = "5c4d3a7947dae8b3b4a028bf636c0f052ea3b1f7", dest = "tests/e2e/_surface.py" }
 # Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's

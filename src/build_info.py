@@ -81,7 +81,7 @@ def build_identity(
     attempts: int = CAPTURE_ATTEMPTS,
     backoff_seconds: float = CAPTURE_BACKOFF_SECONDS,
 ) -> dict[str, str]:
-    """``{"git_sha", "captured_at"}`` for ``project_root``, computed now.
+    """``{"git_sha", "built_at"}`` for ``project_root``, computed now.
 
     Call once at process/module import to capture "what this process
     loaded"; call again later (fresh, uncached) to get the live, current
@@ -99,5 +99,5 @@ def build_identity(
         sha = resolve_git_sha(project_root)
     return {
         "git_sha": sha,
-        "captured_at": _dt.datetime.now().replace(microsecond=0).isoformat(),
+        "built_at": _dt.datetime.now().replace(microsecond=0).isoformat(),
     }
