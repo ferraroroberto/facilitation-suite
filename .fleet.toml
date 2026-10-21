@@ -119,6 +119,14 @@ path = "LICENSE"
 tier = "none"
 path = "launcher.py"
 
+# The scaffold's verify skill (project-scaffolding#412) boots the suite's own disposable instance and
+# must never set the live opt-in. /healthz is the default ready path and fits; the data-dir default
+# (FACILITATION_SUITE_DATA_DIR) does not, the app reads FS_DATA_DIR.
+[verify]
+boot           = "tests/e2e/conftest.py::boot_instance"
+live_optin_env = "FS_E2E_LIVE"
+data_dir_env   = "FS_DATA_DIR"
+
 # /perf-review: "ready" = the first session row painted from /api/sessions, visible on the landing
 # view (the Sessions tab), not a painted shell (#166). An empty ledger would never show it.
 [perf.review]

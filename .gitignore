@@ -32,5 +32,10 @@ tests/e2e/_shots/
 test-results/
 
 # --- agent noise (AGENTS.md IS committed) -----------------------------------
+# .claude/ is private except the reviewed verify skill (docs/agents/project-skills.md)
+**/.claude/*
+!/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/verify-facilitation-suite/
 .agents/
 .codex/
