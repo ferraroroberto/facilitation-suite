@@ -125,7 +125,6 @@ Keep the feature map true to the source and the live app. Run from the project-s
 
 ## Gotchas
 
-- **Evidence names a field the app does not have.** The Evidence step says `built_at`; `GET /api/version` returns `{app, git_sha, captured_at, schema_version}`. Record `captured_at`.
 - **Doctor's live check reads `stale` whenever the tray was last restarted before `HEAD`.** It is the live tray's `git_sha` against this checkout; it proves nothing about the disposable instance. Report it, do not restart the tray, and read the disposable instance's own `/api/version` for the build line.
 - **Drive boots its own instance; Launch is only needed for a standalone one.** The `webapp` fixture calls `boot_instance` per pytest session, so the Drive command needs no running server. A standalone instance needs the repo root on `PYTHONPATH` (`from tests.e2e.conftest import boot_instance`), a throwaway script in the scratchpad, and `stop_instance(proc)` to end it.
 - **Two ports, not one.** `boot_instance` binds the app and the quiz player on separate free ports (`record` both); neither is `:8449` or `:8451`, which the live tray and the Cloudflare tunnel hold.

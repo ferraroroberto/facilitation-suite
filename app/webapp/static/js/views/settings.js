@@ -568,7 +568,7 @@ function aboutCard() {
 function buildLine() {
   if (!build) return 'Build: …';
   if (build.failed) return 'Build: unknown';
-  return buildReadoutText(build.git_sha, build.captured_at);
+  return buildReadoutText(build.git_sha, build.built_at);
 }
 
 function paintAbout() {

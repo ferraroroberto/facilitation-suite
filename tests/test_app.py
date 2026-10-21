@@ -23,6 +23,8 @@ def test_version_reports_build_identity(client) -> None:
     body = client.get("/api/version").json()
     assert body["app"] == "facilitation-suite"
     assert body["git_sha"]
+    assert body["built_at"]
+    assert "captured_at" not in body
     assert body["schema_version"] == 1
 
 

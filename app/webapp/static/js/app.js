@@ -129,7 +129,7 @@ followHash().then((linked) => { if (!linked) showView(nav.getTab() || 'sessions'
 connectLive('app', { onState: (s) => followAppearance(s.appearance) });
 
 api('/api/version').then((v) => {
-  document.getElementById('buildReadout').textContent = buildReadoutText(v.git_sha, v.captured_at);
+  document.getElementById('buildReadout').textContent = buildReadoutText(v.git_sha, v.built_at);
 }).catch(() => {
   document.getElementById('buildReadout').textContent = 'Build: unknown';
 });
