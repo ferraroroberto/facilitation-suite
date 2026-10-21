@@ -82,6 +82,6 @@ def version(request: Request) -> dict[str, object]:
     return {
         "app": "facilitation-suite",
         "git_sha": build["git_sha"],
-        "built_at": build["captured_at"],
+        "built_at": build["built_at"],
         "schema_version": SCHEMA_VERSION,
     }

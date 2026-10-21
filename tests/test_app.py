@@ -28,6 +28,14 @@ def test_version_reports_build_identity(client) -> None:
     assert body["schema_version"] == 1
 
 
+def test_version_serves_the_captured_build_unmapped(client) -> None:
+    build = client.app.state.build
+    assert set(build) == {"git_sha", "built_at"}
+    body = client.get("/api/version").json()
+    assert body["git_sha"] == build["git_sha"]
+    assert body["built_at"] == build["built_at"]
+
+
 def test_healthz(client) -> None:
     assert client.get("/healthz").json() == {"status": "ok"}
 
