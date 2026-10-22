@@ -139,13 +139,13 @@ class ChatHub:
             self.last_read_ms = self.last_beat_ms
             # A tiny push each second keeps "updated … s ago" honest on the presenter.
             self.live.broadcast({"type": "reader_beat", "last_read_ms": self.last_read_ms})
-            if self.tested is None:
-                self.tested = {"at": self.last_beat_ms, "rows": payload.get("rows", 0)}
+            if self.tested is None or self.tested.get("source") != payload.get("source"):
+                self.tested = {"at": self.last_beat_ms, "rows": payload.get("rows", 0), "source": payload.get("source")}
                 logger.info("✅ chat reader test passed: the %s was read (%s rows)", self.chat_noun(), payload.get("rows"))
         self.refresh()
 
     def reader_state(self) -> tuple[str, str]:
-        age = now_ms() - self.last_beat_ms if self.last_beat_ms else None
+        age = now_ms() - self.last_beat_ms if self.last_beat_ms is not None else None
         reported = self.beat.get("state") if self.beat else None
         if reported == "stopped" or (age is None and not self.process_running()):
             return "off", "The chat reader is not running"
@@ -186,7 +186,7 @@ class ChatHub:
 
     def readiness(self) -> dict[str, Any]:
         source = self.chosen_source()
-        if self.tested:
+        if self.tested and self.tested.get("source") == source:
             at = time.strftime("%H:%M", time.localtime(self.tested["at"] / 1000))
             return {"tested": True, "source": source,
                     "detail": f"Read the {self.chat_noun()} at {at} ({self.tested['rows']} messages in it)"}

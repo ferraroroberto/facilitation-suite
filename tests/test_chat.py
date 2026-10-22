@@ -158,7 +158,7 @@ def test_reader_state_machine(live_demo, monkeypatch: pytest.MonkeyPatch) -> Non
     assert chat.reader_state()[0] == "starting"
     chat.heartbeat({"state": "window_not_found", "detail": "Pop out the Zoom meeting chat"})
     assert chat.reader_state() == ("window_not_found", "Pop out the Zoom meeting chat")
-    chat.heartbeat({"state": "reading", "detail": "3 messages", "rows": 3})
+    chat.heartbeat({"state": "reading", "detail": "3 messages", "rows": 3, "source": "zoom"})
     assert chat.readiness()["tested"] is True
     chat.last_beat_ms = now_ms() - 5000
     assert chat.reader_state()[0] == "stale"
@@ -173,12 +173,29 @@ def test_readiness_names_the_chat_of_the_chosen_source(live_demo) -> None:
     chat.chosen_source = lambda: "teams"
     assert chat.readiness()["source"] == "teams"
     chat.process_running = lambda: True
-    chat.heartbeat({"state": "reading", "detail": "3 messages", "rows": 3})
+    chat.heartbeat({"state": "reading", "detail": "3 messages", "rows": 3, "source": "teams"})
     got = chat.readiness()
     assert got["tested"] is True and got["source"] == "teams"
     assert "meeting chat" in got["detail"] and "popped-out" not in got["detail"]
     chat.chosen_source = lambda: "zoom"
+    chat.heartbeat({"state": "reading", "detail": "1 message", "rows": 1, "source": "zoom"})
     assert "popped-out chat" in chat.readiness()["detail"]
+
+
+def test_readiness_tested_flag_does_not_survive_a_source_switch(live_demo) -> None:
+    """#298: a passed test on one source must not carry over to the other after
+    the presenter's Zoom · Teams switch — the checklist would otherwise claim
+    an untested source as read."""
+    _, chat, _ = live_demo
+    chat.process_running = lambda: True
+    chat.heartbeat({"state": "reading", "detail": "3 messages", "rows": 3, "source": "zoom"})
+    assert chat.readiness()["tested"] is True
+    chat.chosen_source = lambda: "teams"
+    assert chat.readiness()["tested"] is False  # the Teams reader was never read
+    chat.heartbeat({"state": "reading", "detail": "2 messages", "rows": 2, "source": "teams"})
+    assert chat.readiness()["tested"] is True
+    chat.chosen_source = lambda: "zoom"
+    assert chat.readiness()["tested"] is False  # switching back doesn't resurrect the old test either
 
 
 def test_chat_api_is_loopback_only_for_the_reader(isolated_env: Path) -> None:

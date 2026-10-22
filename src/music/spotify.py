@@ -326,7 +326,7 @@ class SpotifyBackend:
         self._submit(lambda: self._skip(direction, volume), transition=True)
 
     def set_volume(self, volume: int) -> None:
-        self._submit(lambda: self._volume(volume) if self.volume_now else None)
+        self._submit(lambda: self._volume(volume) if self.volume_now is not None else None)
 
     def fade(self, to: int, seconds: float) -> None:
         self._submit(lambda: self._fade(self.volume_now or 0, to, seconds))
