@@ -755,7 +755,12 @@ async function importKahoot() {
 
 async function saveSession() {
   try {
-    const res = await api(`/api/sessions/${st.sid}`, { method: 'PUT', body: { session: st.session } });
+    // Only `sections` is Plan's own edit; re-read the session first and merge
+    // just that in, so a field saved from another tab in the meantime (title,
+    // language, stage font…) isn't silently reverted by this PUT.
+    const fresh = (await api(`/api/sessions/${st.sid}`)).session;
+    const merged = Object.assign({}, fresh, { sections: st.session.sections });
+    const res = await api(`/api/sessions/${st.sid}`, { method: 'PUT', body: { session: merged } });
     st.session = res.session;
     st.dirty = false;
     toast('Saved to session.yaml');

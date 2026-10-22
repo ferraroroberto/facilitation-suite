@@ -434,6 +434,23 @@ def test_backend_plays_fades_pauses_and_stops_by_volume_steps() -> None:
     b.close()
 
 
+def test_set_volume_is_not_dropped_when_the_last_volume_sent_was_zero() -> None:
+    """#298: the slider muted to 0 then back up must still reach Spotify — a truthiness guard on
+    ``volume_now`` treated an explicit 0 the same as "no track loaded"."""
+    fake = FakeSpotify()
+    b = SpotifyBackend(lambda *e: None, client=client(fake), sleep=lambda s: None)
+    b.play(1, Track("spotify", "spotify:playlist:abc", "Spotify playlist abc"), 60, 0)
+    wait_for(lambda: b.volume_now == 60)
+    fake.calls.clear()
+    b.set_volume(0)
+    wait_for(lambda: b.volume_now == 0)
+    fake.calls.clear()
+    b.set_volume(60)
+    wait_for(lambda: b.volume_now == 60)
+    assert ("PUT", "/me/player/volume", {"volume_percent": "60", "device_id": "dev-pc"}) in fake.api()
+    b.close()
+
+
 def test_backend_reports_each_failure_as_its_own_error() -> None:
     fake, events = FakeSpotify(), []
     b = SpotifyBackend(lambda *e: events.append(e), client=client(fake), sleep=lambda s: None)
