@@ -241,7 +241,7 @@ function sessionRow(s) {
 }
 
 // A save redraws the card and so does the list's refresh, so two reads of the session can be in flight; the
-// older answer must not draw over the newer one (#281), so only the latest redraw gets to swap the card in.
+// older answer must not draw over the newer one, so only the latest redraw gets to swap the card in.
 let detailDraw = 0;
 
 async function renderDetail() {

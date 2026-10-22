@@ -293,7 +293,7 @@ def create_app() -> FastAPI:
     app.include_router(settings.router)
     app.include_router(actions.router)
     app.include_router(quiz.router)
-    # Which views and controls the owner uses (#244): the vendored usage log, in the gitignored
+    # Records which views and controls the owner uses: the vendored usage log, in the gitignored
     # data/ (FS_DATA_DIR in tests). Behind RemoteAuth like every route; the quiz player app
     # (app/player/) never mounts it.
     app.include_router(usage_router(data_dir() / USAGE_DB_FILE))

@@ -34,7 +34,8 @@ def test_src_change_routes_to_full(path: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "baseline", [".static-ratchet-baseline.json", ".docs-ratchet-baseline.json"]
+    "baseline",
+    [".static-ratchet-baseline.json", ".docs-ratchet-baseline.json", ".comment-ratchet-baseline.json"],
 )
 def test_ratchet_baseline_routes_to_none(baseline: str) -> None:
     config = classify_e2e.load_config(REPO_ROOT / ".fleet.toml")
