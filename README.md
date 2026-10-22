@@ -88,7 +88,7 @@ webapp/              machine-local, gitignored: certificates/, cloudflared.yml (
 & .\scripts\verify-before-ship.ps1
 ```
 
-Personal-data guard → byte-compile → ruff → static ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
+Personal-data guard → byte-compile → ruff → static ratchet → docs ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
 
 ## Privacy
 
