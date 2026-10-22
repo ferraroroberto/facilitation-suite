@@ -10,6 +10,12 @@ carries it by itself. A new token in Settings unpairs every phone.
 Pure ASGI, so WebSockets (``/ws``) go through the same gate as HTTP. Static
 files, ``/healthz`` and the ``/remote`` page itself stay open, so an unpaired
 phone can load the page and be told how to pair.
+
+A browser names the page behind each request in ``Origin``. Only the app's own
+pages may open the socket or send a state change, whoever the caller is: a page
+of any other site open in this PC's browser shares this PC's address. A caller
+that sends no ``Origin`` is not a browser page (the Stream Deck plugin, a
+script) and goes through the gate above as before.
 """
 
 from __future__ import annotations
@@ -20,8 +26,8 @@ import logging
 import re
 from collections.abc import Callable
 from http.cookies import SimpleCookie
-from typing import Any
-from urllib.parse import parse_qs
+from typing import Any, Optional
+from urllib.parse import parse_qs, urlsplit
 
 from app.webapp.errors import is_local
 
@@ -33,6 +39,7 @@ OPEN_EXACT = frozenset({"/healthz", "/remote", "/manifest.webmanifest", "/favico
 OPEN_PREFIXES = ("/static/", "/themes/")
 TOKEN_IN_URL = re.compile(r"(token=)[^&\s\"']+")
 SERVER_LOGGERS = ("uvicorn.access", "uvicorn.error")  # request lines, WebSocket handshakes
+READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})  # the browser keeps another site's page from reading the answer
 
 
 class RedactTokens(logging.Filter):
@@ -59,9 +66,25 @@ def redact_server_logs() -> None:
             lg.addFilter(RedactTokens())
 
 
+def _headers(scope: dict[str, Any]) -> dict[str, str]:
+    return {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers") or []}
+
+
+def foreign_origin(scope: dict[str, Any]) -> bool:
+    """A socket or a state change sent by a page that is not one of this app's own."""
+    if scope["type"] == "http" and scope.get("method", "GET") in READ_METHODS:
+        return False
+    headers = _headers(scope)
+    origin = headers.get("origin")
+    if origin is None:
+        return False
+    host = headers.get("host", "").lower()
+    return not host or urlsplit(origin).netloc.lower() != host
+
+
 def presented_token(scope: dict[str, Any]) -> tuple[str, bool]:
     """The token a request carries, and whether it came in the query string."""
-    headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers") or []}
+    headers = _headers(scope)
     auth = headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip(), False
@@ -82,7 +105,13 @@ class RemoteAuth:
         self.get_token = get_token
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if scope["type"] not in ("http", "websocket") or is_local(scope):
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        if foreign_origin(scope):
+            await self._refuse(scope, send, 403, 4403, "foreign_origin", "Only this app's own pages may do this")
+            return
+        if is_local(scope):
             await self.app(scope, receive, send)
             return
         token = (self.get_token() or "").strip()
@@ -96,17 +125,23 @@ class RemoteAuth:
         if path in OPEN_EXACT or path.startswith(OPEN_PREFIXES):
             await self.app(scope, receive, send)
             return
-        client = (scope.get("client") or ("?",))[0]
         code, message = ("remote_off", "The phone remote is off — create its link in Settings on the PC") if not token else \
             ("remote_token_required", "This device is not paired — open the phone link from Settings on the PC")
-        logger.info("ℹ️ refused %s %s from %s (%s)", scope["type"], path, client, code)
+        await self._refuse(scope, send, 401, 4401, code, message,
+                           extra_headers=[(b"www-authenticate", b'Bearer realm="facilitation-suite"')])
+
+    @staticmethod
+    async def _refuse(scope: dict[str, Any], send: Any, status: int, close_code: int, code: str, message: str,
+                      extra_headers: Optional[list[tuple[bytes, bytes]]] = None) -> None:
+        client = (scope.get("client") or ("?",))[0]
+        logger.info("ℹ️ refused %s %s from %s (%s)", scope["type"], scope.get("path", ""), client, code)
         if scope["type"] == "websocket":
-            await send({"type": "websocket.close", "code": 4401})
+            await send({"type": "websocket.close", "code": close_code})
             return
         body = json.dumps({"error": {"code": code, "message": message}}).encode()
-        await send({"type": "http.response.start", "status": 401,
+        await send({"type": "http.response.start", "status": status,
                     "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode()),
-                                (b"www-authenticate", b'Bearer realm="facilitation-suite"')]})
+                                *(extra_headers or [])]})
         await send({"type": "http.response.body", "body": body})
 
     @staticmethod
