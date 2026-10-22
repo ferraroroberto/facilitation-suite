@@ -110,12 +110,11 @@ class ResilientRotatingFileHandler(RotatingFileHandler):
             # is attached to the root logger (as configure_logging() does), it re-enters this
             # same emit()/doRollover() through Python logging's normal propagation (the
             # per-handler lock is a threading.RLock, so the same thread recurses rather than
-            # deadlocking). Logging first and settling after left a reentrant call seeing
-            # ``_rotation_blocked`` still False and ``self.stream`` still None, so it retried
-            # the doomed rollover, which failed, which logged, which reentered again — an
-            # unbounded recursion that flooded the log with duplicate warnings and eventually
-            # raised RecursionError (caught, non-fatally, by logging's own handleError, but a
-            # real bug — #120).
+            # deadlocking). Logging before settling would let a reentrant call see
+            # ``_rotation_blocked`` still False and ``self.stream`` still None, so it would retry
+            # the doomed rollover, which fails, which logs, which reenters again — unbounded
+            # recursion that floods the log with duplicate warnings until RecursionError
+            # (non-fatal — caught by logging's own handleError — but still unwanted).
             was_blocked = self._rotation_blocked
             self._rotation_blocked = True
             self._blocked_at = time.monotonic()
