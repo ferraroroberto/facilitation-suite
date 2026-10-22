@@ -81,6 +81,25 @@ def test_the_phone_cannot_manage_the_remote_or_the_pc(app) -> None:
         assert phone.post("/api/chat/messages", json={"messages": []}, headers=auth).json()["error"]["code"] == "local_only"
 
 
+def test_a_page_of_another_site_cannot_act_on_this_pc(app) -> None:
+    own = {"origin": "https://127.0.0.1:8449"}
+    other = {"origin": "https://elsewhere.example"}
+    with TestClient(app, client=("127.0.0.1", 50000), base_url="https://127.0.0.1:8449") as pc:
+        refused = pc.post("/api/actions/blackout", headers=other)
+        assert refused.status_code == 403 and refused.json()["error"]["code"] == "foreign_origin"
+        assert pc.post("/api/actions/blackout", headers={"origin": "null"}).status_code == 403
+        # the app's own pages, and callers that are not a browser page (Stream Deck, scripts), still act
+        assert pc.post("/api/actions/blackout", headers=own).json()["error"]["code"] == "not_live"
+        assert pc.post("/api/actions/blackout").json()["error"]["code"] == "not_live"
+        assert pc.get("/api/live", headers=other).status_code == 200  # a read the browser never hands to that page
+        with pytest.raises(WebSocketDisconnect) as closed, pc.websocket_connect("/ws?role=app", headers=other):
+            pass
+        assert closed.value.code == 4403
+        # the test client always says "testserver" for a socket; a browser sends the address it opened
+        with pc.websocket_connect("/ws?role=app", headers={**own, "host": "127.0.0.1:8449"}) as ws:
+            assert ws.receive_json()["type"] in ("plan", "state")
+
+
 def test_a_new_link_unpairs_and_off_locks_out(app) -> None:
     old = _token(app)
     new = _token(app)
