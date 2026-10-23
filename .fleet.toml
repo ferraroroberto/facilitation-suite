@@ -166,7 +166,7 @@ tier = "none"
 path = "launcher.py"
 
 # The scaffold's verify skill (project-scaffolding#412) boots the suite's own disposable instance and
-# must never set the live opt-in. /healthz is the default ready path and fits; the data-dir default
+# must never set the live opt-in (the suite exits if it is set). /healthz is the default ready path and fits; the data-dir default
 # (FACILITATION_SUITE_DATA_DIR) does not, the app reads FS_DATA_DIR.
 [verify]
 boot           = "tests/e2e/conftest.py::boot_instance"
