@@ -216,9 +216,3 @@ def relay(lines: Iterable[str], log: logging.Logger) -> None:
             log.info("%s", line)
         else:
             log.log(level, "%s", parts[3])
-
-
-def get_logger(name: str) -> logging.Logger:
-    """``logging.getLogger`` after making sure the process is configured."""
-    configure_logging()
-    return logging.getLogger(name)

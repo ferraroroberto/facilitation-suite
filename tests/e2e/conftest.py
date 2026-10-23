@@ -7,8 +7,8 @@ temp copy of the sample config (OBS and the chat reader off),
 run never reads or writes the real config, ledger or session folders.
 The disposable instance always binds free ports (the app and the quiz player
 listener), so a running tray on :8449/:8451 never collides with it.
-``FS_E2E_LIVE=1`` is the one loudly-named opt-in to run the suite read-only
-against the live instance instead.
+The suite never targets the live app: its stories write (Settings, sessions, simulated
+chat), so ``FS_E2E_LIVE`` is a refusal, not a mode.
 
 Screenshots from a story go to ``docs/screenshots`` through ``shot()`` so the
 repo carries the proof; fixtures are synthetic only. They are written only
@@ -36,9 +36,7 @@ from tests.e2e._surface import pytest_collection_modifyitems  # noqa: F401
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
-LIVE_PORT = 8449
-LIVE_PLAYER_PORT = 8451
-LIVE_ENV = "FS_E2E_LIVE"
+LIVE_ENV = "FS_E2E_LIVE"  # setting it is refused: the stories are not read-only
 LOOP_FACTORY = "app.webapp.event_loop:selector_loop_factory"
 
 
@@ -115,10 +113,8 @@ def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
 
 @pytest.fixture(scope="session")
 def webapp() -> Iterator[Instance]:
-    if os.environ.get(LIVE_ENV) == "1":
-        print(f"[e2e] {LIVE_ENV}=1 - running against the live instance on :{LIVE_PORT}")
-        yield Instance(f"http://127.0.0.1:{LIVE_PORT}", Path(tempfile.gettempdir()), f"http://127.0.0.1:{LIVE_PLAYER_PORT}")
-        return
+    if os.environ.get(LIVE_ENV):
+        pytest.exit(f"{LIVE_ENV} is set: the e2e stories write, so they only run on a disposable instance", returncode=2)
     with tempfile.TemporaryDirectory(prefix="fs-e2e-", ignore_cleanup_errors=True) as tmp:
         proc, inst = boot_instance(Path(tmp))
         try:
