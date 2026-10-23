@@ -25,8 +25,16 @@
                                .comment-ratchet-baseline.json. Whole tree, never
                                routed; exit 3 (a file could not be scanned) is
                                NOT CONFIRMED and fails.
-      7. pytest (unit)       - hermetic suite, tests/e2e excluded
-      8. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
+      7. structure ratchet   - no new file over 1,000 lines, function over 100
+                               lines or directory over 40 modules, no baselined
+                               offender growing past
+                               .structure-ratchet-baseline.json, and the root
+                               folders match .fleet.toml shape + extra_roots.
+                               Whole tree, never routed; exit 3 (git unusable,
+                               an unparseable file, an unknown shape) is NOT
+                               CONFIRMED and fails.
+      8. pytest (unit)       - hermetic suite, tests/e2e excluded
+      9. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
                                against .fleet.toml [e2e] (skip / static / full),
                                fail-safe to full. Boots its own disposable webapp;
                                never the live :8449.
@@ -91,6 +99,9 @@ Invoke-Stage "static ratchet"          { & $py -m scripts.static_ratchet_gate }
 Invoke-Stage "docs ratchet"            { & $py -m scripts.docs_ratchet_gate }
 # Same shape: the wrapper maps exit 3 to NOT CONFIRMED (tests/test_comment_ratchet_gate.py).
 Invoke-Stage "comment ratchet"         { & $py -m scripts.comment_ratchet_gate }
+# Called directly: Invoke-Stage fails on any nonzero exit, so the script's exit 3
+# (NOT CONFIRMED) fails the gate like exit 1 and 2; no wrapper maps it.
+Invoke-Stage "structure ratchet"       { & $py "scripts/structure_ratchet.py" }
 Invoke-Stage "pytest (unit, non-e2e)"  { & $py -m pytest --ignore=tests/e2e }
 
 # ---------------------------------------------------------------- e2e routing

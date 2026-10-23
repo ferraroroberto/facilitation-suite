@@ -7,6 +7,9 @@ icon        = "🎤"
 port        = ":8449"
 description = "<b>facilitation-suite</b> — local app to run a live online workshop: stage, cockpit, Zoom chat."
 chips       = ["public: cloudflared quiz.robertoferraro.net → :8451 /play"]
+shape       = "webapp-tray"
+# Root folders the webapp-tray preset does not list; docs/layout.md says why each stays.
+extra_roots = ["themes", "webapp"]
 
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.
@@ -35,6 +38,7 @@ classify_e2e    = { src = "scripts/classify_e2e.py", sha = "bede95f00aee0b17d500
 static_ratchet  = { src = "scripts/static_ratchet.py", sha = "f0e6f5449ecf64c9b188ed394c2a9fd8ff678406", dest = "scripts/static_ratchet.py" }
 docs_ratchet    = { src = "scripts/docs_ratchet.py", sha = "f9300a05540313bb26f442e1daa491c9308541d2", dest = "scripts/docs_ratchet.py" }
 comment_ratchet = { src = "scripts/comment_ratchet.py", sha = "e56308e1c099712cf5a006557c94e3f9ae4fe8aa", dest = "scripts/comment_ratchet.py" }
+structure_ratchet = { src = "scripts/structure_ratchet.py", sha = "84d2b12ab416551762e4a615e4a706df91cea69f", dest = "scripts/structure_ratchet.py" }
 no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "c9e54e917fd3cbc96011d6c09f9d363af460b205", dest = "src/build_info.py" }
 geometry        = { src = "tests/e2e/_geometry.py", sha = "aa820f1215151087588433f290cd2ba55b34658d", dest = "tests/e2e/_geometry.py" }
@@ -76,6 +80,18 @@ baseline = ".docs-ratchet-baseline.json"
 [comment_ratchet]
 enabled  = true
 baseline = ".comment-ratchet-baseline.json"
+
+# [structure_ratchet] -- the scaffold's baseline-and-ratchet layout stage. The gate runs
+# scripts/structure_ratchet.py: a new file over 1,000 lines, a new function over 100 lines
+# or a new directory over 40 modules fails, and so does a baselined offender that grows
+# past its size in .structure-ratchet-baseline.json. The root folders must match `shape`
+# plus `extra_roots`. Existing offenders are baselined at today's size, never excluded.
+# Whole tree, never routed; exit 3 (git unusable, an unparseable file, an unknown shape)
+# fails the gate as NOT CONFIRMED. Where code goes: docs/layout.md. Mechanism + limits:
+# project-scaffolding docs/structure-ratchet.md.
+[structure_ratchet]
+enabled  = true
+baseline = ".structure-ratchet-baseline.json"
 
 # Diff-proportionate e2e routing (project-scaffolding#180): first match wins; an
 # unmatched path, a mixed diff, or an empty diff fails safe to the full suite.
@@ -158,6 +174,9 @@ path = ".docs-ratchet-baseline.json"
 [[e2e.rule]]
 tier = "none"
 path = ".comment-ratchet-baseline.json"
+[[e2e.rule]]
+tier = "none"
+path = ".structure-ratchet-baseline.json"
 [[e2e.rule]]
 tier = "none"
 path = "LICENSE"
