@@ -25,7 +25,7 @@ def main(argv: list[str]) -> int:
     from src.logger import configure_logging, log_path
 
     command = argv[1] if len(argv) > 1 else "tray"
-    # One writer per log file (#37): the tray and the webapp child it spawns never share one.
+    # One writer per log file: the tray and the webapp child it spawns never share one.
     configure_logging(log_file=log_path("tray") if command == "tray" else None)
     config = load_config()
 

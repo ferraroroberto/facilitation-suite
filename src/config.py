@@ -33,7 +33,7 @@ DEFAULT_PORT = 8449
 DEFAULT_PLAYER_PORT = 8451
 # Light/dark for the facilitator's screens — the app, the presenter and the
 # phone remote, never the stage or /play (they follow the session theme): one
-# value for every open page on every device (#92).
+# value for every open page on every device.
 APPEARANCES = ("system", "light", "dark")
 
 
@@ -107,13 +107,13 @@ class StageClickConfig:
 # stage keeps that profile's camera zone empty. Zones are fractions of the
 # 1920×1080 canvas (x0, y0, x1, y1); the strip matches the house slides' grey box.
 # The PiP is OBS's corner scene: a 16:9 camera flush in the top-right corner, about 503 × 283 px
-# (#190: the text beside it centres on this zone, so the zone must be where the camera really is).
+# (the text beside it centres on this zone, so the zone must be where the camera really is).
 DEFAULT_PROFILES: dict[str, dict[str, Any]] = {
     "camera_strip": {"label": "Camera strip", "scene": "", "zone": [0.583, 0.23, 0.983, 0.77]},
     "camera_pip": {"label": "Camera PiP", "scene": "", "zone": [0.738, 0.0, 1.0, 0.262]},
     "screen_only": {"label": "Screen only", "scene": "", "zone": None},
 }
-# The corner zone this app shipped before #190 was corrected: inset from the corner, about 40 px
+# The corner zone this app shipped before the PiP zone was corrected: inset from the corner, about 40 px
 # below the real camera's middle. A saved config still holding exactly it was never customised
 # (Settings writes the default back when a profile is saved), so it follows the new default.
 LEGACY_PIP_ZONE = [0.72, 0.04, 0.98, 0.3]
@@ -134,7 +134,7 @@ class AppConfig:
     stage_click: StageClickConfig = field(default_factory=StageClickConfig)
     profiles: dict[str, Any] = field(default_factory=dict)
     # What every new session starts from — the stage theme and lettering, the music
-    # fades (#110); parsed and checked by src/defaults.py.
+    # fades; parsed and checked by src/defaults.py.
     defaults: dict[str, Any] = field(default_factory=dict)
     source: str = "defaults"
 

@@ -22,7 +22,7 @@ body {
 /* On a phone the vendored nav-tabs.css owns .app's padding: the status bar's safe
    area on top and the floating tab bar's reserve at the bottom. This file loads
    after it (index.html, remote.html), so a shorthand here would win the cascade and
-   put content under both (#46, app-launcher#355). The plain padding therefore only
+   put content under both. The plain padding therefore only
    applies where that phone rule doesn't: not (coarse pointer and at most 520px). */
 @media (pointer: fine), (pointer: none), (min-width: 521px) {
   .app { padding: var(--gap); }
@@ -35,7 +35,7 @@ body {
 }
 .home-head .home-toggle + .home-toggle { margin-left: 0; }
 .home-head .home-title-text { overflow: hidden; text-overflow: ellipsis; }
-/* NAV-02 (#167): the pane's title is its heading, so a pane opens with one in view; the h2 drops its UA margin */
+/* NAV-02: the pane's title is its heading, so a pane opens with one in view; the h2 drops its UA margin */
 .home-head h2.home-title { margin: 0; }
 
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
@@ -48,7 +48,7 @@ body {
 
 /* Wide, fine pointer: left rail (vendored nav). The master-detail views (Plan, Groups,
    Results, and the presenter's Live) span the window with the list and detail side by side;
-   the Sessions list alone keeps the centred measure (design.md Layout, #183/#189:
+   the Sessions list alone keeps the centred measure (design.md Layout:
    `[design] wide_views` in .fleet.toml declares the wide ones). */
 @media (min-width: 1100px) and (pointer: fine) {
   .app { max-width: none; margin: 0; min-height: 100vh; }
@@ -143,7 +143,7 @@ body {
   min-width: 0;
 }
 textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vertical; }
-/* Touch targets (#167, design.md hit-target.min): a native input/select is a replaced element that cannot carry
+/* Touch targets (design.md hit-target.min): a native input/select is a replaced element that cannot carry
    the .hit-target ::before, so it is a real 44px field (the spec's own filter height) with its 1px control-border
    boundary. The vendored .input-native / .select-native are restated here (app.css loads after them); never edit
    the vendored files. The boundary stays a real border: an inset shadow reads as no boundary (COLOR-03). */
@@ -211,7 +211,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .big-action { min-height: 64px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wide-ghost { min-height: 44px; font-size: var(--font-label); }
 
-/* The list, or one session open full screen — never both (#150). */
+/* The list, or one session open full screen — never both. */
 .sessions-list, .sessions-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
 .sessions-list[hidden], .sessions-detail[hidden] { display: none; }
 @media (min-width: 1100px) and (pointer: fine) {
@@ -311,9 +311,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .plan-toolbar .button-surface { display: inline-flex; align-items: center; gap: 6px; }
 .plan-fold { display: inline-flex; gap: 2px; }
 .plan-fold .button-ghost { display: inline-flex; align-items: center; gap: 6px; }
-/* toolbar buttons that sit side by side reach the 44px floor with real height, so their rects never overlap (#167) */
+/* toolbar buttons that sit side by side reach the 44px floor with real height, so their rects never overlap */
 .button-surface, .button-ghost, .button-tint { min-height: var(--hit-min); }
-/* COMP-02 (#167): the .icon default is 1em, so a glyph in a 12-14px button label was off the icons.size steps; inline = 16px */
+/* COMP-02: the .icon default is 1em, so a glyph in a 12-14px button label was off the icons.size steps; inline = 16px */
 .button-primary .icon, .button-tint .icon, .button-ghost .icon, .button-surface .icon { width: var(--icon-inline); height: var(--icon-inline); }
 .plan-totals { font-size: var(--font-body-sm); color: var(--muted); margin-left: auto; }
 .plan-totals.over { color: var(--attention-text); font-weight: 600; }
@@ -330,7 +330,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
   border-top: 1px solid var(--line-muted);
 }
 .sec-row:first-child { border-top: 0; }
-/* COLOR-02 (#167): --muted is 4.5:1 on a card, not on a tint (4.17:1 on the light accent-soft selected row, 3.79:1 on
+/* COLOR-02: --muted is 4.5:1 on a card, not on a tint (4.17:1 on the light accent-soft selected row, 3.79:1 on
    the dark one). On an accent-soft selected row the secondary text takes --ink, as design.md sets text on a tint in fg.
    The dark section band (muted mixed into the card, 4.14:1) does the same; the light band already clears 4.5:1. */
 [data-theme="dark"] .sec-row .sec-meta,
@@ -365,7 +365,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 }
 .item-row:hover { background: var(--card-off); }
 .item-row.selected { background: var(--accent-soft); }
-/* A hidden item reads like PowerPoint's hidden slide (#249): a dimmed thumbnail with an eye-off mark, the title muted. */
+/* A hidden item reads like PowerPoint's hidden slide: a dimmed thumbnail with an eye-off mark, the title muted. */
 .item-row.hidden-item .item-title { color: var(--muted); }
 .item-row.hidden-item .thumb { opacity: 0.4; }
 .thumb-box { position: relative; display: inline-flex; flex: none; }
@@ -457,7 +457,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .music-file { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 160px; font-weight: 600; overflow-wrap: anywhere; }
 .music-file .icon { flex: none; width: 16px; height: 16px; }
 .music-volume { display: flex; align-items: center; gap: var(--space-sm); }
-.music-volume input { flex: 1; min-width: 0; accent-color: var(--accent); height: 44px; margin: 0; } /* #207: the input box is the 44px target; the native track inside stays thin */
+.music-volume input { flex: 1; min-width: 0; accent-color: var(--accent); height: 44px; margin: 0; } /* the input box is the 44px target; the native track inside stays thin */
 .music-volume output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
 .input.invalid { border-color: var(--danger); }
 .ed-tools { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: 12px 0; border-top: 1px solid var(--line-muted); }
@@ -583,7 +583,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .result-cards .card { display: grid; gap: 4px; align-content: start; }
 .top-row, .answer-row { min-height: var(--row-sm); padding: 8px 0; gap: var(--space-md); }
 .top-row .grow { overflow-wrap: anywhere; }
-/* #121: with max-height + overflow-y on the grid container, Chromium's implicit
+/* With max-height + overflow-y on the grid container, Chromium's implicit
    auto-row sizing doesn't expand a row to its actual (wrapped-text) content
    height, so a long answer paints past its row's box into the next one.
    grid-auto-rows: min-content restores per-row auto-sizing while keeping the
@@ -641,7 +641,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .deck-row code { font-family: var(--mono); font-size: var(--font-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-row .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--hit-min); }
 @media (max-width: 640px) { .deck-label { width: auto; } .deck-row { flex-wrap: wrap; } }
-/* Five sections (#110), each a heading-md title over its cards; a deep link scrolls to one. */
+/* Five sections, each a heading-md title over its cards; a deep link scrolls to one. */
 .settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); scroll-margin-top: var(--gap); }
 .settings-section-title { display: flex; align-items: center; gap: 8px; margin: var(--space-md) 0 0; font-size: var(--font-heading-md); font-weight: 700; line-height: 1.25; }
 .settings-section-title .icon { width: var(--icon-title); height: var(--icon-title); color: var(--muted); }
@@ -650,7 +650,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .library-row .grow { display: grid; min-width: 0; }
 .library-path { font-family: var(--mono); overflow-wrap: anywhere; }
 .defaults-font-card .font-rows, .defaults-font-card .font-group, .defaults-font-card .font-sample-host { margin-top: 0; margin-bottom: 0; }
-/* A session's own settings (#151): its details inline, then its stage look against the defaults. */
+/* A session's own settings: its details inline, then its stage look against the defaults. */
 .session-settings-card .font-row .input { width: 100%; }
 .session-settings-card .font-row .input.dur-min { width: 96px; }
 .meta-control { display: grid; gap: 4px; min-width: 0; }

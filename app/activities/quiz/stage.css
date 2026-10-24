@@ -1,4 +1,4 @@
-/* The quiz on the stage (#53): lobby, question, reveal, leaderboard, podium.
+/* The quiz on the stage: lobby, question, reveal, leaderboard, podium.
  * The session theme's look (--st-* fonts, ink and chips; the body's --st-font
  * is the answers' lettering). The four answer colours are the phones' own
  * (app/player/static/play.css), so a player finds the same tile on both; a
@@ -7,7 +7,7 @@
  * corner camera keeps free under the title, which the question's status row and the
  * reveal's bars move into; .qz-beside while there is one). */
 
-/* A corner camera (#148): the title flows around it — a box of the camera's size
+/* A corner camera: the title flows around it — a box of the camera's size
    (--st-head-right × --st-head-min, set from the zone) floats in the head's top-right
    corner, so a long title's lines beside the camera stop short of it and the lines
    below it take the full width. Without a corner camera the box is empty. */
@@ -136,7 +136,7 @@
   font-size: 50px;
   font-weight: 800;
 }
-/* 120/240 s limits (Kahoot allows both, #93): three digits step down to fit inside the ring. */
+/* 120/240 s limits (Kahoot allows both): three digits step down to fit inside the ring. */
 .stage-canvas .qz-secs.qz-secs-3 { font-size: 36px; }
 .stage-canvas .qz-clock.low .qz-secs { color: var(--st-c1); }
 
@@ -212,7 +212,7 @@
   width: 100%;
   height: calc(var(--h) * (100% - 72px));
   /* Tall enough that the shape (1em = 46px) plus its bottom padding always sits whole,
-     even at 0 votes (#93) — proportional above this floor. */
+     even at 0 votes — proportional above this floor. */
   min-height: 70px;
   box-sizing: border-box;
   display: flex;
@@ -277,7 +277,7 @@
 
 /* ----------------------------------------------------------------- podium */
 
-/* One place per Next (#89): every place keeps its spot from the start, a place not
+/* One place per Next: every place keeps its spot from the start, a place not
    revealed yet is invisible (not .shown), and the one just revealed rises (.rise). */
 .stage-canvas .qz-podium { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-end; gap: 36px; }
 .stage-canvas .qz-step { width: 400px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 16px; }

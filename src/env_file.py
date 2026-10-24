@@ -23,18 +23,18 @@ from src.sessions.store import replace_held
 
 # The mirror image of ``replace_held``'s write retry: a read can land in the instant a save's
 # ``os.replace`` is itself in flight (Windows briefly refuses either side of that race, not just
-# the writer, #141). A read runs on every Spotify status poll, so this stays short.
+# the writer). A read runs on every Spotify status poll, so this stays short.
 READ_RETRY_WAITS = (0.005, 0.01, 0.02, 0.05, 0.1)
 
 # ``.env`` is read far more often than it is written (every status poll opens it, often more than
 # once in the same request) — caching a parse for a short window cuts how many real file opens
 # happen, which is what actually keeps a save's ``os.replace`` from colliding with a reader in the
-# first place (#141), rather than just giving the writer a longer, riskier wait to outlast one. A
+# first place, rather than just giving the writer a longer, riskier wait to outlast one. A
 # save updates the cache with the exact bytes it just wrote, so a read right after is never stale.
 _CACHE_TTL_S = 0.2
 _cache_lock = threading.Lock()
 _cache: dict[Path, tuple[float, dict[str, str]]] = {}
-# Bumped by every save (#146). Anything computed from ``.env`` — this module's read cache, the
+# Bumped by every save. Anything computed from ``.env`` — this module's read cache, the
 # Spotify status and access token — remembers the generation it started from and is not served
 # once a save has landed since: a read or a status check still in flight when a login is saved
 # otherwise stores its pre-save answer over the fresh one.

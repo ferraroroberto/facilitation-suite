@@ -12,7 +12,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `src/` | logic with no UI imports: config, sessions, import, live state, chat, quiz, results |
 | `tests/` | hermetic unit tests, plus `tests/e2e/` (Playwright against a disposable instance) |
 | `docs/` | durable reference, one page per feature |
-| `scripts/` | the gate (`verify-before-ship.ps1`), the vendored ratchets and their gate wrappers, and one-off tools |
+| `scripts/` | the gate (`verify-before-ship.ps1`), the vendored ratchets, their gate wrappers and the runner they share (`ratchet_gate.py`), and one-off tools |
 | `assets/` | the tray icon and the Stream Deck icon |
 | `config/` | `config.sample.json`, the committed template; the live `config.json` next to it is gitignored |
 | `brand/` | the Lucide `presentation` master the icons are generated from |

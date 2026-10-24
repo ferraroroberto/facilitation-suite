@@ -36,7 +36,7 @@ def one_line(text: str) -> str:
 
 # The stage's default titles in each session language (app/webapp/static/js/stage-words.js
 # says the same words on the stage; tests/test_live.py keeps them in step). An untitled quiz
-# lobby or podium (#91) is headed in the session's language too.
+# lobby or podium is headed in the session's language too.
 DEFAULT_TITLES: dict[str, dict[str, str]] = {
     "en": {"break": "Break", "breakout": "Breakout rooms", "groups_reveal": "Who are you with?",
            "quiz_lobby": "Quiz lobby", "quiz_podium": "Quiz podium"},

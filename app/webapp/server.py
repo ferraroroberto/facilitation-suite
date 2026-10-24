@@ -97,7 +97,7 @@ THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
 ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
-USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only, #244)
+USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only)
 
 
 # Bodies under this size go out as they are: gzip framing would cost more than it saves.
@@ -121,7 +121,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     await player.start()  # optional: a busy port is logged, never fatal
     reach = asyncio.create_task(app.state.quiz_reach.run_periodic(), name="quiz-reach")
     # After every service is wired and the loop bound (timers, the quiz, the music): the session
-    # that was live when the server stopped comes back by itself (#95).
+    # that was live when the server stopped comes back by itself.
     if cfg.live.resume_on_start:
         app.state.live.resume_last()
     else:
@@ -160,7 +160,7 @@ def _install_chat(app: FastAPI) -> None:
     live = app.state.live
     chat_hub = ChatHub(live)
     scheme = "https" if cert_paths() else "http"  # the reader falls back to the other scheme itself
-    # Each start reads the chosen source from the live config: the presenter's switch saves it (#239).
+    # Each start reads the chosen source from the live config: the presenter's switch saves it.
     proc = ReaderProcess(f"{scheme}://127.0.0.1:{cfg.port}", source=lambda: app.state.config.reader.source)
 
     capture = CaptureService(live, chat_hub)
@@ -217,7 +217,7 @@ def _install_obs(app: FastAPI) -> None:
 def _install_music(app: FastAPI) -> None:
     """Music on this PC's audio output, synced to item timers (``src/music/``)."""
     app.state.music = MusicService(app.state.live)
-    # Settings → Music → Connect Spotify: the same PKCE login as scripts/spotify_login.py (#110).
+    # Settings → Music → Connect Spotify: the same PKCE login as scripts/spotify_login.py.
     app.state.spotify_login = SpotifyLogin(on_saved=app.state.music.spotify_login_saved)
 
 
@@ -229,7 +229,7 @@ def _install_quiz(app: FastAPI) -> None:
     service = QuizService(app.state.live)
     service.public_url = lambda: app.state.config.quiz.public_url
     service.listener_up = lambda: bool(getattr(app.state, "player", None) and app.state.player.running)
-    service.output_device = app.state.music.output_device  # the Sounds chip's device state (#102)
+    service.output_device = app.state.music.output_device  # the Sounds chip's device state
     app.state.quiz = service
     live = app.state.live
 
@@ -251,7 +251,7 @@ def _install_quiz(app: FastAPI) -> None:
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
-    # Gzip the pages, JS/CSS and JSON for a phone on cellular (#166). Registered first so it is the
+    # Gzip the pages, JS/CSS and JSON for a phone on cellular. Registered first so it is the
     # innermost middleware: the ``@app.middleware("http")`` in ``_install_chat`` re-streams every body,
     # and a gzip outside it would ignore the minimum size and compress even the bodyless 304.
     # WebSocket scopes pass through untouched; Starlette skips ``text/event-stream``.
@@ -265,9 +265,9 @@ def create_app() -> FastAPI:
     app.state.live = LiveHub(store, last_live=data_dir() / LAST_LIVE_FILE)
     app.state.last_action = None  # the latest /api/actions press (the presenter's Stream Deck chip)
     app.state.live.extra_state.append(lambda: {"last_action": app.state.last_action})
-    # Light/dark for the app, the presenter and the remote (#92): every open page follows it.
+    # Light/dark for the app, the presenter and the remote: every open page follows it.
     app.state.live.extra_state.append(lambda: {"appearance": app.state.config.appearance})
-    # What a click on the stage does (#191): the stage window reads it from the snapshot.
+    # What a click on the stage does: the stage window reads it from the snapshot.
     app.state.live.extra_state.append(lambda: {"stage_click": settings.stage_click_state(app.state.config)})
     _install_chat(app)
     _install_obs(app)

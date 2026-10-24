@@ -113,7 +113,7 @@ function cornerBox(zone) {
 }
 
 /**
- * Under a corner camera the title text beside it is centred vertically on the camera (#190):
+ * Under a corner camera the title text beside it is centred vertically on the camera:
  * an activity's question with its subtitle, and an imported slide's title boxes (a box that
  * reaches under the camera is left alone). Only a block that fits the camera's height moves;
  * a longer one keeps flowing from the top and below the camera, as before. Measured in canvas
@@ -169,7 +169,7 @@ export function clock(sec) {
 
 const TIMER_STATES = ['idle', 'running', 'paused', 'done'];
 
-/** Where a stage timer is (#211): not started, running, paused or ended — the class that colours it. */
+/** Where a stage timer is: not started, running, paused or ended — the class that colours it. */
 function timerState(t) {
   if (!t) return 'idle';
   if (t.done) return 'done';
@@ -284,7 +284,7 @@ export function createStage(host, opts = {}) {
         `<div class="st-body" data-body></div>` +
         `<div class="st-foot">` +
         (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
-        // a quiz question takes chat answers too while its lobby accepts them (#54): shown while it is open
+        // a quiz question takes chat answers too while its lobby accepts them: shown while it is open
         (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${ICON('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
         `<span class="st-spacer"></span><span class="st-count" data-count></span>` +
         `<span class="st-pill" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>` +
@@ -354,7 +354,7 @@ export function createStage(host, opts = {}) {
       sub.hidden = !sub.textContent;
       if (sub.textContent !== before) centreOnCamera(canvas, item);
     }
-    // The live quiz game (#53) reaches only the item it is about: every other item gets null.
+    // The live quiz game reaches only the item it is about: every other item gets null.
     const q = ctx.state && ctx.state.quiz;
     const quiz = q && q.item_id === item.id ? q : null;
     const sig = JSON.stringify([result, names, quiz]);

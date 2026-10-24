@@ -1,4 +1,4 @@
-// Settings — everything common to every presentation, in five sections (#110):
+// Settings — everything common to every presentation, in five sections:
 // Appearance (light/dark on every device, this device's text size), Stage
 // defaults (the theme and lettering new sessions start from, and the stage
 // library of fonts and themes), Music (the Spotify account and the default
@@ -301,7 +301,7 @@ function readerCard() {
   return card;
 }
 
-/** What a click on the stage window does (#191): the next item, only when switched on. */
+/** What a click on the stage window does: the next item, only when switched on. */
 function stageClickCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
@@ -320,7 +320,7 @@ function stageClickCard() {
 
 const APPEARANCE_CHOICES =[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
 
-/** Light/dark for the app, the presenter and the phone remote — one value for every device (#92). */
+/** Light/dark for the app, the presenter and the phone remote — one value for every device. */
 function appearanceCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
@@ -362,7 +362,7 @@ function textSizeCard() {
   return card;
 }
 
-// ---- Stage defaults (#110) -----------------------------------------------------
+// ---- Stage defaults -----------------------------------------------------
 
 async function saveDefaults(patch, message = 'Default saved — new sessions start from it') {
   try {
@@ -457,7 +457,7 @@ function libraryCard() {
   return card;
 }
 
-// ---- Music (#110) ----------------------------------------------------------------
+// ---- Music ----------------------------------------------------------------
 
 async function loadSpotify(fresh = false) {
   try {

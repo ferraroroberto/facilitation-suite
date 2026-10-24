@@ -85,6 +85,10 @@ baseline = ".docs-ratchet-baseline.json"
 [comment_ratchet]
 enabled  = true
 baseline = ".comment-ratchet-baseline.json"
+# The quiz player's copies of the fleet CSS are byte-for-byte copies of the vendored and
+# app files (tests/test_quiz_player.py holds them equal), so their upstream comments
+# cannot be reworded here.
+exclude  = ["app/player/static/fleet/**"]
 
 # [structure_ratchet] -- the scaffold's baseline-and-ratchet layout stage. The gate runs
 # scripts/structure_ratchet.py: a new file over 1,000 lines, a new function over 100 lines

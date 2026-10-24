@@ -3,7 +3,7 @@
 // the chat hint's plain sans) and, for each kind of text, which of the two it
 // uses and whether it is in capitals. One editor for a session's own
 // lettering (Sessions tab) and for the default every new session starts from
-// (Settings → Stage defaults, #110); the caller says how a change is saved.
+// (Settings → Stage defaults); the caller says how a change is saved.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { esc, toast } from '/static/js/ui.js';
@@ -22,7 +22,7 @@ export const FONT_DEFAULTS = {
   timer_idle: '', timer_running: '', timer_paused: '', timer_done: '', text_family: '', text_weight: 400, roles: {},
 };
 
-/** The stage timer's four states (#211): the key in the block, its words, and the theme's colour (themes/default.css). */
+/** The stage timer's four states: the key in the block, its words, and the theme's colour (themes/default.css). */
 export const TIMER_STATES = [
   ['idle', 'Not started', '#1f1f1f'],
   ['running', 'Running', '#00a44e'],
@@ -179,7 +179,7 @@ export function wireFontEditor(card, { current, save, redraw, pickFile }) {
       again(key === 'title' ? saveFont({ caps }) : setRole(key, { caps }));  // a title's capitals are font.caps
     }));
   });
-  // the title's colour and size (#191): the sample follows as you pick, a change saves
+  // the title's colour and size: the sample follows as you pick, a change saves
   const colorEl = card.querySelector('[data-title-color]');
   const sizeEl = card.querySelector('[data-title-size]');
   const contrastEl = card.querySelector('[data-contrast]');
@@ -197,7 +197,7 @@ export function wireFontEditor(card, { current, save, redraw, pickFile }) {
   });
   colorEl.addEventListener('change', () => again(saveFont({ title_color: colorEl.value })));
   card.querySelector('[data-title-color-reset]').addEventListener('click', () => again(saveFont({ title_color: '' })));
-  // the timer's four colours (#211): the sample pills follow as you pick, a change saves; the theme's own colour saves as none
+  // the timer's four colours: the sample pills follow as you pick, a change saves; the theme's own colour saves as none
   TIMER_STATES.forEach(([key, , theme]) => {
     const el = card.querySelector(`[data-timer-color=${key}]`);
     el.addEventListener('input', () => {

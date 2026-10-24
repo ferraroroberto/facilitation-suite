@@ -67,7 +67,7 @@ def list_sessions(request: Request) -> dict[str, Any]:
 def create_session(request: Request, body: NewSession) -> dict[str, Any]:
     st = store(request)
     try:
-        look = defaults.load(request.app.state.config)  # a new session starts from the global defaults (#110)
+        look = defaults.load(request.app.state.config)  # a new session starts from the global defaults
         entry = st.create(body.title, body.workshop, body.folder or body.title, date=body.date,
                           duration_minutes=body.duration_minutes, root=body.root, theme=look.theme, font=look.font)
     except OSError as exc:
@@ -132,7 +132,7 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
             "offline": offline.as_dict(),
         },
         "readiness": readiness.build(folder, session, offline, facts),
-        # The stage look (theme + lettering) against Settings → Stage defaults (#110).
+        # The stage look (theme + lettering) against Settings → Stage defaults.
         "look": {"uses_defaults": defaults.uses_defaults(session, defaults.load(request.app.state.config)),
                  "themes": stage_library.themes(request.app.state.config),
                  "fonts": stage_library.fonts(request.app.state.config)},

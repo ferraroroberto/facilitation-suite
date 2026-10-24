@@ -50,7 +50,7 @@ export function toast(message, kind = 'info') {
   showToast(message, kind === 'error' ? 'error' : undefined);
 }
 
-// ---- Appearance (#92) --------------------------------------------------------
+// ---- Appearance --------------------------------------------------------
 // One server-side value — system | light | dark — for the app, the presenter and
 // the phone remote on every device (the stage and /play follow the session theme).
 // The page's pre-paint script stamps html[data-theme] from `<app>.theme` (the

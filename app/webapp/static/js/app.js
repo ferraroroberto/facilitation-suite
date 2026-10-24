@@ -105,7 +105,7 @@ ctx.goTo = showView;
 
 /**
  * A deep link — /#settings or /#settings/<section> (the presenter's music chip → Music),
- * or /#sessions/<id>: that session open full screen (#150; the Sessions tab keeps it).
+ * or /#sessions/<id>: that session open full screen (the Sessions tab keeps it).
  */
 async function followHash() {
   const open = location.hash.match(/^#sessions\/(.+)$/);
@@ -124,7 +124,7 @@ async function followHash() {
 window.addEventListener('hashchange', followHash);
 followHash().then((linked) => { if (!linked) showView(nav.getTab() || 'sessions'); });
 
-// The live snapshot carries the global light/dark (#92): a toggle on the presenter,
+// The live snapshot carries the global light/dark: a toggle on the presenter,
 // the phone or another tab switches this one too.
 connectLive('app', { onState: (s) => followAppearance(s.appearance) });
 

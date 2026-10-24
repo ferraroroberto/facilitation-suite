@@ -1,4 +1,4 @@
-// The quiz on the stage (#53) — one renderer for the three quiz types:
+// The quiz on the stage — one renderer for the three quiz types:
 //
 //   quiz_lobby   the QR code, the join link and PIN, the players popping in
 //   quiz         the question (answers on coloured tiles with their shapes and
@@ -6,7 +6,7 @@
 //                count), then its reveal (distribution bars, the correct answer
 //                marked with a check and a label — never by colour alone), then
 //                the leaderboard (top 5, rank changes animated)
-//   quiz_podium  3rd, then 2nd, then 1st — one place per Next (#89): the server's
+//   quiz_podium  3rd, then 2nd, then 1st — one place per Next: the server's
 //                podium_step says how many are shown; each rises as it is revealed
 //
 // Everything live comes from ctx.quiz, the server's snapshot for this item. The
@@ -19,12 +19,12 @@
 // (a theme can move them with --st-quiz-1..4). prefers-reduced-motion: no
 // pops, rises or slides.
 //
-// Long answers (#84, Kahoot allows 75 characters): the reveal's bars move up into
+// Long answers (Kahoot allows 75 characters): the reveal's bars move up into
 // the band a corner camera keeps free under the title (beside the camera), so the
 // tiles keep room for three lines; a tile whose text still does not fit steps its
 // size down (fitTiles). The lobby shows the names that fit in full rows, then "+N more".
 //
-// The camera (#88, #148): every phase stays out of the item's camera zone. A camera strip is
+// The camera: every phase stays out of the item's camera zone. A camera strip is
 // outside the content area already; under a corner camera the title flows around the corner
 // (stage.css floats a box of the camera's size in the head), the lobby and podium start
 // below it, the question's status row and the reveal's bars rise into the band beside it
@@ -49,7 +49,7 @@ const TOP = 5; // leaderboard rows
 const MAX_NAMES = 60; // lobby names drawn at most; those that do not fit, and the rest, are "+N more"
 const MIN_FIT = 0.6; // fitTiles steps the answers down to 60 % of their size, no further
 
-// Every word the audience reads on the stage, in the session's language (ctx.lang, #91). The
+// Every word the audience reads on the stage, in the session's language (ctx.lang). The
 // presenter's controls stay in English. tests/test_quiz_language.py checks both languages have
 // every key this file uses (and the phone's table in app/player/static/play.js likewise).
 const WORDS = {
@@ -211,7 +211,7 @@ function lobby(body, { ctx, q, w, st, fresh, redraw }) {
   st.w = w;
   fitNames(list, st.total, w);
   if (fresh) {
-    // A stage opened on a lobby that already has players (#111) draws before the quiz's
+    // A stage opened on a lobby that already has players draws before the quiz's
     // stylesheet and fonts arrive: fit again once they have (the list takes its size then).
     const refit = () => { if (list.isConnected && views.get(body) === st) fitNames(list, st.total, st.w); };
     document.fonts?.ready.then(refit);
@@ -300,7 +300,7 @@ function tick(st) {
   const secs = String(Math.ceil(left / 1000));
   const secsEl = el.querySelector('[data-qz-secs]');
   secsEl.textContent = secs;
-  secsEl.classList.toggle('qz-secs-3', secs.length >= 3); // 120/240 s limits (Kahoot allows both, #93)
+  secsEl.classList.toggle('qz-secs-3', secs.length >= 3); // 120/240 s limits (Kahoot allows both)
   el.querySelector('.qz-ring').style.strokeDashoffset = String(RING * (1 - left / limitMs));
   el.classList.toggle('low', !!st.deadline && left <= 5000);
 }
@@ -328,7 +328,7 @@ function reveal(body, { ctx, q, w, fresh }) {
 }
 
 /**
- * Lay a question or its reveal out in what the stage leaves it (#148): measure the band
+ * Lay a question or its reveal out in what the stage leaves it: measure the band
  * beside a corner camera (--qz-band; .qz-beside while there is one), then fit the answers
  * (fitTiles). Only when they still do not fit at their smallest does the question above
  * them step down, to MIN_FIT of its own size, re-measuring at each step: a question whose
@@ -385,7 +385,7 @@ function fitTiles(root) {
   const tiles = [...answers.children];
   const base = parseFloat(getComputedStyle(tiles[0]).fontSize) || 48;
   // A tile's text fits inside its padding, the same test as the e2e stories' CLIPPED, and breaks
-  // no word in the middle unless it must (#148): a narrow column, beside a camera strip, steps the
+  // no word in the middle unless it must: a narrow column, beside a camera strip, steps the
   // answers down instead of leaving their lines on the tile's edges or splitting "Observation-s".
   const broken = (text) => {
     text.style.overflowWrap = 'normal';

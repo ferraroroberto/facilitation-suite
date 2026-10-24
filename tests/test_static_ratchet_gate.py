@@ -9,6 +9,7 @@ temp directory: no network, no `npx`, and never the live ledger or config.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -65,16 +66,16 @@ def test_run_treats_a_timeout_and_an_unstartable_script_as_not_confirmed(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def hang(*_a: object, **_k: object) -> None:
-        raise gate.subprocess.TimeoutExpired(cmd="x", timeout=1)
+        raise subprocess.TimeoutExpired(cmd="x", timeout=1)
 
-    monkeypatch.setattr(gate.subprocess, "run", hang)
+    monkeypatch.setattr(subprocess, "run", hang)
     assert gate.run(_fake_script(tmp_path, 0)) == 1
     assert "NOT CONFIRMED" in capsys.readouterr().out
 
     def refuse(*_a: object, **_k: object) -> None:
         raise OSError("no interpreter")
 
-    monkeypatch.setattr(gate.subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "run", refuse)
     assert gate.run(_fake_script(tmp_path, 0)) == 1
     assert "NOT CONFIRMED" in capsys.readouterr().out
 
@@ -83,13 +84,13 @@ def test_the_wrapper_runs_under_the_venv_interpreter(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     seen: list[list[str]] = []
-    real = gate.subprocess.run
+    real = subprocess.run
 
     def spy(argv: list[str], **kwargs: object) -> object:
         seen.append(argv)
         return real(argv, **kwargs)
 
-    monkeypatch.setattr(gate.subprocess, "run", spy)
+    monkeypatch.setattr(subprocess, "run", spy)
     gate.run(_fake_script(tmp_path, 0))
     assert seen[0][0] == sys.executable  # the python that has ruff, not PATH's
 

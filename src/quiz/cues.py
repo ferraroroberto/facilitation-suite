@@ -35,7 +35,7 @@ CUES: dict[str, tuple[str, bool]] = {
     "lobby": ("quiz-lobby", True),
     "question": ("quiz-countdown", False),
     "reveal": ("quiz-reveal", False),
-    "podium": ("quiz-podium", False),  # with the 1st place (#89): see ``QuizCues.check``
+    "podium": ("quiz-podium", False),  # with the 1st place: see ``QuizCues.check``
 }
 
 

@@ -141,12 +141,12 @@ class StageFont(_Open):
     weight: Literal[400, 700] = 400
     stroke_px: float = Field(0, ge=0, le=8)
     caps: bool = True
-    # The colour (#rrggbb) and size (stage px) of activity titles and questions (#191);
+    # The colour (#rrggbb) and size (stage px) of activity titles and questions;
     # "" / 0 = the theme's ink and 72 px. An item's own size (``Item.font``) still wins.
     title_color: str = ""
     title_size: int = Field(0, ge=0, le=240)
     # The colour (#rrggbb) of the stage timer — the pill and the big clock — before it starts,
-    # while it runs, paused and at the end (#211); "" = the theme's.
+    # while it runs, paused and at the end; "" = the theme's.
     timer_idle: str = ""
     timer_running: str = ""
     timer_paused: str = ""
