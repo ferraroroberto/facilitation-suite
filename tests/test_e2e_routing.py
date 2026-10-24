@@ -41,6 +41,7 @@ def test_src_change_routes_to_full(path: str) -> None:
         ".comment-ratchet-baseline.json",
         ".instruction-ratchet-baseline.json",
         ".doc-refs-ratchet-baseline.json",
+        ".dead-code-ratchet-baseline.json",
     ],
 )
 def test_ratchet_baseline_routes_to_none(baseline: str) -> None:
