@@ -1,4 +1,4 @@
-/* The quiz player page (#52): fleet chrome (tokens + vendored card/button, copied into
+/* The quiz player page: fleet chrome (tokens + vendored card/button, copied into
  * ./fleet/), big answer tiles. Phone-first; works at 320 px wide with no zoom. */
 
 :root {
@@ -97,7 +97,7 @@ body {
 }
 .play-timer { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .play-timer[data-low] { color: var(--danger-text); }
-/* The question text (#90): wraps, never clips; long questions (Kahoot allows 120 characters) step down. */
+/* The question text: wraps, never clips; long questions (Kahoot allows 120 characters) step down. */
 .play-qtext { margin: 0; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .play-qtext[data-size="l"] { font-size: var(--font-heading-lg); }
 .play-qtext[data-size="m"] { font-size: var(--font-heading-md); }
@@ -109,7 +109,7 @@ body {
   grid-auto-rows: minmax(120px, auto); /* a row grows to its longest answer, then shares what is left */
   gap: var(--gap);
 }
-/* A tile: its shape, then its answer text (#90) — wrapped, never clipped; the tile grows instead. */
+/* A tile: its shape, then its answer text — wrapped, never clipped; the tile grows instead. */
 .tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--space-xs);
@@ -148,7 +148,7 @@ body {
 }
 .play-badge svg { width: 36px; height: 36px; fill: currentColor; }
 
-/* The right answer(s) under the result (#90): shape badge + text, left-aligned for long answers. */
+/* The right answer(s) under the result: shape badge + text, left-aligned for long answers. */
 .play-right { display: grid; gap: var(--space-sm); margin: var(--space-sm) 0 var(--space-md); text-align: left; }
 .play-right[hidden] { display: none; }
 .play-right-label { margin: 0; font-size: var(--font-label); font-weight: 600; color: var(--muted); text-align: center; }

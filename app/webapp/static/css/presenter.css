@@ -34,7 +34,7 @@
 
 /* ---- cards ------------------------------------------------------------ */
 .p-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
-/* The wide layout's columns (#149). Narrower they dissolve and the cards stack in the
+/* The wide layout's columns. Narrower they dissolve and the cards stack in the
    order the phone and tablet always had: now, next, item, music, chat, notes, timing. */
 .p-col { display: contents; }
 .p-now { order: 1; }
@@ -106,7 +106,7 @@
 .p-music-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 130px; }
 .p-music .select-native { width: 100%; }
 .p-music .p-timer-actions .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
-/* The volume shares the "now playing" row (#149); the title keeps room for "Nothing playing". */
+/* The volume shares the "now playing" row; the title keeps room for "Nothing playing". */
 .p-music-vol { display: flex; align-items: center; gap: var(--space-sm); flex: 0 1 160px; min-width: 120px; font-weight: 400; }
 .p-music-vol .icon { width: 18px; height: 18px; color: var(--muted); flex: none; }
 .p-music-vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
@@ -156,7 +156,7 @@
 .p-keylist dt { width: 120px; flex: none; }
 .p-keylist dd { margin: 0; color: var(--muted); font-size: var(--font-body-sm); }
 
-/* Timing is compact (#149): the clock and its one button on a row, the section on the next. */
+/* Timing is compact: the clock and its one button on a row, the section on the next. */
 .p-clock { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
 .p-clock-big { font-family: var(--mono); font-size: var(--font-heading-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
 .p-clock-of { color: var(--muted); font-size: var(--font-body-sm); }
@@ -189,7 +189,7 @@
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 .p-thumb-text .icon { width: 12px; height: 12px; }
-/* A hidden item (PowerPoint's "Hide slide", #249): Next and Previous skip it, a click still jumps to it. */
+/* A hidden item (PowerPoint's "Hide slide"): Next and Previous skip it, a click still jumps to it. */
 .p-thumb-img { position: relative; }
 .p-thumb.hidden-item .p-thumb-img > img, .p-thumb.hidden-item .p-thumb-text { opacity: 0.4; }
 .p-thumb-hidden {
@@ -201,7 +201,7 @@
 .p-thumb.current .p-thumb-img { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .p-thumb.current .p-thumb-n { color: var(--accent-text); font-weight: 700; }
 
-/* Phone and tablet widths (#98, #126): below the 1100px breakpoint where the
+/* Phone and tablet widths: below the 1100px breakpoint where the
    cockpit cards are already one column, the header's chips and icon buttons
    wrap onto their own rows too, instead of squeezing the title (which keeps
    its own 140px floor above) to nothing and pushing the page wide. */
@@ -211,7 +211,7 @@
 }
 
 /* Wide, fine pointer: the cockpit is one viewport high, in columns that each size
-   their own cards (#149) — now · notes · timing, next · music, the item card, the chat.
+   their own cards — now · notes · timing, next · music, the item card, the chat.
    The cards that hold a picture or a list (now, next, chat) take what is left; notes,
    timing and music take what their content needs (notes up to a cap, then they
    scroll); the item card is content-sized and its player list scrolls when long. */
@@ -255,7 +255,7 @@
 /* "Next" is a glance, not a second stage: smaller on a phone or tablet. */
 .p-stage-next { width: 82%; }
 
-/* The quiz panel (#54): the same card, the host's controls for the game on stage. */
+/* The quiz panel: the same card, the host's controls for the game on stage. */
 .p-cap-status .grow { flex: 1; min-width: 0; }
 .p-quiz-left { font-family: var(--mono); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
 .p-quiz-join { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--space-sm); }

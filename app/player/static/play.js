@@ -1,5 +1,5 @@
-// The quiz player page (#52). The server owns the game; this page renders the phone's own
-// view (QuizService.player_view) and sends taps. Reliability rules (#34 §4):
+// The quiz player page. The server owns the game; this page renders the phone's own
+// view (QuizService.player_view) and sends taps. Reliability rules:
 // - identity (player_id + secret) lives in localStorage: a reload, a locked phone or a
 //   network switch resumes the same player;
 // - an answer is retried with backoff until the server acks it, and "Locked in" shows only
@@ -24,7 +24,7 @@ const ANSWER_MAX_MS = 3000; // short, so a retry after a long outage can still l
 const WS_RETRY_BASE_MS = 1000; // polling covers the gap, so the socket need not hurry
 const WS_RETRY_MAX_MS = 15000; // many phones reconnect after a server restart: spread them out
 const WS_OPEN_TIMEOUT_MS = 5000; // a socket not open by now is stuck behind a proxy or a dead link
-// Every word the phone says, in the game's language (#91): the view's `lang` once joined, the
+// Every word the phone says, in the game's language: the view's `lang` once joined, the
 // live session's (/play/api/ping) before. play.html's own words carry data-t="<key>" (and
 // data-t-placeholder / data-t-label). tests/test_quiz_language.py checks both languages have
 // every key used here and there. The texts the facilitator wrote (questions, answers) are as typed.
@@ -508,7 +508,7 @@ function drawStanding(v) {
   const title = $('[data-result]');
   title.dataset.kind = '';
   const final = v.phase === 'podium';
-  // A place the stage has not revealed yet never reaches the phone (#147): it waits for the podium.
+  // A place the stage has not revealed yet never reaches the phone: it waits for the podium.
   title.innerHTML = v.rank ? `${v.rank === 1 ? '<svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg> ' : ''}#${v.rank}`
     : esc(v.rank_pending ? T.wait_podium : final ? T.game_over : T.leaderboard);
   $('[data-result-detail]').textContent = `${final ? T.final_score : T.score}: ${T.points(fmt(v.score || 0))}${v.streak > 1 ? ` · ${T.streak(v.streak)}` : ''}`;

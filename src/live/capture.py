@@ -339,7 +339,7 @@ class CaptureService:
             logger.error("❌ capture PNG of %s not started: %s", item_id, exc)
             return
 
-        def _relay() -> None:  # the helper logs to stderr only, so it never holds our log open (#37)
+        def _relay() -> None:  # the helper logs to stderr only, so it never holds our log open
             relay(proc.stderr, logger)
             proc.wait()
 

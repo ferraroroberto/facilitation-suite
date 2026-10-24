@@ -11,7 +11,7 @@ import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, hms, timin
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 
-// The cockpit is one view; the stage and the phone remote never load the usage log (#244).
+// The cockpit is one view; the stage and the phone remote never load the usage log.
 initUsageLog().trackView('live');
 
 const root = document.getElementById('presenter');
@@ -115,7 +115,7 @@ function buildShell() {
       `<button type="button" class="icon-button" data-reset data-track="live.reset-session" title="Start the session over" aria-label="Start the session over">${icon('rotate-ccw')}</button>` +
       `<button type="button" class="icon-button" data-close data-track="live.close-session" title="Close the live session" aria-label="Close the live session">${icon('x')}</button></span>` +
     `</header>` +
-    // Four columns on a wide screen (#149): what is on stage, its notes and the session clocks ·
+    // Four columns on a wide screen: what is on stage, its notes and the session clocks ·
     // what comes next and the music · the item's controls (quiz, capture, timer) · the Zoom chat.
     // Narrower, the columns dissolve (display: contents) and the cards stack in their own order.
     `<div class="p-grid">` +
@@ -351,17 +351,17 @@ function countOwnSwitch(on, label) {
 
 // ------------------------------------------------------------------------ quiz
 
-// The host's side of a quiz (#54): phase, time left, players, the join PIN and
+// The host's side of a quiz: phase, time left, players, the join PIN and
 // link, and the controls. "Next phase" is the plain `next` (the server steps a
 // question → reveal → leaderboard before it moves on — the last one before a podium
-// skips its leaderboard, #158); Space locks an open question.
+// skips its leaderboard); Space locks an open question.
 const QUIZ_TYPES = new Set(['quiz_lobby', 'quiz', 'quiz_podium']);
 const isQuiz = (it) => !!(it && it.kind === 'activity' && QUIZ_TYPES.has(it.type));
 
 function buildQuiz(body) {
   body.insertAdjacentHTML('beforeend',
     `<div class="p-cap-status"><span class="p-cap-dot" data-qdot></span><span class="grow" data-qphase></span><span class="p-quiz-left" data-qleft></span></div>` +
-    // Tighter (#149): the counts share a row with the Sounds chip, the PIN with its link.
+    // Tighter: the counts share a row with the Sounds chip, the PIN with its link.
     `<div class="p-quiz-join"><p class="small muted p-cap-counts" data-qcounts></p><span class="p-quiz-part" data-qsound></span></div>` +
     `<div class="p-quiz-join" data-qjoin></div>` +
     `<div class="p-timer-actions p-quiz-actions">` +
@@ -416,7 +416,7 @@ function quizPhaseText(q) {
   }[q.phase] || 'Waiting';
 }
 
-// The podium reveals one place per Next (#89): 3rd, 2nd, then 1st (fewer with fewer players).
+// The podium reveals one place per Next: 3rd, 2nd, then 1st (fewer with fewer players).
 const PLACE = ['1st', '2nd', '3rd'];
 const podiumLeft = (q) => (q.podium_places || 0) - (q.podium_step || 0); // places still hidden
 
@@ -431,7 +431,7 @@ function quizNextLabel(q) {
   const last = q.question_index != null && q.question_index + 1 >= q.question_count;
   if (q.phase === 'lobby') return 'Start the first question';
   if (q.phase === 'question') return 'Reveal the answer';
-  // The last question before a podium goes straight to it: no leaderboard to spoil it (#158).
+  // The last question before a podium goes straight to it: no leaderboard to spoil it.
   if (q.phase === 'reveal') return last && q.podium_follows ? 'On to the podium' : 'Show the leaderboard';
   if (q.phase === 'leaderboard') return !last ? 'Next question' : q.podium_follows ? 'On to the podium' : 'Next';
   if (q.phase === 'podium' && podiumLeft(q) > 0) return `Show ${PLACE[podiumLeft(q) - 1]}`;
@@ -439,7 +439,7 @@ function quizNextLabel(q) {
 }
 
 function quizJoinHtml(q) {
-  // PIN and link come with the player page (#52); until then — or while quiz.public_url
+  // PIN and link come with the player page; until then — or while quiz.public_url
   // is empty — the card says so rather than showing nothing.
   const pin = q && q.pin ? `${q.pin.slice(0, 3)} ${q.pin.slice(3)}` : '';
   if (!pin) return `<span class="chip">Join · not configured</span><span class="small muted">No join PIN for this game yet.</span>`;
@@ -463,7 +463,7 @@ function quizReachHtml(reach) {
     `<button type="button" class="button-surface" data-qreachcheck data-track="live.quiz-reach-check">${icon('refresh-cw')} Check</button>`;
 }
 
-// The Sounds chip (#102): which of the four cue files (src/quiz/cues.py) are in audio/, and
+// The Sounds chip: which of the four cue files (src/quiz/cues.py) are in audio/, and
 // whether this PC has an audio output device at all — "unknown" (the check could not run) is
 // never shown as ok, and no device is its own distinct message, not folded into the count.
 function quizSoundHtml(s) {
@@ -560,7 +560,7 @@ function drawTiming(cur, s) {
     drift.hidden = true;
     if (body.dataset.mode !== 'idle') {
       body.dataset.mode = 'idle';
-      // Compact (#149): the clock and its one button share a row.
+      // Compact: the clock and its one button share a row.
       body.innerHTML = `<div class="p-clock"><span class="p-clock-big">00:00</span><span class="p-clock-of">of ${hms(dur * 60)}</span>` +
         `<button type="button" class="button-primary p-clock-start" data-cstart data-track="live.clock-start">${icon('clock')} Start the session clock</button></div>` +
         `<p class="small muted">The session clock starts when you say so; the section clock follows it.</p>`;
@@ -610,8 +610,8 @@ const READER_CHIP = {
   error: ['bad', 'error'],
   off: ['', 'off', 'start-reader'],
 };
-// The reader's source (#237): its last heartbeat says Teams or Zoom (the simulator counts as Zoom);
-// a stopped reader shows the source chosen on the switch, the one it starts on (#239).
+// The reader's source: its last heartbeat says Teams or Zoom (the simulator counts as Zoom);
+// a stopped reader shows the source chosen on the switch, the one it starts on.
 const isTeams = (r) => (r.state === 'off' || !r.source ? r.chosen : r.source) === 'teams';
 
 function drawChips() {
@@ -645,7 +645,7 @@ function drawChips() {
   const mu = s.music;
   if (mu && (mu.tracks.length || mu.spotify || mu.state !== 'idle')) {
     const label = mu.track ? mu.track.label : '';
-    // Links to Settings → Music (the Spotify account, the default fades) in the app's own window (#110).
+    // Links to Settings → Music (the Spotify account, the default fades) in the app's own window.
     const settings = 'href:/#settings/music';
     chips.push({ playing: ['ok', `Music · ${label}`, settings, mu.owner ? 'With the item timer' : 'Played by hand'],
       paused: ['warn', 'Music · paused', settings, label], error: ['bad', 'Music · error', settings, mu.detail] }[mu.state] ||
@@ -686,13 +686,13 @@ function drawChips() {
 // music comes on stage. The latest command wins (src/music/service.py).
 let musicPickFor = null; // the item the picker was last pre-selected for
 
-// ``state.music.cue`` names the file (e.g. "quiz-lobby"); the card shows its short name (#102).
+// ``state.music.cue`` names the file (e.g. "quiz-lobby"); the card shows its short name.
 const cueLabel = (cue) => cue.replace(/^quiz-/, '');
 
 function buildMusic() {
   const body = root.querySelector('.p-music [data-body]');
   body.innerHTML =
-    // What is playing and its volume share the first row (#149).
+    // What is playing and its volume share the first row.
     `<div class="p-music-now"><span class="p-cap-dot" data-mdot></span><span class="p-music-title" data-mnow></span>` +
     `<label class="p-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-mvol aria-label="Music volume"><output class="small" data-mvolout></output></label></div>` +
     `<select class="select-native" data-mpick aria-label="Track to play"></select>` +
@@ -767,7 +767,7 @@ function drawMusic(cur, s) {
   const owner = m.owner && items().find((it) => it.id === m.owner);
   const hint = body.querySelector('[data-mhint]');
   hint.textContent = m.state === 'error' ? m.detail
-    : m.cue ? `Quiz cue: ${cueLabel(m.cue)}`  // the quiz's phase sound is playing, not the presenter's pick (#102)
+    : m.cue ? `Quiz cue: ${cueLabel(m.cue)}`  // the quiz's phase sound is playing, not the presenter's pick
       : owner ? `Follows the timer of “${oneLine(owner.title)}”.`
         : playing || paused ? 'Played by hand — no timer touches it.' : m.tracks.length ? 'Pick a track and press Play, or let an item’s timer start its music.' : 'Paste a Spotify link to play it.';
   hint.classList.toggle('warn', m.state === 'error');
@@ -923,7 +923,7 @@ function drawChatFoot() {
   }));
 }
 
-// Zoom · Teams (#239): saved for the next session too; a running reader restarts on it.
+// Zoom · Teams: saved for the next session too; a running reader restarts on it.
 async function chooseSource(source, foot) {
   const name = source === 'teams' ? 'Teams' : 'Zoom';
   foot.querySelectorAll('[data-source]').forEach((b) => { b.disabled = true; });

@@ -1,6 +1,6 @@
 // Sessions tab: the ledger (list); a session opened from it takes the whole
-// pane (#150) — folder, plan summary, its own settings (details and stage look,
-// #151), readiness, go-live buttons — until its X, Esc or Back returns to the
+// pane — folder, plan summary, its own settings (details and stage look),
+// readiness, go-live buttons — until its X, Esc or Back returns to the
 // list. /#sessions/<id> opens one.
 
 import { icon } from '/static/_vendored/icons/icons.js';
@@ -101,7 +101,7 @@ function scrollBack(pos) {
 }
 
 /**
- * Open a session full screen (#150): it becomes the selected session for every
+ * Open a session full screen: it becomes the selected session for every
  * tab and its detail replaces the list. `push` adds a history entry, so Back
  * closes it; a deep link (/#sessions/<id>) keeps the entry it arrived on.
  */
@@ -360,11 +360,11 @@ function localValue(iso) {
 }
 
 /**
- * The session's own settings (#151), one card: its details, edited inline and
+ * The session's own settings, one card: its details, edited inline and
  * saved on change or blur, and its stage look — the theme and lettering (the
  * shared editor in font-editor.js) every item follows unless it sets its own in
  * the Plan tab. A new session starts from Settings → Stage defaults; the card
- * says whether it still uses them and can put them back (#110). Global settings
+ * says whether it still uses them and can put them back. Global settings
  * stay on the Settings page.
  */
 function settingsCard(sid, s, look, onDetails) {

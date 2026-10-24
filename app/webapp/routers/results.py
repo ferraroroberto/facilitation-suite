@@ -107,7 +107,7 @@ def _print(html: str, out: Path) -> int:
         raise AppError(504, "pdf_timeout", f"The PDF took longer than {PDF_TIMEOUT_S} s — see the log") from exc
     finally:
         doc.unlink(missing_ok=True)
-    relay((proc.stderr or "").splitlines(), logger)  # the helper logs to stderr only (#37)
+    relay((proc.stderr or "").splitlines(), logger)  # the helper logs to stderr only
     if proc.returncode != 0:
         logger.error("❌ session PDF process exited %s", proc.returncode)
         raise AppError(500, "pdf_failed", "The session PDF could not be printed — see the log")

@@ -54,13 +54,13 @@
   --st-slide-weight: var(--st-text-weight);
   --st-slide-stroke: 0px;
   --st-slide-case: none;
-  /* Line spacing of titles, questions and a slide's text (#190): tight, as the hand-lettered
+  /* Line spacing of titles, questions and a slide's text: tight, as the hand-lettered
      font already carries generous ascent and descent. One value for every item. */
   --st-leading: 1.04;
   /* The quiz leaderboard's first row. */
   --st-pill-bg: #1f1f1f;
   --st-pill-ink: #ffffff;
-  /* The timer by state (#211): before it starts, running, paused, ended. The pill takes the colour
+  /* The timer by state: before it starts, running, paused, ended. The pill takes the colour
      as its fill and the -ink as its text; the big clock takes it as its text. Set globally in
      Settings and per session (session.yaml → font.timer_idle / timer_running / timer_paused /
      timer_done; src/sessions/theme.py states the same defaults and picks the ink). The paused

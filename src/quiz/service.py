@@ -148,7 +148,7 @@ LOBBY, QUESTION, PODIUM = "quiz_lobby", "quiz", "quiz_podium"
 QUIZ_TYPES = (LOBBY, QUESTION, PODIUM)
 WRONG_PIN = "wrong_pin"  # join_pin: no game of the live session has that PIN
 PIN_DIGITS = 6
-EARLY_CLOSE_MS = 1000  # grace after the last active player answers, before an early reveal (#105)
+EARLY_CLOSE_MS = 1000  # grace after the last active player answers, before an early reveal
 
 
 @dataclass
@@ -247,11 +247,11 @@ class QuizService:
         self.public_url: Callable[[], str] = lambda: ""  # quiz.public_url (set by the server)
         self.listener_up: Callable[[], bool] = lambda: False  # the player listener serves (set by the server)
         self.reach: Callable[[], Optional[dict[str, Any]]] = lambda: None  # the public link check (``reach.py``)
-        # The output-device check (``MusicService.output_device``, set by the server, #102).
+        # The output-device check (``MusicService.output_device``, set by the server).
         self.output_device: Callable[[], tuple[str, str]] = lambda: ("unknown", "Not checked")
         self._session: Optional[str] = None
         self._scopes: tuple[Any, dict[str, Scope]] = (None, {})
-        self._sounds: tuple[Any, dict[str, Any]] = (None, {})  # the Sounds chip, cached per plan revision (#102)
+        self._sounds: tuple[Any, dict[str, Any]] = (None, {})  # the Sounds chip, cached per plan revision
         self._log = JsonlAppender(QUIZ_FILE, live.write_failed, live.write_ok)
         self._reveal: Optional[Any] = None  # the pending reveal handle of the open question (time-up or early close)
         self._reveal_at: Optional[int] = None  # when that handle is due to fire (clock ms)
@@ -502,7 +502,7 @@ class QuizService:
         elif game.phase == "reveal" and not scope.goes_to_podium(cur["id"]):
             self._phase(game, "leaderboard", cur["id"])
         else:
-            return False  # leaderboard, or the last reveal before a podium (#158): on to the next item
+            return False  # leaderboard, or the last reveal before a podium: on to the next item
         self._changed()
         return True
 

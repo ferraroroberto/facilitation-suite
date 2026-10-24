@@ -73,7 +73,7 @@ TOKEN_URL = "https://accounts.spotify.com/api/token"
 CLIENT_ID_KEY = "SPOTIFY_CLIENT_ID"
 REFRESH_KEY = "SPOTIFY_REFRESH_TOKEN"
 DEVICE_KEY = "SPOTIFY_DEVICE_NAME"
-# user-read-private: GET /me returns the account type (``product``) only with it (#109)
+# user-read-private: GET /me returns the account type (``product``) only with it
 SCOPES = "user-read-playback-state user-modify-playback-state user-read-private"
 STEP_S = 0.5  # one volume request per half second while fading
 SKIP_DIP_S = 0.5  # next/previous: the volume dips out before the skip …
@@ -285,7 +285,7 @@ class SpotifyBackend:
         self.on_event = on_event
         self.client = client or SpotifyClient()
         self._sleep = sleep
-        # Real names of the links the app has met (#191), kept in a machine-local cache file.
+        # Real names of the links the app has met, kept in a machine-local cache file.
         self.on_names: Optional[Callable[[], None]] = None  # called (from a worker thread) when a name arrived
         self._names_file = names_file
         self._names: dict[str, str] = self._load_names()
@@ -300,7 +300,7 @@ class SpotifyBackend:
         self.volume_now: Optional[int] = None  # what Spotify's volume was last set to
         self.restore_volume: Optional[int] = None  # the app's own volume before the music started
         self.play_id = 0
-        self._track: Optional[Track] = None  # the session's music last started: what a resume must find loaded (#251)
+        self._track: Optional[Track] = None  # the session's music last started: what a resume must find loaded
         self._status: tuple[str, str, float, int] = ("", "", 0.0, -1)  # state, detail, when, .env generation
         self.checked_at: Optional[float] = None  # wall clock of the last status check (Settings → Music)
         self.status_device = ""  # the device the last status check found
@@ -502,7 +502,7 @@ class SpotifyBackend:
             self.restore_volume = self.device.get("volume_percent")
         if carry_on and not self._loaded(track.ref):
             # The account plays (or holds) something else: a bare resume would carry on with that, or
-            # be refused with 403 "Restriction violated" (#248) — start the session's music instead.
+            # be refused with 403 "Restriction violated" — start the session's music instead.
             logger.info("ℹ️ spotify: the account no longer has %s loaded — starting it over", track.ref)
             carry_on = False
         self._volume(0 if fade_in_s > 0 else volume)

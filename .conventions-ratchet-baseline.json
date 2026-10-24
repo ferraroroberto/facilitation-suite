@@ -1,7 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    {"key": "tests/test_comment_ratchet_gate.py", "counts": {"no-window": 2}},
-    {"key": "tests/test_docs_ratchet_gate.py", "counts": {"no-window": 2}}
-  ]
+  "entries": []
 }

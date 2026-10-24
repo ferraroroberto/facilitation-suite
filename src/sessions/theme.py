@@ -33,7 +33,7 @@ FALLBACK = '"Patrick Hand", system-ui, sans-serif'
 CSS_ROLE = {"title": "title", "sub": "sub", "hint": "hint", "answers": "answers", "slide_text": "slide"}
 
 
-# The stage timer's colour in each state (#211); themes/default.css says the same (a test holds them equal).
+# The stage timer's colour in each state; themes/default.css says the same (a test holds them equal).
 TIMER_DEFAULTS = {"idle": "#1f1f1f", "running": "#00a44e", "paused": "#f2b705", "done": "#c40c0c"}
 PILL_INK = "#ffffff"
 PILL_INK_DARK = "#1f1f1f"

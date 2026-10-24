@@ -89,7 +89,7 @@ function runLive() {
   sayHello();
 
   bindKeys(live);
-  // What a click does is Settings → Live tools (#191): the next item (off by default), else — with
+  // What a click does is Settings → Live tools: the next item (off by default), else — with
   // "restore camera on click" on, the default — the item's OBS profile again (the facilitator
   // switched OBS by hand and wants the slide's layout back; nothing without a profile or OBS).
   // A double-click is full screen, not two steps.

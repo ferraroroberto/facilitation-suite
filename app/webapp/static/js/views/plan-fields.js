@@ -33,7 +33,7 @@ function parseTimer(text) {
   return m[2] === undefined ? parseInt(m[1], 10) * 60 : parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
-// The fades a newly switched-on music item starts with: Settings → Music (#110).
+// The fades a newly switched-on music item starts with: Settings → Music.
 let musicDefaults = { fade_in_s: 2, fade_out_s: 2 };
 export function loadMusicDefaults() {
   api('/api/settings/defaults').then((d) => { musicDefaults = d.music; }).catch(() => { /* keep the last known */ });
@@ -116,7 +116,7 @@ export const fontSeed = (defaultSize) => (defaultSize === 72 ? { family: 'theme'
  * `renderEditor`, and `slideOf` (an item's imported slide).
  */
 export function planFields({ st, markDirty, updatePreview, renderList, renderEditor, slideOf }) {
-  /** The session's own title size (Sessions → Stage look, #191): what an activity's title is until the item sets one. */
+  /** The session's own title size (Sessions → Stage look): what an activity's title is until the item sets one. */
   const sessionTitleSize = () => (st.session.font && st.session.font.title_size) || 72;
   /** The size a font row shows for an item with none of its own: an activity title follows the session's. */
   const shownSize = (defaultSize) => (defaultSize === 72 ? sessionTitleSize() : defaultSize);

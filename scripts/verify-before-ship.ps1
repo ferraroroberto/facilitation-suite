@@ -119,9 +119,9 @@ Invoke-Stage "ruff"                    { & $py -m ruff check . }
 # The wrapper maps the script's exit 3 to NOT CONFIRMED (tests/test_static_ratchet_gate.py
 # pins it); call it, never scripts/static_ratchet.py directly.
 Invoke-Stage "static ratchet"          { & $py -m scripts.static_ratchet_gate }
-# Same shape: the wrapper maps exit 3 to NOT CONFIRMED (tests/test_docs_ratchet_gate.py).
+# Same shape: the wrapper maps exit 3 to NOT CONFIRMED (tests/test_ratchet_gates.py).
 Invoke-Stage "docs ratchet"            { & $py -m scripts.docs_ratchet_gate }
-# Same shape: the wrapper maps exit 3 to NOT CONFIRMED (tests/test_comment_ratchet_gate.py).
+# Same shape: the wrapper maps exit 3 to NOT CONFIRMED (tests/test_ratchet_gates.py).
 Invoke-Stage "comment ratchet"         { & $py -m scripts.comment_ratchet_gate }
 # Called directly: Invoke-Stage fails on any nonzero exit, so the script's exit 3
 # (NOT CONFIRMED) fails the gate like exit 1 and 2; no wrapper maps it.

@@ -215,7 +215,7 @@ def remote_off(request: Request) -> dict[str, Any]:
     return payload(request)
 
 
-# ---------------------------------------------------------------- defaults (#110)
+# ---------------------------------------------------------------- defaults
 
 DEFAULT_FONT_URL = "/api/settings/defaults/font"
 DEFAULT_FAMILY = "Default Font"
@@ -282,7 +282,7 @@ def default_font(request: Request) -> FileResponse:
     return FileResponse(path, media_type=FONT_TYPES[path.suffix.lower()], headers={"Cache-Control": "max-age=31536000, immutable"})
 
 
-# ---------------------------------------------------------------- Spotify (#110)
+# ---------------------------------------------------------------- Spotify
 
 
 def spotify_payload(request: Request, account: dict[str, Any]) -> dict[str, Any]:
