@@ -16,7 +16,7 @@ from pathlib import Path
 
 from src.no_window import NO_WINDOW
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "conventions_ratchet.py"
 
 _FLEET = (
