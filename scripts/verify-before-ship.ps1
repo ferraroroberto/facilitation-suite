@@ -10,7 +10,8 @@
       2. byte-compile        - every .py under app/ src/ scripts/ tests/ + launcher.py
       3. ruff                - lint the whole repo (pyproject.toml owns strictness)
       4. static ratchet      - no new duplicate block (jscpd via npx) or unused
-                               import/variable (ruff F401,F841) beyond
+                               import/variable (ruff F401,F841), or ruff bug (B) /
+                               security (S) finding (S113 strict), beyond
                                .static-ratchet-baseline.json. Whole tree, never
                                routed; exit 3 (a detector could not run) is
                                NOT CONFIRMED and fails, never a pass or a skip.
@@ -50,8 +51,14 @@
                                .dead-code-ratchet-baseline.json. Whole tree, never
                                routed; exit 3 (git unusable, a file that does not
                                parse) is NOT CONFIRMED and fails.
-     11. pytest (unit)       - hermetic suite, tests/e2e excluded
-     12. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
+     11. conventions ratchet - no file's count of a fleet-convention hit (spawn
+                               without CREATE_NO_WINDOW, print in library code,
+                               hardcoded drive path) rises beyond
+                               .conventions-ratchet-baseline.json. Whole tree,
+                               never routed; exit 3 (git unusable, a file that
+                               does not parse) is NOT CONFIRMED and fails.
+     12. pytest (unit)       - hermetic suite, tests/e2e excluded
+     13. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
                                against .fleet.toml [e2e] (skip / static / full),
                                fail-safe to full. Boots its own disposable webapp;
                                never the live :8449.
@@ -125,6 +132,8 @@ Invoke-Stage "instruction ratchet"     { & $py "scripts/instruction_ratchet.py" 
 Invoke-Stage "doc-refs ratchet"        { & $py "scripts/doc_refs_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "dead-code ratchet"       { & $py "scripts/dead_code_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "conventions ratchet"     { & $py "scripts/conventions_ratchet.py" }
 Invoke-Stage "pytest (unit, non-e2e)"  { & $py -m pytest --ignore=tests/e2e }
 
 # ---------------------------------------------------------------- e2e routing
