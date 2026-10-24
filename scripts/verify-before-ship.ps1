@@ -45,8 +45,13 @@
                                .doc-refs-ratchet-baseline.json. Whole tree, never
                                routed; exit 3 (git unusable, a file not UTF-8, an
                                unclosed fence) is NOT CONFIRMED and fails.
-     10. pytest (unit)       - hermetic suite, tests/e2e excluded
-     11. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
+     10. dead-code ratchet   - no function, class or method that nothing in the
+                               tracked Python tree refers to beyond
+                               .dead-code-ratchet-baseline.json. Whole tree, never
+                               routed; exit 3 (git unusable, a file that does not
+                               parse) is NOT CONFIRMED and fails.
+     11. pytest (unit)       - hermetic suite, tests/e2e excluded
+     12. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
                                against .fleet.toml [e2e] (skip / static / full),
                                fail-safe to full. Boots its own disposable webapp;
                                never the live :8449.
@@ -118,6 +123,8 @@ Invoke-Stage "structure ratchet"       { & $py "scripts/structure_ratchet.py" }
 Invoke-Stage "instruction ratchet"     { & $py "scripts/instruction_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "doc-refs ratchet"        { & $py "scripts/doc_refs_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "dead-code ratchet"       { & $py "scripts/dead_code_ratchet.py" }
 Invoke-Stage "pytest (unit, non-e2e)"  { & $py -m pytest --ignore=tests/e2e }
 
 # ---------------------------------------------------------------- e2e routing

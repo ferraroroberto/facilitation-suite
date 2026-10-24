@@ -90,7 +90,7 @@ webapp/              machine-local, gitignored: certificates/, cloudflared.yml (
 & .\scripts\verify-before-ship.ps1
 ```
 
-Personal-data guard → byte-compile → ruff → static ratchet → docs ratchet → comment ratchet → structure ratchet → instruction ratchet → doc-refs ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
+Personal-data guard → byte-compile → ruff → static ratchet → docs ratchet → comment ratchet → structure ratchet → instruction ratchet → doc-refs ratchet → dead-code ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
 
 ## Privacy
 
