@@ -39,6 +39,7 @@ static_ratchet  = { src = "scripts/static_ratchet.py", sha = "f0e6f5449ecf64c9b1
 docs_ratchet    = { src = "scripts/docs_ratchet.py", sha = "f9300a05540313bb26f442e1daa491c9308541d2", dest = "scripts/docs_ratchet.py" }
 comment_ratchet = { src = "scripts/comment_ratchet.py", sha = "e56308e1c099712cf5a006557c94e3f9ae4fe8aa", dest = "scripts/comment_ratchet.py" }
 structure_ratchet = { src = "scripts/structure_ratchet.py", sha = "84d2b12ab416551762e4a615e4a706df91cea69f", dest = "scripts/structure_ratchet.py" }
+instruction_ratchet = { src = "scripts/instruction_ratchet.py", sha = "60fdd0350f18d28838428b2e773f7868f6381fbf", dest = "scripts/instruction_ratchet.py" }
 no_window       = { src = "src/no_window.py", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "c9e54e917fd3cbc96011d6c09f9d363af460b205", dest = "src/build_info.py" }
 geometry        = { src = "tests/e2e/_geometry.py", sha = "aa820f1215151087588433f290cd2ba55b34658d", dest = "tests/e2e/_geometry.py" }
@@ -92,6 +93,18 @@ baseline = ".comment-ratchet-baseline.json"
 [structure_ratchet]
 enabled  = true
 baseline = ".structure-ratchet-baseline.json"
+
+# [instruction_ratchet] -- the scaffold's baseline-and-ratchet check of the instruction files
+# (CLAUDE.md, AGENTS.md, .claude/rules, every SKILL.md and the docs a skill links to) against
+# the weekly prompt audit's deterministic rules. The gate runs scripts/instruction_ratchet.py:
+# a rule hit that rises beyond .instruction-ratchet-baseline.json, or a file past its size cap,
+# fails. Existing hits are baselined at today's count, never excluded. Whole tree, never routed
+# (the reader of one file depends on another); exit 3 (git unusable, an unreadable file, an
+# unreadable skill description) fails the gate as NOT CONFIRMED. Mechanism + limits:
+# project-scaffolding docs/instruction-ratchet.md.
+[instruction_ratchet]
+enabled  = true
+baseline = ".instruction-ratchet-baseline.json"
 
 # Diff-proportionate e2e routing (project-scaffolding#180): first match wins; an
 # unmatched path, a mixed diff, or an empty diff fails safe to the full suite.
@@ -177,6 +190,9 @@ path = ".comment-ratchet-baseline.json"
 [[e2e.rule]]
 tier = "none"
 path = ".structure-ratchet-baseline.json"
+[[e2e.rule]]
+tier = "none"
+path = ".instruction-ratchet-baseline.json"
 [[e2e.rule]]
 tier = "none"
 path = "LICENSE"

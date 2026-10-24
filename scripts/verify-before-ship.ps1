@@ -33,8 +33,14 @@
                                Whole tree, never routed; exit 3 (git unusable,
                                an unparseable file, an unknown shape) is NOT
                                CONFIRMED and fails.
-      8. pytest (unit)       - hermetic suite, tests/e2e excluded
-      9. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
+      8. instruction ratchet - no instruction file (CLAUDE.md, AGENTS.md, skills)
+                               gains a prompt-audit rule hit or passes its size
+                               cap beyond .instruction-ratchet-baseline.json.
+                               Whole tree, never routed; exit 3 (git unusable, an
+                               unreadable file or skill description) is NOT
+                               CONFIRMED and fails.
+      9. pytest (unit)       - hermetic suite, tests/e2e excluded
+     10. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
                                against .fleet.toml [e2e] (skip / static / full),
                                fail-safe to full. Boots its own disposable webapp;
                                never the live :8449.
@@ -102,6 +108,8 @@ Invoke-Stage "comment ratchet"         { & $py -m scripts.comment_ratchet_gate }
 # Called directly: Invoke-Stage fails on any nonzero exit, so the script's exit 3
 # (NOT CONFIRMED) fails the gate like exit 1 and 2; no wrapper maps it.
 Invoke-Stage "structure ratchet"       { & $py "scripts/structure_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "instruction ratchet"     { & $py "scripts/instruction_ratchet.py" }
 Invoke-Stage "pytest (unit, non-e2e)"  { & $py -m pytest --ignore=tests/e2e }
 
 # ---------------------------------------------------------------- e2e routing
