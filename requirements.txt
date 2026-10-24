@@ -30,7 +30,7 @@ pytest>=8.0
 httpx2>=0.1
 pytest-playwright>=0.5
 # Also the unused-import / unused-variable pass of the gate's static ratchet
-# (scripts/static_ratchet.py selects F401,F841 itself).
+# (scripts/static_ratchet.py selects F401,F841 and the B/S bug and security families itself).
 ruff>=0.17.1
 # Brand-icon generation only (scripts/gen_icons.py -> project-scaffolding's
 # brand_gen). The generated PNG/ICO assets are committed.
