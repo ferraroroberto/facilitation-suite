@@ -120,6 +120,7 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
         facts["quiz_reach"] = reach.current()  # the last check; a stale one reads "unknown"
         if not reach.fresh():
             reach.kick()  # in a background thread: the page never waits on the network
+    stage_defaults = defaults.load(request.app.state.config)
     return {
         "summary": st.summary(entry),
         "session": dump_session(session),
@@ -133,7 +134,9 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
         },
         "readiness": readiness.build(folder, session, offline, facts),
         # The stage look (theme + lettering) against Settings → Stage defaults.
-        "look": {"uses_defaults": defaults.uses_defaults(session, defaults.load(request.app.state.config)),
+        "look": {"uses_defaults": defaults.uses_defaults(session, stage_defaults),
+                 # The same shape as GET /api/settings/defaults: what each "Differs from global" compares to.
+                 "defaults": defaults.payload(stage_defaults),
                  "themes": stage_library.themes(request.app.state.config),
                  "fonts": stage_library.fonts(request.app.state.config)},
     }

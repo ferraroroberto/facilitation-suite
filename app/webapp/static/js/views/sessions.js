@@ -375,13 +375,13 @@ function settingsHtml(s, look) {
     `</div>` +
     `<div class="settings-sub"><h4 class="settings-sub-title">${icon('type')} Stage look</h4>` +
     `<span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
-    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset data-track="sessions.look-reset">${icon('rotate-ccw')} Reset to default</button>`) +
+    (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset data-track="sessions.look-reset">${icon('rotate-ccw')} Reset all to defaults</button>`) +
     `<span class="card-head-meta" data-lettering>${esc(letteringLabel(s.font))}</span></div>` +
     `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. The timer’s colours are at the end. New sessions start from Settings → Stage defaults.</p>` +
     `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
     themeOptions(look.themes, s.theme) +
     `</select></label></div>` +
-    fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts }));
+    fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts, defaults: look.defaults }));
 }
 
 /**
@@ -497,6 +497,7 @@ function settingsCard(sid, s, look, onDetails) {
     current: () => s.font,
     save: (next) => saveSession({ font: next }),
     redraw: renderDetail,
+    defaults: look.defaults,
     pickFile: async () => {
       try { return (await api('/api/pick', { method: 'POST', body: { kind: 'font' } })).path; } catch (e) { toast(e.message, 'error'); return ''; }
     },
@@ -507,6 +508,12 @@ function settingsCard(sid, s, look, onDetails) {
   const reset = card.querySelector('[data-look-reset]');
   if (reset) {
     reset.addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: 'Reset all to defaults?',
+        message: 'The stage theme and lettering go back to Settings → Stage defaults. Every item that follows the presentation changes with it; items with their own value keep it.',
+        actionLabel: 'Reset all',
+      });
+      if (!ok) return;
       try {
         await api(`/api/sessions/${sid}/look/reset`, { method: 'POST' });
         toast('Stage look reset to the defaults');

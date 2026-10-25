@@ -441,9 +441,18 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .ed-hint.warn { color: var(--attention-text); font-weight: 600; }
 .inline-controls { display: flex; align-items: center; gap: var(--space-sm); }
 .inline-controls .select-native { flex: 1; min-width: 0; }
-.font-controls { flex-wrap: wrap; }
-.font-controls .select-native { flex: 1 1 200px; }
 .size-input { width: 80px; }
+/* An item's font rows: which layer each value comes from (dashed and dimmed = inherited, accent = its own) */
+.font-props { display: grid; gap: var(--space-sm); }
+.font-prop { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.font-prop-label { flex: 0 0 64px; color: var(--muted); }
+.font-prop .select-native { flex: 1 1 200px; min-width: 0; }
+.font-prop .src-inherited { border-style: dashed; color: var(--muted); }
+.font-prop .src-own { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.font-prop-actions { display: inline-flex; flex-wrap: wrap; gap: var(--space-xs); }
+.font-prop-actions .button-ghost, .global-diff .button-ghost { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.src-chip { white-space: normal; }
+.global-diff .inline-controls { flex-wrap: wrap; }
 .switch-line { display: flex; align-items: center; gap: 10px; min-height: 36px; }
 .opt-list { display: grid; gap: 8px; }
 .opt-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-sm); align-items: center; }
