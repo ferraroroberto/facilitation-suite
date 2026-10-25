@@ -5,18 +5,20 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { api, esc, toast } from '/static/js/ui.js';
 
 /** Resolves the job's result when an import finished (`result.review`: a re-import waits for review), else null. */
-export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
+export function importDialog(sid, { lastPath = '', reimport = false, slides = null } = {}) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog';
     dlg.innerHTML =
       `<div class="detail-card">` +
-      `<div class="detail-header"><h2>${reimport ? 'Re-import PowerPoint' : 'Import PowerPoint'}</h2>` +
+      `<div class="detail-header"><h2>${slides && slides.length ? 'Re-import selected slides' : reimport ? 'Re-import PowerPoint' : 'Import PowerPoint'}</h2>` +
       `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
       `<label class="row"><span>Deck</span><span class="pick-row">` +
       `<input class="input-native" name="pptx" type="text" placeholder="C:\\…\\deck.pptx" value="${esc(lastPath)}">` +
       `<button type="button" class="button-surface" data-browse>${icon('folder-open')} Browse</button></span></label>` +
-      `<p class="dialog-hint">${reimport
+      `<p class="dialog-hint">${slides && slides.length
+        ? `Only ${slides.length === 1 ? 'the selected slide is' : `the ${slides.length} selected slides are`} exported. Nothing changes until you review ${slides.length === 1 ? 'it' : 'them'}.`
+        : reimport
         ? 'Nothing changes until you review it: the next screen shows every new, removed, moved or edited slide, and you apply the changes you want.'
         : 'Every slide becomes an image with its title and notes, and gets a camera layout from where the grey camera box sits. Slides titled "activity – question" become activities.'}</p>` +
       `<div class="import-progress" hidden><div class="bar"><span></span></div><p class="small muted" data-msg></p></div>` +
@@ -48,7 +50,9 @@ export function importDialog(sid, { lastPath = '', reimport = false } = {}) {
       msg.textContent = 'Starting…';
       let job;
       try {
-        job = await api(`/api/sessions/${sid}/import`, { method: 'POST', body: { pptx: input.value.trim() } });
+        const body = { pptx: input.value.trim() };
+        if (slides && slides.length) body.slides = slides;
+        job = await api(`/api/sessions/${sid}/import`, { method: 'POST', body });
       } catch (e) {
         msg.textContent = e.message;
         prog.classList.add('failed');

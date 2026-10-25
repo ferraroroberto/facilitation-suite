@@ -9,14 +9,14 @@
 // becomes the bulk panel and dragging any of them moves them all.
 //
 // The editor's fields (font, roles, timer, music, notes, and the rows they sit in) are in plan-fields.js.
+// Deck re-import and Kahoot import are in plan-import.js.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, oneLine, pageHead, setStatus, toast, fmtMinutes, switchRow } from '/static/js/ui.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
-import { importDialog } from '/static/js/importer.js';
-import { openReview } from '/static/js/reimport.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
+import { renderReviewNote, syncSelectedImport, showReview, reimportSelected, reimport, importKahoot } from '/static/js/views/plan-import.js';
 import { words } from '/static/js/stage-words.js';
 import { field, segmentedChoice, input, selectField, fmtTimer, planFields } from '/static/js/views/plan-fields.js';
 import { createPreview } from '/static/js/views/plan-preview.js';
@@ -210,35 +210,15 @@ async function loadRounds() {
   }
 }
 
+/** The edit state and the nodes mount() creates, read when an import action runs. */
+function importCtx() {
+  return { st, ctx, reviewNote, split, reviewHost, toolbar, findItem, load };
+}
+
 export function show() {
   loadDefaults();
   if (ctx.reviewFor && ctx.reviewFor === ctx.sessionId) { load(); return; }
   if (!st.dirty) load();
-}
-
-function showReview() {
-  split.hidden = true;
-  reviewHost.hidden = false;
-  window.scrollTo(0, 0);
-  openReview(reviewHost, st.sid, {
-    onClose: (changed) => {
-      reviewHost.hidden = true;
-      reviewHost.innerHTML = '';
-      split.hidden = false;
-      if (changed) load(); else renderReviewNote();
-    },
-  });
-}
-
-function renderReviewNote() {
-  reviewNote.innerHTML = '';
-  if (!st.pending) return;
-  const b = document.createElement('div');
-  b.className = 'banner warn review-banner';
-  b.innerHTML = `${icon('refresh-cw')}<span class="grow">A re-import is waiting for your review — nothing has changed yet.</span>` +
-    '<button type="button" class="banner-action" data-review data-track="plan.review">Review</button>';
-  b.querySelector('[data-review]').addEventListener('click', showReview);
-  reviewNote.appendChild(b);
 }
 
 async function load() {
@@ -285,12 +265,12 @@ async function load() {
   render();
   if (st.pending && ctx.reviewFor === st.sid) {
     ctx.reviewFor = null;
-    showReview();
+    showReview(importCtx());
   }
 }
 
 function render() {
-  renderReviewNote();
+  renderReviewNote(importCtx());
   const secs = st.session.sections || [];
   const total = secs.reduce((a, s) => a + (s.minutes || 0), 0);
   setStatus(head, `${secs.length} sections · ${fmtMinutes(total)}`);
@@ -306,6 +286,9 @@ function renderToolbar() {
   const over = st.session && total > st.session.duration_minutes;
   toolbar.innerHTML =
     `<button type="button" class="button-surface" data-reimport data-track="plan.import-deck">${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
+    (st.deck && st.deck.slides.length
+      ? `<button type="button" class="button-surface" data-reimport-selected data-track="plan.import-selected" hidden>${icon('refresh-cw')} Re-import selected</button>`
+      : '') +
     `<button type="button" class="button-surface" data-add-section data-track="plan.add-section">${icon('plus')} Add section</button>` +
     `<button type="button" class="button-surface" data-kahoot data-track="plan.import-kahoot" title="A quiz from Kahoot's spreadsheet template (.xlsx)">${icon('upload')} Import Kahoot</button>` +
     `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" data-track="plan.fold-all" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
@@ -315,9 +298,12 @@ function renderToolbar() {
     (st.dirty ? `<span class="dirty-bar"><span class="chip warn">Unsaved changes</span>` +
       `<button type="button" class="button-ghost" data-discard data-track="plan.discard">Discard</button>` +
       `<button type="button" class="button-primary save-small" data-save data-track="plan.save">Save</button></span>` : '');
-  toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
+  toolbar.querySelector('[data-reimport]').addEventListener('click', () => reimport(importCtx()));
+  const selected = toolbar.querySelector('[data-reimport-selected]');
+  if (selected) selected.addEventListener('click', () => reimportSelected(importCtx()));
+  syncSelectedImport(importCtx());
   toolbar.querySelector('[data-add-section]').addEventListener('click', () => addSection());
-  toolbar.querySelector('[data-kahoot]').addEventListener('click', importKahoot);
+  toolbar.querySelector('[data-kahoot]').addEventListener('click', () => importKahoot(importCtx()));
   toolbar.querySelectorAll('[data-fold]').forEach((b) => b.addEventListener('click', () => {
     st.collapsed = new Set(b.dataset.fold === 'collapse' ? secs.map((x) => x.id) : []);
     renderList();
@@ -519,6 +505,7 @@ function paintSelection() {
     r.classList.toggle('focused', st.picked.size > 1 && r.dataset.item === st.selected);
     r.setAttribute('aria-selected', String(on));
   });
+  syncSelectedImport(importCtx());
   renderEditor();
 }
 
@@ -710,50 +697,6 @@ async function deleteItems(ids) {
   st.picked = new Set(st.selected ? [st.selected] : []);
   markDirty();
   render();
-}
-
-async function reimport() {
-  if (st.dirty) {
-    const ok = await confirmDialog({ title: 'Unsaved changes', message: 'Save or discard your plan edits before importing.', actionLabel: 'Discard edits and continue', danger: true });
-    if (!ok) return;
-  }
-  const had = st.deck && st.deck.slides.length > 0;
-  const done = await importDialog(st.sid, { lastPath: (st.session.source && st.session.source.pptx) || '', reimport: had });
-  if (!done) return;
-  st.dirty = false;
-  if (done.review) ctx.reviewFor = st.sid;
-  await load();
-}
-
-/**
- * A quiz from Kahoot's spreadsheet template: pick the .xlsx on this PC, name
- * the quiz (default: the file's name), and the server adds a section with the
- * lobby, one question per row and the podium, saved — then the plan reloads.
- */
-async function importKahoot() {
-  if (st.dirty) {
-    const ok = await confirmDialog({ title: 'Unsaved changes', message: 'Save or discard your plan edits before importing.', actionLabel: 'Discard edits and continue', danger: true });
-    if (!ok) return;
-  }
-  try {
-    const picked = await api('/api/pick', { method: 'POST', body: { kind: 'xlsx' } });
-    if (!picked.path) return;
-    const stem = picked.path.split(/[\\/]/).pop().replace(/\.xlsx$/i, '');
-    const v = await formDialog({
-      title: 'Import Kahoot quiz',
-      fields: [{ name: 'title', label: 'Quiz name', value: stem, required: true, hint: 'The new section and the quiz lobby take this name.' }],
-      saveLabel: 'Import',
-    });
-    if (!v) return;
-    const res = await api(`/api/sessions/${st.sid}/quiz-import`, { method: 'POST', body: { path: picked.path, title: v.title.trim() } });
-    st.dirty = false;
-    st.selected = st.anchor = res.lobby_id;
-    st.picked = new Set([res.lobby_id]);
-    await load();
-    toast(`${res.questions} questions imported into "${res.section}"`);
-  } catch (e) {
-    toast(e.message, 'error');
-  }
 }
 
 async function saveSession() {

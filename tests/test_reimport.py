@@ -153,14 +153,23 @@ class FakeExporter:
     def __init__(self, deck: list[dict[str, Any]]) -> None:
         self.deck = deck
 
-    def __call__(self, deck: Path, out: Path, progress) -> dict[str, Any]:  # noqa: ANN001
+    def __call__(self, deck: Path, out: Path, progress, only: list[int] | None = None) -> dict[str, Any]:  # noqa: ANN001
+        chosen = list(enumerate(self.deck, start=1))
+        if only:
+            wanted = set(only)
+            missing = wanted - {i for i, _ in chosen}
+            if missing:
+                from src.importer.service import ImportError_
+
+                raise ImportError_("slide_not_found", f"This deck has no slide {min(missing)}")
+            chosen = [(i, s) for i, s in chosen if i in wanted]
         slides = []
-        for i, s in enumerate(self.deck, start=1):
+        for k, (i, s) in enumerate(chosen, start=1):
             _draw(out / f"slide-{s['id']}.png", s["art"])
             slides.append({"slide_id": s["id"], "index": i, "title": s["title"], "notes": s.get("notes", ""),
                            "texts": [s["title"]], "pictures": 1, "background": "#f2f2f2", "hidden": False,
                            "file": f"slide-{s['id']}.png"})
-            progress(i, len(self.deck))
+            progress(k, len(chosen))
         return {"sections": [], "slides": slides}
 
 
@@ -243,6 +252,98 @@ def test_a_reimport_brings_the_slide_text_layer(tmp_path: Path) -> None:
     result = apply(folder, session, set())
     assert all(s["bg_file"] == f"slide-{s['slide_id']}-bg.png" for s in result["meta"]["slides"])
     assert (folder / "slides" / "slide-1-bg.png").is_file() and (folder / "slides" / "slide-2-bg.png").is_file()
+
+
+def test_a_selected_refresh_keeps_the_other_slides(tmp_path: Path) -> None:
+    """A chosen slide is offered even when its picture fingerprint matches, and its neighbours stay put."""
+    from PIL import Image
+    from PIL.PngImagePlugin import PngInfo
+
+    from src.importer.service import merge_partial
+
+    folder = tmp_path / "session"
+    deck = [{"id": n, "art": a, "title": f"Slide {n}"} for n, a in ((1, "a"), (2, "b"), (3, "c"))]
+    old = _meta(folder / "slides", deck)
+    (folder / "slides" / "slides.json").write_text(json.dumps(old), encoding="utf-8")
+    before = {name: (folder / "slides" / name).read_bytes() for name in ("slide-1.png", "slide-2.png", "slide-3.png")}
+    inc = folder / "slides" / INCOMING
+    partial = _meta(inc, [{"id": 2, "art": "b", "title": "Slide 2"}])
+    partial["slides"][0]["index"] = 2  # the export keeps the deck index; _meta numbers a one-slide deck from 1
+    with Image.open(inc / "slide-2.png") as im:
+        mark = PngInfo()
+        mark.add_text("mark", "refresh")
+        im.save(inc / "slide-2.png", pnginfo=mark)
+    stamped = (inc / "slide-2.png").read_bytes()
+    merged = merge_partial(old, partial)
+    # Apply reads the staged deck the importer writes: the splice, not the one-slide export.
+    (inc / "slides.json").write_text(json.dumps(merged), encoding="utf-8")
+    session = Session(title="x")
+    session.sections = first_plan(old, 60)
+    report = diff(old, merged, session)
+    assert [c["id"] for c in report["changes"]] == ["mod-2"]
+    assert report["changes"][0]["detail"] == "Re-exported"
+    assert report["counts"]["removed"] == 0 and report["counts"]["identical"] == 2
+    apply(folder, session, set())
+    assert (folder / "slides" / "slide-2.png").read_bytes() == before["slide-2.png"]
+    applied = apply(folder, session, {"mod-2"})
+    assert (folder / "slides" / "slide-2.png").read_bytes() == stamped
+    assert (folder / "slides" / "slide-1.png").read_bytes() == before["slide-1.png"]
+    assert (folder / "slides" / "slide-3.png").read_bytes() == before["slide-3.png"]
+    assert "refresh_ids" not in applied["meta"]
+    assert _plan(session) == [1, 2, 3]
+
+
+def test_selected_reimport_exports_only_the_asked_slides(client, tmp_path: Path) -> None:
+    sid = client.post("/api/sessions", json={"title": "Demo", "workshop": "w", "folder": "demo"}).json()["id"]
+    deck = tmp_path / "deck.pptx"
+    deck.write_bytes(b"not really a deck")
+    client.app.state.importer._exporter = FakeExporter(OLD)
+    assert _wait(client, client.post(f"/api/sessions/{sid}/import", json={"pptx": str(deck)}).json()["id"])["result"]["first_import"]
+    folder = Path(client.get(f"/api/sessions/{sid}").json()["folder"]["path"])
+    neighbour = (folder / "slides" / "slide-1.png").read_bytes()
+    far = (folder / "slides" / "slide-8.png").read_bytes()
+
+    one = _wait(client, client.post(f"/api/sessions/{sid}/import", json={"pptx": str(deck), "slides": [2]}).json()["id"])
+    assert one["state"] == "done" and one["total"] == 1 and one["result"]["slides"] == 1
+    review = client.get(f"/api/sessions/{sid}/reimport").json()
+    assert [c["id"] for c in review["changes"]] == ["mod-2"] and review["changes"][0]["detail"] == "Re-exported"
+    assert review["counts"]["removed"] == 0
+    assert (folder / "slides" / "slide-1.png").read_bytes() == neighbour
+
+    two = _wait(client, client.post(f"/api/sessions/{sid}/import", json={"pptx": str(deck), "slides": [2, 4]}).json()["id"])
+    assert two["state"] == "done" and two["total"] == 2 and two["result"]["slides"] == 2
+    review = client.get(f"/api/sessions/{sid}/reimport").json()
+    assert {c["id"] for c in review["changes"]} == {"mod-2", "mod-4"}
+    assert (folder / "slides" / "slide-8.png").read_bytes() == far
+    assert not (folder / "slides" / INCOMING / "slide-1.png").exists()
+
+    missing = _wait(client, client.post(f"/api/sessions/{sid}/import", json={"pptx": str(deck), "slides": [99]}).json()["id"])
+    assert missing["state"] == "error" and missing["code"] == "slide_not_found"
+
+    fresh = client.post("/api/sessions", json={"title": "Empty"}).json()["id"]
+    early = _wait(client, client.post(f"/api/sessions/{fresh}/import", json={"pptx": str(deck), "slides": [1]}).json()["id"])
+    assert early["state"] == "error" and early["code"] == "selection_needs_import"
+
+
+def test_the_plan_can_see_a_newer_or_missing_deck(client, tmp_path: Path) -> None:
+    sid = client.post("/api/sessions", json={"title": "Demo", "folder": "demo"}).json()["id"]
+    deck = tmp_path / "deck.pptx"
+    deck.write_bytes(b"not really a deck")
+    client.app.state.importer._exporter = FakeExporter(OLD[:2])
+    assert _wait(client, client.post(f"/api/sessions/{sid}/import", json={"pptx": str(deck)}).json()["id"])["state"] == "done"
+    folder = Path(client.get(f"/api/sessions/{sid}").json()["folder"]["path"])
+    meta_path = folder / "slides" / "slides.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["imported_at"] = "2000-01-01T00:00:00"
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    assert client.get(f"/api/sessions/{sid}/slides").json()["deck_status"] == "newer"
+    meta["source"] = str(tmp_path / "gone.pptx")
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    assert client.get(f"/api/sessions/{sid}/slides").json()["deck_status"] == "missing"
+    from src.importer.service import deck_status
+
+    assert deck_status("deck.pptx", "2000-01-01T00:00:00") == "unknown"
+    assert deck_status(str(deck), "2999-01-01T00:00:00") == "current"
 
 
 def test_a_corrupt_slides_json_is_logged_but_a_missing_one_is_silent(tmp_path: Path, caplog) -> None:

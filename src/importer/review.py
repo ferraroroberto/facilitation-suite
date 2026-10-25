@@ -190,11 +190,23 @@ def _brief(s: dict[str, Any]) -> dict[str, Any]:
     return {"slide_id": s["slide_id"], "index": s["index"], "title": s["title"], "file": s["file"]}
 
 
+def _refresh_ids(meta: dict[str, Any]) -> set[int]:
+    """SlideIDs the user asked to re-export, so a matching fingerprint still shows."""
+    out: set[int] = set()
+    for raw in meta.get("refresh_ids") or []:
+        try:
+            out.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def diff(old_meta: Optional[dict[str, Any]], new_meta: dict[str, Any], session: Session) -> dict[str, Any]:
     old = (old_meta or {}).get("slides") or []
     new = new_meta.get("slides") or []
     old_by = {s["slide_id"]: s for s in old}
     pairs = match(old, new)
+    refresh = _refresh_ids(new_meta)
     in_plan = {it.slide_id for it in session.all_items() if it.kind == "slide"}
     changes: list[dict[str, Any]] = []
     identical: list[dict[str, Any]] = []
@@ -230,6 +242,8 @@ def diff(old_meta: Optional[dict[str, Any]], new_meta: dict[str, Any], session: 
             what.append(f"Title changed from “{o['title']}”")
         if o["fp"].get("notes") != s["fp"].get("notes"):
             what.append(f"Notes changed · {_notes_change(o.get('notes', ''), s.get('notes', ''))}")
+        if not what and nid in refresh:
+            what.append("Re-exported")
         brief = {"old": _brief(o), "new": _brief(s), "title": s["title"], "position": s["index"]}
         if what:
             changes.append({"id": f"mod-{nid}", "kind": "modified", "slide_id": nid, **brief, "detail": " · ".join(what)})
@@ -341,7 +355,8 @@ def apply(folder: Path, session: Session, accepted: set[str]) -> dict[str, Any]:
             final.append({**o, "slide_id": nid, "index": s["index"]})  # keep the old look, under the deck's id
         else:
             final.append(s)
-            copy_in.extend(files_of(s))
+            # A partial export only staged the chosen slides, so the rest keep their pictures.
+            copy_in.extend(name for name in files_of(s) if (inc / name).is_file())
     for o in old_meta["slides"]:
         if o["slide_id"] not in pairs.values() and not ok(f"rem-{o['slide_id']}"):
             final.append({**o, "in_deck": False})
@@ -352,6 +367,7 @@ def apply(folder: Path, session: Session, accepted: set[str]) -> dict[str, Any]:
         if png.name not in keep:
             png.unlink()
     meta = {**new_meta, "slides": final}
+    meta.pop("refresh_ids", None)
 
     # 2. the plan: re-point re-created slides, then remove, move, add
     for nid, oid in pairs.items():

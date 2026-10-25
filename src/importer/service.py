@@ -18,6 +18,8 @@ process with a timeout, reports progress, then:
    - **re-import**: nothing changes yet — the export is staged in
      ``slides/incoming/`` and the review screen (``review.py``) says what
      changed; each change is accepted one by one before it applies.
+     Slide indexes limit the export to those slides. They are spliced into
+     the current deck, and the review offers each of them.
 """
 
 from __future__ import annotations
@@ -98,9 +100,12 @@ def _is_divider(s: dict[str, Any]) -> bool:
         and len(s["title"]) <= 60 and classify_placeholder(s["title"]) is None
 
 
-def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None]) -> dict[str, Any]:
+def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None],
+                 only: Optional[list[int]] = None) -> dict[str, Any]:
     cmd = [sys.executable, "-m", "src.importer.pptx_com", str(deck), str(out_dir)]
-    logger.info("ℹ️ import: exporting %s", deck.name)
+    if only:
+        cmd.append(",".join(str(i) for i in only))
+    logger.info("ℹ️ import: exporting %s%s", deck.name, f" slides {only}" if only else "")
     try:
         proc = subprocess.Popen(
             cmd, cwd=str(PROJECT_ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -123,8 +128,8 @@ def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None]
         for line in proc.stdout:
             line = line.strip()
             if line.startswith("PROGRESS "):
-                _, i, n = line.split()
-                progress(int(i), int(n))
+                parts = line.split()
+                progress(int(parts[1]), int(parts[2]))
             elif line.startswith("ERROR "):
                 last_error = line[6:]
                 logger.warning("⚠️ import: %s", last_error)
@@ -137,6 +142,8 @@ def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None]
         raise ImportError_("powerpoint_unavailable", "PowerPoint is not available on this PC")
     if code == 3:
         raise ImportError_("deck_unreadable", "PowerPoint could not open the deck")
+    if code == 5:
+        raise ImportError_("slide_not_found", last_error or "This deck has no such slide")
     if code != 0:
         raise ImportError_("export_failed", last_error or f"The export failed (exit {code})")
     return json.loads((out_dir / "export.json").read_text(encoding="utf-8"))
@@ -183,6 +190,82 @@ def build_slides_meta(export: dict[str, Any], slides_dir: Path, deck: Path) -> d
         "source": str(deck), "imported_at": datetime.now().replace(microsecond=0).isoformat(),
         "sections": export.get("sections", []), "slides": slides,
     }
+
+
+def merge_partial(old_meta: dict[str, Any], partial: dict[str, Any]) -> dict[str, Any]:
+    """Splices a partial export into the current deck, by SlideID and then by index.
+
+    Slides that were not exported stay as they are. ``refresh_ids`` names the
+    exported slides so the review offers each one even when its fingerprint matches.
+    """
+    old = list(old_meta.get("slides") or [])
+    new = list(partial.get("slides") or [])
+    by_id = {s["slide_id"]: i for i, s in enumerate(old)}
+    by_index: dict[int, int] = {}
+    for i, s in enumerate(old):
+        by_index.setdefault(int(s["index"]), i)
+    replacement: dict[int, dict[str, Any]] = {}
+    used: set[int] = set()
+
+    def take(slot: int, slide: dict[str, Any]) -> None:
+        if slot in replacement or slide["slide_id"] in used:
+            return
+        replacement[slot] = slide
+        used.add(slide["slide_id"])
+
+    for slide in new:
+        slot = by_id.get(slide["slide_id"])
+        if slot is not None:
+            take(slot, slide)
+    for slide in new:
+        if slide["slide_id"] in used:
+            continue
+        slot = by_index.get(int(slide["index"]))
+        if slot is not None:
+            take(slot, slide)
+    merged = [replacement.get(i, slide) for i, slide in enumerate(old)]
+    merged.extend(slide for slide in new if slide["slide_id"] not in used)
+    merged.sort(key=lambda slide: (int(slide.get("index") or 0), int(slide["slide_id"])))
+    return {
+        **old_meta,
+        "source": partial.get("source") or old_meta.get("source", ""),
+        "imported_at": partial.get("imported_at"),
+        "slides": merged,
+        "refresh_ids": [slide["slide_id"] for slide in new],
+    }
+
+
+def deck_status(source: str, imported_at: Optional[str]) -> str:
+    """``newer``, ``missing``, ``current`` or ``unknown`` for a deck path.
+
+    A relative path stays unknown: a fixture names its deck that way, and only
+    a real path on this PC can be missing or newer than the import.
+    """
+    if not source:
+        return "unknown"
+    path = Path(source)
+    if not path.is_absolute():
+        return "unknown"
+    if not path.is_file():
+        return "missing"
+    if not imported_at:
+        return "newer"
+    try:
+        imported = datetime.fromisoformat(imported_at)
+    except (TypeError, ValueError):
+        return "unknown"
+    modified = datetime.fromtimestamp(path.stat().st_mtime).replace(microsecond=0)
+    return "newer" if modified > imported else "current"
+
+
+def _normalize_slides(only: Optional[list[int]]) -> Optional[list[int]]:
+    if only is None:
+        return None
+    if not only:
+        raise ImportError_("no_slides", "Pick at least one slide")
+    if any(isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in only):
+        raise ImportError_("bad_slide", "Slide numbers start at 1")
+    return list(dict.fromkeys(only))
 
 
 def slide_item(s: dict[str, Any]) -> Item:
@@ -234,6 +317,7 @@ class ImportJob:
     message: str = ""
     code: str = ""
     result: dict[str, Any] = field(default_factory=dict)
+    only: Optional[list[int]] = None
     started_at: float = field(default_factory=time.time)
 
     def as_dict(self) -> dict[str, Any]:
@@ -250,8 +334,9 @@ class Importer:
         self._jobs: dict[str, ImportJob] = {}
         self._lock = threading.Lock()
 
-    def start(self, session_id: str, deck: str) -> ImportJob:
+    def start(self, session_id: str, deck: str, only: Optional[list[int]] = None) -> ImportJob:
         path = Path(deck.strip().strip('"'))
+        only = _normalize_slides(only)
         if path.suffix.lower() not in (".pptx", ".ppt", ".pptm"):
             raise ImportError_("not_a_deck", "Choose a PowerPoint file (.pptx)")
         if not path.is_file():
@@ -259,7 +344,7 @@ class Importer:
         with self._lock:
             if any(j.state in ("queued", "running") for j in self._jobs.values()):
                 raise ImportError_("busy", "An import is already running")
-            job = ImportJob(id=uuid.uuid4().hex[:10], session_id=session_id, deck=str(path))
+            job = ImportJob(id=uuid.uuid4().hex[:10], session_id=session_id, deck=str(path), only=only)
             self._jobs[job.id] = job
         threading.Thread(target=self._run, args=(job,), daemon=True, name=f"import-{job.id}").start()
         return job
@@ -274,6 +359,9 @@ class Importer:
             folder = self._folder(job.session_id)
             session = self._load(job.session_id)
             first = not session.all_items()
+            if job.only and first:
+                raise ImportError_("selection_needs_import",
+                                   "Import the whole PowerPoint first, then re-import the slides you pick")
             slides_dir = folder / "slides"
             staged = slides_dir / INCOMING
             shutil.rmtree(staged, ignore_errors=True)  # a newer export replaces one waiting for review
@@ -285,7 +373,7 @@ class Importer:
                     job.done, job.total = i, n
                     job.message = f"Exporting slide {i} of {n}"
 
-                export = self._exporter(Path(job.deck), out, progress)
+                export = self._exporter(Path(job.deck), out, progress, job.only)
                 job.message = "Analysing slides…"
                 target.mkdir(parents=True, exist_ok=True)
                 if first:
@@ -297,7 +385,13 @@ class Importer:
                     for name in files_of(s):
                         shutil.copy2(out / name, target / name)
             meta = build_slides_meta(export, target, Path(job.deck))
+            if job.only:
+                stored = slides_dir / "slides.json"
+                if not stored.is_file():
+                    raise ImportError_("slides_missing", "Import the PowerPoint before re-importing selected slides")
+                meta = merge_partial(json.loads(stored.read_text(encoding="utf-8")), meta)
             (target / "slides.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+            exported = len(export["slides"])
             unsure = sum(1 for s in meta["slides"] if s["profile"] is None and not s.get("placeholder"))
             if first:
                 session.sections = first_plan(meta, session.duration_minutes)
@@ -305,13 +399,13 @@ class Importer:
                 self._save(job.session_id, ensure_ids(session))
                 summary = {"first_import": True, "review": False, "sections": len(session.sections),
                            "items": len(session.all_items())}
-                job.message = f"Imported {len(meta['slides'])} slides"
+                job.message = f"Imported {exported} slides"
             else:
                 summary = {"first_import": False, "review": True}
-                job.message = f"Exported {len(meta['slides'])} slides — review the changes"
-            job.result = {"slides": len(meta["slides"]), "unsure_profiles": unsure, **summary}
+                job.message = f"Exported {exported} slides — review the changes"
+            job.result = {"slides": exported, "unsure_profiles": unsure, **summary}
             job.state = "done"
-            logger.info("✅ import: %s slides for session %s (%s)", len(meta["slides"]), job.session_id, summary)
+            logger.info("✅ import: %s slides for session %s (%s)", exported, job.session_id, summary)
         except ImportError_ as exc:
             job.state, job.code, job.message = "error", exc.code, str(exc)
             logger.error("❌ import failed (%s): %s", exc.code, exc)

@@ -45,7 +45,7 @@ Appearance (light, dark or system), HTTPS for the phone remote and the log files
 
 Each feature has its own reference in `docs/`:
 
-- **Importing a PowerPoint** — slides exported as images with their text, notes and camera layout; re-import as a reviewed diff: [docs/import.md](docs/import.md)
+- **Importing a PowerPoint** — slides exported as images with their text, notes and camera layout; re-import the whole deck or the selected slides, as a reviewed diff: [docs/import.md](docs/import.md)
 - **Planning** — the Plan tab, per-item timers, stage lettering and timer colours: [docs/planning.md](docs/planning.md)
 - **Presenting live** — stage and presenter, keys, restart behaviour: [docs/live.md](docs/live.md)
 - **Music** — files and Spotify per item, the Spotify setup: [docs/music.md](docs/music.md)
