@@ -225,7 +225,7 @@
   paint-order: stroke fill;
   font-weight: var(--st-title-weight);
   text-transform: var(--st-title-case);
-  font-size: 120px;
+  font-size: var(--st-title-size);
   line-height: 1;
 }
 .stage-canvas .st-break-clock {

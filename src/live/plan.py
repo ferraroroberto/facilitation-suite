@@ -62,12 +62,9 @@ def display_title(item: Any, slide: Optional[dict[str, Any]], types: dict[str, A
 
 
 def _item_font(item: Any) -> dict[str, Any]:
-    """The item's own lettering for the stage. An activity's title size is the session's
-    (``font.title_size``, #191) unless the item sets one; the other kinds keep 72 px."""
-    font = item.font.model_dump() if item.font else {"family": THEME_FONT}
-    if font.get("size_px") is None and item.kind != "activity":
-        font["size_px"] = 72
-    return font
+    """The item's own lettering for the stage. A title's size is the session's
+    (``font.title_size``) unless the item sets one, so none is invented here."""
+    return item.font.model_dump() if item.font else {"family": THEME_FONT}
 
 
 def _slide_text(item: Any, slide: Optional[dict[str, Any]]) -> dict[str, Any]:

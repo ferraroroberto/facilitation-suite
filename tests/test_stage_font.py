@@ -221,15 +221,17 @@ def test_timer_defaults_match_the_theme_and_their_inks_hold_contrast() -> None:
     assert [timer_ink(c) for c in TIMER_DEFAULTS.values()] == ["#ffffff", "#ffffff", "#1f1f1f", "#ffffff"]
 
 
-def test_a_run_item_has_a_size_only_when_it_sets_one_or_is_not_an_activity() -> None:
-    """#191: an activity's title size is the session's (font.title_size) unless the item sets its own;
-    the other kinds keep their 72 px."""
+def test_a_run_item_has_a_size_only_when_it_sets_one() -> None:
+    """#191: an item's title size is the session's (font.title_size) unless the item sets its own;
+    breaks and breakouts follow it like an activity does."""
     from src.live.plan import _item_font
 
     session = parse_session({"title": "x", "sections": [{"id": "s", "items": [
         {"kind": "activity", "id": "a", "type": "word_cloud"},
         {"kind": "activity", "id": "b", "type": "word_cloud", "font": {"size_px": 90}},
-        {"kind": "break", "id": "c", "font": {"family": "theme"}}, {"kind": "break", "id": "d"}]}]})
-    a, b, c, d = (it for sec in session.sections for it in sec.items)
+        {"kind": "break", "id": "c", "font": {"family": "theme"}}, {"kind": "break", "id": "d"},
+        {"kind": "breakout", "id": "e"}, {"kind": "breakout", "id": "f", "font": {"size_px": 120}}]}]})
+    a, b, c, d, e, f = (it for sec in session.sections for it in sec.items)
     assert _item_font(a).get("size_px") is None and _item_font(b)["size_px"] == 90
-    assert _item_font(c)["size_px"] == 72 and _item_font(d)["size_px"] == 72
+    assert _item_font(c).get("size_px") is None and _item_font(d).get("size_px") is None
+    assert _item_font(e).get("size_px") is None and _item_font(f)["size_px"] == 120

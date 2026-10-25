@@ -31,7 +31,7 @@ export function createPreview({ st, getEditor, slideOf, titleOf }) {
       id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
       capture: it.kind === 'activity' && spec.capture !== false,
       title: titleOf(it), question: it.question || (it.kind === 'activity' ? words(st.session.language).question : ''),
-      font: it.font || fontSeed(it.kind === 'activity' ? 72 : null), options: it.options || {},
+      font: it.font || fontSeed(), options: it.options || {},
       profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
       timer: it.timer && it.timer.enabled !== false ? it.timer : null,
       ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
