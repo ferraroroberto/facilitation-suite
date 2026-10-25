@@ -275,6 +275,8 @@ def test_a_selected_refresh_keeps_the_other_slides(tmp_path: Path) -> None:
         im.save(inc / "slide-2.png", pnginfo=mark)
     stamped = (inc / "slide-2.png").read_bytes()
     merged = merge_partial(old, partial)
+    # Apply reads the staged deck the importer writes: the splice, not the one-slide export.
+    (inc / "slides.json").write_text(json.dumps(merged), encoding="utf-8")
     session = Session(title="x")
     session.sections = first_plan(old, 60)
     report = diff(old, merged, session)
