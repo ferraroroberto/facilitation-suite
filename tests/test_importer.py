@@ -136,7 +136,9 @@ class FakeExporter:
     def __init__(self, deck: list[dict[str, Any]]) -> None:
         self.deck = deck
 
-    def __call__(self, deck: Path, out: Path, progress) -> dict[str, Any]:
+    def __call__(self, deck: Path, out: Path, progress, only: list[int] | None = None) -> dict[str, Any]:
+        if only:
+            raise AssertionError("this fake exports the whole deck")
         export = _export(self.deck)
         for i, s in enumerate(export["slides"], start=1):
             _slide(out / s["file"], box=(1120, 250, 1890, 830))
@@ -194,7 +196,7 @@ def test_import_rejects_non_decks(client, tmp_path: Path) -> None:
 def test_exporter_failure_is_reported(client, tmp_path: Path) -> None:
     from src.importer.service import ImportError_
 
-    def broken(deck, out, progress):
+    def broken(deck, out, progress, only=None):
         raise ImportError_("powerpoint_unavailable", "PowerPoint is not available on this PC")
 
     sid = client.post("/api/sessions", json={"title": "Demo"}).json()["id"]

@@ -4,9 +4,10 @@
 
 Opens a *copy* of the deck read-only and without a window (the original may
 be open for editing, and a read-only open of a locked file can raise a modal
-prompt that would hang the automation), then for every slide writes
-``slide-<SlideID>.png`` at 1920×1080 and one ``export.json`` with the slide's
-SlideID, index, title, notes, texts, picture count and background colour.
+prompt that would hang the automation), then for every slide — or just the
+slide numbers named after the output directory — writes ``slide-<SlideID>.png``
+at 1920×1080 and one ``export.json`` with the slide's SlideID, index, title,
+notes, texts, picture count and background colour.
 
 A slide with plain text shapes also gets ``slide-<SlideID>-bg.png`` — the
 same slide with those shapes hidden — and their ``boxes`` (position and size
@@ -178,7 +179,30 @@ def _export_slide(slide: Any, out_dir: Path) -> Optional[dict[str, Any]]:
     }
 
 
-def export(deck: Path, out_dir: Path) -> int:
+def _select(count: int, only: Optional[set[int]]) -> Optional[set[int]]:
+    """Indexes to export. ``None`` means one of the requested slides is not in the deck."""
+    if not only:
+        return set(range(1, count + 1))
+    missing = sorted(i for i in only if i < 1 or i > count)
+    if missing:
+        print(f"ERROR This deck has no slide {missing[0]}", flush=True)
+        return None
+    return set(only)
+
+
+def _parse_indexes(text: str) -> Optional[set[int]]:
+    try:
+        only = {int(part) for part in text.split(",") if part}
+    except ValueError:
+        print("ERROR slide numbers must be whole numbers", flush=True)
+        return None
+    if not only or any(i < 1 for i in only):
+        print("ERROR slide numbers start at 1", flush=True)
+        return None
+    return only
+
+
+def export(deck: Path, out_dir: Path, only: Optional[set[int]] = None) -> int:
     try:
         import pythoncom
         import win32com.client
@@ -209,14 +233,20 @@ def export(deck: Path, out_dir: Path) -> int:
             print(f"ERROR the deck could not be opened: {exc}", flush=True)
             return 3
         out_dir.mkdir(parents=True, exist_ok=True)
-        n = int(pres.Slides.Count)
+        wanted = _select(int(pres.Slides.Count), only)
+        if wanted is None:
+            return 5
         slides = []
+        done = 0
         for slide in pres.Slides:
+            if int(slide.SlideIndex) not in wanted:
+                continue
             entry = _export_slide(slide, out_dir)
             if entry is None:
                 return 4
             slides.append(entry)
-            print(f"PROGRESS {entry['index']} {n}", flush=True)
+            done += 1
+            print(f"PROGRESS {done} {len(wanted)} {entry['index']}", flush=True)
         meta = {
             "slide_width": float(pres.PageSetup.SlideWidth), "slide_height": float(pres.PageSetup.SlideHeight),
             "sections": _sections(pres), "slides": slides,
@@ -238,14 +268,17 @@ def export(deck: Path, out_dir: Path) -> int:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3:
-        print("usage: python -m src.importer.pptx_com <deck.pptx> <out_dir>", file=sys.stderr)
+    if len(argv) not in (3, 4):
+        print("usage: python -m src.importer.pptx_com <deck.pptx> <out_dir> [slide,slide]", file=sys.stderr)
         return 1
     deck, out_dir = Path(argv[1]), Path(argv[2])
+    only = _parse_indexes(argv[3]) if len(argv) == 4 else None
+    if len(argv) == 4 and only is None:
+        return 5
     if not deck.is_file():
         print(f"ERROR deck not found: {deck.name}", flush=True)
         return 3
-    return export(deck, out_dir)
+    return export(deck, out_dir, only)
 
 
 if __name__ == "__main__":

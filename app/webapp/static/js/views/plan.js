@@ -232,13 +232,45 @@ function showReview() {
 
 function renderReviewNote() {
   reviewNote.innerHTML = '';
-  if (!st.pending) return;
+  if (st.pending) {
+    const b = document.createElement('div');
+    b.className = 'banner warn review-banner';
+    b.innerHTML = `${icon('refresh-cw')}<span class="grow">A re-import is waiting for your review — nothing has changed yet.</span>` +
+      '<button type="button" class="banner-action" data-review data-track="plan.review">Review</button>';
+    b.querySelector('[data-review]').addEventListener('click', showReview);
+    reviewNote.appendChild(b);
+    return;
+  }
+  const status = st.deck && st.deck.deck_status;
+  if (status !== 'newer' && status !== 'missing') return;
+  const missing = status === 'missing';
   const b = document.createElement('div');
-  b.className = 'banner warn review-banner';
-  b.innerHTML = `${icon('refresh-cw')}<span class="grow">A re-import is waiting for your review — nothing has changed yet.</span>` +
-    '<button type="button" class="banner-action" data-review data-track="plan.review">Review</button>';
-  b.querySelector('[data-review]').addEventListener('click', showReview);
+  b.className = 'banner warn deck-banner';
+  b.setAttribute('role', 'status');
+  b.innerHTML = `${icon(missing ? 'triangle-alert' : 'refresh-cw')}<span class="grow">${missing
+    ? 'The PowerPoint file is missing.'
+    : 'This PowerPoint is newer than the import.'}</span>`;
   reviewNote.appendChild(b);
+}
+
+/** Deck indexes of the slide items in the current selection. */
+function selectedSlideIndexes() {
+  const indexes = [];
+  for (const id of st.picked) {
+    const found = findItem(id);
+    if (!found || found.it.kind !== 'slide') continue;
+    const slide = st.slides.get(found.it.slide_id);
+    if (slide) indexes.push(slide.index);
+  }
+  return [...new Set(indexes)].sort((a, b) => a - b);
+}
+
+function syncSelectedImport() {
+  const btn = toolbar.querySelector('[data-reimport-selected]');
+  if (!btn) return;
+  const n = selectedSlideIndexes().length;
+  btn.hidden = n === 0;
+  btn.title = n === 1 ? 'Export this slide and review it' : `Export these ${n} slides and review them`;
 }
 
 async function load() {
@@ -306,6 +338,9 @@ function renderToolbar() {
   const over = st.session && total > st.session.duration_minutes;
   toolbar.innerHTML =
     `<button type="button" class="button-surface" data-reimport data-track="plan.import-deck">${icon('refresh-cw')} ${st.deck && st.deck.slides.length ? 'Re-import PowerPoint' : 'Import PowerPoint'}</button>` +
+    (st.deck && st.deck.slides.length
+      ? `<button type="button" class="button-surface" data-reimport-selected data-track="plan.import-selected" hidden>${icon('refresh-cw')} Re-import selected</button>`
+      : '') +
     `<button type="button" class="button-surface" data-add-section data-track="plan.add-section">${icon('plus')} Add section</button>` +
     `<button type="button" class="button-surface" data-kahoot data-track="plan.import-kahoot" title="A quiz from Kahoot's spreadsheet template (.xlsx)">${icon('upload')} Import Kahoot</button>` +
     `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" data-track="plan.fold-all" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
@@ -315,7 +350,10 @@ function renderToolbar() {
     (st.dirty ? `<span class="dirty-bar"><span class="chip warn">Unsaved changes</span>` +
       `<button type="button" class="button-ghost" data-discard data-track="plan.discard">Discard</button>` +
       `<button type="button" class="button-primary save-small" data-save data-track="plan.save">Save</button></span>` : '');
-  toolbar.querySelector('[data-reimport]').addEventListener('click', reimport);
+  toolbar.querySelector('[data-reimport]').addEventListener('click', () => reimport());
+  const selected = toolbar.querySelector('[data-reimport-selected]');
+  if (selected) selected.addEventListener('click', reimportSelected);
+  syncSelectedImport();
   toolbar.querySelector('[data-add-section]').addEventListener('click', () => addSection());
   toolbar.querySelector('[data-kahoot]').addEventListener('click', importKahoot);
   toolbar.querySelectorAll('[data-fold]').forEach((b) => b.addEventListener('click', () => {
@@ -519,6 +557,7 @@ function paintSelection() {
     r.classList.toggle('focused', st.picked.size > 1 && r.dataset.item === st.selected);
     r.setAttribute('aria-selected', String(on));
   });
+  syncSelectedImport();
   renderEditor();
 }
 
@@ -712,13 +751,27 @@ async function deleteItems(ids) {
   render();
 }
 
-async function reimport() {
+async function reimportSelected() {
+  const slides = selectedSlideIndexes();
+  if (!slides.length) {
+    toast('Select the slides to re-import');
+    return;
+  }
+  return reimport(slides);
+}
+
+async function reimport(slides) {
   if (st.dirty) {
     const ok = await confirmDialog({ title: 'Unsaved changes', message: 'Save or discard your plan edits before importing.', actionLabel: 'Discard edits and continue', danger: true });
     if (!ok) return;
   }
   const had = st.deck && st.deck.slides.length > 0;
-  const done = await importDialog(st.sid, { lastPath: (st.session.source && st.session.source.pptx) || '', reimport: had });
+  const only = Array.isArray(slides) ? slides : null;
+  const done = await importDialog(st.sid, {
+    lastPath: (st.session.source && st.session.source.pptx) || (st.deck && st.deck.source) || '',
+    reimport: had,
+    slides: only,
+  });
   if (!done) return;
   st.dirty = false;
   if (done.review) ctx.reviewFor = st.sid;

@@ -8,7 +8,7 @@ import re
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError, require_local
 from src.importer import review as rv
-from src.importer.service import INCOMING, Importer, ImportError_
+from src.importer.service import INCOMING, Importer, ImportError_, deck_status
 from src.music.library import AUDIO_TYPES
 from src.sessions.model import Session, Source, ensure_ids
 from src.sessions.store import SessionStore, atomic_write_text
@@ -41,13 +41,14 @@ def _folder(request: Request, sid: str) -> Path:
 
 class ImportRequest(BaseModel):
     pptx: str = Field(min_length=1)
+    slides: Optional[list[int]] = None
 
 
 @router.post("/api/sessions/{sid}/import", status_code=202)
 def start_import(request: Request, sid: str, body: ImportRequest) -> dict[str, Any]:
     _folder(request, sid)
     try:
-        job = _importer(request).start(sid, body.pptx)
+        job = _importer(request).start(sid, body.pptx, body.slides)
     except ImportError_ as exc:
         status = 409 if exc.code == "busy" else 422
         raise AppError(status, exc.code, str(exc)) from exc
@@ -66,12 +67,14 @@ def import_status(request: Request, job_id: str) -> dict[str, Any]:
 def slides(request: Request, sid: str) -> dict[str, Any]:
     path = _folder(request, sid) / "slides" / "slides.json"
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        meta = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        return {"source": "", "imported_at": None, "sections": [], "slides": []}
+        return {"source": "", "imported_at": None, "sections": [], "slides": [], "deck_status": "unknown"}
     except (OSError, json.JSONDecodeError) as exc:
         logger.error("❌ slides.json unreadable: %s", exc)
         raise AppError(422, "slides_unreadable", "slides.json could not be read") from exc
+    meta["deck_status"] = deck_status(str(meta.get("source") or ""), meta.get("imported_at"))
+    return meta
 
 
 @router.get("/api/sessions/{sid}/slides/{name}")

@@ -539,8 +539,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .review-obs .small { margin: 4px 0 0; }
 .review-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 .review-actions .button-primary, .review-actions .button-surface { min-height: 52px; padding: 0 20px; }
-.review-banner { align-items: center; }
-.review-banner .grow { flex: 1; min-width: 0; }
+.review-banner, .deck-banner { align-items: center; }
+.review-banner .grow, .deck-banner .grow { flex: 1; min-width: 0; }
 @media (max-width: 719px) {
   .review-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .review-row { grid-template-columns: minmax(0, 1fr) auto; }
