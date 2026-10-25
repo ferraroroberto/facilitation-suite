@@ -6,9 +6,10 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { api, esc, toast, switchRow } from '/static/js/ui.js';
 import { ROLES, TEXT_FONTS, sessionRole, fontName } from '/static/js/lettering.js';
+import { resolveFont, fontValueText, sourceLabel, itemCanHold, followPresentation, holdGlobal, ownLettering } from '/static/js/font-source.js';
 
+// An item's own title font; its first choice, 'theme', follows the presentation (fontField names it).
 const FONTS = [
-  ['theme', 'Session font (Sessions → Stage font)'],
   ['system-ui', 'System sans'],
   ['Georgia', 'Georgia (serif)'],
   ['Segoe Print', 'Segoe Print (handwriting)'],
@@ -33,10 +34,19 @@ function parseTimer(text) {
   return m[2] === undefined ? parseInt(m[1], 10) * 60 : parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
-// The fades a newly switched-on music item starts with: Settings → Music.
+// Settings → defaults: the fades a newly switched-on music item starts with, and the global
+// stage lettering each font row says it follows or differs from (null until loaded).
 let musicDefaults = { fade_in_s: 2, fade_out_s: 2 };
-export function loadMusicDefaults() {
-  api('/api/settings/defaults').then((d) => { musicDefaults = d.music; }).catch(() => { /* keep the last known */ });
+let defaults = null;
+
+/** Fetch the Settings defaults; the list and the editor redraw when the lettering changed. */
+function loadDefaults({ st, renderList, renderEditor }) {
+  api('/api/settings/defaults').then((d) => {
+    musicDefaults = d.music;
+    const changed = JSON.stringify(d.stage) !== JSON.stringify((defaults || {}).stage);
+    defaults = d;
+    if (changed && st.session) { renderList(); renderEditor(); }
+  }).catch(() => { /* keep the last known */ });
 }
 
 // ---------------------------------------------------------------- rows and controls
@@ -113,47 +123,95 @@ export const fontSeed = () => ({ family: 'theme' });
 // (an edit happened), the redraws `updatePreview`, `renderList` and `renderEditor`, and
 // `slideOf` (an item's imported slide).
 
-/** The session's own title size (Sessions → Stage look): what an activity's title is until the item sets one. */
-const sessionTitleSize = (st) => (st.session.font && st.session.font.title_size) || 72;
+function resetButton(text, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'button-ghost';
+  b.innerHTML = `${icon('rotate-ccw')} ${esc(text)}`;
+  b.addEventListener('click', onClick);
+  return b;
+}
 
 /**
  * An item's own lettering — font, size (stage px on the 1920-wide canvas; none
  * for a slide's text, which keeps its PowerPoint sizes) and capitals. Each
- * starts as the session's (Sessions → Stage font): setting one here is the
- * exception for this item only.
+ * follows the presentation (Sessions → Stage look) until the item sets its own;
+ * each row says which layer is in effect (resolveFont) and offers the resets.
  */
-function fontField({ st, markDirty, updatePreview }, it, label, defaultSize) {
-  const font = it.font || { family: 'theme' };
+function fontField({ st, markDirty, updatePreview, renderList, renderEditor }, it, label, sized) {
+  const font = it.font || fontSeed();
+  const box = document.createElement('div');
+  box.className = 'font-props';
+  const paints = [];
   const set = (change) => {
     it.font = Object.assign(fontSeed(), it.font, change);
     markDirty();
     updatePreview(it);
+    paints.forEach((paint) => paint());
+    renderList();
   };
-  const row = document.createElement('div');
-  row.className = 'inline-controls font-controls';
+  const reset = (change) => { change(); markDirty(); renderList(); renderEditor(); };
+  const prop = (key, name, control, ...after) => {
+    const row = document.createElement('div');
+    row.className = 'font-prop';
+    row.dataset.prop = key;
+    const chip = document.createElement('span');
+    const actions = document.createElement('span');
+    actions.className = 'font-prop-actions';
+    row.append(Object.assign(document.createElement('span'), { className: 'font-prop-label small', textContent: name }), control, ...after, chip, actions);
+    const paint = () => {
+      const r = resolveFont(st.session, defaults, it, key);
+      const own = r.source === 'item';
+      control.classList.toggle('src-own', own);
+      control.classList.toggle('src-inherited', !own);
+      chip.className = `chip src-chip${own ? ' accent' : ''}`;
+      chip.textContent = sourceLabel(key, r);
+      actions.replaceChildren();
+      if (own) actions.appendChild(resetButton('Reset to presentation', () => reset(() => followPresentation(it, key))));
+      if (r.value !== r.global && itemCanHold(key, r.global)) actions.appendChild(resetButton('Reset to global', () => reset(() => holdGlobal(it, key, r))));
+    };
+    paints.push(paint);
+    box.appendChild(row);
+  };
+  const presentation = (key) => fontValueText(key, resolveFont(st.session, defaults, null, key).value);
   const famValue = font.family === 'Patrick Hand' ? 'theme' : font.family;
-  const fam = selectField(label, FONTS, famValue, (v) => set({ family: v }));
-  row.appendChild(fam);
-  if (defaultSize) {
-    const size = input(font.size_px || sessionTitleSize(st), (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
+  const families = [['theme', `As the presentation (${presentation('family')})`], ...FONTS];
+  if (!families.some(([v]) => v === famValue)) families.push([famValue, famValue]);
+  prop('family', 'Font', selectField(label, families, famValue, (v) => set({ family: v })));
+  if (sized) {
+    const r = resolveFont(st.session, defaults, it, 'size');
+    const size = input(r.value, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
     size.classList.add('size-input');
-    row.append(size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
+    prop('size', 'Size', size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
+  } else {
+    const row = document.createElement('div');
+    row.className = 'font-prop';
+    row.dataset.prop = 'size';
+    row.innerHTML = '<span class="font-prop-label small">Size</span><span class="ed-hint">Sizes come from the PowerPoint slide</span>';
+    box.appendChild(row);
   }
-  const sessionCaps = !(st.session.font && st.session.font.caps === false);
   const capsValue = font.caps === true ? 'caps' : font.caps === false ? 'typed' : '';
-  const caps = selectField('Capitals',
-    [['', `Capitals as the session (${sessionCaps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
+  prop('caps', 'Capitals', selectField('Capitals',
+    [['', `As the presentation (${presentation('caps')})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
     capsValue,
-    (v) => set({ caps: v === 'caps' ? true : v === 'typed' ? false : null }));
-  row.appendChild(caps);
-  return field(label, row);
+    (v) => set({ caps: v === 'caps' ? true : v === 'typed' ? false : null })));
+  paints.forEach((paint) => paint());
+  return field(label, box);
+}
+
+/** The plan list's mark on an item with its own lettering: its size (or "Own font"), the tooltip naming what it overrides. */
+function letteringChip({ st }, it) {
+  const own = ownLettering(st.session, defaults, it);
+  if (!own.length) return '';
+  const size = resolveFont(st.session, defaults, it, 'size');
+  return `<span class="chip lettering-chip" title="${esc(`Overrides: ${own.join(', ')}`)}">${icon('type')}${size.source === 'item' ? `${size.value} px` : 'Own font'}</span>`;
 }
 
 /**
  * An item's other text — the chat hint, the answers, a subtitle, a slide's
  * text — in the session's lettering, or its own font and capitals (it.font.roles).
  */
-function rolesField({ st, markDirty, updatePreview }, it, keys) {
+function rolesField({ st, markDirty, updatePreview, renderList }, it, keys) {
   const wrap = document.createElement('div');
   wrap.className = 'role-rows';
   const own = (it.font || {}).roles || {};
@@ -168,6 +226,7 @@ function rolesField({ st, markDirty, updatePreview }, it, keys) {
     it.font = f;
     markDirty();
     updatePreview(it);
+    renderList();  // its own-lettering mark
   };
   keys.forEach((key) => {
     const role = ROLES.find((r) => r.key === key);
@@ -400,9 +459,12 @@ function answersField({ markDirty, renderList }, it, spec) {
   return field('Answers', box);
 }
 
-/** The per-item fields, each bound to the Plan tab through `ctx` (`{ st, markDirty, updatePreview, renderList, renderEditor, slideOf }`). */
+/** The per-item fields, each bound to the Plan tab through `ctx` (`{ st, markDirty, updatePreview, renderList, renderEditor, slideOf }`),
+ *  the plan list's lettering mark, and the Settings defaults they read. */
 export function planFields(ctx) {
   return {
+    loadDefaults: () => loadDefaults(ctx),
+    letteringChip: (it) => letteringChip(ctx, it),
     fontField: (it, label, defaultSize) => fontField(ctx, it, label, defaultSize),
     rolesField: (it, keys) => rolesField(ctx, it, keys),
     notesField: (it) => notesField(ctx, it),

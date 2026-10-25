@@ -18,7 +18,7 @@ import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
 import { words } from '/static/js/stage-words.js';
-import { field, segmentedChoice, input, selectField, fmtTimer, loadMusicDefaults, planFields } from '/static/js/views/plan-fields.js';
+import { field, segmentedChoice, input, selectField, fmtTimer, planFields } from '/static/js/views/plan-fields.js';
 import { createPreview } from '/static/js/views/plan-preview.js';
 
 const PROFILES = [
@@ -40,7 +40,7 @@ let reviewHost;
 // selected = the focused item (the editor's); picked = every selected item (it included); anchor = where Shift ranges start.
 const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, rounds: null, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), pending: false };
 const { previewCard, updatePreview } = createPreview({ st, getEditor: () => editor, slideOf, titleOf });
-const { fontField, rolesField, notesField, timerField, musicField, answersField } = planFields({ st, markDirty, updatePreview, renderList, renderEditor, slideOf });
+const { loadDefaults, letteringChip, fontField, rolesField, notesField, timerField, musicField, answersField } = planFields({ st, markDirty, updatePreview, renderList, renderEditor, slideOf });
 
 // ---------------------------------------------------------------- helpers
 
@@ -140,6 +140,7 @@ function chipHtml(it) {
   if (round) chips.push(`<span class="chip">${esc(round)}</span>`);
   if (it.timer && it.timer.enabled) chips.push(`<span class="chip">${icon('timer')}${fmtTimer(it.timer.seconds)}</span>`);
   if (it.music && it.music.enabled !== false) chips.push(`<span class="chip" title="Music">${icon('music')}</span>`);
+  chips.push(letteringChip(it));
   if (!it.profile && it.kind === 'slide') chips.push('<span class="chip warn">Pick profile</span>');
   return chips.join('');
 }
@@ -210,7 +211,7 @@ async function loadRounds() {
 }
 
 export function show() {
-  loadMusicDefaults();
+  loadDefaults();
   if (ctx.reviewFor && ctx.reviewFor === ctx.sessionId) { load(); return; }
   if (!st.dirty) load();
 }

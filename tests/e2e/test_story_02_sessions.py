@@ -96,7 +96,9 @@ def _check_session_lettering(page: Page, session_yaml: Path, defaults: str) -> N
     assert yaml.safe_load(session_yaml.read_text(encoding="utf-8"))["font"]["timer_running"] == "#1565c0"  # #211
     card.locator("select[aria-label='Title font']").select_option("system-ui")
     expect(state).to_have_text("Overridden")
+    expect(card.locator("[data-global-diff]")).to_contain_text("Differs from global (Georgia (serif))")
     card.locator("[data-look-reset]").click()
+    page.locator(".dialog-confirm").click()  # every item following the presentation changes: it asks first
     expect(state).to_have_text("Using the default")
     expect(card.locator("[data-look-reset]")).to_have_count(0)
     saved = yaml.safe_load(session_yaml.read_text(encoding="utf-8"))["font"]

@@ -8,14 +8,9 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { esc, toast } from '/static/js/ui.js';
 import { ROLES, TEXT_FONTS, sessionRole } from '/static/js/lettering.js';
+import { STAGE_FONTS, letteringLabel, resolveFont, fontValueText, globalPatch } from '/static/js/font-source.js';
 
-/** Installed fonts for the title font (value '' = the theme's Patrick Hand). */
-export const STAGE_FONTS = [
-  ['', 'Patrick Hand (theme)'],
-  ['system-ui', 'System sans'],
-  ['Georgia', 'Georgia (serif)'],
-  ['Segoe Print', 'Segoe Print (handwriting)'],
-];
+export { letteringLabel };
 
 export const FONT_DEFAULTS = {
   file: '', family: '', weight: 400, stroke_px: 0, caps: true, title_color: '', title_size: 0,
@@ -55,11 +50,18 @@ export function contrastRatio(hex, bg) {
 
 const fileName = (path) => String(path || '').split(/[\\/]/).pop();
 
-/** The title font in words: its file's name, else the installed font's label. */
-export function letteringLabel(font) {
-  const f = Object.assign({}, FONT_DEFAULTS, font || {});
-  if ((f.file || '').trim()) return fileName(f.file);
-  return (STAGE_FONTS.find(([v]) => v === f.family) || [null, f.family || 'Patrick Hand (theme)'])[1];
+/**
+ * A session's title size, capitals or font against the global default (Settings → Stage
+ * defaults): a chip and a reset when they differ, nothing when they match or when the
+ * editor is the global default itself (no `defaults`).
+ */
+function globalDiff(font, defaults, prop) {
+  if (!defaults) return '';
+  const r = resolveFont({ font }, defaults, null, prop);
+  if (r.source !== 'presentation') return '';
+  return `<div class="font-row global-diff" data-global-diff="${prop}"><span class="small"></span><span class="inline-controls">` +
+    `<span class="chip">Differs from global (${esc(fontValueText(prop, r.global))})</span>` +
+    `<button type="button" class="button-ghost" data-reset-global="${prop}">${icon('rotate-ccw')} Reset to global</button></span></div>`;
 }
 
 /** The stage themes as <option>s (a theme no longer on this PC stays, marked). */
@@ -77,9 +79,10 @@ function tabs(label, attr, options, value) {
 /**
  * The editor's markup: the sample (a small stage canvas) and the rows.
  * opts: hint (the chat hint's words), sampleClass (extra class on the sample
- * canvas), library ([{name, path}] font files to offer as title fonts).
+ * canvas), library ([{name, path}] font files to offer as title fonts), defaults
+ * (the Settings defaults payload, for a session's editor: its differences from them).
  */
-export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
+export function fontEditorHtml(font, { hint, sampleClass = '', library = [], defaults = null }) {
   const f = Object.assign({}, FONT_DEFAULTS, font || {});
   const file = (f.file || '').trim();
   const stroke = Number(f.stroke_px) || 0;
@@ -101,6 +104,7 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
     library.map((l) => `<option value="${esc('file:' + l.path)}"${l.path === file ? ' selected' : ''}>Library · ${esc(l.name)}</option>`).join('') +
     (file && !inLibrary ? `<option value="__file" selected>File · ${esc(fileName(file))}</option>` : '') +
     `</select><button type="button" class="button-surface" data-font-pick>${icon('folder-open')} ${file ? 'Change file…' : 'Font file…'}</button></span></label>` +
+    globalDiff(font, defaults, 'family') +
     `<div class="font-row"><span class="small">Weight</span>${tabs('Title weight', 'data-weight', [[400, 'Regular'], [700, 'Bold']], f.weight)}</div>` +
     `<label class="font-row font-stroke"><span class="small">Line thickness</span>` +
     `<input type="range" min="0" max="6" step="0.25" value="${stroke}" aria-label="Line thickness in stage px">` +
@@ -111,7 +115,7 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
     `<span class="small muted" data-contrast></span></span></div>` +
     `<label class="font-row"><span class="small">Size</span><span class="inline-controls">` +
     `<input type="number" class="input font-size-input" min="24" max="240" step="2" placeholder="72" value="${size || ''}" aria-label="Title size in stage px" data-title-size>` +
-    `<span class="small muted">px · empty = 72</span></span></label></div>` +
+    `<span class="small muted">px · empty = 72</span></span></label>` + globalDiff(font, defaults, 'size') + `</div>` +
     `<p class="small muted font-note">Colour and size letter activity titles and questions. Imported slides keep their PowerPoint size and colour.</p>` +
     (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '') +
     `<h4 class="font-group">Text font</h4><div class="font-rows">` +
@@ -125,7 +129,8 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
       const now = sessionRole(f, r.key);
       return `<div class="role-row" data-role="${r.key}"><span class="small">${esc(r.label)}</span>` +
         tabs(`${r.label}: font`, 'data-role-font', [['title', 'Title font'], ['text', 'Text font']], now.font === 'title' ? 'title' : 'text') +
-        tabs(`${r.label}: capitals`, 'data-role-caps', [['true', 'ALL CAPS'], ['false', 'As typed']], String(now.caps)) + '</div>';
+        tabs(`${r.label}: capitals`, 'data-role-caps', [['true', 'ALL CAPS'], ['false', 'As typed']], String(now.caps)) + '</div>' +
+        (r.key === 'title' ? globalDiff(font, defaults, 'caps') : '');  // a title's capitals are font.caps
     }).join('') + `</div>` +
     `<h4 class="font-group">Timer colours</h4><div class="font-rows">` +
     TIMER_STATES.map(([key, label, theme]) =>
@@ -141,9 +146,10 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [] }) {
  * Wire the editor inside `card`.
  * opts: current() → the saved block (or null); save(next|null) → Promise<bool>
  * (null = the theme's lettering); redraw() after a saved change; pickFile() →
- * Promise<path|''> for "Font file…".
+ * Promise<path|''> for "Font file…"; defaults, as given to fontEditorHtml, for
+ * each "Reset to global".
  */
-export function wireFontEditor(card, { current, save, redraw, pickFile }) {
+export function wireFontEditor(card, { current, save, redraw, pickFile, defaults = null }) {
   const sample = card.querySelector('.font-sample');
   const range = card.querySelector('input[type=range]');
   const out = card.querySelector('output');
@@ -169,6 +175,7 @@ export function wireFontEditor(card, { current, save, redraw, pickFile }) {
     else if (v !== '__file') again(saveFont({ file: '', family: v }));
   });
   card.querySelector('[data-text-family]').addEventListener('change', (e) => again(saveFont({ text_family: e.target.value })));
+  card.querySelectorAll('[data-reset-global]').forEach((b) => b.addEventListener('click', () => again(saveFont(globalPatch(b.dataset.resetGlobal, defaults)))));
   card.querySelectorAll('[data-weight]').forEach((b) => b.addEventListener('click', () => again(saveFont({ weight: Number(b.dataset.weight) }))));
   card.querySelectorAll('[data-text-weight]').forEach((b) => b.addEventListener('click', () => again(saveFont({ text_weight: Number(b.dataset.textWeight) }))));
   card.querySelectorAll('.role-row').forEach((row) => {
@@ -214,7 +221,9 @@ export function wireFontEditor(card, { current, save, redraw, pickFile }) {
     const n = Math.round(Number(sizeEl.value)) || 0;
     const size = n ? Math.min(240, Math.max(24, n)) : 0;
     sizeEl.value = size || '';
-    if (await saveFont({ title_size: size })) toast(size ? `Title size ${size} px saved` : 'Title size back to the theme’s');
+    if (!(await saveFont({ title_size: size }))) return;
+    toast(size ? `Title size ${size} px saved` : 'Title size back to the theme’s');
+    if (defaults) redraw();  // its difference from the global default
   });
   range.addEventListener('input', () => {
     out.textContent = `${range.value} px`;
