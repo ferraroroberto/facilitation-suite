@@ -33,7 +33,7 @@ from src.sessions.store import SessionStore
 from tests.conftest import REPO_ROOT, write_test_config
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import add_quiz_section
-from tests.test_quiz_engine import (  # noqa: F401 — fixtures
+from tests.quiz.test_quiz_engine import (  # noqa: F401 — fixtures
     Clock,
     at_lobby_with,
     clock,

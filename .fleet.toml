@@ -86,7 +86,7 @@ baseline = ".docs-ratchet-baseline.json"
 enabled  = true
 baseline = ".comment-ratchet-baseline.json"
 # The quiz player's copies of the fleet CSS are byte-for-byte copies of the vendored and
-# app files (tests/test_quiz_player.py holds them equal), so their upstream comments
+# app files (tests/quiz/test_quiz_player.py holds them equal), so their upstream comments
 # cannot be reworded here.
 exclude  = ["app/player/static/fleet/**"]
 

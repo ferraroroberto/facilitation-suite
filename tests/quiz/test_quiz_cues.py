@@ -17,8 +17,8 @@ from src.quiz.cues import QuizCues
 from src.quiz.service import QuizService
 from src.sessions.store import SESSION_FILE, SessionStore
 from tests.fixtures.demo import build_demo_session
+from tests.quiz.test_quiz_engine import QUIZ_SECTION
 from tests.test_music import FakeBackend, write_wav
-from tests.test_quiz_engine import QUIZ_SECTION
 
 AD_HOC = {"source": "file", "path": "audio/song.wav", "volume": 60, "fade_in_s": 1, "fade_out_s": 1, "start": "on_enter",
           "on_leave": "keep_playing"}

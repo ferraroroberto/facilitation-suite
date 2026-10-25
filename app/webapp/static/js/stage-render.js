@@ -181,6 +181,82 @@ function setTimerState(el, state) {
   el.classList.add(state);
 }
 
+/** A slide: its picture (with the imported text boxes over the text-free one), or its title alone. */
+function slideHtml(it, sid) {
+  const slides = `/api/sessions/${encodeURIComponent(sid)}/slides/`;
+  let html = it.slide_bg && it.text_boxes
+    ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_bg)}">${slideText(it)}`
+    : it.slide_file
+      ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
+      : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font)}">${lines(it.title)}</h1></div>`;
+  // a slide's timer sits in a bottom corner, away from the camera
+  if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>`;
+  return html;
+}
+
+function breakHtml(it, lang) {
+  // a breakout says which round is in the rooms, under its title
+  const sub = it.kind === 'breakout' ? roundLine(lang, (it.options || {}).round, it.rooms) : '';
+  return `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
+    (sub ? `<p class="st-sub">${esc(sub)}</p>` : '') +
+    (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
+}
+
+function activityHtml(it, lang, hint) {
+  const text = it.capture ? (it.question || it.title) : it.title;
+  return `<div class="st-content">` +
+    `<div class="st-head"><h1 class="st-question" style="${lettering(it.font)}">${lines(text)}</h1>` +
+    `<p class="st-sub" data-sub hidden></p></div>` +
+    `<div class="st-body" data-body></div>` +
+    `<div class="st-foot">` +
+    (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
+    // a quiz question takes chat answers too while its lobby accepts them: shown while it is open
+    (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${ICON('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
+    `<span class="st-spacer"></span><span class="st-count" data-count></span>` +
+    `<span class="st-pill" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>` +
+    `</div></div>`;
+}
+
+/** The whole item box: its content by kind, the camera guide (previews only) and the blackout layer. */
+function itemHtml(it, sid, lang, hint, opts) {
+  // the item's own lettering for its other texts (hint, answers, subtitles, slide text) rides on its box
+  const roles = roleStyle((it.font || {}).roles);
+  let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}" style="${it.kind === 'slide' ? '' : zoneStyle(it.zone)}${roles}">`;
+  if (it.kind === 'slide') html += slideHtml(it, sid);
+  else if (it.kind === 'break' || it.kind === 'breakout') html += breakHtml(it, lang);
+  else html += activityHtml(it, lang, hint);
+  if (opts.guides && it.zone && (it.kind !== 'slide' || opts.slideGuides)) {
+    const z = it.zone;
+    html += `<div class="st-guide" style="left:${z[0] * W}px;top:${z[1] * H}px;width:${(z[2] - z[0]) * W}px;height:${(z[3] - z[1]) * H}px">${ICON('video')}<span>Camera</span></div>`;
+  }
+  return html + `</div><div class="st-blackout" data-blackout hidden></div>`;
+}
+
+/** The timer widgets of the drawn item (break clock, corner pill) and the quiz chat hint, from the live state. */
+function syncTimers(canvas, item, t, ctx, opts) {
+  const phase = timerState(t);
+  // "Remove the timer" at 00:00: it leaves the stage once done.
+  const gone = !!(t && t.done && item.timer && item.timer.end === 'hide');
+  const clockEl = canvas.querySelector('[data-clock]');
+  if (clockEl) {
+    const left = t ? remaining(t, ctx.now) : item.timer.seconds;
+    clockEl.textContent = clock(left);
+    setTimerState(clockEl, phase);
+    clockEl.hidden = gone;
+  }
+  const pill = canvas.querySelector('[data-pill]');
+  if (pill) {
+    pill.hidden = !t || !!opts.noTimers || gone;
+    if (t) pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
+    setTimerState(pill, phase);
+  }
+  const quizHint = canvas.querySelector('[data-quizhint]');
+  if (quizHint) {
+    const q = (ctx.state || {}).quiz;
+    quizHint.hidden = !(q && q.accept_chat && q.item_id === item.id && q.phase === 'question');
+  }
+}
+
 /**
  * createStage(host, { guides }) → { render(item, ctx), update(ctx), el }
  *   item: a run item (src/live/plan.py) or null
@@ -255,46 +331,8 @@ export function createStage(host, opts = {}) {
       canvas.innerHTML = '';
       return;
     }
-    const sid = ctx.plan.session.id;
     lang = ctx.plan.run.language || 'en';
-    const hint = ctx.plan.run.chat_hint || words(lang).chat_hint;
-    // the item's own lettering for its other texts (hint, answers, subtitles, slide text) rides on its box
-    const roles = roleStyle((it.font || {}).roles);
-    let html = `<div class="st-item" data-kind="${it.kind}" data-profile="${esc(it.profile)}" data-type="${esc(it.type || '')}" style="${it.kind === 'slide' ? '' : zoneStyle(it.zone)}${roles}">`;
-    if (it.kind === 'slide') {
-      const slides = `/api/sessions/${encodeURIComponent(sid)}/slides/`;
-      html += it.slide_bg && it.text_boxes
-        ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_bg)}">${slideText(it)}`
-        : it.slide_file
-          ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
-          : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font)}">${lines(it.title)}</h1></div>`;
-      // a slide's timer sits in a bottom corner, away from the camera
-      if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>`;
-    } else if (it.kind === 'break' || it.kind === 'breakout') {
-      // a breakout says which round is in the rooms, under its title
-      const sub = it.kind === 'breakout' ? roundLine(lang, (it.options || {}).round, it.rooms) : '';
-      html += `<div class="st-content"><div class="st-break"><h1 class="st-break-title" style="${lettering(it.font)}">${lines(it.title)}</h1>` +
-        (sub ? `<p class="st-sub">${esc(sub)}</p>` : '') +
-        (it.timer ? `<div class="st-break-clock" data-clock></div>` : '') + `</div></div>`;
-    } else {
-      const text = it.capture ? (it.question || it.title) : it.title;
-      html += `<div class="st-content">` +
-        `<div class="st-head"><h1 class="st-question" style="${lettering(it.font)}">${lines(text)}</h1>` +
-        `<p class="st-sub" data-sub hidden></p></div>` +
-        `<div class="st-body" data-body></div>` +
-        `<div class="st-foot">` +
-        (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
-        // a quiz question takes chat answers too while its lobby accepts them: shown while it is open
-        (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${ICON('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
-        `<span class="st-spacer"></span><span class="st-count" data-count></span>` +
-        `<span class="st-pill" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>` +
-        `</div></div>`;
-    }
-    if (opts.guides && it.zone && (it.kind !== 'slide' || opts.slideGuides)) {
-      const z = it.zone;
-      html += `<div class="st-guide" style="left:${z[0] * W}px;top:${z[1] * H}px;width:${(z[2] - z[0]) * W}px;height:${(z[3] - z[1]) * H}px">${ICON('video')}<span>Camera</span></div>`;
-    }
-    html += `</div><div class="st-blackout" data-blackout hidden></div>`;
+    const html = itemHtml(it, ctx.plan.session.id, lang, ctx.plan.run.chat_hint || words(lang).chat_hint, opts);
     canvas.innerHTML = html;
     if (it.text_boxes) fitSlideText(canvas);
     centreOnCamera(canvas, it);
@@ -312,28 +350,7 @@ export function createStage(host, opts = {}) {
     const blk = canvas.querySelector('[data-blackout]');
     if (blk) blk.hidden = !(opts.blackout !== false && state.blackout);
     if (!item) return;
-    const t = stageTimer(item, state);
-    const phase = timerState(t);
-    // "Remove the timer" at 00:00: it leaves the stage once done.
-    const gone = !!(t && t.done && item.timer && item.timer.end === 'hide');
-    const clockEl = canvas.querySelector('[data-clock]');
-    if (clockEl) {
-      const left = t ? remaining(t, ctx.now) : item.timer.seconds;
-      clockEl.textContent = clock(left);
-      setTimerState(clockEl, phase);
-      clockEl.hidden = gone;
-    }
-    const pill = canvas.querySelector('[data-pill]');
-    if (pill) {
-      pill.hidden = !t || !!opts.noTimers || gone;
-      if (t) pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
-      setTimerState(pill, phase);
-    }
-    const quizHint = canvas.querySelector('[data-quizhint]');
-    if (quizHint) {
-      const q = state.quiz;
-      quizHint.hidden = !(q && q.accept_chat && q.item_id === item.id && q.phase === 'question');
-    }
+    syncTimers(canvas, item, stageTimer(item, state), ctx, opts);
     if (item.kind === 'activity') drawResult(ctx);
   }
 

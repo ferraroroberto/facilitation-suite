@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 import yaml
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
@@ -70,11 +70,8 @@ def _until(check, timeout: float = 5.0) -> None:
         time.sleep(0.1)
 
 
-def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
-    folder = webapp.root / "sessions" / "demo" / "font-story"
-    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
-    font = SYSTEM_FONT if SYSTEM_FONT.is_file() else Path(shutil.copy(VENDORED, webapp.root / "Synthetic-Regular.ttf"))
-
+def _pick_stage_font(page: Page, webapp, sid: str, folder, font: Path) -> tuple[Locator, Locator]:
+    """Sessions → Stage font: choose a font file, thicken its lines; returns the settings card and its sample question."""
     page.set_viewport_size({"width": 1440, "height": 900})
     page.add_init_script(f"localStorage.setItem('facilitation-suite.session', '{sid}')")
     # the native file dialog cannot open under test: answer the picker with the font
@@ -92,6 +89,11 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     _until(lambda: _saved(folder)["font"]["stroke_px"] == 2)
     sample = card.locator(".st-question")
     expect(sample).to_have_css("-webkit-text-stroke-width", "2px")
+    return card, sample
+
+
+def _check_stale_read_ignored(page: Page, webapp, sid: str, card: Locator) -> None:
+    """An older read of the session that lands last must not draw over the newer card."""
     # #281: two reads of the session can be in flight (a save redraws the card, and so does the list's refresh),
     # and on a loaded CI runner the older one landed last and drew a stale card. Hold the next read, rename the
     # session behind it, draw the card again, then let the older read in: it must not draw over the newer card.
@@ -111,6 +113,10 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.evaluate("() => window.__releaseRead()")
     page.wait_for_function("() => window.__readDone === true")
     expect(title).to_have_value("Renamed behind the held read")
+
+
+def _check_look_settings(page: Page, folder, card: Locator, sample: Locator, shots) -> None:
+    """The title's colour and size, the session's own timer colours, and the word cloud's capitals."""
     # #191: the title's colour and size; a pale colour is flagged against the grey stage
     card.locator("[data-title-color]").fill("#fafafa")
     expect(card.locator("[data-contrast]")).to_contain_text("hard to read")
@@ -140,6 +146,9 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     _until(lambda: _saved(folder)["font"].get("roles") == {"answers": {"caps": True}})
     expect(page.locator(".session-settings-card .font-sample-words")).to_have_css("text-transform", "uppercase")
 
+
+def _check_plan_preview(page: Page) -> None:
+    """Plan: the stage preview draws the question in the session font with its lines thickened, and the timer colours."""
     # -- Plan: the stage preview draws the question in the session font, lines thickened
     page.click("#tabPlan")
     page.locator('[data-item="act-kryptonite"]').click()  # saved as "Patrick Hand" = the theme font
@@ -170,6 +179,9 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     want["running"] = {"pill": (21, 101, 192), "ink": WHITE, "clock": (21, 101, 192)}
     assert_states(page.evaluate(TIMER_STATES), want)
 
+
+def _check_multi_select(page: Page, shots) -> None:
+    """Multi-select: click, Shift+click a range, Ctrl+click one out, the bulk panel, dragging the selection."""
     # -- multi-select: click, Shift+click a range, Ctrl+click one out
     rows = page.locator(".item-row")
     page.locator('[data-item="slide-104"]').click()
@@ -194,6 +206,9 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     assert order[:6] == ["slide-101", "act-map", "slide-104", "slide-105", "act-kryptonite", "slide-102"], order
     expect(page.locator(".item-row.selected")).to_have_count(3)
 
+
+def _check_delete_slides(page: Page) -> None:
+    """Esc keeps one; a single imported slide and a keyboard-extended pair can be deleted."""
     # Esc keeps one; a single imported slide can now be deleted from its editor
     page.locator('[data-item="slide-105"]').press("Escape")
     expect(page.locator(".item-row.selected")).to_have_count(1)
@@ -213,6 +228,9 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     page.locator(".dialog-confirm").click()
     expect(page.locator('[data-item="slide-107"], [data-item="slide-108"]')).to_have_count(0)
 
+
+def _save_and_check_yaml(page: Page, webapp, sid: str, folder) -> None:
+    """Save, and read the plan back from session.yaml; the deleted slides stay in the deck."""
     page.locator(".dirty-bar [data-save]").click()
     expect(page.locator(".dirty-bar")).to_have_count(0)
     saved = _saved(folder)
@@ -224,3 +242,16 @@ def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
     # the deleted slides are still in the deck, to add back
     deck = page.request.get(f"{webapp.base_url}/api/sessions/{sid}/slides").json()
     assert {101, 107, 108} <= {s["slide_id"] for s in deck["slides"]}
+
+
+def test_stage_font_and_multi_select(page: Page, webapp, shots) -> None:
+    folder = webapp.root / "sessions" / "demo" / "font-story"
+    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    font = SYSTEM_FONT if SYSTEM_FONT.is_file() else Path(shutil.copy(VENDORED, webapp.root / "Synthetic-Regular.ttf"))
+    card, sample = _pick_stage_font(page, webapp, sid, folder, font)
+    _check_stale_read_ignored(page, webapp, sid, card)
+    _check_look_settings(page, folder, card, sample, shots)
+    _check_plan_preview(page)
+    _check_multi_select(page, shots)
+    _check_delete_slides(page)
+    _save_and_check_yaml(page, webapp, sid, folder)

@@ -50,7 +50,7 @@ const MAX_NAMES = 60; // lobby names drawn at most; those that do not fit, and t
 const MIN_FIT = 0.6; // fitTiles steps the answers down to 60 % of their size, no further
 
 // Every word the audience reads on the stage, in the session's language (ctx.lang). The
-// presenter's controls stay in English. tests/test_quiz_language.py checks both languages have
+// presenter's controls stay in English. tests/quiz/test_quiz_language.py checks both languages have
 // every key this file uses (and the phone's table in app/player/static/play.js likewise).
 const WORDS = {
   en: {

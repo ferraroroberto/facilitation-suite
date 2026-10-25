@@ -7,7 +7,7 @@ import io
 import re
 
 from PIL import Image
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from tests.e2e._surface import surface
 from tests.e2e.conftest import set_stage_click, shot
@@ -87,17 +87,17 @@ def _reflowed(page: Page) -> None:
     page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))")
 
 
-def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, shots) -> None:
-    folder = webapp.root / "sessions" / "demo" / "live-story"
-    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
-    errors: list[str] = []
-    page.on("pageerror", lambda e: errors.append(str(e)))
+def _open_presenter(page: Page, webapp, sid: str) -> None:
+    """The presenter opens on the first item, with no Music card for a session without music."""
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(f"{webapp.base_url}/presenter?session={sid}")
     expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     expect(page.locator(".p-music")).to_be_hidden()  # a session without music: no Music card, no chip
     surface(page, "presenter.opening")
 
+
+def _check_header_wraps(page: Page) -> None:
+    """The header wraps at phone width, and keeps a readable title at tablet widths."""
     # #98: the header wraps at phone width instead of pushing the page sideways
     page.set_viewport_size({"width": 390, "height": 844})
     _reflowed(page)
@@ -117,6 +117,9 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
         assert scroll_width <= client_width, f"presenter scrolls sideways at {width}px ({scroll_width} > {client_width})"
     page.set_viewport_size({"width": 1440, "height": 900})
 
+
+def _open_stage(page: Page, browser: Browser, webapp, sid: str, errors: list[str]) -> tuple[BrowserContext, Page]:
+    """The stage window opens on the opening divider, in the stage font; returns its context and page."""
     stage_ctx = browser.new_context(viewport={"width": 1280, "height": 720})
     stage = stage_ctx.new_page()
     stage.on("pageerror", lambda e: errors.append(str(e)))
@@ -136,7 +139,11 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     left = page.evaluate("() => [document.querySelector('.p-top'), document.querySelector('.p-title')]"
                          ".map((e) => e.getBoundingClientRect().left)")
     assert abs(left[1] - left[0]) <= 1, left
+    return stage_ctx, stage
 
+
+def _check_camera_centring(page: Page, browser: Browser, webapp, stage: Page) -> None:
+    """Under a corner camera the title text is centred on the camera's middle, judged by the rendered ink."""
     # → on the presenter moves the stage to the map activity (camera PiP, question on stage)
     page.keyboard.press("ArrowRight")
     expect(stage.locator(".st-question")).to_have_text("Where are you joining from?")
@@ -168,6 +175,9 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     ink_ctx.close()
     assert all(abs(v) <= 3 for v in off.values()), f"ink midline minus camera midline (px at 1920x1080), by line count: {off}"
 
+
+def _check_timer_and_reload(page: Page, stage: Page, stage_ctx: BrowserContext, webapp) -> None:
+    """The item's timer runs on both screens; a reloaded or reopened stage comes back on the same item."""
     # the item's own timer: T starts it on both screens
     page.keyboard.press("t")
     expect(stage.locator("[data-pill]")).to_be_visible()
@@ -194,6 +204,9 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     expect(reopened.locator("[data-pill].paused")).to_be_visible()
     reopened.close()
 
+
+def _check_clocks_and_navigation(page: Page, stage: Page, webapp, shots) -> None:
+    """The stage clicker, the presenter-only clocks, blackout, the break timer, and click / End / Home navigation."""
     # the clicker on the stage window drives the presenter too (PageDown = next)
     stage.keyboard.press("PageDown")
     expect(page.locator(".p-sub")).to_contain_text("3 of 18")
@@ -236,6 +249,9 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     stage.keyboard.press("Home")
     expect(page.locator(".p-sub")).to_contain_text("1 of 18")
 
+
+def _check_hidden_item(page: Page) -> None:
+    """A hidden item is dimmed in the filmstrip; Next and Previous step over it, a click opens it."""
     # #249: a hidden item (the demo's "Who are you with?", 8) is dimmed and marked in the filmstrip; Next and
     # Previous step over it, and a click on it still opens it
     page.locator('.p-thumb[data-goto="7"]').click()
@@ -254,6 +270,9 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.keyboard.press("ArrowRight")  # from a hidden item Next goes on to the next shown one
     expect(page.locator(".p-sub")).to_contain_text("9 of 18")
 
+
+def _check_start_over(page: Page, folder) -> None:
+    """Start over after the rehearsal: first item, no clock; the run so far is kept aside."""
     # start over after the rehearsal: first item, no clock; the run so far is kept aside
     page.keyboard.press("End")
     page.locator("[data-reset]").click()
@@ -263,5 +282,20 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     expect(page.locator(".p-sub")).to_contain_text("1 of 18")
     expect(page.locator("[data-cstart]")).to_be_visible()
     assert [d.name.startswith("live-") for d in folder.iterdir()].count(True) == 1
+
+
+def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, shots) -> None:
+    folder = webapp.root / "sessions" / "demo" / "live-story"
+    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    errors: list[str] = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    _open_presenter(page, webapp, sid)
+    _check_header_wraps(page)
+    stage_ctx, stage = _open_stage(page, browser, webapp, sid, errors)
+    _check_camera_centring(page, browser, webapp, stage)
+    _check_timer_and_reload(page, stage, stage_ctx, webapp)
+    _check_clocks_and_navigation(page, stage, webapp, shots)
+    _check_hidden_item(page)
+    _check_start_over(page, folder)
     stage_ctx.close()
     assert errors == []

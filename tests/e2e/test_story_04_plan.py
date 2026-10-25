@@ -61,22 +61,8 @@ def _hide_and_rebuild(page: Page, field) -> None:
     }""")
 
 
-def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
-    folder = webapp.root / "sessions" / "demo" / "plan-story"
-    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
-    add_quiz_section(folder, {
-        "id": "sec-refit", "name": "Refit check", "minutes": 5,
-        "items": [{"kind": "activity", "id": "act-refit-quiz", "type": "quiz", "question": "Refit?",
-                   "options": {**LONG_ANSWERS, "correct": "1", "time_limit": 20}}],
-    }, at=5)  # appended after "Closing" — doesn't shift any of the other sections' positions
-    page.set_viewport_size({"width": 1440, "height": 900})
-    page.add_init_script(f"localStorage.setItem('facilitation-suite.session', '{sid}')")
-    page.goto(webapp.base_url + "/")
-    page.click("#tabPlan")
-    expect(page.locator(".sec-row")).to_have_count(6)
-    # #183: Plan spans the window at 1440px (only the Sessions list holds the 772px measure)
-    assert page.locator("#panePlan").bounding_box()["width"] > 1000
-
+def _fold_sections(page: Page) -> None:
+    """Fold every section, open them again."""
     # fold every section, open them again
     page.locator("[data-fold=collapse]").click()
     expect(page.locator(".item-row")).to_have_count(0)
@@ -84,6 +70,9 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     expect(page.locator(".item-row")).to_have_count(19)
     surface(page, "plan.outline")
 
+
+def _edit_closing_activity(page: Page) -> str:
+    """The closing word cloud: a title, a two-line question, font size, its own 90 s timer, notes. Returns the theme the page started in."""
     # the closing word cloud: a title, a question on two lines, font size, its own 90 s timer, notes
     page.locator(".item-row", has_text="What do you take away today?").click()
     page.locator(".ed-row", has_text="Title").locator("input").fill("Take-home word")
@@ -110,6 +99,11 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     expect(page.locator(".preview-frame .st-question")).to_have_js_property("innerHTML", "One word<br>you take home")
     expect(page.locator(".item-row.selected .item-title")).to_have_text("Take-home word")
+    return theme
+
+
+def _edit_music_and_answers(page: Page, theme: str) -> None:
+    """Music on the item, its 44px controls, and the answers shown verbatim."""
     # #205: music on the item — "When the timer ends" shows only with a timer
     page.locator(".music-box .toggle").click()
     # #207: the music editor's controls, the volume slider included, reach 44px; dragging and arrows still work
@@ -145,6 +139,9 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.get_by_label("How answers become words").select_option("verbatim")
     expect(whole).to_be_visible()
 
+
+def _duplicate_and_skip(page: Page) -> None:
+    """Duplicate the activity (the copy follows it and is selected), then skip the slide after it."""
     # duplicate it: the copy follows it and is selected
     page.locator(".ed-tools [data-dup]").click()
     expect(page.locator(".sec-row", has_text="Closing")).to_contain_text("3 items")
@@ -153,6 +150,9 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.locator(".item-row", has_text="Thank you!").click()
     page.locator(".ed-row", has_text="In this session").locator(".toggle").click()
 
+
+def _hide_slides_and_reorder(page: Page, theme: str) -> None:
+    """Hide a slide like PowerPoint (switch, kebab, H key), then move the closing section's slide to the top."""
     # #249: hide a slide like PowerPoint -- the row's kebab and the H key drive the same flag as the switch
     thanks = page.locator(".item-row", has_text="Thank you!")
     take_home = page.locator(".item-row", has_text="Take-home word").first
@@ -203,6 +203,9 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.locator("[data-up]").click()
     page.locator("[data-up]").click()
 
+
+def _add_section_and_breakout(page: Page) -> None:
+    """A new section from the add menu, with a breakout card in it."""
     # a new section right after "Working agreement", from its add menu
     page.locator(".add-row").nth(3).click()
     page.locator(".row-menu-item", has_text="Section after this one").click()
@@ -222,6 +225,9 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     page.locator(".item-row", has_text="Take-home word").first.click()
     expect(page.locator(".preview-frame .wc-word").first).to_be_visible()  # sample answers drawn
 
+
+def _check_previews_refit(page: Page) -> None:
+    """A preview drawn while its host has zero size is laid out once it is shown again; a quiz's tiles follow the camera box."""
     # #103: a preview drawn while its host has zero size never lays out — until it is opened
     # again. Rebuild the word cloud (and, for a quiz, its answer tiles) while its host is hidden:
     # once revealed, every word — and every tile's text — must already be there and fit, with no
@@ -246,6 +252,10 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
 
     page.locator(".item-row", has_text="Take-home word").first.click()
     expect(page.locator(".preview-frame .wc-word").first).to_be_visible()
+
+
+def _save_and_check_yaml(page: Page, shots, folder) -> None:
+    """Save, and read the plan back from session.yaml."""
     shot(page, shots / "story-04-plan-1-desktop.png")
     page.locator(".ed-save").click()
     expect(page.locator(".dirty-bar")).to_have_count(0)
@@ -268,3 +278,28 @@ def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
     assert copy["id"] != act["id"] and {k: v for k, v in copy.items() if k != "id"} == {k: v for k, v in act.items() if k != "id"}
     # untouched items keep no timer: timers are decided item by item
     assert "timer" not in saved["sections"][0]["items"][0]
+
+
+def test_edit_the_plan_and_save_it(page: Page, webapp, shots) -> None:
+    folder = webapp.root / "sessions" / "demo" / "plan-story"
+    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    add_quiz_section(folder, {
+        "id": "sec-refit", "name": "Refit check", "minutes": 5,
+        "items": [{"kind": "activity", "id": "act-refit-quiz", "type": "quiz", "question": "Refit?",
+                   "options": {**LONG_ANSWERS, "correct": "1", "time_limit": 20}}],
+    }, at=5)  # appended after "Closing" — doesn't shift any of the other sections' positions
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.add_init_script(f"localStorage.setItem('facilitation-suite.session', '{sid}')")
+    page.goto(webapp.base_url + "/")
+    page.click("#tabPlan")
+    expect(page.locator(".sec-row")).to_have_count(6)
+    # #183: Plan spans the window at 1440px (only the Sessions list holds the 772px measure)
+    assert page.locator("#panePlan").bounding_box()["width"] > 1000
+    _fold_sections(page)
+    theme = _edit_closing_activity(page)
+    _edit_music_and_answers(page, theme)
+    _duplicate_and_skip(page)
+    _hide_slides_and_reorder(page, theme)
+    _add_section_and_breakout(page)
+    _check_previews_refit(page)
+    _save_and_check_yaml(page, shots, folder)

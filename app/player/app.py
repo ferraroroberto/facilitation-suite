@@ -206,46 +206,51 @@ def create_player_app(quiz: QuizService) -> FastAPI:
 
     @app.websocket(f"{PREFIX}/ws")
     async def socket(ws: WebSocket) -> None:
-        if len(sockets) >= MAX_SOCKETS:
-            await ws.close(code=1013)  # try again later: the phone polls meanwhile
-            return
-        sockets.add(ws)
-        conn: Optional[Conn] = None
-        try:
-            await ws.accept()
-            hello_by = time.monotonic() + HELLO_TIMEOUT_S
-            while True:
-                if conn is None:  # pings are answered meanwhile, but the hello deadline keeps running
-                    raw = await asyncio.wait_for(_receive_text(ws), max(0.0, hello_by - time.monotonic()))
-                else:
-                    raw = await _receive_text(ws)
-                if raw is None:
-                    await ws.close(code=1003)  # the page only ever sends text frames
-                    return
-                try:
-                    msg = json.loads(raw)
-                except ValueError:
-                    msg = {}
-                op = msg.get("op") if isinstance(msg, dict) else None
-                if op == "hello":
-                    if conn is not None:
-                        push.conns.discard(conn)
-                    conn = Conn(ws, str(msg.get("player_id") or "")[:40], str(msg.get("secret") or "")[:64])
-                    push.add(conn)
-                    await push.send(conn, force=True)
-                elif op == "ping":
-                    await ws.send_text(json.dumps({"type": "pong", "t": msg.get("t"), "now_ms": now_ms()}))
-                elif conn is None:
-                    await ws.close(code=1008)  # the first message must say who this is
-                    return
-        except (WebSocketDisconnect, TimeoutError, RuntimeError):
-            pass  # gone, silent past the hello timeout, or closed under a send
-        finally:
-            sockets.discard(ws)
-            if conn is not None:
-                push.conns.discard(conn)
+        await _serve_socket(ws, push, sockets)
 
     return app
+
+
+async def _serve_socket(ws: WebSocket, push: PlayerPush, sockets: set[WebSocket]) -> None:
+    """One phone's socket: the hello that says who it is, then pings until it goes away."""
+    if len(sockets) >= MAX_SOCKETS:
+        await ws.close(code=1013)  # try again later: the phone polls meanwhile
+        return
+    sockets.add(ws)
+    conn: Optional[Conn] = None
+    try:
+        await ws.accept()
+        hello_by = time.monotonic() + HELLO_TIMEOUT_S
+        while True:
+            if conn is None:  # pings are answered meanwhile, but the hello deadline keeps running
+                raw = await asyncio.wait_for(_receive_text(ws), max(0.0, hello_by - time.monotonic()))
+            else:
+                raw = await _receive_text(ws)
+            if raw is None:
+                await ws.close(code=1003)  # the page only ever sends text frames
+                return
+            try:
+                msg = json.loads(raw)
+            except ValueError:
+                msg = {}
+            op = msg.get("op") if isinstance(msg, dict) else None
+            if op == "hello":
+                if conn is not None:
+                    push.conns.discard(conn)
+                conn = Conn(ws, str(msg.get("player_id") or "")[:40], str(msg.get("secret") or "")[:64])
+                push.add(conn)
+                await push.send(conn, force=True)
+            elif op == "ping":
+                await ws.send_text(json.dumps({"type": "pong", "t": msg.get("t"), "now_ms": now_ms()}))
+            elif conn is None:
+                await ws.close(code=1008)  # the first message must say who this is
+                return
+    except (WebSocketDisconnect, TimeoutError, RuntimeError):
+        pass  # gone, silent past the hello timeout, or closed under a send
+    finally:
+        sockets.discard(ws)
+        if conn is not None:
+            push.conns.discard(conn)
 
 
 async def _receive_text(ws: WebSocket) -> Optional[str]:

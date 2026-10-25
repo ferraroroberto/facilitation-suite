@@ -1,23 +1,6 @@
 {
   "version": 1,
   "entries": [
-    {"key": "dir:tests", "modules": 44},
-    {"key": "fn:app/player/app.py:create_player_app", "lines": 135},
-    {"key": "fn:app/webapp/static/js/reimport.js:openReview", "lines": 118},
-    {"key": "fn:app/webapp/static/js/stage-render.js:createStage", "lines": 197},
-    {"key": "fn:app/webapp/static/js/views/plan-fields.js:planFields", "lines": 249},
-    {"key": "fn:app/webapp/static/js/views/plan-fields.js:planFields.musicField", "lines": 109},
-    {"key": "fn:app/webapp/static/js/views/plan.js:renderEditor", "lines": 153},
-    {"key": "fn:app/webapp/static/js/views/sessions.js:settingsCard", "lines": 135},
-    {"key": "fn:src/importer/pptx_com.py:export", "lines": 106},
-    {"key": "fn:tests/e2e/test_story_02_sessions.py:test_create_a_session_and_see_it_ready_list", "lines": 127},
-    {"key": "fn:tests/e2e/test_story_04_plan.py:test_edit_the_plan_and_save_it", "lines": 207},
-    {"key": "fn:tests/e2e/test_story_05_live.py:test_stage_and_presenter_stay_in_sync", "lines": 178},
-    {"key": "fn:tests/e2e/test_story_12_results.py:test_results_after_the_session", "lines": 110},
-    {"key": "fn:tests/e2e/test_story_14_remote.py:test_phone_remote", "lines": 126},
-    {"key": "fn:tests/e2e/test_story_15_font_select.py:test_stage_font_and_multi_select", "lines": 154},
-    {"key": "fn:tests/e2e/test_story_16_quiz_player.py:test_two_phones_play_a_question", "lines": 187},
-    {"key": "size:app/webapp/static/js/presenter.js", "lines": 1022},
-    {"key": "size:app/webapp/static/js/views/plan.js", "lines": 1078}
+    {"key": "fn:app/webapp/static/js/stage-render.js:createStage", "lines": 138}
   ]
 }
