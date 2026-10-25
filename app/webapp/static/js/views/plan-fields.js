@@ -104,9 +104,8 @@ export function selectField(label, options, value, onChange) {
   return sel;
 }
 
-/** A new item font block. An activity title (72) seeds no size, so it keeps following the session's;
- *  a break's title (120) and the like seed theirs, as they always did. */
-export const fontSeed = (defaultSize) => (defaultSize === 72 ? { family: 'theme' } : { family: 'theme', size_px: defaultSize || 72 });
+/** A new item font block. It seeds no size, so a title keeps following the session's until the item sets one. */
+export const fontSeed = () => ({ family: 'theme' });
 
 // ---------------------------------------------------------------- per-item fields
 //
@@ -116,8 +115,6 @@ export const fontSeed = (defaultSize) => (defaultSize === 72 ? { family: 'theme'
 
 /** The session's own title size (Sessions → Stage look): what an activity's title is until the item sets one. */
 const sessionTitleSize = (st) => (st.session.font && st.session.font.title_size) || 72;
-/** The size a font row shows for an item with none of its own: an activity title follows the session's. */
-const shownSize = (st, defaultSize) => (defaultSize === 72 ? sessionTitleSize(st) : defaultSize);
 
 /**
  * An item's own lettering — font, size (stage px on the 1920-wide canvas; none
@@ -128,7 +125,7 @@ const shownSize = (st, defaultSize) => (defaultSize === 72 ? sessionTitleSize(st
 function fontField({ st, markDirty, updatePreview }, it, label, defaultSize) {
   const font = it.font || { family: 'theme' };
   const set = (change) => {
-    it.font = Object.assign(fontSeed(defaultSize), it.font, change);
+    it.font = Object.assign(fontSeed(), it.font, change);
     markDirty();
     updatePreview(it);
   };
@@ -138,7 +135,7 @@ function fontField({ st, markDirty, updatePreview }, it, label, defaultSize) {
   const fam = selectField(label, FONTS, famValue, (v) => set({ family: v }));
   row.appendChild(fam);
   if (defaultSize) {
-    const size = input(font.size_px || shownSize(st, defaultSize), (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
+    const size = input(font.size_px || sessionTitleSize(st), (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
     size.classList.add('size-input');
     row.append(size, Object.assign(document.createElement('span'), { className: 'muted small', textContent: 'px' }));
   }
@@ -156,12 +153,12 @@ function fontField({ st, markDirty, updatePreview }, it, label, defaultSize) {
  * An item's other text — the chat hint, the answers, a subtitle, a slide's
  * text — in the session's lettering, or its own font and capitals (it.font.roles).
  */
-function rolesField({ st, markDirty, updatePreview }, it, keys, defaultSize) {
+function rolesField({ st, markDirty, updatePreview }, it, keys) {
   const wrap = document.createElement('div');
   wrap.className = 'role-rows';
   const own = (it.font || {}).roles || {};
   const setRole = (key, change) => {
-    const f = Object.assign(fontSeed(defaultSize), it.font);
+    const f = Object.assign(fontSeed(), it.font);
     const roles = Object.assign({}, f.roles);
     const mine = Object.assign({}, roles[key], change);
     if (!mine.font) delete mine.font;
@@ -407,7 +404,7 @@ function answersField({ markDirty, renderList }, it, spec) {
 export function planFields(ctx) {
   return {
     fontField: (it, label, defaultSize) => fontField(ctx, it, label, defaultSize),
-    rolesField: (it, keys, defaultSize) => rolesField(ctx, it, keys, defaultSize),
+    rolesField: (it, keys) => rolesField(ctx, it, keys),
     notesField: (it) => notesField(ctx, it),
     timerField: (it) => timerField(ctx, it),
     musicField: (it) => musicField(ctx, it),

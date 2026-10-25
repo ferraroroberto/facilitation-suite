@@ -855,11 +855,11 @@ function activityFields(form, it, rerenderRow) {
     form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
     form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
     form.appendChild(fontField(it, 'Question font', 72));
-    form.appendChild(rolesField(it, ['hint', 'answers'], 72));
+    form.appendChild(rolesField(it, ['hint', 'answers']));
     form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
   } else {
     form.appendChild(fontField(it, 'Title font', 72));
-    form.appendChild(rolesField(it, ['answers'], 72));
+    form.appendChild(rolesField(it, ['answers']));
   }
 }
 
@@ -871,8 +871,8 @@ function otherItemFields(form, it, rerenderRow) {
   hint.className = 'ed-hint';
   hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
   form.lastChild.querySelector('.ed-control').appendChild(hint);
-  if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 120));
-  if (it.kind === 'breakout') form.appendChild(rolesField(it, ['sub'], 120));
+  if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 72));
+  if (it.kind === 'breakout') form.appendChild(rolesField(it, ['sub']));
   if (it.kind === 'breakout') {
     form.appendChild(field('Rooms', segmentedChoice(ROUNDS, (it.options || {}).round || '', (v) => {
       it.options = Object.assign({}, it.options, { round: v });
@@ -993,6 +993,6 @@ function slideTextFields(form, it) {
     : 'The slide exactly as PowerPoint drew it.'}</p>`);
   if (live) {
     form.appendChild(fontField(it, 'Title font', null));
-    form.appendChild(rolesField(it, ['slide_text'], null));
+    form.appendChild(rolesField(it, ['slide_text']));
   }
 }
