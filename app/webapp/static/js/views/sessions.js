@@ -359,19 +359,9 @@ function localValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/**
- * The session's own settings, one card: its details, edited inline and
- * saved on change or blur, and its stage look — the theme and lettering (the
- * shared editor in font-editor.js) every item follows unless it sets its own in
- * the Plan tab. A new session starts from Settings → Stage defaults; the card
- * says whether it still uses them and can put them back. Global settings
- * stay on the Settings page.
- */
-function settingsCard(sid, s, look, onDetails) {
-  applySessionTheme(sid, s.theme, JSON.stringify([s.theme, s.font || {}]));
-  const card = document.createElement('div');
-  card.className = 'card session-settings-card';
-  card.innerHTML =
+/** The card's markup: the details fields, the stage-look header, the theme select and the lettering editor. */
+function settingsHtml(s, look) {
+  return (
     `<div class="card-head"><h3 class="card-title">${icon('sliders-horizontal')} Session settings</h3></div>` +
     `<div class="font-rows">` +
     `<label class="font-row"><span class="small">Title</span><input class="input" data-meta="title" value="${esc(s.title)}" required aria-label="Title"></label>` +
@@ -391,13 +381,17 @@ function settingsCard(sid, s, look, onDetails) {
     `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
     themeOptions(look.themes, s.theme) +
     `</select></label></div>` +
-    fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts });
+    fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts }));
+}
 
-  // One save at a time, in order, each from the session as the edits before it
-  // left it: a field saved on blur and a lettering click right after never
-  // overwrite each other. The change applies at once; a refused save undoes it.
+/**
+ * ``saveSession(change)`` for the session ``s``. One save at a time, in order, each from the session
+ * as the edits before it left it: a field saved on blur and a lettering click right after never
+ * overwrite each other. The change applies at once; a refused save undoes it.
+ */
+function sessionSaver(sid, s) {
   let queue = Promise.resolve();
-  const saveSession = (change) => {
+  return (change) => {
     const before = {};
     Object.keys(change).forEach((k) => { before[k] = s[k]; });
     Object.assign(s, change);
@@ -417,8 +411,10 @@ function settingsCard(sid, s, look, onDetails) {
     queue = run;
     return run;
   };
+}
 
-  // -- the details: each field saves on its own
+/** The details fields: each reads, validates and saves on its own (blur, Enter or a select change). */
+function wireDetails(card, sid, s, saveSession, onDetails) {
   const field = (name) => card.querySelector(`[data-meta="${name}"]`);
   const readField = {
     title: (el) => {
@@ -477,6 +473,24 @@ function settingsCard(sid, s, look, onDetails) {
       if (e.key === 'Escape') { showField[name](el); el.blur(); }
     });
   });
+}
+
+/**
+ * The session's own settings, one card: its details, edited inline and
+ * saved on change or blur, and its stage look — the theme and lettering (the
+ * shared editor in font-editor.js) every item follows unless it sets its own in
+ * the Plan tab. A new session starts from Settings → Stage defaults; the card
+ * says whether it still uses them and can put them back. Global settings
+ * stay on the Settings page.
+ */
+function settingsCard(sid, s, look, onDetails) {
+  applySessionTheme(sid, s.theme, JSON.stringify([s.theme, s.font || {}]));
+  const card = document.createElement('div');
+  card.className = 'card session-settings-card';
+  card.innerHTML = settingsHtml(s, look);
+
+  const saveSession = sessionSaver(sid, s);
+  wireDetails(card, sid, s, saveSession, onDetails);
 
   // -- the stage look
   wireFontEditor(card, {

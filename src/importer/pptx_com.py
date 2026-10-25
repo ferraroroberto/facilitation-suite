@@ -28,7 +28,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 def _text(shape: Any) -> str:
@@ -108,6 +108,76 @@ def _sections(pres: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _slide_content(slide: Any) -> tuple[str, list[str], int, list[dict[str, Any]], list[Any]]:
+    """The slide's title, text runs, picture count, text boxes and the shapes behind those boxes."""
+    title = ""
+    try:
+        if slide.Shapes.HasTitle:
+            title = _text(slide.Shapes.Title)
+    except Exception:  # noqa: BLE001
+        pass
+    texts, pictures, boxes, boxed = [], 0, [], []
+    for sh in slide.Shapes:
+        t = _text(sh)
+        if t:
+            texts.append(t)
+        box = _box(sh)
+        if box:
+            boxes.append(box)
+            boxed.append(sh)
+        try:
+            if int(sh.Type) in (13, 11):  # msoPicture, msoLinkedPicture
+                pictures += 1
+        except Exception:  # noqa: BLE001
+            pass
+    return title, texts, pictures, boxes, boxed
+
+
+def _background(slide: Any) -> str:
+    try:
+        bgr = int(slide.Background.Fill.ForeColor.RGB)
+        return f"#{bgr & 0xFF:02x}{(bgr >> 8) & 0xFF:02x}{(bgr >> 16) & 0xFF:02x}"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _hidden(slide: Any) -> bool:
+    try:
+        return bool(slide.SlideShowTransition.Hidden)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _export_slide(slide: Any, out_dir: Path) -> Optional[dict[str, Any]]:
+    """Export one slide's picture and facts; ``None`` (after printing the error) when the picture fails."""
+    idx = int(slide.SlideIndex)
+    sid = int(slide.SlideID)
+    title, texts, pictures, boxes, boxed = _slide_content(slide)
+    background, hidden = _background(slide), _hidden(slide)  # read before any shape is hidden for the text-free picture
+    file = f"slide-{sid}.png"
+    try:
+        slide.Export(str(out_dir / file), "PNG", 1920, 1080)
+    except Exception as exc:  # noqa: BLE001
+        print(f"ERROR export of slide {idx} failed: {exc}", flush=True)
+        return None
+    bg_file = None
+    if boxes:
+        # the same slide without its text boxes (the copy is never saved)
+        try:
+            for sh in boxed:
+                sh.Visible = 0
+            bg_file = f"slide-{sid}-bg.png"
+            slide.Export(str(out_dir / bg_file), "PNG", 1920, 1080)
+        except Exception as exc:  # noqa: BLE001 — the slide keeps its text in the picture
+            print(f"WARN no text-free picture for slide {idx}: {exc}", flush=True)
+            bg_file, boxes = None, []
+    return {
+        "slide_id": sid, "index": idx, "title": title, "notes": _notes(slide), "texts": texts,
+        "pictures": pictures, "background": background, "hidden": hidden, "file": file,
+        **({"bg_file": bg_file, "boxes": boxes} if bg_file else {}),
+    }
+
+
 def export(deck: Path, out_dir: Path) -> int:
     try:
         import pythoncom
@@ -142,60 +212,11 @@ def export(deck: Path, out_dir: Path) -> int:
         n = int(pres.Slides.Count)
         slides = []
         for slide in pres.Slides:
-            idx = int(slide.SlideIndex)
-            sid = int(slide.SlideID)
-            title = ""
-            try:
-                if slide.Shapes.HasTitle:
-                    title = _text(slide.Shapes.Title)
-            except Exception:  # noqa: BLE001
-                pass
-            texts, pictures, boxes, boxed = [], 0, [], []
-            for sh in slide.Shapes:
-                t = _text(sh)
-                if t:
-                    texts.append(t)
-                box = _box(sh)
-                if box:
-                    boxes.append(box)
-                    boxed.append(sh)
-                try:
-                    if int(sh.Type) in (13, 11):  # msoPicture, msoLinkedPicture
-                        pictures += 1
-                except Exception:  # noqa: BLE001
-                    pass
-            try:
-                bgr = int(slide.Background.Fill.ForeColor.RGB)
-                background = f"#{bgr & 0xFF:02x}{(bgr >> 8) & 0xFF:02x}{(bgr >> 16) & 0xFF:02x}"
-            except Exception:  # noqa: BLE001
-                background = ""
-            try:
-                hidden = bool(slide.SlideShowTransition.Hidden)
-            except Exception:  # noqa: BLE001
-                hidden = False
-            file = f"slide-{sid}.png"
-            try:
-                slide.Export(str(out_dir / file), "PNG", 1920, 1080)
-            except Exception as exc:  # noqa: BLE001
-                print(f"ERROR export of slide {idx} failed: {exc}", flush=True)
+            entry = _export_slide(slide, out_dir)
+            if entry is None:
                 return 4
-            bg_file = None
-            if boxes:
-                # the same slide without its text boxes (the copy is never saved)
-                try:
-                    for sh in boxed:
-                        sh.Visible = 0
-                    bg_file = f"slide-{sid}-bg.png"
-                    slide.Export(str(out_dir / bg_file), "PNG", 1920, 1080)
-                except Exception as exc:  # noqa: BLE001 — the slide keeps its text in the picture
-                    print(f"WARN no text-free picture for slide {idx}: {exc}", flush=True)
-                    bg_file, boxes = None, []
-            slides.append({
-                "slide_id": sid, "index": idx, "title": title, "notes": _notes(slide), "texts": texts,
-                "pictures": pictures, "background": background, "hidden": hidden, "file": file,
-                **({"bg_file": bg_file, "boxes": boxes} if bg_file else {}),
-            })
-            print(f"PROGRESS {idx} {n}", flush=True)
+            slides.append(entry)
+            print(f"PROGRESS {entry['index']} {n}", flush=True)
         meta = {
             "slide_width": float(pres.PageSetup.SlideWidth), "slide_height": float(pres.PageSetup.SlideHeight),
             "sections": _sections(pres), "slides": slides,

@@ -1,6 +1,6 @@
 # Layout
 
-Where code goes. The structure ratchet (`scripts/structure_ratchet.py`, `.fleet.toml [structure_ratchet]`) enforces this page: a file stays under 1,000 lines, a function under 100, a directory under 40 modules, `src/` never imports `app/`, and the root folders match the declared shape. Offenders that predate the ratchet are held in `.structure-ratchet-baseline.json` at their size and may not grow; new code goes where this page says instead.
+Where code goes. The structure ratchet (`scripts/structure_ratchet.py`, `.fleet.toml [structure_ratchet]`) enforces this page: a file stays under 1,000 lines, a function under 100, a directory under 40 modules, `src/` never imports `app/`, and the root folders match the declared shape. The offender that predates the ratchet is held in `.structure-ratchet-baseline.json` at its size and may not grow; new code goes where this page says instead.
 
 The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tray, UI under `app/`, logic under `src/`.
 
@@ -61,5 +61,5 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 - A new feature's logic goes in a `src/<domain>/` package, and its HTTP surface in a module under `app/webapp/routers/`. `src/` never imports `app/`.
 - A new directory-level helper goes in the domain package that uses it, not at the top of `src/`.
 - Browser code goes in `app/webapp/static/js/`; a view's helpers go in a module beside it, not into the view file.
-- Tests mirror the code they cover. `tests/` is past the module limit and may not gain a file, so a new unit test goes in a subfolder of `tests/` named for its domain; an end-to-end story goes in `tests/e2e/`.
-- A file or function over the limit is split along the seam its own sections already show. The baselined files are split in their own changes, never as a side effect.
+- Tests mirror the code they cover. A unit test for a domain with its own folder (`tests/quiz/`) goes there; an end-to-end story goes in `tests/e2e/`. A long story is a short test that calls named `_step` helpers.
+- A file or function over the limit is split along the seam its own sections already show. The one baselined offender, `createStage` in `stage-render.js`, keeps its build, update and draw steps in one closure over shared state, so splitting it means moving that state into an object; that change is made on its own, never as a side effect.

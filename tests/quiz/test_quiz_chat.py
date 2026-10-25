@@ -20,7 +20,7 @@ from src.quiz.chat import ChatAnswers, parse_choice
 from src.quiz.service import QuizService
 from src.sessions.store import SESSION_FILE, SessionStore
 from tests.fixtures.demo import build_demo_session
-from tests.test_quiz_engine import QUIZ_SECTION, T0, Clock, goto_id, state
+from tests.quiz.test_quiz_engine import QUIZ_SECTION, T0, Clock, goto_id, state
 
 
 class Rig:

@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import time
 import uuid
+from pathlib import Path
 
 from openpyxl import load_workbook
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
@@ -56,12 +57,8 @@ def _run_live(page: Page, base: str, sid: str) -> None:
             assert page.request.post(f"{base}/api/actions/next").ok
 
 
-def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
-    base = webapp.base_url
-    folder = webapp.root / "sessions" / "demo" / "results-story"
-    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
-    _run_live(page, base, sid)
-
+def _reconcile_with_zoom(page: Page, base: str, sid: str, folder, tmp_path) -> tuple[list, Path]:
+    """Wait for the frozen captures, then check the app's record against Zoom's saved chat (synthetic); returns the chat and the saved file."""
     pngs = [folder / "live" / "captures" / f"{k}.png" for k in RUN_ANSWERS]
     deadline = time.time() + 90
     while not all(p.is_file() for p in pngs) and time.time() < deadline:
@@ -75,7 +72,11 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     rep = page.request.post(f"{base}/api/sessions/{sid}/reconcile", data={"path": str(saved)}).json()
     assert (rep["zoom_messages"], rep["matched"], rep["missing_count"]) == (40, 40, 0)
     assert page.request.post(f"{base}/api/live/deactivate").ok
+    return chat, saved
 
+
+def _open_results(page: Page, base: str, sid: str, shots) -> Locator:
+    """Open Results: every activity in order, the answers with names, the frozen visual; returns the pane."""
     page.set_viewport_size({"width": 1440, "height": 900})
     page.add_init_script(f"localStorage.setItem('facilitation-suite.session', '{sid}')")
     page.goto(base + "/")
@@ -110,7 +111,11 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     expect(pane.locator(".pdf-head")).to_contain_text("10 slides + 6 live results")
     shot(page, shots / "story-12-results-1-desktop.png")
     surface(page, "results.detail")
+    return pane
 
+
+def _check_exports(page: Page, pane: Locator, folder) -> None:
+    """A live tile selects its activity; the session PDF and the Excel report download."""
     # a click on a live tile in the PDF strip selects that activity
     pane.locator(".pdf-tile.live", has_text="Live scale").click()
     expect(pane.locator(".result-row.selected")).to_contain_text("inner weather")
@@ -129,6 +134,9 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     wb = load_workbook(folder / "exports" / "report.xlsx")
     assert len(wb.sheetnames) == 8
 
+
+def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, saved: Path, chat: list) -> None:
+    """A saved chat with a message from before the reader started turns the banner amber and lists it."""
     # a file with a message from before the reader started: the banner turns amber and lists it
     saved.write_text("17:58:01 From Early Bird to Everyone:\n\tHello from the lobby!\n" + zoom_saved_chat(chat), encoding="utf-8")
     assert page.request.post(f"{base}/api/sessions/{sid}/reconcile", data={"path": str(saved)}).ok
@@ -138,6 +146,9 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     expect(pane.locator(".diff-row")).to_contain_text("Hello from the lobby!")
     surface(page, "results.reconcile-warning")
 
+
+def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
+    """At phone width a long verbatim answer wraps inside its row instead of painting over the next one."""
     page.set_viewport_size({"width": 390, "height": 844})
     page.reload()
     expect(pane.locator(".result-row")).to_have_count(6)
@@ -166,3 +177,15 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
         )
     shot(page, shots / "story-12-results-2-phone.png")
     surface(page, "results.phone")
+
+
+def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
+    base = webapp.base_url
+    folder = webapp.root / "sessions" / "demo" / "results-story"
+    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    _run_live(page, base, sid)
+    chat, saved = _reconcile_with_zoom(page, base, sid, folder, tmp_path)
+    pane = _open_results(page, base, sid, shots)
+    _check_exports(page, pane, folder)
+    _check_reconcile_warning(page, base, sid, pane, saved, chat)
+    _check_phone_layout(page, pane, shots)

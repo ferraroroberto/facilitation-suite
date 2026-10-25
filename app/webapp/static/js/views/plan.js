@@ -16,9 +16,10 @@ import { api, esc, oneLine, pageHead, setStatus, toast, fmtMinutes, switchRow } 
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { openReview } from '/static/js/reimport.js';
-import { createStage, applySessionTheme } from '/static/js/stage-render.js';
+import { applySessionTheme } from '/static/js/stage-render.js';
 import { words } from '/static/js/stage-words.js';
-import { field, segmentedChoice, input, selectField, fmtTimer, fontSeed, loadMusicDefaults, planFields } from '/static/js/views/plan-fields.js';
+import { field, segmentedChoice, input, selectField, fmtTimer, loadMusicDefaults, planFields } from '/static/js/views/plan-fields.js';
+import { createPreview } from '/static/js/views/plan-preview.js';
 
 const PROFILES = [
   ['camera_strip', 'Camera strip'],
@@ -38,7 +39,8 @@ let split;
 let reviewHost;
 // selected = the focused item (the editor's); picked = every selected item (it included); anchor = where Shift ranges start.
 const st = { sid: null, session: null, slides: new Map(), deck: null, types: {}, rounds: null, selected: null, picked: new Set(), anchor: null, dirty: false, collapsed: new Set(), pending: false };
-const { fontField, rolesField, notesField, timerField, musicField } = planFields({ st, markDirty, updatePreview, renderList, renderEditor, slideOf });
+const { previewCard, updatePreview } = createPreview({ st, getEditor: () => editor, slideOf, titleOf });
+const { fontField, rolesField, notesField, timerField, musicField, answersField } = planFields({ st, markDirty, updatePreview, renderList, renderEditor, slideOf });
 
 // ---------------------------------------------------------------- helpers
 
@@ -785,13 +787,7 @@ function renderEditor() {
     return;
   }
   const { it, sec } = found;
-  const flat = allItems();
-  const pos = flat.findIndex((x) => x.it.id === it.id);
-  const prev = pos > 0 ? labelOf(flat[pos - 1].it) : null;
-
-  const title = document.createElement('div');
-  title.className = 'detail-title';
-  title.innerHTML = `<h1>${esc(labelOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
+  const title = editorTitle(it, sec);
   editor.appendChild(title);
 
   editor.appendChild(previewCard(it));
@@ -801,64 +797,10 @@ function renderEditor() {
   editor.appendChild(form);
   const rerenderRow = () => { renderList(); title.querySelector('h1').textContent = labelOf(it); };
 
-  if (it.kind === 'activity') {
-    // More than five types, so a select, not a segmented control (design.md segmented: at most five peers).
-    // A type this PC doesn't have stays listed under its own name, so the select never shows another one.
-    const types = Object.values(st.types).map((t) => [t.type, t.label]);
-    if (!types.some(([t]) => t === it.type)) types.push([it.type, it.type]);
-    form.appendChild(field('Type', selectField('Activity type', types, it.type, (v) => {
-      it.type = v;
-      it.options = {};
-      markDirty();
-      renderList();
-      renderEditor();
-    })));
-    const spec = st.types[it.type] || {};
-    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : (it.options || {}).title || spec.label }), 'with-hint'));
-    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
-      ? '<p class="ed-hint">The name in the plan and on the presenter. Empty = the question.</p>'
-      : '<p class="ed-hint">Shown on the stage — type \\n for a line break there.</p>');
-    if (spec.capture !== false) {
-      form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
-      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
-      form.appendChild(fontField(it, 'Question font', 72));
-      form.appendChild(rolesField(it, ['hint', 'answers'], 72));
-      form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
-    } else {
-      form.appendChild(fontField(it, 'Title font', 72));
-      form.appendChild(rolesField(it, ['answers'], 72));
-    }
-  } else {
-    const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language)[it.kind];
-    form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
-    const hint = document.createElement('p');
-    hint.className = 'ed-hint';
-    hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
-    form.lastChild.querySelector('.ed-control').appendChild(hint);
-    if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 120));
-    if (it.kind === 'breakout') form.appendChild(rolesField(it, ['sub'], 120));
-    if (it.kind === 'breakout') {
-      form.appendChild(field('Rooms', segmentedChoice(ROUNDS, (it.options || {}).round || '', (v) => {
-        it.options = Object.assign({}, it.options, { round: v });
-        markDirty();
-        renderList();
-        renderEditor();
-      }, 'Breakout round'), 'with-hint'));
-      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Under the title the stage says which round is in the rooms, and how many (Groups tab).</p>');
-    }
-    if (it.kind === 'slide') slideTextFields(form, it);
-  }
+  if (it.kind === 'activity') activityFields(form, it, rerenderRow);
+  else otherItemFields(form, it, rerenderRow);
 
-  form.appendChild(field('Camera layout', segmentedChoice(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout')));
-  if (it.kind === 'slide' && it.profile == null) {
-    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint warn">Detection was unsure for this slide — pick one.</p>');
-  } else if (it.kind === 'slide') {
-    const s = slideOf(it);
-    if (s && s.profile && s.profile !== it.profile) {
-      form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">Detected: ${esc(PROFILES.find((p) => p[0] === s.profile)[1])}</p>`);
-    }
-  }
-
+  form.appendChild(cameraLayoutField(it));
   form.appendChild(timerField(it));
   form.appendChild(musicField(it));
 
@@ -868,39 +810,95 @@ function renderEditor() {
     renderList();
   }, 'In this session')));
 
-  if (it.kind === 'activity') {
-    const spec = st.types[it.type] || {};
-    const opts = spec.options || [];
-    if (opts.length) {
-      const box = document.createElement('div');
-      box.className = 'opt-list';
-      it.options = it.options || {};
-      opts.forEach((o) => {
-        const cur = it.options[o.key] !== undefined ? it.options[o.key] : o.default;
-        const setOpt = (v) => { it.options[o.key] = v; markDirty(); };
-        if (o.kind === 'switch') {
-          box.appendChild(switchRow(!!cur, o.label, setOpt));
-        } else if (o.kind === 'select') {
-          // A choice keeps its type: a number stays a number in session.yaml (a quiz's time limit).
-          const sel = selectField(o.label, o.choices, cur, (v) => { setOpt(v); renderList(); }); // the round shows as a chip
-          const line = document.createElement('label');
-          line.className = 'opt-line';
-          line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), sel);
-          box.appendChild(line);
-        } else {
-          const el = input(cur, (v) => setOpt(o.kind === 'number' ? (v === '' ? o.default : Number(v)) : v), { type: o.kind === 'number' ? 'number' : 'text', placeholder: o.placeholder || '', 'aria-label': o.label });
-          const line = document.createElement('label');
-          line.className = 'opt-line';
-          line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: o.label }), el);
-          box.appendChild(line);
-        }
-      });
-      form.appendChild(field('Answers', box));
-    }
-  }
+  const answers = it.kind === 'activity' ? answersField(it, st.types[it.type] || {}) : null;
+  if (answers) form.appendChild(answers);
 
   form.appendChild(notesField(it));
+  form.appendChild(editorTools(it));
 
+  const save = saveButton();
+  form.appendChild(save);
+  const observer = () => { save.disabled = !st.dirty; save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved'; };
+  form.addEventListener('input', observer);
+  form.addEventListener('click', () => setTimeout(observer, 0));
+}
+
+function editorTitle(it, sec) {
+  const flat = allItems();
+  const pos = flat.findIndex((x) => x.it.id === it.id);
+  const prev = pos > 0 ? labelOf(flat[pos - 1].it) : null;
+  const title = document.createElement('div');
+  title.className = 'detail-title';
+  title.innerHTML = `<h1>${esc(labelOf(it))}</h1><p class="muted">${esc(sec.name)} · item ${pos + 1}${prev ? ` · after “${esc(prev)}”` : ''}</p>`;
+  return title;
+}
+
+/** An activity's type, title, question, lettering and chat prompt. */
+function activityFields(form, it, rerenderRow) {
+  // More than five types, so a select, not a segmented control (design.md segmented: at most five peers).
+  // A type this PC doesn't have stays listed under its own name, so the select never shows another one.
+  const types = Object.values(st.types).map((t) => [t.type, t.label]);
+  if (!types.some(([t]) => t === it.type)) types.push([it.type, it.type]);
+  form.appendChild(field('Type', selectField('Activity type', types, it.type, (v) => {
+    it.type = v;
+    it.options = {};
+    markDirty();
+    renderList();
+    renderEditor();
+  })));
+  const spec = st.types[it.type] || {};
+  form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : (it.options || {}).title || spec.label }), 'with-hint'));
+  form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
+    ? '<p class="ed-hint">The name in the plan and on the presenter. Empty = the question.</p>'
+    : '<p class="ed-hint">Shown on the stage — type \\n for a line break there.</p>');
+  if (spec.capture !== false) {
+    form.appendChild(field('Question', input(it.question, (v) => { it.question = v; markDirty(); rerenderRow(); }, { placeholder: 'What did you learn about this group?' }), 'with-hint'));
+    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Type \\n where the line should break on the stage.</p>');
+    form.appendChild(fontField(it, 'Question font', 72));
+    form.appendChild(rolesField(it, ['hint', 'answers'], 72));
+    form.appendChild(field('Prompt for chat', input(it.chat_prompt, (v) => { it.chat_prompt = v; markDirty(); }, { placeholder: spec.chat_prompt_hint || 'One or two words: …' })));
+  } else {
+    form.appendChild(fontField(it, 'Title font', 72));
+    form.appendChild(rolesField(it, ['answers'], 72));
+  }
+}
+
+/** A slide's, break's or breakout's title, lettering, rooms and slide text. */
+function otherItemFields(form, it, rerenderRow) {
+  const placeholder = it.kind === 'slide' ? (slideOf(it) || {}).title || '' : words(st.session.language)[it.kind];
+  form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder }), 'with-hint'));
+  const hint = document.createElement('p');
+  hint.className = 'ed-hint';
+  hint.textContent = it.kind === 'slide' ? 'Shown on the presenter as "next". Empty = the slide\'s own title.' : 'Shown on the presenter and on the stage — type \\n for a line break there.';
+  form.lastChild.querySelector('.ed-control').appendChild(hint);
+  if (it.kind === 'break' || it.kind === 'breakout') form.appendChild(fontField(it, 'Title font', 120));
+  if (it.kind === 'breakout') form.appendChild(rolesField(it, ['sub'], 120));
+  if (it.kind === 'breakout') {
+    form.appendChild(field('Rooms', segmentedChoice(ROUNDS, (it.options || {}).round || '', (v) => {
+      it.options = Object.assign({}, it.options, { round: v });
+      markDirty();
+      renderList();
+      renderEditor();
+    }, 'Breakout round'), 'with-hint'));
+    form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Under the title the stage says which round is in the rooms, and how many (Groups tab).</p>');
+  }
+  if (it.kind === 'slide') slideTextFields(form, it);
+}
+
+function cameraLayoutField(it) {
+  const row = field('Camera layout', segmentedChoice(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout'));
+  if (it.kind === 'slide' && it.profile == null) {
+    row.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint warn">Detection was unsure for this slide — pick one.</p>');
+  } else if (it.kind === 'slide') {
+    const s = slideOf(it);
+    if (s && s.profile && s.profile !== it.profile) {
+      row.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">Detected: ${esc(PROFILES.find((p) => p[0] === s.profile)[1])}</p>`);
+    }
+  }
+  return row;
+}
+
+function editorTools(it) {
   const tools = document.createElement('div');
   tools.className = 'ed-tools';
   tools.innerHTML =
@@ -912,18 +910,17 @@ function renderEditor() {
   tools.querySelector('[data-up]').addEventListener('click', () => moveItem(it.id, -1));
   tools.querySelector('[data-down]').addEventListener('click', () => moveItem(it.id, 1));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems([it.id]));
-  form.appendChild(tools);
+  return tools;
+}
 
+function saveButton() {
   const save = document.createElement('button');
   save.type = 'button';
   save.className = 'button-primary ed-save';
   save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved';
   save.disabled = !st.dirty;
   save.addEventListener('click', saveSession);
-  form.appendChild(save);
-  const observer = () => { save.disabled = !st.dirty; save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved'; };
-  form.addEventListener('input', observer);
-  form.addEventListener('click', () => setTimeout(observer, 0));
+  return save;
 }
 
 /** Several items selected: what they are, and what can be set on all of them at once. */
@@ -972,14 +969,7 @@ function renderBulk() {
   tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems(items.map((it) => it.id)));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems(items.map((it) => it.id)));
   form.appendChild(tools);
-
-  const save = document.createElement('button');
-  save.type = 'button';
-  save.className = 'button-primary ed-save';
-  save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved';
-  save.disabled = !st.dirty;
-  save.addEventListener('click', saveSession);
-  form.appendChild(save);
+  form.appendChild(saveButton());
 }
 
 /** A slide's text: drawn by the stage in the session's lettering (the default), or PowerPoint's picture. */
@@ -1005,74 +995,4 @@ function slideTextFields(form, it) {
     form.appendChild(fontField(it, 'Title font', null));
     form.appendChild(rolesField(it, ['slide_text'], null));
   }
-}
-
-function previewCard(it) {
-  const card = document.createElement('div');
-  card.className = 'card preview-card';
-  card.innerHTML =
-    `<div class="preview-frame stage-host" data-preview></div>` +
-    `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'
-      ? 'The slide as imported. The dashed box is where the camera goes for the chosen layout.'
-      : it.type === 'groups_reveal'
-        ? 'Drawn by the real stage with the rooms from the Groups tab — a new shuffle redraws it.'
-        : it.kind === 'activity'
-        ? 'Drawn by the real stage with sample answers, at the size Zoom will see it. The dashed box is the camera.'
-        : it.kind === 'breakout'
-          ? 'The breakout as the stage shows it: the round and its rooms from the Groups tab, and the clock.'
-          : 'The break as the stage shows it.'}</p></div>`;
-  setTimeout(() => updatePreview(it), 0);
-  return card;
-}
-
-const ZONES = {
-  camera_strip: [0.583, 0.23, 0.983, 0.77],
-  camera_pip: [0.738, 0, 1, 0.262],
-  screen_only: null,
-};
-
-let pv = null; // { frame, stage } — rebuilt when the editor re-renders its preview frame
-const previewResults = new Map();
-let previewTimer = null;
-
-/** A plan item as the live run shows it (src/live/plan.py), for the stage renderer. */
-function runItem(it) {
-  const s = slideOf(it);
-  const profile = it.profile || (s && s.profile) || 'screen_only';
-  const spec = st.types[it.type] || {};
-  return {
-    id: it.id, kind: it.kind, type: it.type || null, type_label: spec.label,
-    capture: it.kind === 'activity' && spec.capture !== false,
-    title: titleOf(it), question: it.question || (it.kind === 'activity' ? words(st.session.language).question : ''),
-    font: it.font || fontSeed(it.kind === 'activity' ? 72 : null), options: it.options || {},
-    profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
-    timer: it.timer && it.timer.enabled !== false ? it.timer : null,
-    ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
-    ...(it.kind === 'breakout' ? { rooms: (st.rounds || {})[(it.options || {}).round || ''] || [] } : {}),
-    ...(s && s.bg_file && s.boxes && it.live_text !== false ? { slide_bg: s.bg_file, text_boxes: s.boxes } : {}),
-  };
-}
-
-function updatePreview(it) {
-  const frame = editor.querySelector('[data-preview]');
-  if (!frame) return;
-  if (!pv || pv.frame !== frame) pv = { frame, stage: createStage(frame, { guides: true, slideGuides: true }) };
-  const item = runItem(it);
-  const plan = { rev: 0, active: true, session: { id: st.sid }, run: { chat_hint: st.session.chat_hint, language: st.session.language, theme: st.session.theme } };
-  const opts = Object.assign({}, ...((st.types[item.type] || {}).options || []).map((o) => ({ [o.key]: o.default })), item.options);
-  const key = JSON.stringify([item.type, item.options]);
-  const draw = () => pv.stage.render(item, {
-    plan, state: { timers: {}, blackout: false }, now: Date.now(),
-    names: !!opts.show_names, result: previewResults.get(key) || null,
-  });
-  draw();
-  if (!item.capture || previewResults.has(key)) return;
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(async () => {
-    try {
-      const res = await api(`/api/activities/${encodeURIComponent(item.type)}/preview`, { method: 'POST', body: { options: item.options } });
-      previewResults.set(key, res.result);
-      if (pv && pv.frame === frame && frame.isConnected) draw();
-    } catch (e) { /* the preview stays without sample answers */ }
-  }, 250);
 }

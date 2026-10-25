@@ -110,10 +110,8 @@ def _join(page: Page, url: str, nickname: str) -> None:
     expect(page.locator("[data-for=wait]")).to_contain_text("You're in")
 
 
-def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> None:
-    base = webapp.base_url
-    folder = webapp.root / "sessions" / "demo" / "quiz-story"
-    sid, folder = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+def _prepare_quiz_game(page: Page, base: str, sid: str, folder) -> tuple[list, int, str]:
+    """Add the player quiz to the session, go live on its lobby; returns the run items, the podium's 1-based position and the join PIN."""
     section = copy.deepcopy(PLAYER_QUIZ)
     first = section["items"][1]
     first["options"].update(LONG_ANSWERS)
@@ -128,170 +126,222 @@ def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> Non
     podium = next(n for n, it in enumerate(items) if it["id"] == "pq-podium") + 1
     assert page.request.post(f"{base}/api/actions/goto/{lobby}").ok
     pin = page.request.get(f"{base}/api/live").json()["state"]["quiz"]["pin"]
+    return items, podium, pin
 
+
+def _check_sounds_chip(page: Page, base: str, sid: str) -> None:
+    """The Sounds chip names a real state (never blank) whatever this machine's audio setup is."""
     # #102: the Sounds chip names a real state (never blank) whatever this machine's audio setup is
     page.goto(f"{base}/presenter?session={sid}")
     expect(page.locator("[data-qsound] .chip")).to_have_text(re.compile(r"Sounds ·|No audio output device"))
 
+
+def _open_phones(browser: Browser) -> tuple[list[str], Page, Page, Page]:
+    """Two phones (320 px on the WebSocket, 390 px polling) and the stage window; returns the page-error list and the three pages."""
     errors: list[str] = []
     ana, bo = _phone(browser, SMALL, errors), _phone(browser, PHONE, errors)
     stage = _phone(browser, {"viewport": {"width": 1280, "height": 720}}, errors)  # what Zoom sees (#53)
+    return errors, ana, bo, stage
+
+
+def _join_players(page: Page, base: str, webapp, pin: str, ana: Page, bo: Page, stage: Page) -> None:
+    """Two phones and a third player join the lobby; the stage shows every name, also after a reload."""
+    stage.goto(f"{base}/stage")
+    # no public URL in this instance: the lobby says phones cannot join yet, instead of a dead QR
+    expect(stage.locator("[data-qz-note]")).to_contain_text("not set up")
+    _join(ana, f"{webapp.player_url}/play?pin={pin}", "Ana")
+    _join(bo, f"{webapp.player_url}/play?pin={pin}&transport=poll", "Bo")
+    expect(ana.locator("body")).to_have_attribute("data-transport", "ws")
+    expect(bo.locator("body")).to_have_attribute("data-transport", "poll")
+    quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
+    assert [p["name"] for p in quiz["players"]] == ["Ana", "Bo"]
+    expect(stage.locator(".qz-player")).to_have_text(["Ana", "Bo"])  # the names popped in
+    # a third player, straight through the player API, who never answers: the podium's 3rd (#89)
+    cy = page.request.post(f"{webapp.player_url}/play/api/join", data={"pin": pin, "nickname": "Cy"})
+    assert cy.ok and cy.json()["state"] == "joined"
+    # a stage (re)opened on a lobby that already has players shows every name, not "+3 more" (#111)
+    stage.reload()
+    expect(stage.locator(".qz-player:visible")).to_have_text(["Ana", "Bo", "Cy"])
+
+
+def _check_first_question(page: Page, base: str, ana: Page, bo: Page, stage: Page) -> None:
+    """The first question: four tiles on every screen, no correct answer on the stage, the server's countdown, the long texts whole."""
+    assert page.request.post(f"{base}/api/actions/next").ok  # the first question
+    for phone in (ana, bo):
+        expect(phone.locator(".tile")).to_have_count(4)
+        expect(phone.locator("[data-qindex]")).to_have_text("Question 1 of 2")
+    # the stage: four tiles, nothing marks the correct answer before the reveal (the plan it gets holds it)
+    expect(stage.locator(".qz-tile")).to_have_count(4)
+    expect(stage.locator("[data-qz-index]")).to_have_text("Question 1 of 2")
+    assert stage.locator("[data-correct], .qz-tile.correct, .qz-tile.wrong, .qz-bar").count() == 0
+    # its countdown is the server's deadline, on the server's clock, within half a second
+    live = page.request.get(f"{base}/api/live").json()
+    shown = int(stage.get_attribute("[data-qz-clock]", "data-left-ms"))
+    assert abs(shown - (live["state"]["quiz"]["deadline_ms"] - live["server_now"])) < 500
+    # the 240 s limit's 3-digit countdown fits inside the ring, not spilling past its edge (#93)
+    expect(stage.locator("[data-qz-secs]")).to_have_text(re.compile(r"^\d{3}$"))  # three digits, not "240": it ticks on within a second (#278)
+    assert stage.evaluate(COUNTDOWN_FITS)
+    # 320 px: the four tiles fit, nothing scrolls sideways
+    assert ana.evaluate("document.documentElement.scrollWidth") <= 320
+    assert ana.locator(".tile").first.bounding_box()["width"] >= 120
+    # the question and every answer's text, whole, on both phones, in light and in dark (#90)
+    for phone, width in ((ana, 320), (bo, 390)):
+        expect(phone.locator("[data-qtext]")).to_have_text(LONG_QUESTION)
+        expect(phone.locator(".tile .tile-text")).to_have_text(list(LONG_ANSWERS.values()))
+        for theme in ("light", "dark"):
+            phone.evaluate("(t) => { document.documentElement.dataset.theme = t; }", theme)
+            assert phone.evaluate(PHONE_FIT) == {"width": width, "clipped": []}, (width, theme)
+
+
+def _answer_and_reveal(page: Page, base: str, ana: Page, bo: Page) -> None:
+    """Both phones lock an answer in (one survives a reload); the reveal tells each its result."""
+    surface(ana, "player.question")
+    ana.locator('.tile[data-choice="2"]').click()  # right
+    bo.locator('.tile[data-choice="1"]').click()  # wrong
+    for phone in (ana, bo):
+        expect(phone.locator("[data-answer-status]")).to_contain_text("Locked in")
+    ana.reload()  # the same player, still locked in
+    expect(ana.locator("[data-answer-status]")).to_contain_text("Locked in")
+    expect(ana.locator("[data-locked-shape]")).to_have_attribute("data-choice", "2")
+
+    assert page.request.post(f"{base}/api/actions/next").ok  # reveal
+    expect(page.locator("[data-qnext]")).to_contain_text("Show the leaderboard")  # not the last question
+    expect(ana.locator("[data-result]")).to_contain_text("Correct")
+    expect(ana.locator("[data-result-detail]")).to_contain_text("points · #1")
+    expect(bo.locator("[data-result]")).to_contain_text("Not this time")
+    for phone in (ana, bo):  # the right answer's text, next to the result
+        expect(phone.locator("[data-right] .play-right-text")).to_have_text([LONG_ANSWERS["answer_2"]])
+    quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
+    assert quiz["distribution"] == [1, 1, 0, 0] and quiz["answered_count"] == 2
+
+
+def _check_reveal_on_stage(stage: Page, items: list) -> list:
+    """The reveal marks the correct answer, every bar icon and tile line shows whole, nothing sits under the camera; returns the camera zone."""
+    # the reveal: bars per answer, the correct one marked by a check and a label, not by colour alone
+    expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "2")
+    expect(stage.locator(".qz-tile.correct [data-correct]")).to_have_text("Correct")
+    expect(stage.locator(".qz-bar-count")).to_have_text(["1", "1", "0", "0"])
+    # every bar's shape icon shows whole, even at 0 votes (a bar at its floor height, #93)
+    assert stage.evaluate(BAR_ICON_CLIPPED) == []
+    # every line of every 75-character answer shows, none under the camera (#84)
+    stage.evaluate("document.fonts.ready")
     try:
-        stage.goto(f"{base}/stage")
-        # no public URL in this instance: the lobby says phones cannot join yet, instead of a dead QR
-        expect(stage.locator("[data-qz-note]")).to_contain_text("not set up")
-        _join(ana, f"{webapp.player_url}/play?pin={pin}", "Ana")
-        _join(bo, f"{webapp.player_url}/play?pin={pin}&transport=poll", "Bo")
-        expect(ana.locator("body")).to_have_attribute("data-transport", "ws")
-        expect(bo.locator("body")).to_have_attribute("data-transport", "poll")
-        quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
-        assert [p["name"] for p in quiz["players"]] == ["Ana", "Bo"]
-        expect(stage.locator(".qz-player")).to_have_text(["Ana", "Bo"])  # the names popped in
-        # a third player, straight through the player API, who never answers: the podium's 3rd (#89)
-        cy = page.request.post(f"{webapp.player_url}/play/api/join", data={"pin": pin, "nickname": "Cy"})
-        assert cy.ok and cy.json()["state"] == "joined"
-        # a stage (re)opened on a lobby that already has players shows every name, not "+3 more" (#111)
-        stage.reload()
-        expect(stage.locator(".qz-player:visible")).to_have_text(["Ana", "Bo", "Cy"])
+        stage.wait_for_function(f"() => ({CLIPPED})().length === 0", timeout=3000)
+    except PlaywrightTimeout:
+        pass
+    assert stage.evaluate(CLIPPED) == []
+    zone = next(it for it in items if it["id"] == "pq-1")["zone"]
+    assert zone and stage.evaluate(IN_CAMERA, zone) == []
+    assert stage.evaluate(OFF_ZONE, zone) == []
+    return zone
 
-        assert page.request.post(f"{base}/api/actions/next").ok  # the first question
-        for phone in (ana, bo):
-            expect(phone.locator(".tile")).to_have_count(4)
-            expect(phone.locator("[data-qindex]")).to_have_text("Question 1 of 2")
-        # the stage: four tiles, nothing marks the correct answer before the reveal (the plan it gets holds it)
-        expect(stage.locator(".qz-tile")).to_have_count(4)
-        expect(stage.locator("[data-qz-index]")).to_have_text("Question 1 of 2")
-        assert stage.locator("[data-correct], .qz-tile.correct, .qz-tile.wrong, .qz-bar").count() == 0
-        # its countdown is the server's deadline, on the server's clock, within half a second
-        live = page.request.get(f"{base}/api/live").json()
-        shown = int(stage.get_attribute("[data-qz-clock]", "data-left-ms"))
-        assert abs(shown - (live["state"]["quiz"]["deadline_ms"] - live["server_now"])) < 500
-        # the 240 s limit's 3-digit countdown fits inside the ring, not spilling past its edge (#93)
-        expect(stage.locator("[data-qz-secs]")).to_have_text(re.compile(r"^\d{3}$"))  # three digits, not "240": it ticks on within a second (#278)
-        assert stage.evaluate(COUNTDOWN_FITS)
-        # 320 px: the four tiles fit, nothing scrolls sideways
-        assert ana.evaluate("document.documentElement.scrollWidth") <= 320
-        assert ana.locator(".tile").first.bounding_box()["width"] >= 120
-        # the question and every answer's text, whole, on both phones, in light and in dark (#90)
-        for phone, width in ((ana, 320), (bo, 390)):
-            expect(phone.locator("[data-qtext]")).to_have_text(LONG_QUESTION)
-            expect(phone.locator(".tile .tile-text")).to_have_text(list(LONG_ANSWERS.values()))
-            for theme in ("light", "dark"):
-                phone.evaluate("(t) => { document.documentElement.dataset.theme = t; }", theme)
-                assert phone.evaluate(PHONE_FIT) == {"width": width, "clipped": []}, (width, theme)
 
-        surface(ana, "player.question")
-        ana.locator('.tile[data-choice="2"]').click()  # right
-        bo.locator('.tile[data-choice="1"]').click()  # wrong
-        for phone in (ana, bo):
-            expect(phone.locator("[data-answer-status]")).to_contain_text("Locked in")
-        ana.reload()  # the same player, still locked in
-        expect(ana.locator("[data-answer-status]")).to_contain_text("Locked in")
-        expect(ana.locator("[data-locked-shape]")).to_have_attribute("data-choice", "2")
-
-        assert page.request.post(f"{base}/api/actions/next").ok  # reveal
-        expect(page.locator("[data-qnext]")).to_contain_text("Show the leaderboard")  # not the last question
-        expect(ana.locator("[data-result]")).to_contain_text("Correct")
-        expect(ana.locator("[data-result-detail]")).to_contain_text("points · #1")
-        expect(bo.locator("[data-result]")).to_contain_text("Not this time")
-        for phone in (ana, bo):  # the right answer's text, next to the result
-            expect(phone.locator("[data-right] .play-right-text")).to_have_text([LONG_ANSWERS["answer_2"]])
-        quiz = page.request.get(f"{base}/api/live").json()["state"]["quiz"]
-        assert quiz["distribution"] == [1, 1, 0, 0] and quiz["answered_count"] == 2
-        # the reveal: bars per answer, the correct one marked by a check and a label, not by colour alone
-        expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "2")
-        expect(stage.locator(".qz-tile.correct [data-correct]")).to_have_text("Correct")
-        expect(stage.locator(".qz-bar-count")).to_have_text(["1", "1", "0", "0"])
-        # every bar's shape icon shows whole, even at 0 votes (a bar at its floor height, #93)
-        assert stage.evaluate(BAR_ICON_CLIPPED) == []
-        # every line of every 75-character answer shows, none under the camera (#84)
-        stage.evaluate("document.fonts.ready")
+def _check_camera_strip_relayout(page: Page, base: str, sid: str, stage: Page) -> None:
+    """The live item switched to a camera strip re-lays the reveal out within a second, with no reload."""
+    # #148: the live item switched to a camera strip re-lays the reveal out within a second, with no
+    # reload — the long question and its tiles fit beside the strip, none past the stage's edge
+    stage.evaluate("window.__sameStage = true")
+    session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
+    for profile in ("camera_strip", "camera_pip"):  # and back, for the steps below
+        for sec in session["sections"]:
+            for it in sec["items"]:
+                if it.get("id") == "pq-1":
+                    it["profile"] = profile
+        assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": session}).ok
+        expect(stage.locator(".st-item")).to_have_attribute("data-profile", profile, timeout=1000)
+        live = page.request.get(f"{base}/api/live").json()["plan"]["run"]["items"]
+        now_zone = next(it for it in live if it["id"] == "pq-1")["zone"]
         try:
-            stage.wait_for_function(f"() => ({CLIPPED})().length === 0", timeout=3000)
+            stage.wait_for_function(f"(z) => ({OFF_ZONE})(z).length === 0 && ({CLIPPED})().length === 0",
+                                    arg=now_zone, timeout=3000)
         except PlaywrightTimeout:
             pass
-        assert stage.evaluate(CLIPPED) == []
-        zone = next(it for it in items if it["id"] == "pq-1")["zone"]
-        assert zone and stage.evaluate(IN_CAMERA, zone) == []
-        assert stage.evaluate(OFF_ZONE, zone) == []
+        assert stage.evaluate(OFF_ZONE, now_zone) == [], profile
+        assert stage.evaluate(CLIPPED) == [], profile
+    assert stage.evaluate("window.__sameStage") is True
 
-        # #148: the live item switched to a camera strip re-lays the reveal out within a second, with no
-        # reload — the long question and its tiles fit beside the strip, none past the stage's edge
-        stage.evaluate("window.__sameStage = true")
-        session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
-        for profile in ("camera_strip", "camera_pip"):  # and back, for the steps below
-            for sec in session["sections"]:
-                for it in sec["items"]:
-                    if it.get("id") == "pq-1":
-                        it["profile"] = profile
-            assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": session}).ok
-            expect(stage.locator(".st-item")).to_have_attribute("data-profile", profile, timeout=1000)
-            live = page.request.get(f"{base}/api/live").json()["plan"]["run"]["items"]
-            now_zone = next(it for it in live if it["id"] == "pq-1")["zone"]
-            try:
-                stage.wait_for_function(f"(z) => ({OFF_ZONE})(z).length === 0 && ({CLIPPED})().length === 0",
-                                        arg=now_zone, timeout=3000)
-            except PlaywrightTimeout:
-                pass
-            assert stage.evaluate(OFF_ZONE, now_zone) == [], profile
-            assert stage.evaluate(CLIPPED) == [], profile
-        assert stage.evaluate("window.__sameStage") is True
 
-        assert page.request.post(f"{base}/api/actions/next").ok  # leaderboard
-        expect(ana.locator("[data-result]")).to_contain_text("#1")
-        expect(bo.locator("[data-result]")).to_contain_text("#2")
-        expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo", "Cy"])
-        assert stage.evaluate(IN_CAMERA, zone) == []  # rank 1's score beside the camera, not under it (#88)
+def _check_leaderboard(page: Page, base: str, ana: Page, bo: Page, stage: Page, zone: list) -> None:
+    """The leaderboard ranks the players on every screen, clear of the camera."""
+    assert page.request.post(f"{base}/api/actions/next").ok  # leaderboard
+    expect(ana.locator("[data-result]")).to_contain_text("#1")
+    expect(bo.locator("[data-result]")).to_contain_text("#2")
+    expect(stage.locator(".qz-row .qz-who")).to_have_text(["Ana", "Bo", "Cy"])
+    assert stage.evaluate(IN_CAMERA, zone) == []  # rank 1's score beside the camera, not under it (#88)
 
-        # the session switched to Spanish (#91): after a reload the stage and the phone both speak it
-        session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
-        assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": {**session, "language": "es"}}).ok
-        for _ in range(50):
-            if page.request.get(f"{base}/api/live").json()["plan"]["run"].get("language") == "es":
-                break
-            page.wait_for_timeout(100)
-        stage.reload()
-        ana.reload()
-        expect(stage.locator(".qz-board-title")).to_have_text("Clasificación")
-        expect(ana.locator("[data-result-detail]")).to_contain_text("Puntuación")
-        assert ana.evaluate("document.documentElement.lang") == "es"
 
-        # #158: the last question's reveal goes straight to the podium — the stage never shows a
-        # leaderboard (its top 5 would give the podium away) — and Prev from step 0 comes back to it
-        assert page.request.post(f"{base}/api/actions/goto/{podium - 1}").ok  # the last question
-        expect(stage.locator("[data-qz-index]")).to_have_text("Pregunta 2 de 2")
-        stage.evaluate("""() => { window.__board = false; new MutationObserver(() => {
-          if (document.querySelector('[data-qz-view="leaderboard"]')) window.__board = true;
-        }).observe(document.body, { subtree: true, childList: true, attributes: true }); }""")
-        assert page.request.post(f"{base}/api/actions/next").ok  # its reveal
-        expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "1")
-        expect(page.locator("[data-qnext]")).to_contain_text("On to the podium")
-        shown = stage.locator(".qz-step.shown .qz-pname")  # laid out 2nd, 1st, 3rd
-        for move in ("next", "prev", "next"):  # the podium at step 0, back to the reveal, the podium again
-            assert page.request.post(f"{base}/api/actions/{move}").ok
-            if move == "prev":
-                expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "1")
-                continue
-            expect(stage.locator(".qz-step")).to_have_count(3)
-            expect(shown).to_have_count(0)  # nothing yet: each Next reveals one place
-        assert stage.evaluate("window.__board") is False
-        records = [json.loads(line) for line in (folder / "live" / "quiz.jsonl").read_text(encoding="utf-8").splitlines()]
-        assert [r["item_id"] for r in records if r.get("op") == "phase" and r["phase"] == "leaderboard"] == ["pq-1"]
-        # a phone learns its place only once the stage reveals it (#147), in the session's language
-        for phone in (ana, bo):
-            expect(phone.locator("[data-result]")).to_have_text("Espera al podio…")
-        for names, ana_says, bo_says in ((["Cy"], "Espera al podio…", "Espera al podio…"),
-                                         (["Bo", "Cy"], "Espera al podio…", "#2"),
-                                         (["Bo", "Ana", "Cy"], "#1", "#2")):  # 3rd, then 2nd, then 1st
-            assert page.request.post(f"{base}/api/actions/next").ok
-            expect(shown).to_have_text(names)
-            expect(ana.locator("[data-result]")).to_have_text(ana_says)
-            expect(bo.locator("[data-result]")).to_have_text(bo_says)
-        strip = next(it for it in items if it["id"] == "pq-podium")["zone"]
-        assert strip and stage.evaluate(IN_CAMERA, strip) == []
-        assert page.request.post(f"{base}/api/actions/next").ok  # the fourth Next moves on
-        assert page.request.get(f"{base}/api/live").json()["state"]["index"] == podium  # 0-based: the item after
-        assert errors == []
+def _check_spanish(page: Page, base: str, sid: str, ana: Page, stage: Page) -> None:
+    """The session switched to Spanish: after a reload the stage and the phone both speak it."""
+    # the session switched to Spanish (#91): after a reload the stage and the phone both speak it
+    session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
+    assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": {**session, "language": "es"}}).ok
+    for _ in range(50):
+        if page.request.get(f"{base}/api/live").json()["plan"]["run"].get("language") == "es":
+            break
+        page.wait_for_timeout(100)
+    stage.reload()
+    ana.reload()
+    expect(stage.locator(".qz-board-title")).to_have_text("Clasificación")
+    expect(ana.locator("[data-result-detail]")).to_contain_text("Puntuación")
+    assert ana.evaluate("document.documentElement.lang") == "es"
+
+
+def _check_podium(page: Page, base: str, folder, items: list, podium: int, ana: Page, bo: Page, stage: Page, errors: list[str]) -> None:
+    """The last question's reveal goes straight to the podium, one place per Next; a phone learns its place once the stage shows it."""
+    # #158: the last question's reveal goes straight to the podium — the stage never shows a
+    # leaderboard (its top 5 would give the podium away) — and Prev from step 0 comes back to it
+    assert page.request.post(f"{base}/api/actions/goto/{podium - 1}").ok  # the last question
+    expect(stage.locator("[data-qz-index]")).to_have_text("Pregunta 2 de 2")
+    stage.evaluate("""() => { window.__board = false; new MutationObserver(() => {
+      if (document.querySelector('[data-qz-view="leaderboard"]')) window.__board = true;
+    }).observe(document.body, { subtree: true, childList: true, attributes: true }); }""")
+    assert page.request.post(f"{base}/api/actions/next").ok  # its reveal
+    expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "1")
+    expect(page.locator("[data-qnext]")).to_contain_text("On to the podium")
+    shown = stage.locator(".qz-step.shown .qz-pname")  # laid out 2nd, 1st, 3rd
+    for move in ("next", "prev", "next"):  # the podium at step 0, back to the reveal, the podium again
+        assert page.request.post(f"{base}/api/actions/{move}").ok
+        if move == "prev":
+            expect(stage.locator(".qz-tile.correct")).to_have_attribute("data-choice", "1")
+            continue
+        expect(stage.locator(".qz-step")).to_have_count(3)
+        expect(shown).to_have_count(0)  # nothing yet: each Next reveals one place
+    assert stage.evaluate("window.__board") is False
+    records = [json.loads(line) for line in (folder / "live" / "quiz.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [r["item_id"] for r in records if r.get("op") == "phase" and r["phase"] == "leaderboard"] == ["pq-1"]
+    # a phone learns its place only once the stage reveals it (#147), in the session's language
+    for phone in (ana, bo):
+        expect(phone.locator("[data-result]")).to_have_text("Espera al podio…")
+    for names, ana_says, bo_says in ((["Cy"], "Espera al podio…", "Espera al podio…"),
+                                     (["Bo", "Cy"], "Espera al podio…", "#2"),
+                                     (["Bo", "Ana", "Cy"], "#1", "#2")):  # 3rd, then 2nd, then 1st
+        assert page.request.post(f"{base}/api/actions/next").ok
+        expect(shown).to_have_text(names)
+        expect(ana.locator("[data-result]")).to_have_text(ana_says)
+        expect(bo.locator("[data-result]")).to_have_text(bo_says)
+    strip = next(it for it in items if it["id"] == "pq-podium")["zone"]
+    assert strip and stage.evaluate(IN_CAMERA, strip) == []
+    assert page.request.post(f"{base}/api/actions/next").ok  # the fourth Next moves on
+    assert page.request.get(f"{base}/api/live").json()["state"]["index"] == podium  # 0-based: the item after
+    assert errors == []
+
+
+def test_two_phones_play_a_question(page: Page, browser: Browser, webapp) -> None:
+    base = webapp.base_url
+    folder = webapp.root / "sessions" / "demo" / "quiz-story"
+    sid, folder = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    items, podium, pin = _prepare_quiz_game(page, base, sid, folder)
+    _check_sounds_chip(page, base, sid)
+    errors, ana, bo, stage = _open_phones(browser)
+    try:
+        _join_players(page, base, webapp, pin, ana, bo, stage)
+        _check_first_question(page, base, ana, bo, stage)
+        _answer_and_reveal(page, base, ana, bo)
+        zone = _check_reveal_on_stage(stage, items)
+        _check_camera_strip_relayout(page, base, sid, stage)
+        _check_leaderboard(page, base, ana, bo, stage, zone)
+        _check_spanish(page, base, sid, ana, stage)
+        _check_podium(page, base, folder, items, podium, ana, bo, stage, errors)
     finally:
         ana.context.close()
         bo.context.close()

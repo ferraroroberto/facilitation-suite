@@ -26,7 +26,7 @@ const WS_RETRY_MAX_MS = 15000; // many phones reconnect after a server restart: 
 const WS_OPEN_TIMEOUT_MS = 5000; // a socket not open by now is stuck behind a proxy or a dead link
 // Every word the phone says, in the game's language: the view's `lang` once joined, the
 // live session's (/play/api/ping) before. play.html's own words carry data-t="<key>" (and
-// data-t-placeholder / data-t-label). tests/test_quiz_language.py checks both languages have
+// data-t-placeholder / data-t-label). tests/quiz/test_quiz_language.py checks both languages have
 // every key used here and there. The texts the facilitator wrote (questions, answers) are as typed.
 const TEXT = {
   en: {

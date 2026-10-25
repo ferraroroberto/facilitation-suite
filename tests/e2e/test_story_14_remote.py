@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 import uuid
 
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Browser, Locator, Page, expect
 
 from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
@@ -22,14 +22,8 @@ def _state(page: Page, base: str) -> dict:
     return page.request.get(f"{base}/api/live").json()["state"]
 
 
-def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
-    base = webapp.base_url
-    folder = webapp.root / "sessions" / "demo" / "remote-story"
-    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
-    assert page.request.post(f"{base}/api/sessions/{sid}/groups/shuffle", data={"seed": 7}).ok
-    assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
-    assert page.request.post(f"{base}/api/actions/clock_start").ok
-
+def _follow_and_capture(page: Page, base: str, shots) -> Locator:
+    """The remote follows the stage item by item; Start capture starts the timer and the answers count up. Returns the status line."""
     page.set_viewport_size(PHONE)
     page.goto(f"{base}/remote")
     sub = page.locator("[data-r-sub]")
@@ -60,7 +54,11 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     page.wait_for_function("() => document.fonts.ready.then(() => true)")
     shot(page, shots / "story-14-remote-1-live.png", settle=0.6)  # let the cloud settle
     surface(page, "remote.live")
+    return sub
 
+
+def _check_chat_and_groups(page: Page, shots) -> None:
+    """Hide a chat message by tapping it; the breakout rooms to read out."""
     # the chat: "can you hear me?" is not an answer — tap it to hide it
     page.click("#tabChat")
     msg = page.locator(".r-msg", has_text="can you hear me?")
@@ -79,6 +77,9 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     shot(page, shots / "story-14-remote-3-groups.png")
     surface(page, "remote.groups")
 
+
+def _check_capture_and_blackout(page: Page, base: str, sub: Locator) -> None:
+    """Reopen the capture and toggle the blackout from the phone."""
     page.click("#tabLive")
     page.locator("[data-r-capture]").click()
     expect(page.locator("[data-r-capture]")).to_contain_text("Reopen capture")
@@ -88,6 +89,9 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     page.locator("[data-r-blackout]").click()
     expect(sub).not_to_contain_text("blackout")
 
+
+def _check_appearance_everywhere(page: Page, browser: Browser, base: str, webapp) -> None:
+    """One light/dark for every facilitator screen, whatever the browser or device."""
     # #92: one light/dark for every facilitator screen, whatever the browser or device
     appearance = f"{base}/api/settings/appearance"
     assert page.request.put(appearance, data={"appearance": "dark"}).ok
@@ -136,6 +140,9 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     finally:
         desk.close()
 
+
+def _check_unpaired_phone(browser: Browser, base: str, shots) -> None:
+    """A phone that has not opened the pairing link is told how to pair."""
     # a phone that has not opened the pairing link is told how to pair
     stranger = browser.new_context(viewport=PHONE)
     other = stranger.new_page()
@@ -148,3 +155,17 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     shot(other, shots / "story-14-remote-4-unpaired.png")
     surface(other, "remote.unpaired")
     stranger.close()
+
+
+def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
+    base = webapp.base_url
+    folder = webapp.root / "sessions" / "demo" / "remote-story"
+    sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    assert page.request.post(f"{base}/api/sessions/{sid}/groups/shuffle", data={"seed": 7}).ok
+    assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
+    assert page.request.post(f"{base}/api/actions/clock_start").ok
+    sub = _follow_and_capture(page, base, shots)
+    _check_chat_and_groups(page, shots)
+    _check_capture_and_blackout(page, base, sub)
+    _check_appearance_everywhere(page, browser, base, webapp)
+    _check_unpaired_phone(browser, base, shots)

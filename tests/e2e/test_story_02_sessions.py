@@ -6,6 +6,7 @@ Its details edit inline in its Session settings card and survive a reload (#151)
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import yaml
 from playwright.sync_api import Page, expect
@@ -17,8 +18,8 @@ from tests.e2e.conftest import shot
 UNPAINTED = "el => { const s = getComputedStyle(el); return [s.backgroundColor, s.borderTopWidth]; }"
 
 
-def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> None:
-    defaults = webapp.base_url + "/api/settings/defaults"
+def _set_timer_default(page: Page, webapp, defaults: str) -> None:
+    """Settings → Stage defaults: the timer colour is a global default, saved on its own."""
     assert page.request.put(defaults, data={"stage": {"font": {"family": "Georgia", "weight": 700}}}).ok
     # #211: the timer colours are a global default too — set here in Settings, then copied into a new session
     page.goto(webapp.base_url + "/#settings/stage")
@@ -36,6 +37,10 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
         page.wait_for_timeout(100)
     assert saved_font.get("timer_running") == "#1565c0" and saved_font["family"] == "Georgia"
     surface(page, "settings.stage-defaults")
+
+
+def _create_session(page: Page, webapp, shots) -> tuple[str, Path]:
+    """The New session dialog creates the folder; the session opens full screen with its readiness list."""
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(webapp.base_url + "/")
     page.click("[data-new]")
@@ -72,7 +77,11 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     assert session_yaml.is_file()
     shot(page, shots / "story-02-sessions-1-desktop.png")
     surface(page, "sessions.detail")
+    return deep_link, session_yaml
 
+
+def _check_session_lettering(page: Page, session_yaml: Path, defaults: str) -> None:
+    """The new session starts from the default lettering; a change overrides it, Reset takes it back."""
     # Mark the Zoom auto-update check done: it persists into session.yaml.
     page.locator(".ready-row.state-warn [data-action=confirm_zoom_update]").click()
     expect(page.locator(".ready-row.state-ok", has_text="Zoom auto-update")).to_have_count(1)
@@ -94,6 +103,9 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     assert saved["family"] == "Georgia" and saved["weight"] == 700 and saved["timer_running"] == "#1565c0"
     assert page.request.put(defaults, data={"stage": {"font": None}}).ok  # the theme's lettering for the stories after this
 
+
+def _check_open_and_close(page: Page, webapp, deep_link: str) -> None:
+    """X, Esc and Back return to the list; the deep link reopens the session."""
     # #150: X closes to the list (the session stays selected), Esc and Back do too, a deep link reopens it
     page.locator("[data-close-session]").click()
     expect(page.locator(".sessions-detail")).to_be_hidden()
@@ -115,6 +127,9 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     expect(page.locator(".detail-title h1")).to_have_text("Workshop · cohort A")
     expect(page.locator(".sessions-list")).to_be_hidden()
 
+
+def _check_inline_details(page: Page, session_yaml: Path) -> None:
+    """The details edit inline in Session settings, each saved to session.yaml on its own."""
     # #151: the details edit inline in Session settings, each saved to session.yaml on its own
     settings = page.locator(".session-settings-card")
     title = settings.locator("[data-meta=title]")
@@ -144,3 +159,12 @@ def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> No
     expect(settings.locator("[data-meta=duration_minutes]")).to_have_value("90")
     expect(settings.locator("[data-meta=language]")).to_have_value("es")
     expect(hint).to_have_text("Contesta en el chat")
+
+
+def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> None:
+    defaults = webapp.base_url + "/api/settings/defaults"
+    _set_timer_default(page, webapp, defaults)
+    deep_link, session_yaml = _create_session(page, webapp, shots)
+    _check_session_lettering(page, session_yaml, defaults)
+    _check_open_and_close(page, webapp, deep_link)
+    _check_inline_details(page, session_yaml)
