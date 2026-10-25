@@ -15,7 +15,7 @@ extra_roots = ["themes", "webapp"]
 # copy was taken from. /propagate-vendored hash-verifies + bumps.
 [vendored]
 base            = { src = "app/webapp/static/_vendored/base", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/base" }
-nav             = { src = "app/webapp/static/_vendored/nav", sha = "79cf814d3e1cc6b6a6880929718a097619729a21", dest = "app/webapp/static/_vendored/nav" }
+nav             = { src = "app/webapp/static/_vendored/nav", sha = "00311a74ed7a858193e5b83ade533bf94468eb81", dest = "app/webapp/static/_vendored/nav" }
 icons           = { src = "app/webapp/static/_vendored/icons", sha = "10b2f9424b6d0272d511048ce8222adeb5663e2b", dest = "app/webapp/static/_vendored/icons" }
 card            = { src = "app/webapp/static/_vendored/card", sha = "56e76aa373c6cb689b100f1ce14aa8171d872085", dest = "app/webapp/static/_vendored/card" }
 button          = { src = "app/webapp/static/_vendored/button", sha = "79cf814d3e1cc6b6a6880929718a097619729a21", dest = "app/webapp/static/_vendored/button" }
