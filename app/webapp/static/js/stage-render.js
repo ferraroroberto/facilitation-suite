@@ -257,13 +257,37 @@ function syncTimers(canvas, item, t, ctx, opts) {
   }
 }
 
-/**
- * createStage(host, { guides }) → { render(item, ctx), update(ctx), el }
- *   item: a run item (src/live/plan.py) or null
- *   ctx:  { plan, state, now }  (plan = the /ws plan message; now = server ms)
- *   guides: draw the camera zone as a dashed box (previews only — never on the real stage)
- */
-export function createStage(host, opts = {}) {
+/** The timer of `it` that the stage shows (none when it is presenter-only), from the live state. */
+function stageTimer(it, state) {
+  if (!it || !it.timer || it.timer.show_on === 'presenter') return null;
+  return (state.timers || {})[it.id] || null;
+}
+
+/** Scale and centre the canvas inside `host`; true when the host has a real size. */
+function fitCanvas(host, canvas) {
+  const w = host.clientWidth;
+  const h = host.clientHeight || (w * H) / W;
+  const s = Math.min(w / W, h / H) || 0;
+  canvas.style.transform = `translate(${(w - W * s) / 2}px, ${(h - H * s) / 2}px) scale(${s})`;
+  return w > 0 && h > 0;
+}
+
+/** Draw `it` into the canvas and fit its text; returns the language it was drawn in. */
+function paintItem(canvas, it, ctx, opts, isCurrent) {
+  const lang = ctx.plan.run.language || 'en';
+  canvas.innerHTML = itemHtml(it, ctx.plan.session.id, lang, ctx.plan.run.chat_hint || words(lang).chat_hint, opts);
+  if (it.text_boxes) fitSlideText(canvas);
+  centreOnCamera(canvas, it);
+  document.fonts.ready.then(() => {
+    if (!isCurrent()) return;
+    if (it.text_boxes) fitSlideText(canvas);
+    centreOnCamera(canvas, it);
+  });
+  return lang;
+}
+
+/** The scaled canvas inside a frame appended to `host`. */
+function mountCanvas(host) {
   const frame = document.createElement('div');
   frame.className = 'stage-frame';
   const canvas = document.createElement('div');
@@ -272,6 +296,50 @@ export function createStage(host, opts = {}) {
   canvas.style.height = H + 'px';
   frame.appendChild(canvas);
   host.appendChild(frame);
+  return canvas;
+}
+
+/** The live quiz game reaches only the item it is about: every other item gets null. */
+function quizFor(item, ctx) {
+  const q = ctx.state && ctx.state.quiz;
+  return q && q.item_id === item.id ? q : null;
+}
+
+/** Draw into the item's body; a failing plug-in is logged and never takes the stage down. */
+function renderPlugin(plugin, body, result, env) {
+  try {
+    plugin.render(body, result, env);
+  } catch (e) {
+    console.error('stage plug-in failed', env.item.type, e);
+  }
+}
+
+/** The answers/people badge of an activity item. */
+function drawCount(canvas, result) {
+  const count = canvas.querySelector('[data-count]');
+  if (!count) return;
+  count.innerHTML = result && result.answers
+    ? `${ICON('message-square')} <b>${result.answers}</b> · ${ICON('users')} <b>${result.people}</b>` : '';
+}
+
+/** Let the plug-in set the item's subtitle, re-centring on the camera when it changed. */
+function drawSubtitle(canvas, item, plugin, lang) {
+  const sub = canvas.querySelector('[data-sub]');
+  if (!sub || !plugin.subtitle) return;
+  const before = sub.textContent;
+  sub.textContent = plugin.subtitle(item, lang);
+  sub.hidden = !sub.textContent;
+  if (sub.textContent !== before) centreOnCamera(canvas, item);
+}
+
+/**
+ * createStage(host, { guides }) → { render(item, ctx), update(ctx), el }
+ *   item: a run item (src/live/plan.py) or null
+ *   ctx:  { plan, state, now }  (plan = the /ws plan message; now = server ms)
+ *   guides: draw the camera zone as a dashed box (previews only — never on the real stage)
+ */
+export function createStage(host, opts = {}) {
+  const canvas = mountCanvas(host);
 
   let key = null;
   let item = null;
@@ -286,11 +354,7 @@ export function createStage(host, opts = {}) {
   // One host-level 0→visible transition re-runs whatever fit step the current item needs.
   let wasVisible = host.clientWidth > 0 && host.clientHeight > 0;
   function fit() {
-    const w = host.clientWidth;
-    const h = host.clientHeight || (w * H) / W;
-    const s = Math.min(w / W, h / H) || 0;
-    canvas.style.transform = `translate(${(w - W * s) / 2}px, ${(h - H * s) / 2}px) scale(${s})`;
-    const visible = w > 0 && h > 0;
+    const visible = fitCanvas(host, canvas);
     if (visible && !wasVisible) refit();
     wasVisible = visible;
   }
@@ -307,11 +371,6 @@ export function createStage(host, opts = {}) {
     if (!item || !lastCtx) return;
     build(item, lastCtx);
     update(lastCtx);
-  }
-
-  function stageTimer(it, state) {
-    if (!it || !it.timer || it.timer.show_on === 'presenter') return null;
-    return (state.timers || {})[it.id] || null;
   }
 
   function build(it, ctx) {
@@ -331,16 +390,7 @@ export function createStage(host, opts = {}) {
       canvas.innerHTML = '';
       return;
     }
-    lang = ctx.plan.run.language || 'en';
-    const html = itemHtml(it, ctx.plan.session.id, lang, ctx.plan.run.chat_hint || words(lang).chat_hint, opts);
-    canvas.innerHTML = html;
-    if (it.text_boxes) fitSlideText(canvas);
-    centreOnCamera(canvas, it);
-    document.fonts.ready.then(() => {
-      if (item !== it) return;
-      if (it.text_boxes) fitSlideText(canvas);
-      centreOnCamera(canvas, it);
-    });
+    lang = paintItem(canvas, it, ctx, opts, () => item === it);
   }
 
   let lastCtx = null;
@@ -358,30 +408,14 @@ export function createStage(host, opts = {}) {
     const result = resultFor(item, ctx);
     const names = 'names' in ctx ? ctx.names : !!(ctx.state && ctx.state.names);
     const body = canvas.querySelector('[data-body]');
-    const count = canvas.querySelector('[data-count]');
-    if (count) {
-      count.innerHTML = result && result.answers
-        ? `${ICON('message-square')} <b>${result.answers}</b> · ${ICON('users')} <b>${result.people}</b>` : '';
-    }
+    drawCount(canvas, result);
     if (!plugin || !body) return;
-    const sub = canvas.querySelector('[data-sub]');
-    if (sub && plugin.subtitle) {
-      const before = sub.textContent;
-      sub.textContent = plugin.subtitle(item, lang);
-      sub.hidden = !sub.textContent;
-      if (sub.textContent !== before) centreOnCamera(canvas, item);
-    }
-    // The live quiz game reaches only the item it is about: every other item gets null.
-    const q = ctx.state && ctx.state.quiz;
-    const quiz = q && q.item_id === item.id ? q : null;
+    drawSubtitle(canvas, item, plugin, lang);
+    const quiz = quizFor(item, ctx);
     const sig = JSON.stringify([result, names, quiz]);
     if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
     lastResult = sig;
-    try {
-      plugin.render(body, result, { item, names, options: item.options || {}, lang, quiz, now: ctx.now, preview: !!opts.guides });
-    } catch (e) {
-      console.error('stage plug-in failed', item.type, e);
-    }
+    renderPlugin(plugin, body, result, { item, names, options: item.options || {}, lang, quiz, now: ctx.now, preview: !!opts.guides });
   }
 
   return {
