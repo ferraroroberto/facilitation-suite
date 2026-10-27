@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from src.activities.registry import parser, preview, result_for
+from src.activities.registry import parser, preview, result_for, value_for
 from src.chat.hub import ChatHub
 from src.config import load_config
 from src.live import capture
@@ -89,6 +89,57 @@ def test_word_cloud_terms_words_always_splits() -> None:
     ))
     assert [(w["key"], w["count"]) for w in r["words"]] == [("agenda", 2), ("meetings", 2), ("long", 1)]
     assert r["answers"] == 3
+
+
+def test_word_cloud_split_ideas_keeps_each_part_a_phrase() -> None:
+    r = result_for("word_cloud", {"split_ideas": True}, _msgs("calm + humour", "calm", "no ego; open mind"))
+    assert [(w["key"], w["count"]) for w in r["words"]] == [("calm", 2), ("humour", 1), ("no ego", 1), ("open mind", 1)]
+    assert [w["key"] for w in result_for("word_cloud", {}, _msgs("calm + humour"))["words"]] == ["calm humour"]
+
+
+def test_word_cloud_conjunction_split_only_with_its_switch() -> None:
+    texts = _msgs("respeto y empatía", "trust and focus")
+    assert [w["key"] for w in result_for("word_cloud", {"split_ideas": True}, texts)["words"]] == [
+        "respeto y empatia", "trust and focus"]
+    assert [w["key"] for w in result_for("word_cloud", {"split_and": True}, texts)["words"]] == [
+        "respeto", "empatia", "trust", "focus"]
+
+
+@pytest.mark.parametrize(("long_answers", "entries"), [("whole", ["levantar la mano a tiempo con el equipo"]),
+                                                       ("keyword", ["levantar"])])
+def test_word_cloud_a_long_answer_is_at_most_one_entry(long_answers: str, entries: list[str]) -> None:
+    sentence = "Levantar la mano a tiempo con el equipo"
+    r = result_for("word_cloud", {"long_answers": long_answers, "stopwords": "es"}, _msgs(sentence))
+    assert [w["key"] for w in r["words"]] == entries
+    assert len(result_for("word_cloud", {"stopwords": "es"}, _msgs(sentence))["words"]) == 4  # the default still splits
+
+
+def test_word_cloud_emoticon_only_answer_is_no_entry() -> None:
+    r = result_for("word_cloud", {}, _msgs(":P", ":-)", "<3", "genial :D"))
+    assert [w["key"] for w in r["words"]] == ["genial"] and r["answers"] == 1
+
+
+def test_word_cloud_near_spellings_join_a_present_word() -> None:
+    near = {"merge_near": True}
+    r = result_for("word_cloud", near, _msgs("apoyo", "apoyo", "aooyo", "repetitivas", "ripetitivas"))
+    assert [(w["text"], w["count"]) for w in r["words"]] == [("apoyo", 3), ("repetitivas", 2)]
+    alone = result_for("word_cloud", near, _msgs("aooyo", "calma"))  # nothing to join: stays as typed
+    assert [w["key"] for w in alone["words"]] == ["aooyo", "calma"]
+    short = result_for("word_cloud", near, _msgs("pan", "paz", "paz"))  # short words one letter apart never merge
+    assert [w["key"] for w in short["words"]] == ["paz", "pan"]
+    off = result_for("word_cloud", {}, _msgs("apoyo", "aooyo"))
+    assert [w["key"] for w in off["words"]] == ["apoyo", "aooyo"]
+
+
+def test_word_cloud_report_value_is_the_entries_the_answer_counted_towards() -> None:
+    mod = parser("word_cloud")
+    opts = {"split_ideas": True, "merge_near": True}
+    texts = ["Apoyo + calma", "aooyo", "apoyo"]
+    parsed = [mod.parse({"sender": f"P{i}", "text": t}, opts) for i, t in enumerate(texts)]
+    result = mod.aggregate(parsed, opts)
+    assert [value_for("word_cloud", p, result) for p in parsed] == ["apoyo, calma", "apoyo", "apoyo"]
+    assert mod.counted(texts[0], parsed[0], result) == {"entries": ["apoyo", "calma"], "whole": True}
+    assert mod.counted(texts[1], parsed[1], result)["entries"] == ["apoyo"]
 
 
 # ----------------------------------------------------------------------- scale
