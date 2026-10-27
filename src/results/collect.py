@@ -94,11 +94,11 @@ def _activity(item_id: str, frozen: dict[str, Any], png: Path, aliases: Aliases)
         "frozen_at": frozen.get("frozen_at"),
         "has_png": png.is_file(),
         **rep,
-        "answer_rows": [_answer_row(kind, a, aliases) for a in answers],
+        "answer_rows": [_answer_row(kind, a, aliases, result) for a in answers],
     }
 
 
-def _answer_row(kind: str, a: dict[str, Any], aliases: Aliases) -> dict[str, Any]:
+def _answer_row(kind: str, a: dict[str, Any], aliases: Aliases, result: Optional[dict[str, Any]]) -> dict[str, Any]:
     """One answer; ``sender`` is the person, ``raw`` the name it was sent under when that differs (so a merge can be audited)."""
     raw = a.get("sender", "")
     person = aliases.canonical(raw) if raw else raw
@@ -106,7 +106,7 @@ def _answer_row(kind: str, a: dict[str, Any], aliases: Aliases) -> dict[str, Any
         "id": a.get("id"), "sender": person, "raw": raw if person != raw else "",
         "label": f"{person} (as {raw})" if person != raw else raw,
         "text": a.get("text", ""), "time": a.get("time", ""), "hidden": bool(a.get("hidden")),
-        "value": value_for(kind, a.get("parsed")),
+        "value": value_for(kind, a.get("parsed"), result),
     }
 
 

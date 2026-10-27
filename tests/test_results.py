@@ -11,6 +11,7 @@ import yaml
 from openpyxl import load_workbook
 
 from src.activities.registry import options_with_defaults, parser, result_for
+from src.geo.gazetteer import gazetteer
 from src.results.aliases import AliasError, Aliases, read_aliases, suggest, write_aliases
 from src.results.collect import load_results, participation, timeline
 from src.results.excel import sheet_title
@@ -82,6 +83,35 @@ def test_results_read_back_in_the_order_they_happened(isolated_env: Path) -> Non
     assert sum(p["total"] for p in people) == 39  # 40 answers, one hidden
     assert "You" not in {p["name"] for p in people}
     assert people[0]["total"] >= people[-1]["total"]
+
+
+def _map_rows(folder: Path, rows: list[tuple[str, str]], **manual: str) -> dict[str, str]:
+    """The report's value per answer text, for a map capture rebuilt from ``rows`` (sender, text); ``manual`` maps text → geonameid."""
+    path = folder / "live" / "captures" / "act-map.json"
+    frozen = json.loads(path.read_text(encoding="utf-8"))
+    msgs = [{"id": i + 1, "sender": s, "text": t, "time": "", "received_at": 0, **({"place_id": manual[t]} if t in manual else {})}
+            for i, (s, t) in enumerate(rows)]
+    opts = options_with_defaults("map", frozen["item"].get("options") or {})
+    frozen["answers"] = [{**m, "hidden": False, "parsed": parser("map").parse(m, opts)} for m in msgs]
+    frozen["result"] = result_for("map", frozen["item"].get("options") or {}, msgs)
+    path.write_text(json.dumps(frozen), encoding="utf-8")
+    geo = next(a for a in load_results(folder, parse_session(PLAN))["activities"] if a["id"] == "act-map")
+    return {r["text"]: r["value"] for r in geo["answer_rows"]}
+
+
+def test_the_report_places_an_answer_where_the_room_put_it_on_the_map(isolated_env: Path) -> None:
+    _, folder, _ = _run(isolated_env)
+    room = [("Ana", "Madrid, España"), ("Sam", "Sevilla, España"), ("Leo", "Valencia")]
+    assert _map_rows(folder, room)["Valencia"] == "Valencia, España"
+    assert _map_rows(folder, room[-1:])["Valencia"] == "Valencia, Venezuela"  # alone, the larger one
+
+
+def test_a_hand_fixed_or_unplaced_answer_keeps_its_report_value(isolated_env: Path) -> None:
+    _, folder, _ = _run(isolated_env)
+    caracas = next(p for p in gazetteer().suggest("Caracas") if p.country == "VE")
+    rows = _map_rows(folder, [("Ana", "Madrid, España"), ("Sam", "Sevilla, España"), ("Leo", "Valencia"), ("Bea", "zzzz")],
+                     Valencia=caracas.geonameid)
+    assert (rows["Valencia"], rows["zzzz"]) == ("Caracas, Venezuela", "unplaced")
 
 
 def test_a_session_that_never_went_live_has_no_results(isolated_env: Path) -> None:

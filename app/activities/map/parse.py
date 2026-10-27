@@ -97,9 +97,18 @@ def report(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def value(parsed: dict[str, Any]) -> str:
-    """One answer's parsed value for the Excel report: the place it resolved to."""
-    place = parsed.get("place")
+def _label(place: Optional[dict[str, Any]]) -> str:
     if not place:
         return "unplaced"
     return place["name"] if place.get("precision") == "country" else f"{place['name']}, {place['country_name']}"
+
+
+def value(parsed: dict[str, Any]) -> str:
+    """One answer's parsed value for the Excel report: the place it resolved to."""
+    return _label(parsed.get("place"))
+
+
+def value_in(parsed: dict[str, Any], result: Optional[dict[str, Any]]) -> str:
+    """The place the map pinned for this answer (``aggregate`` re-decided it with the room); an answer with no pin keeps its own guess."""
+    pin = next((p for p in (result or {}).get("pins") or [] if p["id"] == parsed.get("id")), None)
+    return _label(pin) if pin else value(parsed)
