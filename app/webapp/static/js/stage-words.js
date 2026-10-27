@@ -14,6 +14,7 @@ const WORDS = {
     rounds: { pairs: 'Pairs', g4a: 'Groups of 4 · A', g4b: 'Groups of 4 · B' },
     rooms: (n) => `${n} room${n === 1 ? '' : 's'}`,
     no_rooms: 'Shuffle the groups in the Groups tab first.',
+    more: (n) => `+${n} more`,
   },
   es: {
     chat_hint: 'Escribe tu respuesta en el chat',
@@ -25,6 +26,7 @@ const WORDS = {
     rounds: { pairs: 'Parejas', g4a: 'Grupos de 4 · A', g4b: 'Grupos de 4 · B' },
     rooms: (n) => `${n} sala${n === 1 ? '' : 's'}`,
     no_rooms: 'Haz los grupos en la pestaña Groups primero.',
+    more: (n) => `+${n} más`,
   },
 };
 

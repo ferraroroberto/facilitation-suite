@@ -118,6 +118,7 @@
 .p-music-hint.warn { color: var(--danger-text); }
 @keyframes p-pulse { 50% { box-shadow: 0 0 0 8px transparent; } }
 .p-cap-counts { margin: 0; }
+.p-cap-left { color: var(--attention-text); }
 .p-unplaced { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--attention-soft); }
 .p-unplaced .overline { display: inline-flex; align-items: center; gap: 6px; color: var(--attention-text); }
 .p-unplaced-row { display: grid; gap: 6px; }
