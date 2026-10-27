@@ -15,6 +15,7 @@ from __future__ import annotations
 import ctypes
 import ctypes.wintypes as wt
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -77,43 +78,98 @@ def _prop(acc: Any, name: str, child: int = CHILDID_SELF) -> Any:
         return None
 
 
+def _children(parent: Any, start: int, count: int) -> Iterator[tuple[Optional[Any], int, str]]:
+    """``(accessible or None, role, name)`` of ``count`` children of ``parent`` from index ``start``.
+
+    A child that is its own accessible object comes back to be descended into;
+    a simple element (a list box row) has no object of its own, so ``None``.
+    Each child is read when the caller asks for it, so a caller that stops early
+    pays for no more than it took."""
+    _, IAccessible, (oleacc, VARIANT) = _com()
+    arr = (VARIANT * count)()
+    got = ctypes.c_long()
+    try:
+        oleacc.AccessibleChildren(parent, start, count, arr, ctypes.byref(got))
+    except OSError:
+        return
+    for v in arr[: got.value]:
+        if v.vt == VT_DISPATCH and v.value is not None:
+            try:
+                child = v.value.QueryInterface(IAccessible)
+            except Exception:  # noqa: BLE001
+                continue
+            role = _prop(child, "accRole")
+            yield child, int(role) if isinstance(role, int) else 0, _prop(child, "accName") or ""
+        elif v.vt == VT_I4:
+            role = _prop(parent, "accRole", v.value)
+            yield None, int(role) if isinstance(role, int) else 0, _prop(parent, "accName", v.value) or ""
+
+
+def _child_count(parent: Any) -> int:
+    try:
+        return max(0, int(parent.accChildCount))
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def walk(acc: Any, max_nodes: int = MAX_NODES) -> list[Node]:
     """Every node under ``acc`` in document order (role + name)."""
-    _, IAccessible, (oleacc, VARIANT) = _com()
     out: list[Node] = []
 
     def visit(parent: Any, depth: int) -> None:
-        if len(out) >= max_nodes:
+        count = _child_count(parent)
+        if len(out) >= max_nodes or count <= 0:
             return
-        try:
-            count = int(parent.accChildCount)
-        except Exception:  # noqa: BLE001
-            return
-        if count <= 0:
-            return
-        arr = (VARIANT * count)()
-        got = ctypes.c_long()
-        try:
-            oleacc.AccessibleChildren(parent, 0, count, arr, ctypes.byref(got))
-        except OSError:
-            return
-        for v in arr[: got.value]:
+        for child, role, name in _children(parent, 0, count):
             if len(out) >= max_nodes:
                 return
-            if v.vt == VT_DISPATCH and v.value is not None:
-                try:
-                    child = v.value.QueryInterface(IAccessible)
-                except Exception:  # noqa: BLE001
-                    continue
-                role = _prop(child, "accRole")
-                out.append(Node(int(role) if isinstance(role, int) else 0, _prop(child, "accName") or "", depth))
+            out.append(Node(role, name, depth))
+            if child is not None:
                 visit(child, depth + 1)
-            elif v.vt == VT_I4:
-                role = _prop(parent, "accRole", v.value)
-                out.append(Node(int(role) if isinstance(role, int) else 0, _prop(parent, "accName", v.value) or "", depth))
 
     visit(acc, 0)
     return out
+
+
+def find_list(acc: Any, name_prefix: str, max_nodes: int = MAX_NODES) -> Optional[Any]:
+    """The first list (role 33) under ``acc`` whose name starts with ``name_prefix``.
+
+    The search stops at the list and does not descend into it, so it costs the
+    nodes that precede the list, not the messages in it."""
+    seen = 0
+
+    def visit(parent: Any) -> Optional[Any]:
+        nonlocal seen
+        count = _child_count(parent)
+        if count <= 0:
+            return None
+        for child, role, name in _children(parent, 0, count):
+            seen += 1
+            if seen > max_nodes:
+                return None
+            if child is None:
+                continue
+            if role == ROLE_LIST and name.startswith(name_prefix):
+                return child
+            found = visit(child)
+            if found is not None:
+                return found
+        return None
+
+    return visit(acc)
+
+
+def list_count(lst: Any) -> int:
+    """How many children a list has. Raises when the list is gone (the caller walks the window again)."""
+    return max(0, int(lst.accChildCount))
+
+
+def tail_names(lst: Any, count: int, n: int) -> list[str]:
+    """Names of the list items among the last ``n`` of the list's ``count`` children."""
+    n = min(n, count)
+    if n <= 0:
+        return []
+    return [name for _, role, name in _children(lst, count - n, n) if role == ROLE_LISTITEM]
 
 
 def screen_reader_flag() -> bool:
