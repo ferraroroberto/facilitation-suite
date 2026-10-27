@@ -7,7 +7,8 @@ contribution, contributions → result) and ``stage.js`` / ``stage.css`` (render
 the result on the stage). From step 12 ``parse.py`` may also say how its result
 reads after the session: ``report(result)`` (the Results tab's summary line,
 top list and PDF tile) and ``value(parsed)`` (one answer's parsed value in the
-Excel report); both fall back to something generic. Adding a type = adding a
+Excel report); both fall back to something generic. ``counted(text, parsed, result)``
+says which result entries an answer counts towards (the offline replay). Adding a type = adding a
 folder; nothing else enumerates types.
 """
 
@@ -125,6 +126,20 @@ def report_for(activity_type: str, result: Optional[dict[str, Any]]) -> dict[str
     except Exception:  # noqa: BLE001 — a broken report must not hide the answers
         logger.exception("❌ activity %s: report failed", activity_type)
         return fallback
+
+
+def counted_for(activity_type: str, text: str, parsed: Optional[dict[str, Any]],
+                result: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """``{"entries": [...], "whole": bool}``: the result entries one answer counts towards and whether
+    it is shown whole (the offline replay's comparison); None for a type without ``counted``."""
+    mod = parser(activity_type)
+    if mod is None or result is None or not hasattr(mod, "counted"):
+        return None
+    try:
+        return mod.counted(text, parsed, result)
+    except Exception:  # noqa: BLE001
+        logger.exception("❌ activity %s: counted failed", activity_type)
+        return None
 
 
 def value_for(activity_type: str, parsed: Optional[dict[str, Any]], result: Optional[dict[str, Any]] = None) -> str:

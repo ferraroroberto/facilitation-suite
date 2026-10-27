@@ -89,18 +89,8 @@ class CaptureService:
         return next((k for k in self.windows if self.status(k) == "live"), None)
 
     def messages_for(self, item_id: str, *, include_hidden: bool = False) -> list[dict[str, Any]]:
-        wins = self.windows.get(item_id) or []
-        if not wins:
-            return []
-        out = []
-        for m in self.chat.messages:
-            if m.get("own") and not self.count_own:
-                continue
-            t = m["received_at"]
-            inside = any(s is not None and t >= s and (e is None or t < e) for s, e in wins)  # [start, stop)
-            if inside and (include_hidden or m["id"] not in self.hidden):
-                out.append(dict(m, place_id=self.places[m["id"]]) if m["id"] in self.places else m)
-        return out
+        return select_messages(self.chat.messages, self.windows.get(item_id) or [], hidden=self.hidden,
+                               places=self.places, count_own=self.count_own, include_hidden=include_hidden)
 
     def result(self, item: dict[str, Any]) -> Optional[dict[str, Any]]:
         if item.get("kind") != "activity" or not item.get("type"):
@@ -300,23 +290,11 @@ class CaptureService:
         path = self.frozen_path(item["id"], "json")
         if path is None:
             return
-        answers = []
-        mod = parser(item.get("type") or "")
-        opts = options_with_defaults(item.get("type") or "", item.get("options") or {})
-        for m in self.messages_for(item["id"], include_hidden=True):
-            parsed = None
-            if mod is not None and m["id"] not in self.hidden:
-                try:
-                    parsed = mod.parse(m, opts)
-                except Exception:  # noqa: BLE001 — a parser crash leaves this answer unparsed, not the freeze failed
-                    logger.exception("❌ capture %s: parse failed on message %s", item["id"], m["id"])
-                    parsed = None
-            answers.append({"id": m["id"], "sender": m["sender"], "text": m["text"], "time": m["time"],
-                            "received_at": m["received_at"], "hidden": m["id"] in self.hidden, "parsed": parsed})
         frozen = {
             "item": item, "frozen_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "windows": self.windows.get(item["id"], []), "answers": answers, "result": self.result(item),
-            "names": self.live.names,
+            "windows": self.windows.get(item["id"], []),
+            "answers": frozen_answers(item, self.messages_for(item["id"], include_hidden=True), self.hidden),
+            "result": self.result(item), "names": self.live.names,
         }
         try:
             atomic_write_text(path, json.dumps(frozen, ensure_ascii=False, indent=1))
@@ -354,6 +332,41 @@ class CaptureService:
         except (OSError, ValueError) as exc:
             logger.warning("⚠️ capture %s: frozen record unreadable (%s)", item_id, exc)
             return None
+
+
+def select_messages(messages: list[dict[str, Any]], windows: list[list[Optional[int]]], *, hidden: set[int],
+                    places: dict[int, str], count_own: bool = False, include_hidden: bool = False) -> list[dict[str, Any]]:
+    """The messages a capture counts: received inside one of its ``[start, stop)`` windows, not the
+    facilitator's own (unless ``count_own``), not hidden (unless ``include_hidden``), with any place
+    fixed by hand. Pure, so the offline replay (``src.activities.replay``) selects exactly as live did."""
+    if not windows:
+        return []
+    out = []
+    for m in messages:
+        if m.get("own") and not count_own:
+            continue
+        t = m["received_at"]
+        inside = any(s is not None and t >= s and (e is None or t < e) for s, e in windows)
+        if inside and (include_hidden or m["id"] not in hidden):
+            out.append(dict(m, place_id=places[m["id"]]) if m["id"] in places else m)
+    return out
+
+
+def frozen_answers(item: dict[str, Any], messages: list[dict[str, Any]], hidden: set[int]) -> list[dict[str, Any]]:
+    """A frozen record's answers: every selected message (hidden ones too) with its parsed value."""
+    mod = parser(item.get("type") or "")
+    opts = options_with_defaults(item.get("type") or "", item.get("options") or {})
+    answers = []
+    for m in messages:
+        parsed = None
+        if mod is not None and m["id"] not in hidden:
+            try:
+                parsed = mod.parse(m, opts)
+            except Exception:  # noqa: BLE001 — a parser crash leaves this answer unparsed, not the freeze failed
+                logger.exception("❌ capture %s: parse failed on message %s", item["id"], m["id"])
+        answers.append({"id": m["id"], "sender": m["sender"], "text": m["text"], "time": m["time"],
+                        "received_at": m["received_at"], "hidden": m["id"] in hidden, "parsed": parsed})
+    return answers
 
 
 def _int(arg: Optional[str]) -> int:

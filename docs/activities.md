@@ -12,6 +12,20 @@ At every stop the result is **frozen** in the session folder: `live/captures/<it
 | Cards | each answer with its name | the latest cards in a grid |
 | Feed | each answer with its name | bubbles, the newest at the bottom and largest |
 
-Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the Plan tab's fields and sample answers), `parse.py` (`parse(message, options)` → contribution, `aggregate(contributions, options)` → result; pure and unit-tested; optionally `report(result)` — the Results tab's summary line, top list and PDF tile — and `value(parsed)` — one answer in the Excel report) and `stage.js` + `stage.css` (draws a result). The Plan tab's stage preview is drawn by the same renderer with the sample answers, and the presenter's *Simulate answers* on an activity uses them too.
+Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the Plan tab's fields and sample answers), `parse.py` (`parse(message, options)` → contribution, `aggregate(contributions, options)` → result; pure and unit-tested; optionally `report(result)` — the Results tab's summary line, top list and PDF tile — `value(parsed)` — one answer in the Excel report — and `counted(text, parsed, result)` — the result entries one answer counts towards and whether it is shown whole, for the replay below) and `stage.js` + `stage.css` (draws a result). The Plan tab's stage preview is drawn by the same renderer with the sample answers, and the presenter's *Simulate answers* on an activity uses them too.
 
 **Map answers that land nowhere** are listed on the presenter under *Not on the map* with the closest places as one-click buttons, or type the place and press Enter. Common chat spellings live in `app/activities/map/aliases.yaml` (add a line when an answer keeps landing there). The map's data is built once by `scripts/build_geo.py` (needs the network and `babel`) and committed; the app never downloads anything.
+
+## Offline replay
+
+`python -m src.activities.replay <session-folder>` runs a recorded session's captures again, offline, through the same selection, parsers and aggregation the live capture uses, so a parser change can be judged on real answers before a session. It reads `session.yaml` and `live/` (`captures.json`, `chat.jsonl`, `captures/<item>.json`) and never writes to the session folder. For every captured activity it writes `<item>.json` (the frozen record's shape) and `<item>.compare.json`: whether the result equals the frozen one, entries added, removed and merged, count changes, and the answers the result does not show whole (one entry that keeps every word typed); it prints one line per activity and writes `summary.json`. An activity that was captured but never stopped (so never frozen) is replayed too.
+
+| Flag | What it does |
+|---|---|
+| `--item <id>` | replay only that activity (repeatable) |
+| `--set key=value` | override one activity option on every replayed item that has it, e.g. `--set terms=verbatim` (JSON values: `--set merge_variants=false`) |
+| `--live <name>` | read another live-data subfolder of the session, e.g. a backup kept beside `live/` |
+| `--out <dir>` | where the outputs go (default `data/replay/<folder-name>/`) |
+| `--render` | also draw each result to `<item>.png` through the real stage: a temp copy of the session under the output folder, a disposable server on a free loopback port with its own config, ledger and data dir, and `src.live.freeze` — never the running app |
+
+The outputs hold participants' names and answers: keep them under the gitignored `data/` (the default) and out of commits, issues and PRs.

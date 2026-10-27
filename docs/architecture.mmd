@@ -55,6 +55,10 @@ flowchart LR
   reg --> parsers[("app/activities/&lt;type&gt;/parse.py · stage.js")]
   capture --> capfiles[("live/captures.json · captures/&lt;item&gt;.json + .png")]
   capture -.->|spawns| freeze["src/live/freeze.py<br/>headless /stage?freeze="]
+  replay["src/activities/replay.py (CLI, offline)<br/>recorded live/ → result · compare · --render"] --> chatfile
+  replay --> capfiles
+  replay --> reg
+  replay -.->|--render: disposable server| freeze
   parsers -->|map| geo["src/geo/gazetteer.py<br/>offline GeoNames · aliases · suggest"]
   geo --> geodata[("app/activities/map/cities.tsv.gz · countries.json · world.svg")]
   buildgeo["scripts/build_geo.py (network, once)"] -.-> geodata
