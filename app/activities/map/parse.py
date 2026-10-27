@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any, Optional
 
-from src.geo.gazetteer import gazetteer
+from src.geo.gazetteer import ALTERNATE_MARGIN, gazetteer
 
 TOP_CITIES = 4
 
@@ -41,7 +41,13 @@ def _choose(c: dict[str, Any], share: dict[str, float]) -> Optional[dict[str, An
     if c["manual"] or not c["candidates"] or not c["place"]:
         return c["place"]
     options = [c["place"], *c["candidates"]]
-    return max(options, key=lambda p: (p.get("population") or 1) * (1 + 50 * share.get(p["country"], 0.0)))
+    return max(options, key=lambda p: _score(p, share))
+
+
+def _score(p: dict[str, Any], share: dict[str, float]) -> float:
+    """Population boosted by the room's share of the country; an alternate-name match is discounted as in ``resolve``."""
+    score = (p.get("population") or 1) * (1 + 50 * share.get(p["country"], 0.0))
+    return score / ALTERNATE_MARGIN if p.get("match") == "alternate" else score
 
 
 def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> dict[str, Any]:
