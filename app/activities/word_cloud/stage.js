@@ -5,7 +5,7 @@
 // whole set fits the body; an entry that still has no room at the smallest
 // readable size is left out, never silently: the stage says "+N more" and the
 // presenter hears how many through the `wc-left-out` event.
-// An entry of more than three words (only a verbatim answer has one) is
+// An entry of more than three words (a verbatim answer, or a long answer kept whole) is
 // capped so it fits the cloud and, from six words, wraps onto balanced lines
 // of about four words; shorter entries are laid out exactly as always.
 

@@ -19,6 +19,23 @@ With ``merge_variants``: case, accents and simple plurals are grouped
 lower-cased in ``auto`` and ``words``; in ``verbatim`` the most common spelling
 as typed ("I stop listening" ×2 beats "i stop listening" ×1; a tie goes to the
 first seen).
+
+Four options refine this, all off by default:
+
+- ``split_ideas``: an answer is first split at ``+ , ; / &`` and line breaks
+  ("calm + humour" → two entries); each part then goes through the mode above.
+  ``split_and`` (its own switch) also splits at " y ", " e " and " and ".
+- ``long_answers`` (``auto`` only) decides an answer or part longer than three
+  words: ``split`` (the default: words minus stopwords), ``whole`` (one phrase,
+  wrapped by the stage) or ``keyword`` (its longest non-filler word — one per
+  answer, however many long parts it has).
+- ``merge_near``: after case, accents and plurals, an entry joins a more
+  frequent (or, at a tie, earlier) entry of the cloud one typo away (two from
+  nine letters); words under five letters never merge ("pan" stays apart from
+  "paz"). The entries it absorbed are listed in its ``variants``.
+
+An answer made only of emoticons (":P", ":-)", "<3") is dropped like laughter,
+and an emoticon inside an answer is ignored, never shown as the letter "p".
 """
 
 from __future__ import annotations
@@ -33,6 +50,11 @@ HERE = Path(__file__).resolve().parent
 FILLER = re.compile(r"^(?:(?:ja|je|ji|ha|he|jo)+h?|lol+|xd+|jaj+|hah+|mm+|eh+|ok+|okay)$")
 TOKEN = re.compile(r"[\w'’-]+", re.UNICODE)
 SPACES = re.compile(r"\s+")
+# Emoticons as whitespace-separated pieces: eyes, optional nose, mouth; the reverse; hearts; ^^; o_O.
+EMOTICON = re.compile(r"(?<!\S)(?:[:;=8][-'^o]?[()\[\]DPpOo3/\\|*$@]+|[()]+[-']?[:;=]|<3+|\^_*\^|[oO0-]_+[oO0-])(?!\S)")
+IDEAS = re.compile(r"[+,;/&\r\n]+")
+CONJUNCTIONS = frozenset({"y", "e", "and"})
+AND = re.compile(r"\s(?:y|e|and)\s", re.IGNORECASE)
 PHRASE_MAX_WORDS = 3
 MAX_WORDS = 60
 
@@ -64,21 +86,46 @@ def _trim(text: str) -> str:
     return text[start:end]
 
 
-def parse(message: dict[str, Any], options: dict[str, Any]) -> Optional[dict[str, Any]]:
-    text = message.get("text") or ""
+def _tokens(text: str) -> list[str]:
     tokens = [t.strip("'’-") for t in TOKEN.findall(text)]
-    tokens = [t for t in tokens if t and not FILLER.match(fold(t))]
-    if not tokens:
-        return None
+    return [t for t in tokens if t and not FILLER.match(fold(t))]
+
+
+def _parts(text: str, options: dict[str, Any]) -> list[str]:
+    """The answer's ideas: split at the separators the options switch on."""
+    parts = IDEAS.split(text) if options.get("split_ideas") else [text]
+    if options.get("split_and"):
+        parts = [q for p in parts for q in AND.split(p)]
+    return [p for p in parts if _tokens(p)]
+
+
+def parse(message: dict[str, Any], options: dict[str, Any]) -> Optional[dict[str, Any]]:
+    parts = _parts(EMOTICON.sub(" ", message.get("text") or ""), options)
     mode = str(options.get("terms") or "auto")
-    if mode == "verbatim":
-        terms = [_trim(SPACES.sub(" ", text))]
-    elif mode != "words" and len(tokens) <= PHRASE_MAX_WORDS:
-        terms = [" ".join(tokens)]
-    else:
-        stop = _stopwords(str(options.get("stopwords", "es")))
-        terms = [t for t in tokens if fold(t) not in stop and not t.isdigit()]
-    return {"terms": terms, "sender": message.get("sender", "")} if terms else None
+    long_answers = str(options.get("long_answers") or "split")
+    terms: list[str] = []
+    keywords: list[str] = []
+    for part in parts:
+        tokens = _tokens(part)
+        if mode == "verbatim":
+            terms.append(_trim(SPACES.sub(" ", part)))
+        elif mode != "words" and (len(tokens) <= PHRASE_MAX_WORDS or long_answers == "whole"):
+            terms.append(" ".join(tokens))
+        else:
+            stop = _stopwords(str(options.get("stopwords", "es")))
+            words = [t for t in tokens if fold(t) not in stop and not t.isdigit()]
+            if mode != "words" and long_answers == "keyword":
+                keywords += words
+            else:
+                terms += words
+    if keywords:  # one per answer: the longest, the first at a tie
+        terms.append(max(keywords, key=len))
+    if not terms:
+        return None
+    out: dict[str, Any] = {"terms": terms, "sender": message.get("sender", "")}
+    if len(parts) > 1 and len(terms) == len(parts):
+        out["ideas"] = True  # each idea of the answer became one entry: the answer is still shown whole
+    return out
 
 
 def _singular(key: str, keys: set[str]) -> str:
@@ -91,6 +138,28 @@ def _singular(key: str, keys: set[str]) -> str:
             if cand in keys:
                 return cand
     return key
+
+
+def _distance(a: str, b: str) -> int:
+    """Edits from ``a`` to ``b``: insert, delete, substitute, or swap two neighbours ("aopyo" → "apoyo")."""
+    prev2: list[int] = []
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            d = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                d = min(d, prev2[j - 2] + 1)
+            cur.append(d)
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def _near(a: str, b: str) -> bool:
+    """One typo apart from five letters, two from nine; the shorter key's length decides."""
+    n = min(len(a), len(b))
+    limit = 2 if n >= 9 else 1 if n >= 5 else 0
+    return limit > 0 and abs(len(a) - len(b)) <= limit and _distance(a, b) <= limit
 
 
 def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> dict[str, Any]:
@@ -110,14 +179,29 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
             if c["sender"] and c["sender"] not in names[key]:
                 names[key].append(c["sender"])
             order.setdefault(key, len(order))
+
+    def absorb(target: str, key: str) -> None:
+        spellings[target].update(spellings.pop(key))
+        names[target] += [n for n in names.pop(key) if n not in names[target]]
+        order[target] = min(order[target], order.pop(key))
+
     if merge:
         keys = set(spellings)
         for key in sorted(keys, key=len, reverse=True):
             target = _singular(key, keys)
             if target != key and key in spellings:
-                spellings[target].update(spellings.pop(key))
-                names[target] += [n for n in names.pop(key) if n not in names[target]]
-                order[target] = min(order[target], order.pop(key))
+                absorb(target, key)
+    variants: dict[str, list[str]] = {}
+    if merge and options.get("merge_near"):
+        kept: list[str] = []  # strongest first, so an entry only ever joins a stronger one already kept
+        for key in sorted(spellings, key=lambda k: (-sum(spellings[k].values()), order[k])):
+            target = min((k for k in kept if _near(key, k)), key=lambda k: _distance(key, k), default=None)
+            if target is None:
+                kept.append(key)
+            else:
+                absorb(target, key)
+                variants.setdefault(target, []).append(key)
+
     def shown(sp: Counter) -> str:
         if verbatim:  # as typed: the most common original spelling, a tie to the first seen
             return min(sp, key=lambda s: (-sp[s], seen[s]))
@@ -129,6 +213,7 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
         "count": sum(sp.values()),
         "names": names[key],
         "first": order[key],
+        **({"variants": variants[key]} if key in variants else {}),
     } for key, sp in spellings.items()]
     words.sort(key=lambda w: (-w["count"], w["first"]))
     senders = {c["sender"] for c in contributions if c["sender"]}
@@ -147,27 +232,42 @@ def report(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def value(parsed: dict[str, Any]) -> str:
-    """One answer's parsed value for the Excel report."""
+    """One answer's terms, the report's fallback when none of them is in the cloud."""
     return ", ".join(parsed.get("terms") or [])
 
 
+def _entries(terms: list[str], result: dict[str, Any]) -> list[dict[str, Any]]:
+    """The cloud entries ``terms`` count towards, through case, accents, plurals and near-spellings."""
+    by_key = {k: w for w in result.get("words") or [] for k in [w["key"], *w.get("variants", [])]}
+    out: list[dict[str, Any]] = []
+    for term in terms:
+        key = next((k for k in (term, fold(term), _singular(fold(term), set(by_key))) if k in by_key), None)
+        if key is not None and by_key[key] not in out:
+            out.append(by_key[key])
+    return out
+
+
+def value_in(parsed: dict[str, Any], result: Optional[dict[str, Any]]) -> str:
+    """One answer's parsed value for the Excel report: the entries the cloud counted it towards."""
+    entries = _entries(parsed.get("terms") or [], result or {})
+    return ", ".join(w["text"] for w in entries) if entries else value(parsed)
+
+
 def _words(text: str) -> set[str]:
-    """The folded words of a text, filler dropped."""
-    return {w for w in (fold(t.strip("'’-")) for t in TOKEN.findall(text)) if w and not FILLER.match(w)}
+    """The folded words of a text, filler and emoticons dropped."""
+    return {fold(t) for t in _tokens(EMOTICON.sub(" ", text))}
 
 
 def counted(text: str, parsed: Optional[dict[str, Any]], result: dict[str, Any]) -> dict[str, Any]:
     """Which cloud entries one answer counts towards, and whether the answer is there whole.
 
-    ``whole``: the answer became a single entry that keeps every word it was typed
-    with (filler aside) — not a fragment of it. The offline replay reports it.
+    ``whole``: every word the answer was typed with (filler aside) is in its
+    entries, and each entry is the whole answer or one whole idea of it
+    (``split_ideas``), not a fragment of a sentence. The offline replay reports it.
     """
-    keys = {w["key"] for w in result.get("words") or []}
     terms = (parsed or {}).get("terms") or []
-    entries: list[str] = []
-    for term in terms:
-        key = next((k for k in (term, fold(term), _singular(fold(term), keys)) if k in keys), None)
-        if key is not None and key not in entries:
-            entries.append(key)
-    whole = len(entries) == 1 and len(terms) == 1 and _words(text) <= _words(terms[0])
+    entries = [w["key"] for w in _entries(terms, result)]
+    ideas = len(terms) == 1 or bool((parsed or {}).get("ideas"))
+    typed = _words(text) - (CONJUNCTIONS if len(terms) > 1 else frozenset())
+    whole = ideas and len(entries) == len(terms) and typed <= set().union(*(_words(t) for t in terms))
     return {"entries": entries, "whole": whole}

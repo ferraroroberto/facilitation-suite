@@ -27,10 +27,48 @@
       ]
     },
     {
+      "key": "long_answers",
+      "label": "Answers longer than three words (Automatic)",
+      "kind": "select",
+      "default": "split",
+      "choices": [
+        [
+          "split",
+          "Split into words"
+        ],
+        [
+          "whole",
+          "Keep whole"
+        ],
+        [
+          "keyword",
+          "Keep one keyword"
+        ]
+      ]
+    },
+    {
+      "key": "split_ideas",
+      "label": "Split ideas at + , ; / & and line breaks",
+      "kind": "switch",
+      "default": false
+    },
+    {
+      "key": "split_and",
+      "label": "Also split at \"y\", \"e\" and \"and\"",
+      "kind": "switch",
+      "default": false
+    },
+    {
       "key": "merge_variants",
       "label": "Merge plurals, accents and case",
       "kind": "switch",
       "default": true
+    },
+    {
+      "key": "merge_near",
+      "label": "Merge near-spellings (a typo away)",
+      "kind": "switch",
+      "default": false
     },
     {
       "key": "stopwords",
