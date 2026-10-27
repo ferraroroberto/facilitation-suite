@@ -142,9 +142,26 @@ def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, sav
     assert page.request.post(f"{base}/api/sessions/{sid}/reconcile", data={"path": str(saved)}).ok
     page.reload()
     expect(pane.locator(".check-banner.warn")).to_contain_text("40 of 41 messages matched · 1 missing")
-    pane.locator("details.card--collapsible summary").click()
+    pane.locator("details.card--collapsible", has_text="Messages that differ").locator("summary").click()
     expect(pane.locator(".diff-row")).to_contain_text("Hello from the lobby!")
     surface(page, "results.reconcile-warning")
+
+
+def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
+    """Two names are merged by hand, saved next to the plan, and undone; nothing merges without the click."""
+    card = pane.locator("details.card--collapsible", has_text="People under several names")
+    card.locator("summary").click()
+    expect(card.locator(".diff-row")).to_have_count(0)
+    assert not (folder / "aliases.yaml").exists()
+    card.locator("[data-from]").select_option(index=0)
+    card.locator("[data-into]").select_option(index=1)
+    card.locator("[data-manual]").click()
+    expect(card.locator(".chip.ok")).to_have_text("Merged")
+    assert (folder / "aliases.yaml").is_file()
+    card.locator("summary").click()
+    card.locator("[data-unmerge]").click()
+    expect(card.locator(".diff-row")).to_have_count(0)
+    assert not (folder / "aliases.yaml").exists()
 
 
 def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
@@ -188,4 +205,5 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     pane = _open_results(page, base, sid, shots)
     _check_exports(page, pane, folder)
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
+    _check_merge_names(page, pane, folder)
     _check_phone_layout(page, pane, shots)

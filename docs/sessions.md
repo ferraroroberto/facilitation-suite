@@ -8,6 +8,7 @@ slides/           slide PNGs + slides.json (titles, notes, fingerprints, detecte
 roster.xlsx       participants (optional)
 audio/            music files the items play (optional; copied in from the Plan tab)
 groups.yaml       breakout groups (optional)
+aliases.yaml      names that are one person, written by Results (optional; see results.md)
 theme.css         per-session stage theme override (optional; applied after the stage lettering)
                   (session.yaml `theme:` names the base: a repo theme or `library/<name>` from the stage library)
 live/             chat.jsonl, events.jsonl, quiz.jsonl, captures/ — append-only during the session

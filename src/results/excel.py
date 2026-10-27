@@ -91,7 +91,7 @@ def build_report(results: dict[str, Any], people: list[dict[str, Any]], out: Pat
         sh.append([])
         first = sh.max_row + 1
         _table(sh, ["Name", "Time", "Answer", "Parsed", "Hidden"],
-               [[r["sender"], r["time"], r["text"], r["value"], "yes" if r["hidden"] else ""] for r in a["answer_rows"]],
+               [[r["label"], r["time"], r["text"], r["value"], "yes" if r["hidden"] else ""] for r in a["answer_rows"]],
                [26, 8, 60, 30, 8])
         sh.freeze_panes = f"A{first + 1}"
 

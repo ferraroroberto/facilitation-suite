@@ -89,8 +89,16 @@ def result_for(activity_type: str, options: dict[str, Any], messages: list[dict[
             continue
         if c is not None:
             contributions.append(c)
+    return aggregate_for(activity_type, options, contributions)
+
+
+def aggregate_for(activity_type: str, options: dict[str, Any], contributions: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Aggregate contributions already parsed (a frozen capture's, after Results renamed a sender) into a result."""
+    mod = parser(activity_type)
+    if mod is None:
+        return None
     try:
-        return mod.aggregate(contributions, opts)
+        return mod.aggregate(contributions, options_with_defaults(activity_type, options))
     except Exception:  # noqa: BLE001
         logger.exception("❌ activity %s: aggregate failed", activity_type)
         return None
