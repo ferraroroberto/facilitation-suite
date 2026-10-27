@@ -60,6 +60,38 @@ def test_a_lone_answer_is_not_pinned_on_a_larger_alternate_name_city() -> None:
     assert (pin["name"], pin["country"]) == ("Zaragoza", "ES")
 
 
+@pytest.mark.parametrize(("text", "city", "country"), [
+    ("florencia", "Florence", "IT"),        # the Spanish name of a city a smaller own-name town shares
+    ("gerona", "Girona", "ES"),
+    ("lerida", "Lleida", "ES"),
+    ("palmas", "Las Palmas de Gran Canaria", "ES"),
+    ("jalapa", "Xalapa de Enríquez", "MX"),
+    ("hull", "Kingston upon Hull", "GB"),
+    ("odessa", "Odesa", "UA"),
+    ("pittsburg", "Pittsburgh", "US"),
+    ("edinburg", "Edinburgh", "GB"),
+    ("puno", "Puno", "PE"),                 # a far larger city lists the name as an alternate
+    ("alzira", "Alzira", "ES"),
+    ("petropolis", "Petrópolis", "BR"),
+    ("dili", "Dili", "TL"),
+    ("thai nguyen", "Thái Nguyên", "VN"),
+])
+def test_a_lone_answer_lands_on_the_city_people_mean(text: str, city: str, country: str) -> None:
+    pin = result_for("map", {}, _msgs(("Leo", text)))["pins"][0]
+    assert (pin["name"], pin["country"]) == (city, country)
+
+
+@pytest.mark.parametrize(("text", "city", "country"), [
+    ("zaragoza", "Zaragoza", "ES"),
+    ("cancun", "Cancún", "MX"),
+    ("pekin", "Beijing", "CN"),
+    ("colonia", "Köln", "DE"),
+])
+def test_the_alias_lines_leave_the_ranked_names_alone(text: str, city: str, country: str) -> None:
+    pin = result_for("map", {}, _msgs(("Leo", text)))["pins"][0]
+    assert (pin["name"], pin["country"]) == (city, country)
+
+
 def test_the_room_can_still_pull_an_alternate_name_city_in() -> None:
     room = result_for("map", {}, _msgs(("Ana", "Tijuana"), ("Sam", "Mexicali, México"), ("Bea", "Tecate, México"), ("Leo", "zaragoza")))
     assert [p["country"] for p in room["pins"]] == ["MX", "MX", "MX", "MX"]
