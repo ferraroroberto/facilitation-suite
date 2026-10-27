@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -385,3 +386,119 @@ def test_a_snapshot_sharing_nothing_is_history_not_new_rows(monkeypatch: pytest.
     window.rows = [Row("Q", "a breakout room's chat", "19:00")]
     reader.read_once()
     assert sink.fresh == [] and sink.batches[-1] == ([Row("Q", "a breakout room's chat", "19:00")], True)
+
+
+# ------------------------------------------------- a scan that takes seconds
+
+
+class _BeatPoster:
+    """Records the heartbeats; posts nothing."""
+
+    def __init__(self) -> None:
+        self.beats: list[tuple[str, dict[str, Any]]] = []
+        self.pending: list[Any] = []
+
+    def heartbeat(self, state: str, detail: str, **extra: Any) -> None:
+        self.beats.append((state, extra))
+
+    def messages(self, rows: list[Row], *, baseline: bool, source: str) -> None:
+        pass
+
+    def flush(self) -> None:
+        pass
+
+
+def test_a_scan_that_never_returns_does_not_silence_the_heartbeat(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from src.chat import msaa
+
+    monkeypatch.setattr(msaa, "screen_reader_flag", lambda: True)  # leave the machine's flag alone
+    poster, release, stop = _BeatPoster(), threading.Event(), tmp_path / "stop"
+    reader = Reader(poster, "cls", "Meeting chat", 500, None, stop_file=stop)  # type: ignore[arg-type]
+    reader.beat_every = 0.01
+    monkeypatch.setattr(reader, "read_once", lambda: release.wait(30))  # a scan stuck inside Zoom
+    thread = threading.Thread(target=reader.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 5
+        while len(poster.beats) < 3 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert len(poster.beats) >= 3 and not release.is_set()  # the scan is still stuck, the beats keep coming
+    finally:
+        release.set()
+        stop.write_text("stop", encoding="utf-8")
+        thread.join(10)
+    assert not thread.is_alive() and poster.beats[-1][0] == "stopped"
+
+
+def test_a_scan_slower_than_the_poll_is_logged_with_its_size_and_sent_in_the_heartbeat(
+        monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    from src.chat import msaa
+
+    window = _FakeWindow(monkeypatch)
+    window.rows = [Row("Participant A", "one", "18:20"), Row("Participant B", "two", "18:21"), Row("Participant C", "three", "18:22")]
+    quick_walk, now = msaa.walk, {"t": 0.0}
+
+    def slow_walk(acc: Any) -> Any:
+        now["t"] += 4.2  # the injected cost of walking Zoom's window
+        return quick_walk(acc)
+
+    monkeypatch.setattr(msaa, "walk", slow_walk)
+    poster = _BeatPoster()
+    reader = Reader(poster, "cls", "Meeting chat", 500, None)  # type: ignore[arg-type]
+    reader.clock = lambda: now["t"]
+    with caplog.at_level(logging.INFO, logger="chat_reader"):
+        reader.read_once()
+    assert reader.scan_ms == 4200
+    assert any("slow scan" in r.getMessage() and "4200 ms" in r.getMessage() and "4 nodes, 3 rows" in r.getMessage()
+               for r in caplog.records)
+    done = threading.Event()
+    done.set()
+    reader._beat_loop(done)  # one beat, then the already-set event ends the loop
+    assert poster.beats[0][1]["scan_ms"] == 4200
+
+    caplog.clear()
+    monkeypatch.setattr(msaa, "walk", quick_walk)
+    with caplog.at_level(logging.INFO, logger="chat_reader"):
+        reader.read_once()
+    assert reader.scan_ms == 0 and not any("slow scan" in r.getMessage() for r in caplog.records)
+
+
+# ------------------------------------------------ reading only the list's tail
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="MSAA is Windows-only")
+def test_later_scans_read_only_the_tail_of_the_list_and_lose_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.chat import msaa
+    from src.chat.reader import TAIL_MAX
+    from tests.fixtures.fake_zoom_chat import FakeZoomChat, row
+
+    walks: list[int] = []
+    full_walk = msaa.walk
+    monkeypatch.setattr(msaa, "walk", lambda acc: walks.append(1) or full_walk(acc))
+    chat = FakeZoomChat()
+    try:
+        chat.add(*[row(f"Person {i % 7}", f"old {i}", "18:30") for i in range(120)])
+        sink = _Collect()
+        reader = Reader(sink, chat.window_class, chat.title, 500, None)  # type: ignore[arg-type]
+        reader.read_once()
+        assert len(walks) == 1 and reader.list_acc is not None and sink.batches[0][1] is True
+
+        chat.add(row("Person 1", "same", "18:31"), row("Person 1", "same", "18:31"))  # a genuine repeat
+        reader.read_once()
+        reader.read_once()  # nothing new
+        assert len(walks) == 1 and [r.text for r in sink.fresh] == ["same", "same"]
+        assert reader.nodes < 12 and reader.rows == 122  # a handful of children read, not the window
+
+        burst = [row("Person 2", f"burst {i}", "18:32") for i in range(TAIL_MAX + 20)]
+        chat.add(*burst)  # more than a tail can line up: the whole window is walked, nothing is lost
+        reader.read_once()
+        assert len(walks) == 2 and len(sink.fresh) == 2 + len(burst)
+        chat.add(row("Person 3", "after the burst", "18:33"))
+        reader.read_once()
+        assert len(walks) == 2 and [r.text for r in sink.fresh][-1] == "after the burst" and len(sink.fresh) == 3 + len(burst)
+
+        chat.delete(5)  # the list shrank: the tail can no longer be trusted
+        reader.read_once()
+        assert len(walks) == 3 and len(sink.fresh) == 3 + len(burst)
+    finally:
+        chat.close()

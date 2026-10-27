@@ -13,8 +13,14 @@ rows to ``/api/chat/messages``. With ``reader.source = "teams"`` the window is
 the one titled ``… Microsoft Teams`` showing a chat, read through UI Automation
 (``src/chat/uia.py`` → ``src/chat/teams.py``); everything after the snapshot —
 diff, baseline, retry, heartbeat, stop file — is shared. A heartbeat with the
-state goes to ``/api/chat/heartbeat`` every second. States, each with its own
-message:
+state and the last scan's duration (``scan_ms``) goes to ``/api/chat/heartbeat``
+every second from a thread of its own, so a scan that takes seconds never reads
+as a silent reader; a scan slower than ``poll_ms`` is logged with its node and
+row counts. In Zoom, once a full walk has found the history list and reading
+its last children is shown to give the same rows, later scans read only the
+children added since the last one (plus a few already seen to line them up);
+anything that does not line up falls back to walking the whole window. States,
+each with its own message:
 
 - ``reading``          — the window was read
 - ``window_not_found`` — Zoom closed, or the chat is not popped out (Teams:
@@ -47,11 +53,13 @@ import os
 import random
 import ssl
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 import uuid
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Optional
 
@@ -66,6 +74,10 @@ logger = logging.getLogger("chat_reader")
 SOURCES = ("zoom", "teams")
 HISTORY_LIST_PREFIX = "Chat messages history"
 ROLE_LIST, ROLE_LISTITEM = 33, 34
+# Tail reads: the already-seen children a scan re-reads to line the new ones up, the most it reads
+# before the whole window is walked instead, and how many the check of a newly found list reads.
+TAIL_OVERLAP, TAIL_MAX, TAIL_PROBE = 4, 60, 10
+BEAT_EVERY_S = 1.0  # the server calls the reader stale after 3 s without a heartbeat
 
 
 def message_names(nodes: list[Any]) -> tuple[list[str], bool]:
@@ -117,13 +129,17 @@ class Poster:
         self._ctx = ssl._create_unverified_context()  # noqa: S323 — loopback to our own server only
         self.down_since: Optional[float] = None
 
-    def _other_scheme(self) -> None:
-        """The server may run HTTPS (tailnet cert) or plain HTTP: try the other."""
+    def _other_scheme(self, failed: str) -> None:
+        """The server may run HTTPS (tailnet cert) or plain HTTP: try the other. Two threads
+        post (the scan loop and the heartbeat), so only the one that used the current address flips it."""
+        if failed != self.server:
+            return
         a, b = ("https://", "http://") if self.server.startswith("https://") else ("http://", "https://")
         self.server = b + self.server[len(a):]
 
     def _post(self, path: str, body: dict[str, Any], timeout: float = 3.0) -> bool:
-        req = urllib.request.Request(self.server + path, data=json.dumps(body).encode("utf-8"),
+        server = self.server
+        req = urllib.request.Request(server + path, data=json.dumps(body).encode("utf-8"),
                                      headers={"Content-Type": "application/json"}, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=self._ctx) as r:  # noqa: S310 — our own server
@@ -132,7 +148,7 @@ class Poster:
             logger.error("❌ server refused %s (%s) — dropping that batch", path, exc.code)
             return True
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            self._other_scheme()
+            self._other_scheme(server)
             if self.down_since is None:
                 self.down_since = time.monotonic()
                 logger.warning("⚠️ server unreachable (%s) — keeping messages until it is back", exc)
@@ -180,6 +196,12 @@ class Reader:
         self.state, self.detail = "starting", ""
         self.rows = 0
         self.nodes = 0
+        self.scan_ms = 0
+        self.clock: Callable[[], float] = time.monotonic
+        self.beat_every = BEAT_EVERY_S
+        self.list_acc: Optional[Any] = None  # the history list, once reading only its tail is proven safe
+        self.list_count = 0
+        self.list_hwnd: Optional[int] = None
 
     def _set(self, state: str, detail: str) -> None:
         if state != self.state:
@@ -189,28 +211,90 @@ class Reader:
     def _lost(self, state: str, detail: str) -> None:
         """No clean read: diffing the window's return against the last snapshot
         would post its whole history as new, so the next read starts over."""
+        self.list_acc = None
         if self.prev is not None:
             logger.info("ℹ️ reader: lost the chat (%s) with %d rows read — the next read re-baselines", state, len(self.prev))
             self.prev, self.rebaseline = None, True
         self._set(state, detail)
 
     def read_once(self) -> None:
-        if self.source == "teams":
-            self._read_teams()
-            return
+        """One scan of the chat, timed: a scan slower than the poll interval leaves a log line."""
+        started = self.clock()
+        try:
+            if self.source == "teams":
+                self._read_teams()
+            else:
+                self._read_zoom()
+        finally:
+            self.scan_ms = round((self.clock() - started) * 1000)
+            if self.scan_ms > self.poll * 1000:
+                logger.info("ℹ️ reader: slow scan — %d ms for %d nodes, %d rows (poll every %d ms)",
+                            self.scan_ms, self.nodes, self.rows, round(self.poll * 1000))
+
+    def _read_zoom(self) -> None:
         from src.chat import msaa
 
         hwnd = msaa.find_window(self.window_class, self.window_title)
         if not hwnd:
             self._lost("window_not_found", "Pop out the Zoom meeting chat (… → Pop out)")
             return
+        if hwnd != self.list_hwnd:
+            self.list_acc = None
         try:
-            nodes = msaa.walk(msaa.accessible_from_window(hwnd))
+            if self._read_tail(msaa):
+                return
+            root = msaa.accessible_from_window(hwnd)
+            nodes = msaa.walk(root)
         except Exception as exc:  # noqa: BLE001 — COM errors vary; the detail tells them apart
             self._lost("error", f"Reading the chat failed: {exc}")
             return
         names, found = message_names(nodes)
-        self._publish(rows_from_names(names), len(nodes), f"history list {'found' if found else 'NOT found — using every list item'}")
+        rows = rows_from_names(names)
+        self._cache_list(msaa, root, hwnd, rows if found else [])
+        self._publish(rows, len(nodes), f"history list {'found' if found else 'NOT found — using every list item'}")
+
+    def _cache_list(self, msaa: Any, root: Any, hwnd: int, rows: list[Row]) -> None:
+        """Keep the history list so the next scans read only its tail, once reading
+        the tail is shown to give the same rows the full walk just did."""
+        self.list_acc = None
+        if not rows:
+            return
+        try:
+            lst = msaa.find_list(root, HISTORY_LIST_PREFIX)
+            if lst is None:
+                return
+            count = msaa.list_count(lst)
+            probe = rows_from_names(msaa.tail_names(lst, count, TAIL_PROBE))
+            if not probe or probe != rows[-len(probe):]:
+                logger.info("ℹ️ reader: the list's last children do not match the full walk — reading the whole window")
+                return
+        except Exception as exc:  # noqa: BLE001 — a probe that fails leaves the full walk in charge
+            logger.info("ℹ️ reader: could not set up tail reads (%s) — reading the whole window", exc)
+            return
+        self.list_acc, self.list_count, self.list_hwnd = lst, count, hwnd
+        logger.info("ℹ️ reader: reading only the tail of the history list from now on (%d children)", count)
+
+    def _read_tail(self, msaa: Any) -> bool:
+        """Read just the children added since the last scan (plus a few already seen to line
+        them up). False when that cannot be trusted — the caller walks the whole window."""
+        if self.list_acc is None or not self.prev:
+            return False
+        try:
+            count = msaa.list_count(self.list_acc)
+            n = max(0, count - self.list_count) + TAIL_OVERLAP
+            if count < self.list_count or n > TAIL_MAX:
+                raise ValueError(f"list went from {self.list_count} to {count} children")
+            tail = rows_from_names(msaa.tail_names(self.list_acc, count, n))
+            fresh, how = new_rows(self.prev, tail)
+            if not tail or how != "append" or len(fresh) >= len(tail) or len(fresh) > count - self.list_count:
+                raise ValueError("the tail does not line up with the last snapshot")
+        except Exception as exc:  # noqa: BLE001 — the list may be gone (COM error) or the tail unusable
+            logger.info("ℹ️ reader: tail read dropped (%s) — walking the whole window", exc)
+            self.list_acc = None
+            return False
+        self.list_count = count
+        self._publish(self.prev + fresh, n, "tail of the history list")
+        return True
 
     def _publish(self, rows: list[Row], nodes: int, note: str) -> None:
         """The shared tail of a read: the first snapshot is the baseline, later
@@ -279,6 +363,18 @@ class Reader:
         self.prev_ids = ids
         self._publish(rows, len(nodes), "Teams chat list found")
 
+    def _beat_loop(self, stop: threading.Event) -> None:
+        """The "alive" signal, on its own clock: a slow scan shows as a large ``scan_ms``,
+        never as a reader the server stopped hearing from."""
+        while True:
+            try:
+                self.poster.heartbeat(self.state, self.detail, rows=self.rows, nodes=self.nodes,
+                                      scan_ms=self.scan_ms, source=self.source)
+            except Exception:  # noqa: BLE001 — a failed beat must not end the thread; the next one retries
+                logger.exception("❌ reader heartbeat failed")
+            if stop.wait(self.beat_every):
+                return
+
     def run(self) -> int:
         from src.chat import msaa
 
@@ -286,7 +382,9 @@ class Reader:
         if not was_on:
             msaa.set_screen_reader_flag(True)
             logger.info("ℹ️ screen-reader flag set on (was off); restored on exit")
-        last_beat = 0.0
+        stop_beat = threading.Event()
+        beat = threading.Thread(target=self._beat_loop, args=(stop_beat,), name="chat-reader-heartbeat", daemon=True)
+        beat.start()
         try:
             while True:
                 if self.parent_pid and not _parent_alive(self.parent_pid):
@@ -294,16 +392,16 @@ class Reader:
                     return 0
                 if self.stop_file and self.stop_file.exists():
                     logger.info("ℹ️ stop requested by the server — reader exiting")
+                    stop_beat.set()
+                    beat.join(self.beat_every + 5)  # a late "reading" beat must not land after "stopped"
                     self.poster.heartbeat("stopped", "The chat reader was stopped", source=self.source)
                     return 0
                 started = time.monotonic()
                 self.read_once()
                 self.poster.flush()
-                if started - last_beat >= 1.0:
-                    last_beat = started
-                    self.poster.heartbeat(self.state, self.detail, rows=self.rows, nodes=self.nodes, source=self.source)
                 time.sleep(max(0.0, self.poll - (time.monotonic() - started)))
         finally:
+            stop_beat.set()
             if not was_on:
                 msaa.set_screen_reader_flag(False)
                 logger.info("ℹ️ screen-reader flag restored to off")
