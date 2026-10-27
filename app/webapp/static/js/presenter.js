@@ -149,6 +149,7 @@ function buildShell() {
   nowHost.className = 'stage-host p-stage';
   root.querySelector('.p-now [data-body]').appendChild(nowHost);
   nowStage = createStage(nowHost, { guides: true, blackout: false });
+  nowStage.el.addEventListener('wc-left-out', () => drawLeftOut(root));
   nowHost.title = 'Click to go on';
   clickToAdvance(nowHost, live);
 
@@ -305,6 +306,7 @@ function drawItemCard(cur, s) {
       body.insertAdjacentHTML('beforeend',
         `<div class="p-cap-status"><span class="p-cap-dot" data-capdot></span><span data-capstate></span></div>` +
         `<p class="small muted p-cap-counts" data-capcounts></p>` +
+        `<p class="small p-cap-counts p-cap-left" data-capleft hidden></p>` +
         `<button type="button" class="button-primary p-cap-btn" data-captoggle data-track="live.capture-toggle"></button>`);
       body.querySelector('[data-captoggle]').addEventListener('click', () => live.send('capture_toggle'));
     }
@@ -364,9 +366,20 @@ function drawCapture(body, c) {
   body.querySelector('[data-capdot]').className = `p-cap-dot ${status}`;
   body.querySelector('[data-capstate]').textContent = { idle: 'Not started — answers are not counted yet', live: 'Capturing answers', stopped: 'Stopped — the result is frozen' }[status];
   drawUnplaced(body, c);
+  drawLeftOut(body);
   body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden)
     ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}`
     : status === 'idle' ? 'Press Space when the question is on stage.' : 'No answers yet.';
+}
+
+/** The word cloud's entries the stage has no room for (the plug-in counts them by the preview of what Zoom sees). */
+function drawLeftOut(scope) {
+  const note = scope.querySelector('[data-capleft]');
+  if (!note) return;
+  const wc = nowStage && nowStage.el.querySelector('.wc');
+  const left = wc ? Number(wc.dataset.leftOut) || 0 : 0;
+  note.hidden = !left;
+  note.textContent = left ? `${left} ${left === 1 ? 'entry' : 'entries'} not shown on the stage` : '';
 }
 
 function tickItemTimer(cur, s) {

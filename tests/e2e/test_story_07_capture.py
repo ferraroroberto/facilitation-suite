@@ -15,6 +15,64 @@ from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session
 
+# A crowded cloud drawn into a live body with the stage's own renderer: `entries` is the
+# result's word list, `names` the show-names switch. Resolves once the words settled.
+DRAW_CLOUD = """async ({ entries, names, bodySel }) => {
+  const mod = await import('/activities/word_cloud/stage.js');
+  const body = document.querySelector(bodySel);
+  mod.render(body, { words: entries, answers: entries.length, people: entries.length }, { names, lang: 'en', options: {} });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await Promise.all(body.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => null)));
+  const box = body.getBoundingClientRect();
+  const words = [...body.querySelectorAll('.wc-word')].map((el) => {
+    const r = el.getBoundingClientRect();
+    return { key: el.dataset.key, px: parseFloat(el.style.fontSize),
+             inside: r.left >= box.left - 1 && r.top >= box.top - 1 && r.right <= box.right + 1 && r.bottom <= box.bottom + 1 };
+  });
+  const more = body.querySelector('.wc-more');
+  return { words, more: more ? more.textContent : '' };
+}"""
+
+_FIRST = ["amber", "brisk", "calm", "dusk", "ember", "fable", "grove", "haze", "ivory", "jade", "kite", "lumen"]
+_SECOND = ["anchor", "bridge", "candle", "delta", "echo", "forest"]
+
+
+def synthetic_entries(n: int, twice: int = 0, words_per_entry: int = 2) -> list[dict]:
+    """``n`` made-up entries (the first ``twice`` counted twice), each ``words_per_entry`` words long."""
+    out = []
+    for i in range(n):
+        text = " ".join(f"{_FIRST[(i + j) % len(_FIRST)]}{'' if j else _SECOND[i % len(_SECOND)]}{i}" for j in range(words_per_entry))
+        out.append({"key": f"k{i}", "text": text, "count": 2 if i < twice else 1, "names": ["Ana", "Ben"] if i % 3 == 0 else [], "first": i})
+    return out
+
+
+def draw_cloud(page: Page, entries: list[dict], names: bool, body: str = "[data-body]") -> dict:
+    return page.evaluate(DRAW_CLOUD, {"entries": entries, "names": names, "bodySel": body})
+
+
+def check_crowded_clouds(page: Page, stage: Page) -> None:
+    # a crowded cloud: every entry is drawn inside the body, a two-answer entry larger than a one-answer one;
+    # what cannot fit is counted ("+N more"), the least-answered entries first, and the presenter says how many
+    for names in (False, True):
+        crowd = draw_cloud(stage, synthetic_entries(33, twice=2), names)
+        assert len(crowd["words"]) == 33 and crowd["more"] == ""
+        assert all(w["inside"] for w in crowd["words"])
+        sizes = {w["key"]: w["px"] for w in crowd["words"]}
+        assert min(sizes["k0"], sizes["k1"]) > max(px for k, px in sizes.items() if k not in ("k0", "k1"))
+    same = draw_cloud(stage, synthetic_entries(22), True)
+    assert len(same["words"]) == 22 and all(w["inside"] for w in same["words"])
+    assert len({w["px"] for w in same["words"]}) == 1
+    verbatim = synthetic_entries(60, twice=3, words_per_entry=9)
+    over = draw_cloud(stage, verbatim, False)
+    left = 60 - len(over["words"])
+    assert left > 0 and over["more"] == f"+{left} more"
+    assert all(w["inside"] for w in over["words"])
+    drawn = {w["key"] for w in over["words"]}
+    assert {"k0", "k1", "k2"} <= drawn  # an entry said twice is never left out while a single one is drawn
+    assert drawn == {e["key"] for e in verbatim[:len(drawn)]}  # the left-out ones are the last in the ranking
+    preview = draw_cloud(page, verbatim, False, ".p-now .stage-canvas [data-body]")  # its own body, so its own count
+    expect(page.locator("[data-capleft]")).to_have_text(f"{60 - len(preview['words'])} entries not shown on the stage")
+
 
 def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "capture-story"
@@ -64,6 +122,8 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     shot(page, shots / "story-07-capture-1-presenter.png")
     shot(stage, shots / "story-07-capture-2-stage.png")
     surface(page, "presenter.capture")
+
+    check_crowded_clouds(page, stage)
 
     page.keyboard.press("Space")
     expect(page.locator("[data-captoggle]")).to_contain_text("Reopen capture")

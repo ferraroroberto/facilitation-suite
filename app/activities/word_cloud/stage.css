@@ -16,3 +16,4 @@
 .stage-canvas .wc-names { font-family: var(--st-ui-font); font-size: 0.26em; color: var(--st-muted); font-weight: 600; text-transform: none; }
 .stage-canvas .wc-names:empty { display: none; }
 .stage-canvas .wc-enter { opacity: 0; font-size: 10px !important; }
+.stage-canvas .wc-more { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-family: var(--st-ui-font); font-weight: 600; line-height: 1.2; color: var(--st-muted); text-transform: none; }
