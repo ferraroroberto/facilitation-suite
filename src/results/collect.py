@@ -26,11 +26,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from src.activities.registry import editors, report_for, value_for
+from src.activities.registry import aggregate_for, editors, report_for, value_for
 from src.importer.review import read_meta
 from src.jsonl import read_jsonl
 from src.live.plan import build_run, one_line
 from src.quiz.results import PODIUM_PAGE, page_keys, place_pages, quiz_results
+from src.results.aliases import Aliases, read_aliases
 from src.sessions.model import Session
 
 logger = logging.getLogger(__name__)
@@ -56,12 +57,25 @@ def hhmm(ms: Optional[int]) -> str:
     return datetime.fromtimestamp(ms / 1000).strftime("%H:%M") if ms else ""
 
 
-def _activity(item_id: str, frozen: dict[str, Any], png: Path) -> dict[str, Any]:
+def _regrouped(item: dict[str, Any], counted: list[dict[str, Any]], aliases: Aliases) -> Optional[dict[str, Any]]:
+    """The capture's result recounted with each sender as their person (one vote per person holds after a merge)."""
+    contributions = []
+    for a in counted:
+        c = a.get("parsed")
+        if c:
+            contributions.append({**c, "sender": aliases.canonical(c["sender"])} if "sender" in c else c)
+    return aggregate_for(item.get("type") or "", item.get("options") or {}, contributions)
+
+
+def _activity(item_id: str, frozen: dict[str, Any], png: Path, aliases: Aliases) -> dict[str, Any]:
     item = frozen["item"]
     kind = item.get("type") or ""
-    rep = report_for(kind, frozen.get("result"))
     answers = frozen.get("answers") or []
     counted = [a for a in answers if not a.get("hidden")]
+    result = frozen.get("result")
+    if any(aliases.canonical(a["sender"]) != a["sender"] for a in counted if a.get("sender")):
+        result = _regrouped(item, counted, aliases) or result
+    rep = report_for(kind, result)
     windows = [w for w in frozen.get("windows") or [] if w and w[0] is not None]
     start = windows[0][0] if windows else None
     stop = windows[-1][1] if windows else None
@@ -72,7 +86,7 @@ def _activity(item_id: str, frozen: dict[str, Any], png: Path) -> dict[str, Any]
         "title": one_line(item.get("title") or item.get("question") or "Activity"),
         "question": item.get("question") or "",
         "answers": len(counted),
-        "people": len({a["sender"] for a in counted if a.get("sender")}),
+        "people": len({aliases.canonical(a["sender"]) for a in counted if a.get("sender")}),
         "hidden": len(answers) - len(counted),
         "start_ms": start,
         "stop_ms": stop,
@@ -80,10 +94,19 @@ def _activity(item_id: str, frozen: dict[str, Any], png: Path) -> dict[str, Any]
         "frozen_at": frozen.get("frozen_at"),
         "has_png": png.is_file(),
         **rep,
-        "answer_rows": [{
-            "id": a.get("id"), "sender": a.get("sender", ""), "text": a.get("text", ""), "time": a.get("time", ""),
-            "hidden": bool(a.get("hidden")), "value": value_for(kind, a.get("parsed")),
-        } for a in answers],
+        "answer_rows": [_answer_row(kind, a, aliases) for a in answers],
+    }
+
+
+def _answer_row(kind: str, a: dict[str, Any], aliases: Aliases) -> dict[str, Any]:
+    """One answer; ``sender`` is the person, ``raw`` the name it was sent under when that differs (so a merge can be audited)."""
+    raw = a.get("sender", "")
+    person = aliases.canonical(raw) if raw else raw
+    return {
+        "id": a.get("id"), "sender": person, "raw": raw if person != raw else "",
+        "label": f"{person} (as {raw})" if person != raw else raw,
+        "text": a.get("text", ""), "time": a.get("time", ""), "hidden": bool(a.get("hidden")),
+        "value": value_for(kind, a.get("parsed")),
     }
 
 
@@ -140,7 +163,8 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
     events = read_jsonl(folder / "live" / "events.jsonl")
     run = build_run(session, read_meta(folder / "slides" / "slides.json"))
     cap_dir = folder / "live" / "captures"
-    acts = {iid: _activity(iid, fr, cap_dir / f"{iid}.png") for iid, fr in captures.items()}
+    aliases = read_aliases(folder)
+    acts = {iid: _activity(iid, fr, cap_dir / f"{iid}.png", aliases) for iid, fr in captures.items()}
     quizzes = quiz_results(folder, run["items"])
     pages = timeline(events, run["items"], set(acts), page_keys(quizzes))
     place_pages(pages, quizzes)
@@ -170,14 +194,18 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
         "slides": sum(1 for p in pages if p["kind"] == "slide"),
         "captures": sum(1 for p in pages if p["kind"] == "capture"),
         "quizzes": quizzes,
-        "quiz_pages": sum(1 for p in pages if p["kind"].startswith("quiz_")),
-        "went_live": any(e.get("event") == "session_live" for e in events),
+        "quiz_pages": sum(1 for p in pages if p["kind"].startswith("quiz_")),        "went_live": any(e.get("event") == "session_live" for e in events),
     }
 
 
-def participation(activities: list[dict[str, Any]], chat: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Per person: counted answers per activity, their total, and chat messages sent."""
+def participation(activities: list[dict[str, Any]], chat: list[dict[str, Any]],
+                  aliases: Optional[Aliases] = None) -> list[dict[str, Any]]:
+    """Per person: counted answers per activity, their total, and chat messages sent.
+
+    The answer rows already carry the person (``load_results``); ``aliases`` does the same for the chat messages.
+    """
     people: dict[str, dict[str, Any]] = {}
+    aliases = aliases or Aliases()
 
     def row(name: str) -> dict[str, Any]:
         return people.setdefault(name, {"name": name, "total": 0, "messages": 0, "by_activity": {}})
@@ -191,5 +219,5 @@ def participation(activities: list[dict[str, Any]], chat: list[dict[str, Any]]) 
             r["total"] += 1
     for m in chat:
         if not m.get("own") and m.get("sender"):
-            row(m["sender"])["messages"] += 1
+            row(aliases.canonical(m["sender"]))["messages"] += 1
     return sorted(people.values(), key=lambda r: (-r["total"], -r["messages"], r["name"].casefold()))

@@ -159,7 +159,7 @@ def session_html(folder: Path, results: dict[str, Any]) -> str:
         parts.append(f"<div class='act'><h2>{a['number']} · {escape(a['title'])}</h2><p class='meta'>{escape(meta)}</p>")
         if rows:
             parts.append("<table><thead><tr><th>Name</th><th>Time</th><th>Answer</th></tr></thead><tbody>")
-            parts += [f"<tr><td class='name'>{escape(r['sender'])}</td><td class='time'>{escape(r['time'])}</td>"
+            parts += [f"<tr><td class='name'>{escape(r['label'])}</td><td class='time'>{escape(r['time'])}</td>"
                       f"<td>{escape(r['text'])}</td></tr>" for r in rows]
             parts.append("</tbody></table>")
         parts.append("</div>")

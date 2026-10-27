@@ -12,6 +12,7 @@ let root;
 let ctx;
 let head;
 let checkEl;
+let peopleEl;
 let listEl;
 let detailEl;
 let data = null;
@@ -35,7 +36,8 @@ export async function mount(el, context) {
   checkEl = document.createElement('div');
   listEl = document.createElement('div');
   listEl.className = 'card list-card';
-  list.append(head, checkEl, listEl);
+  peopleEl = document.createElement('div');
+  list.append(head, checkEl, peopleEl, listEl);
 
   ctx.onSession(() => { selected = null; load(); });
   await load();
@@ -50,6 +52,7 @@ async function load() {
     data = null;
     setStatus(head, '');
     checkEl.innerHTML = '';
+    peopleEl.innerHTML = '';
     listEl.innerHTML = '';
     listEl.appendChild(emptyStateEl('calendar-days', 'Pick a session in the Sessions tab first.', { actionLabel: 'Sessions', onAction: () => ctx.goTo('sessions') }));
     detailEl.innerHTML = '';
@@ -79,8 +82,72 @@ function stamp(ms) {
 function render() {
   setStatus(head, [data.session.title, shortDate(data.session.date)].filter(Boolean).join(' · '));
   renderCheck();
+  renderPeople();
   renderList();
   renderDetail();
+}
+
+// ---- one person under several names -------------------------------------------
+
+const joinNames = (names) => names.join(', ');
+
+// Likely groups wait for a click (nothing merges on its own); a merge is saved as aliases.yaml in the session folder.
+function renderPeople() {
+  peopleEl.innerHTML = '';
+  const p = data.people;
+  if (!data.went_live || !p) return;
+  const merges = Object.entries(p.merges);
+  if (!p.suggestions.length && !merges.length && p.names.length < 2) return;
+  const count = [p.suggestions.length ? `${p.suggestions.length} suggested` : '', merges.length ? `${merges.length} merged` : '']
+    .filter(Boolean).join(' · ');
+  const det = document.createElement('details');
+  det.className = 'card card--collapsible';
+  det.open = p.suggestions.length > 0;
+  det.innerHTML = `<summary class="collapse-summary"><span class="collapse-main">${icon('users')}` +
+    `<h3 class="collapse-title">People under several names</h3><span class="collapse-count">${esc(count)}</span></span>` +
+    `<span class="collapse-chevron" aria-hidden="true">›</span></summary><div class="collapse-body"></div>`;
+  const body = det.querySelector('.collapse-body');
+  const rows = [
+    ...p.suggestions.map((g, i) => `<div class="list-row diff-row"><span class="chip">Suggested</span>` +
+      `<div class="grow"><div class="row-title">${esc(g.canonical)}</div><div class="row-meta">also ${esc(joinNames(g.aliases))}</div></div>` +
+      `<button type="button" class="button-tint" data-merge="${i}" data-track="results.merge-names">Merge</button></div>`),
+    ...merges.map(([canonical, names]) => `<div class="list-row diff-row"><span class="chip ok">Merged</span>` +
+      `<div class="grow"><div class="row-title">${esc(canonical)}</div><div class="row-meta">also ${esc(joinNames(names))}</div></div>` +
+      `<button type="button" class="button-surface" data-unmerge="${esc(canonical)}" data-track="results.unmerge-names">Undo</button></div>`),
+  ];
+  body.innerHTML = `<div class="list">${rows.join('')}</div>` +
+    (p.names.length > 1
+      ? `<div class="merge-manual"><span class="small muted">Merge by hand</span>` +
+        `<select class="select-native" data-from aria-label="Name to merge">${p.names.map((n) => `<option>${esc(n)}</option>`).join('')}</select>` +
+        `<span class="small muted">into</span>` +
+        `<select class="select-native" data-into aria-label="Name to merge into">${p.names.map((n, i) => `<option${i === 1 ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` +
+        `<button type="button" class="button-tint" data-manual data-track="results.merge-names">Merge</button></div>`
+      : '');
+  body.addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.merge != null) {
+      const g = p.suggestions[Number(t.dataset.merge)];
+      mergeNames(g.canonical, g.aliases);
+    } else if (t.dataset.unmerge != null) {
+      post('unmerge', { name: t.dataset.unmerge });
+    } else if (t.dataset.manual != null) {
+      const from = body.querySelector('[data-from]').value;
+      const into = body.querySelector('[data-into]').value;
+      if (from === into) toast('Pick two different names', 'error');
+      else mergeNames(into, [from]);
+    }
+  });
+  peopleEl.appendChild(det);
+}
+
+const mergeNames = (canonical, aliases) => post('merge', { canonical, aliases });
+
+async function post(action, body) {
+  try {
+    await api(`${base()}/aliases/${action}`, { method: 'POST', body });
+    await load();
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ---- the check against Zoom's saved chat ------------------------------------
@@ -223,7 +290,7 @@ function activityDetail(a) {
   }
   const rows = a.answer_rows;
   grid.insertAdjacentHTML('beforeend', `<div class="card answers-card"><h3 class="card-title">Answers, with names</h3>${rows.length ? `<div class="list">${
-    rows.map((r) => `<div class="list-row answer-row${r.hidden ? ' hidden-answer' : ''}"><b class="answer-name">${esc(r.sender)}</b>` +
+    rows.map((r) => `<div class="list-row answer-row${r.hidden ? ' hidden-answer' : ''}"><b class="answer-name" title="${esc(r.label)}">${esc(r.label)}</b>` +
       `<span class="grow">${esc(r.text)}${r.hidden ? ' <span class="chip">hidden</span>' : ''}</span><span class="muted small">${esc(r.time)}</span></div>`).join('')
   }</div>` : '<p class="muted small">No answers.</p>'}</div>`);
   wrap.appendChild(grid);

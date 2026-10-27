@@ -23,9 +23,12 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.config import data_dir
+from src.errors import DomainError
+from src.groups.roster import roster_state
 from src.jsonl import read_jsonl
 from src.logger import relay
 from src.no_window import NO_WINDOW
+from src.results.aliases import read_aliases, seen_names, suggest, write_aliases
 from src.results.collect import load_results, participation
 from src.results.excel import build_report
 from src.results.pdf import session_html
@@ -43,6 +46,15 @@ PDF_TIMEOUT_S = 300
 
 class ReconcileBody(BaseModel):
     path: str = Field(min_length=1)
+
+
+class MergeBody(BaseModel):
+    canonical: str = Field(min_length=1)
+    aliases: list[str] = Field(min_length=1)
+
+
+class UnmergeBody(BaseModel):
+    name: str = Field(min_length=1)
 
 
 def _store(request: Request) -> SessionStore:
@@ -78,7 +90,43 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     data = load_results(folder, session)
     data["reconciliation"] = _reconciliation(folder)
     data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
+    data["people"] = _people(folder, data)
     return data
+
+
+def _roster_names(folder: Path) -> list[str]:
+    try:
+        return [p.name for p in roster_state(folder)[0]]
+    except DomainError as exc:
+        logger.warning("⚠️ roster unreadable for merge suggestions (%s)", exc)
+        return []
+
+
+def _people(folder: Path, data: dict[str, Any]) -> dict[str, Any]:
+    """The names seen, the merges in force and the likely ones still to confirm (never applied here)."""
+    aliases = read_aliases(folder)
+    names = seen_names(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"))
+    return {"names": sorted({aliases.canonical(n) for n in names}, key=str.casefold), "merges": aliases.groups,
+            "suggestions": suggest(names, aliases, _roster_names(folder))}
+
+
+@router.post("/aliases/merge")
+def merge_names(request: Request, sid: str, body: MergeBody) -> dict[str, Any]:
+    folder, _ = _load(request, sid)
+    aliases = read_aliases(folder, strict=True)
+    aliases.merge(body.canonical, body.aliases)
+    write_aliases(folder, aliases)
+    logger.info("ℹ️ results: %d name group(s) merged in %s", len(aliases.groups), sid)
+    return {"merges": aliases.groups}
+
+
+@router.post("/aliases/unmerge")
+def unmerge_name(request: Request, sid: str, body: UnmergeBody) -> dict[str, Any]:
+    folder, _ = _load(request, sid)
+    aliases = read_aliases(folder, strict=True)
+    aliases.unmerge(body.name)
+    write_aliases(folder, aliases)
+    return {"merges": aliases.groups}
 
 
 @router.get("/results/captures/{item_id}.png")
@@ -148,7 +196,7 @@ def download_xlsx(request: Request, sid: str) -> FileResponse:
     data = load_results(folder, session)
     if not data["activities"] and not data["quizzes"]:
         raise AppError(409, "nothing_to_export", "No activity was captured in this session yet")
-    people = participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"))
+    people = participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"), read_aliases(folder))
     out = folder / "exports" / XLSX_FILE
     try:
         build_report(data, people, out)
