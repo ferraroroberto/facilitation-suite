@@ -127,14 +127,18 @@ def report_for(activity_type: str, result: Optional[dict[str, Any]]) -> dict[str
         return fallback
 
 
-def value_for(activity_type: str, parsed: Optional[dict[str, Any]]) -> str:
-    """One answer's parsed value as text ("" when it did not parse)."""
+def value_for(activity_type: str, parsed: Optional[dict[str, Any]], result: Optional[dict[str, Any]] = None) -> str:
+    """One answer's parsed value as text ("" when it did not parse).
+
+    A type whose result re-decides an answer (the map's room-aware place) reads it
+    back through ``value_in``, so the report agrees with what the stage showed.
+    """
     if not parsed:
         return ""
     mod = parser(activity_type)
     if mod is not None and hasattr(mod, "value"):
         try:
-            return str(mod.value(parsed))
+            return str(mod.value_in(parsed, result) if hasattr(mod, "value_in") else mod.value(parsed))
         except Exception:  # noqa: BLE001
             logger.exception("❌ activity %s: value failed", activity_type)
     return str(parsed.get("text", ""))
