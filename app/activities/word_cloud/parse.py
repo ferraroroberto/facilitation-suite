@@ -149,3 +149,25 @@ def report(result: dict[str, Any]) -> dict[str, Any]:
 def value(parsed: dict[str, Any]) -> str:
     """One answer's parsed value for the Excel report."""
     return ", ".join(parsed.get("terms") or [])
+
+
+def _words(text: str) -> set[str]:
+    """The folded words of a text, filler dropped."""
+    return {w for w in (fold(t.strip("'’-")) for t in TOKEN.findall(text)) if w and not FILLER.match(w)}
+
+
+def counted(text: str, parsed: Optional[dict[str, Any]], result: dict[str, Any]) -> dict[str, Any]:
+    """Which cloud entries one answer counts towards, and whether the answer is there whole.
+
+    ``whole``: the answer became a single entry that keeps every word it was typed
+    with (filler aside) — not a fragment of it. The offline replay reports it.
+    """
+    keys = {w["key"] for w in result.get("words") or []}
+    terms = (parsed or {}).get("terms") or []
+    entries: list[str] = []
+    for term in terms:
+        key = next((k for k in (term, fold(term), _singular(fold(term), keys)) if k in keys), None)
+        if key is not None and key not in entries:
+            entries.append(key)
+    whole = len(entries) == 1 and len(terms) == 1 and _words(text) <= _words(terms[0])
+    return {"entries": entries, "whole": whole}
