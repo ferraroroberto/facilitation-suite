@@ -9,7 +9,10 @@ in English and Spanish, and ``aliases.yaml`` (``CDMX``, ``NYC``, ``EEUU``…).
 ``Lisboa - Portugal`` · ``Milan Italy`` · ``Spain`` (→ the capital, marked
 ``precision="country"``). A city named in several countries resolves to the
 most populous one unless the country is given; ``candidates`` keeps the
-others so the map can prefer the countries the rest of the room is in.
+others so the map can prefer the countries the rest of the room is in. A city's
+own name outranks another city's alternate name (``zaragoza`` is Zaragoza, not
+Tijuana, which GeoNames also lists it under) unless that city is
+``ALTERNATE_MARGIN`` times larger (``pekin`` is Beijing).
 Anything else is ``None`` — the presenter lists it as unplaced.
 """
 
@@ -32,6 +35,9 @@ logger = logging.getLogger(__name__)
 
 DATA = Path(__file__).resolve().parent.parent.parent / "app" / "activities" / "map"
 PREFIX = re.compile(r"^(?:(?:hola|hi|hello)[\s,!.]+)?(?:(?:yo\s+)?(?:estoy|vivo|soy|desde|de|en|conect\w*|from|in|i'?m|i am|im|live in|here in|aqu[ií])\s+)+", re.I)
+# An alternate-name match counts for 1/10 of its population against a city's own name:
+# "zaragoza" must not land on Tijuana, yet "pekin" must still reach Beijing (Pekin, US is tiny).
+ALTERNATE_MARGIN = 10
 SPLIT = re.compile(r"\s*(?:,|/|\s-\s|\(|\)|;)\s*")
 
 
@@ -51,6 +57,7 @@ class Place:
     lon: float
     population: int
     precision: str = "city"  # city | country
+    match: str = "name"  # name | alternate: whether the typed text was the city's own name or another name for it
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -62,6 +69,7 @@ class Gazetteer:
         self.cities: list[tuple[str, str, str, float, float, int]] = []  # id, name, cc, lat, lon, pop
         self.by_id: dict[str, int] = {}
         self.index: dict[str, list[int]] = {}
+        self.own: set[tuple[str, int]] = set()  # (folded key, city) where the key is the city's own name
         self.countries: dict[str, dict[str, Any]] = {}  # iso → info
         self.country_index: dict[str, str] = {}  # folded name → iso
         self.aliases: dict[str, str] = {}
@@ -76,10 +84,11 @@ class Gazetteer:
             i = len(self.cities)
             self.cities.append((gid, name, cc, float(lat), float(lon), int(pop)))
             self.by_id[gid] = i
-            for n in {name, ascii_name, *(a for a in alts.split("|") if a)}:
-                self.index.setdefault(fold(n), []).append(i)
-        for idx in self.index.values():
-            idx.sort(key=lambda i: -self.cities[i][5])
+            self.own.update((fold(n), i) for n in (name, ascii_name))
+            for key in {fold(n) for n in (name, ascii_name, *(a for a in alts.split("|") if a))}:
+                self.index.setdefault(key, []).append(i)
+        for key, idx in self.index.items():
+            idx.sort(key=lambda i: (-self._weight(key, i), (key, i) not in self.own))
         for c in json.loads((self.data_dir / "countries.json").read_text(encoding="utf-8")):
             self.countries[c["iso"]] = c
             for n in c["names"] + [c["iso3"]]:
@@ -93,9 +102,16 @@ class Gazetteer:
 
     # ------------------------------------------------------------- helpers
 
-    def _place(self, i: int, precision: str = "city") -> Place:
+    def _weight(self, key: str, i: int) -> float:
+        """Population, discounted by ``ALTERNATE_MARGIN`` when ``key`` is not the city's own name."""
+        pop = self.cities[i][5]
+        return pop if (key, i) in self.own else pop / ALTERNATE_MARGIN
+
+    def _place(self, i: int, typed: str = "") -> Place:
+        """The city at ``i``; ``typed`` is what matched it, so the room-aware choice can tell an alternate name."""
         gid, name, cc, lat, lon, pop = self.cities[i]
-        return Place(gid, name, cc, self.country_label(cc), lat, lon, pop, precision)
+        match = "alternate" if typed and (fold(typed), i) not in self.own else "name"
+        return Place(gid, name, cc, self.country_label(cc), lat, lon, pop, match=match)
 
     def country_label(self, iso: str) -> str:
         c = self.countries.get(iso) or {}
@@ -121,6 +137,9 @@ class Gazetteer:
         hits = self.index.get(fold(part), [])
         return [i for i in hits if iso is None or self.cities[i][2] == iso]
 
+    def _best(self, hits: list[int], typed: str) -> tuple[Place, list[Place]]:
+        return self._place(hits[0], typed), [self._place(i, typed) for i in hits[1:4]]
+
     def by_geonameid(self, gid: str) -> Optional[Place]:
         if gid.startswith("country:"):
             return self._country_place(gid.split(":", 1)[1])
@@ -144,17 +163,17 @@ class Gazetteer:
             if iso:
                 hits = self._cities(city_part, iso)
                 if hits:
-                    return self._place(hits[0]), [self._place(i) for i in hits[1:4]]
+                    return self._best(hits, city_part)
                 if fold(city_part) in self.aliases:
                     return self._alias(self.aliases[fold(city_part)])
                 return self._country_place(iso), []
             # "Madrid, Madrid" or "Lisboa, Lisbon district": the first part is the city
             hits = self._cities(city_part)
             if hits:
-                return self._place(hits[0]), [self._place(i) for i in hits[1:4]]
+                return self._best(hits, city_part)
         hits = self._cities(t)
         if hits:
-            return self._place(hits[0]), [self._place(i) for i in hits[1:4]]
+            return self._best(hits, t)
         iso = self._country(t, allow_iso2=False)
         if iso:
             return self._country_place(iso), []
@@ -164,14 +183,15 @@ class Gazetteer:
             if len(words) > n:
                 iso = self._country(" ".join(words[-n:]), allow_iso2=False)
                 if iso:
-                    hits = self._cities(" ".join(words[:-n]), iso)
-                    return (self._place(hits[0]), []) if hits else (self._country_place(iso), [])
+                    city_part = " ".join(words[:-n])
+                    hits = self._cities(city_part, iso)
+                    return (self._place(hits[0], city_part), []) if hits else (self._country_place(iso), [])
         return None, []
 
     def _alias(self, target: str) -> tuple[Optional[Place], list[Place]]:
         name, _, cc = target.partition(",")
         hits = self._cities(name.strip(), cc.strip().upper() or None)
-        return (self._place(hits[0]), []) if hits else (None, [])
+        return (self._place(hits[0], name.strip()), []) if hits else (None, [])
 
     # ------------------------------------------------------------- suggest
 
@@ -189,7 +209,7 @@ class Gazetteer:
             pool = [k for k in self.index if k[:1] == w[:1]]
             for match in difflib.get_close_matches(w, pool, n=n, cutoff=0.72):
                 for i in self.index[match][:2]:
-                    p = self._place(i)
+                    p = self._place(i, match)
                     if all(p.geonameid != q.geonameid for q in out):
                         out.append(p)
         return out[:n]

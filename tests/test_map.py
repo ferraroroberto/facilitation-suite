@@ -34,6 +34,38 @@ def test_resolves_what_people_type(text: str, city: str, country: str) -> None:
     assert place is not None and (place.name, place.country, place.precision) == (city, country, "city")
 
 
+@pytest.mark.parametrize(("text", "city", "country"), [
+    ("zaragoza!!", "Zaragoza", "ES"),       # an alternate name of Tijuana
+    ("Zaragoza", "Zaragoza", "ES"),
+    ("cancun", "Cancún", "MX"),             # an alternate name of Changchun
+    ("Cancún", "Cancún", "MX"),
+    ("guadalupe", "Guadalupe", "MX"),
+    ("pekin", "Beijing", "CN"),             # a much larger city's alternate still wins
+    ("colonia", "Köln", "DE"),
+])
+def test_a_citys_own_name_outranks_an_alternate_name(text: str, city: str, country: str) -> None:
+    place, others = gazetteer().resolve(text)
+    assert place is not None and (place.name, place.country) == (city, country)
+    assert place.match == ("alternate" if text in ("pekin", "colonia") else "name")
+    assert all(o.geonameid != place.geonameid for o in others)
+
+
+def test_the_alternate_name_city_stays_a_candidate() -> None:
+    _, others = gazetteer().resolve("zaragoza")
+    assert "Tijuana" in [o.name for o in others]
+
+
+def test_a_lone_answer_is_not_pinned_on_a_larger_alternate_name_city() -> None:
+    pin = result_for("map", {}, _msgs(("Leo", "zaragoza!!")))["pins"][0]
+    assert (pin["name"], pin["country"]) == ("Zaragoza", "ES")
+
+
+def test_the_room_can_still_pull_an_alternate_name_city_in() -> None:
+    room = result_for("map", {}, _msgs(("Ana", "Tijuana"), ("Sam", "Mexicali, México"), ("Bea", "Tecate, México"), ("Leo", "zaragoza")))
+    assert [p["country"] for p in room["pins"]] == ["MX", "MX", "MX", "MX"]
+    assert room["pins"][-1]["name"] == "Tijuana"
+
+
 @pytest.mark.parametrize(("text", "country"), [("España", "ES"), ("Spain", "ES"), ("Brasil", "BR"), ("EEUU", "US"), ("UK", "GB")])
 def test_a_country_alone_lands_on_its_capital(text: str, country: str) -> None:
     place, _ = gazetteer().resolve(text)
