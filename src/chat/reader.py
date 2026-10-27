@@ -26,7 +26,10 @@ message:
 
 The first successful read after start is sent as a ``baseline``: the server
 lines it up with what it already stored, so a restarted reader never
-duplicates history. Batches that fail to post are kept and retried in order;
+duplicates history. The same goes for a window that comes back (Zoom hides
+the popped-out chat around breakout rooms): after ``window_not_found``, an
+error, or a list that went empty, the next non-empty read is a baseline too,
+and so is a snapshot with nothing in common with the previous one. Batches that fail to post are kept and retried in order;
 each batch carries an id so a retry of a batch that did arrive is ignored.
 
 With ``--parent-pid`` the reader exits when that process (the server) is
@@ -171,6 +174,7 @@ class Reader:
         self.poll = max(0.1, poll_ms / 1000)
         self.parent_pid = parent_pid
         self.prev: Optional[list[Row]] = None
+        self.rebaseline = False  # the window was lost: its next non-empty read is history, not new rows
         self.prev_ids: set[str] = set()
         self.hwnd: Optional[int] = None
         self.state, self.detail = "starting", ""
@@ -182,6 +186,14 @@ class Reader:
             logger.info("ℹ️ reader: %s → %s (%s)", self.state, state, detail)
         self.state, self.detail = state, detail
 
+    def _lost(self, state: str, detail: str) -> None:
+        """No clean read: diffing the window's return against the last snapshot
+        would post its whole history as new, so the next read starts over."""
+        if self.prev is not None:
+            logger.info("ℹ️ reader: lost the chat (%s) with %d rows read — the next read re-baselines", state, len(self.prev))
+            self.prev, self.rebaseline = None, True
+        self._set(state, detail)
+
     def read_once(self) -> None:
         if self.source == "teams":
             self._read_teams()
@@ -190,12 +202,12 @@ class Reader:
 
         hwnd = msaa.find_window(self.window_class, self.window_title)
         if not hwnd:
-            self._set("window_not_found", "Pop out the Zoom meeting chat (… → Pop out)")
+            self._lost("window_not_found", "Pop out the Zoom meeting chat (… → Pop out)")
             return
         try:
             nodes = msaa.walk(msaa.accessible_from_window(hwnd))
         except Exception as exc:  # noqa: BLE001 — COM errors vary; the detail tells them apart
-            self._set("error", f"Reading the chat failed: {exc}")
+            self._lost("error", f"Reading the chat failed: {exc}")
             return
         names, found = message_names(nodes)
         self._publish(rows_from_names(names), len(nodes), f"history list {'found' if found else 'NOT found — using every list item'}")
@@ -204,14 +216,32 @@ class Reader:
         """The shared tail of a read: the first snapshot is the baseline, later
         ones post only what follows the previous snapshot."""
         self.nodes, self.rows = nodes, len(rows)
+        if not rows and (self.prev or self.rebaseline):
+            # The list empties as the window goes and as it comes back; the chat
+            # itself never does, so diffing the next read against [] would post it all.
+            if self.prev:
+                logger.info("ℹ️ reader: the chat list went empty after %d rows — the next read re-baselines", len(self.prev))
+            self.prev, self.rebaseline = None, True
+            self._set("reading", "0 messages in the window")
+            return
         if self.prev is None:
             self.poster.messages(rows, baseline=True, source=self.source)
-            logger.info("ℹ️ reader: baseline of %d rows (%d nodes, %s)", len(rows), nodes, note)
+            if self.rebaseline:
+                logger.info("ℹ️ reader: the chat is back — re-baselined on its %d rows (%d nodes, %s)", len(rows), nodes, note)
+            else:
+                logger.info("ℹ️ reader: baseline of %d rows (%d nodes, %s)", len(rows), nodes, note)
+            self.rebaseline = False
         else:
             fresh, how = new_rows(self.prev, rows)
-            if how == "realign":
-                logger.warning("⚠️ reader: snapshot realigned (a message may have been deleted); %d new", len(fresh))
-            self.poster.messages(fresh, baseline=False, source=self.source)
+            if how == "unrelated":
+                # The server lines it up with what it stored: the main chat back after
+                # another one posts only what is new, a different chat posts nothing.
+                self.poster.messages(rows, baseline=True, source=self.source)
+                logger.info("ℹ️ reader: snapshot shares nothing with the last one — re-baselined on its %d rows", len(rows))
+            else:
+                if how == "realign":
+                    logger.warning("⚠️ reader: snapshot realigned (a message may have been deleted); %d new", len(fresh))
+                self.poster.messages(fresh, baseline=False, source=self.source)
         self.prev = rows
         self._set("reading", f"{len(rows)} messages in the window")
 
@@ -230,13 +260,13 @@ class Reader:
                     self.hwnd = hwnd
                     break
         except Exception as exc:  # noqa: BLE001 — COM errors vary; the detail tells them apart
-            self._set("error", f"Reading the Teams chat failed: {exc}")
+            self._lost("error", f"Reading the Teams chat failed: {exc}")
             return
         if not hwnds:
-            self._set("window_not_found", "Open the Teams meeting chat (in a browser, as the active tab of its window)")
+            self._lost("window_not_found", "Open the Teams meeting chat (in a browser, as the active tab of its window)")
             return
         if nodes is None:
-            self._set("window_not_found", "Teams is open but shows no chat: open the meeting chat")
+            self._lost("window_not_found", "Teams is open but shows no chat: open the meeting chat")
             return
         pairs, _ = teams.rows_from_tree(nodes)
         ids = {mid for mid, _ in pairs}

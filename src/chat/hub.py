@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -33,6 +34,34 @@ logger = logging.getLogger(__name__)
 
 CHAT_FILE = "chat.jsonl"
 STALE_AFTER_MS = 3000
+# A row typed this long before it reaches the server is more likely history
+# posted again than a slow read (a reader scan takes seconds, not minutes).
+OLD_ROW_MINUTES = 5
+TIME_PARTS_RE = re.compile(r"^(\d{1,2}):(\d{2})\s?([AaPp][Mm])?$")
+
+
+def _minute_of_day(hhmm: str) -> Optional[int]:
+    """Zoom's ``HH:MM`` (or ``h:MM PM``) → minutes since midnight; None if it is neither."""
+    m = TIME_PARTS_RE.match(hhmm.strip())
+    if not m:
+        return None
+    hour, minute = int(m.group(1)), int(m.group(2))
+    if m.group(3):
+        hour = hour % 12 + (12 if m.group(3).lower() == "pm" else 0)
+    return hour * 60 + minute
+
+
+def _flag_old_batch(rows: list[Row], source: str) -> None:
+    """Leave a trace when a batch of new rows starts well before now: the sign of
+    a reader posting the window's history again instead of what was just typed."""
+    first = next(((r.time, t) for r in rows if (t := _minute_of_day(r.time)) is not None), None)
+    if first is None:
+        return
+    now = time.localtime()
+    age = (now.tm_hour * 60 + now.tm_min - first[1]) % (24 * 60)
+    if age > OLD_ROW_MINUTES:
+        logger.warning("⚠️ chat: a batch of %d new rows from %s starts at %s, %d min ago — likely history posted again",
+                       len(rows), source, first[0], age)
 
 
 class ChatHub:
@@ -109,6 +138,7 @@ class ChatHub:
             pairs = [(r, received) for r in fresh]
         else:
             pairs = [(r, int(raw.get("received_at") or now_ms())) for r, raw in zip(incoming, rows, strict=True)]
+            _flag_old_batch(incoming, source)
         records = []
         for r, received in pairs:
             self._last_id += 1

@@ -11,7 +11,9 @@ New messages are found by **order**, not as a set: the same person can send
 the same text twice in the same minute, and the time only has minute
 precision. The window's list is the whole conversation in order, so the
 previous snapshot's tail must reappear as a prefix of the new one (the list
-may also lose its oldest rows); whatever follows the overlap is new.
+may also lose its oldest rows); whatever follows the overlap is new. A
+snapshot with nothing in common with the previous one is history, never a
+batch of new rows.
 """
 
 from __future__ import annotations
@@ -35,6 +37,10 @@ class Row:
 
     def key(self) -> tuple[str, str, str]:
         return (self.sender, self.text, self.time)
+
+    def loose_key(self) -> tuple[str, str]:
+        """Without the sender: a participant who renames themselves gets their past rows relabelled."""
+        return (self.text, self.time)
 
 
 def parse_row(name: str) -> Optional[Row]:
@@ -62,21 +68,28 @@ def new_rows(prev: list[Row], cur: list[Row]) -> tuple[list[Row], str]:
     """The rows in ``cur`` that arrived after ``prev``, and how they were found.
 
     ``"append"`` — prev's tail is cur's head (the normal case, also when the
-    oldest rows scrolled out of the tree). ``"realign"`` — no clean overlap
-    (e.g. a message was deleted mid-list): the last matching block decides.
+    oldest rows scrolled out of the tree, or when a renamed sender relabelled
+    rows). ``"realign"`` — no clean overlap (e.g. a message was deleted
+    mid-list): the last matching block decides. ``"unrelated"`` — nothing in
+    common (another chat, or the window came back): all of it is history.
     """
     if not prev:
         return list(cur), "append"
+    if not cur:
+        return [], "append"
+    # The exact keys first: without the sender, one person's repeated answer
+    # could pass for a longer overlap and swallow a new row.
+    for key in (Row.key, Row.loose_key):
+        pk = [key(r) for r in prev]
+        ck = [key(r) for r in cur]
+        for overlap in range(min(len(pk), len(ck)), 0, -1):
+            if pk[len(pk) - overlap:] == ck[:overlap]:
+                return list(cur[overlap:]), "append"
     pk = [r.key() for r in prev]
     ck = [r.key() for r in cur]
-    for overlap in range(min(len(pk), len(ck)), 0, -1):
-        if pk[len(pk) - overlap:] == ck[:overlap]:
-            return list(cur[overlap:]), "append"
-    if not ck:
-        return [], "append"
     blocks = [b for b in difflib.SequenceMatcher(a=pk, b=ck, autojunk=False).get_matching_blocks() if b.size]
     if not blocks:
-        logger.warning("⚠️ chat: the new snapshot shares nothing with the previous one — treating all %d rows as new", len(ck))
-        return list(cur), "realign"
+        logger.warning("⚠️ chat: the new snapshot shares nothing with the previous one — taking its %d rows as history", len(ck))
+        return [], "unrelated"
     last = blocks[-1]
     return list(cur[last.b + last.size:]), "realign"

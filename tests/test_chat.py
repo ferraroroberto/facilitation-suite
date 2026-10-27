@@ -4,9 +4,11 @@ burst read through real MSAA from a stand-in chat window."""
 from __future__ import annotations
 
 import json
+import logging
 import sys
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pytest
 
@@ -14,6 +16,8 @@ from src.chat.hub import ChatHub
 from src.chat.parse import Row, new_rows, parse_row
 from src.chat.reader import Reader, message_names
 from src.config import load_config
+from src.live.actions import run_action
+from src.live.capture import CaptureService
 from src.live.hub import LiveHub, now_ms
 from src.sessions.store import SessionStore
 from tests.conftest import paired_remote
@@ -254,3 +258,130 @@ def test_a_50_message_burst_is_read_with_zero_loss() -> None:
         chat.close()
     reader.read_once()
     assert reader.state == "window_not_found"
+
+
+# ------------------------------------------- a chat window that goes and comes back
+
+
+class _FakeWindow:
+    """The popped-out chat as the reader sees it through MSAA: open with ``rows``, or gone (``None``)."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.chat import msaa
+
+        self.rows: Optional[list[Row]] = []
+        monkeypatch.setattr(msaa, "find_window", lambda _cls, _title: 1 if self.rows is not None else None)
+        monkeypatch.setattr(msaa, "accessible_from_window", lambda hwnd: hwnd)
+        monkeypatch.setattr(msaa, "walk", lambda _acc: [msaa.Node(33, "Chat messages history", 1)]
+                            + [msaa.Node(34, f"{r.sender}, , {r.text}, {r.time}, ", 2) for r in self.rows or []])
+
+
+class _HubPoster:
+    """Stands in for the HTTP Poster: each batch goes straight to ChatHub.ingest."""
+
+    def __init__(self, chat: ChatHub) -> None:
+        self.chat, self.n = chat, 0
+
+    def messages(self, rows: list[Row], *, baseline: bool, source: str) -> None:
+        if not rows and not baseline:
+            return
+        self.n += 1
+        self.chat.ingest(f"t-{self.n}", [{"sender": r.sender, "text": r.text, "time": r.time, "received_at": now_ms()}
+                                         for r in rows], baseline=baseline, source=source)
+
+
+def _goto(live: LiveHub, item_id: str) -> None:
+    live.goto(live.item_by_id(item_id)["index"])
+
+
+def test_a_returning_chat_window_reposts_no_history_into_the_open_capture(
+        live_demo, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Every breakout round: the chat list empties, the window goes, the facilitator pops it out again."""
+    live, chat, _ = live_demo
+    cap = CaptureService(live, chat)
+    window = _FakeWindow(monkeypatch)
+    reader = Reader(_HubPoster(chat), "cls", "Meeting chat", 500, None)  # type: ignore[arg-type]
+    reader.read_once()  # baseline: an empty chat
+
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_toggle")
+    time.sleep(0.003)
+    history = [Row("Participant A", "courage", "19:16"), Row("Participant B", "listening", "19:16"),
+               Row("Participant C", "humour", "19:17")]
+    window.rows = list(history)
+    reader.read_once()
+    time.sleep(0.003)
+    run_action(live, "capture_toggle")
+    assert [m["text"] for m in cap.messages_for("act-kryptonite")] == ["courage", "listening", "humour"]
+
+    _goto(live, "act-takeaway")
+    for typed in ("first round answer", "second round answer"):
+        window.rows = []
+        reader.read_once()  # the list goes empty…
+        window.rows = None
+        reader.read_once()  # …then the window is gone
+        run_action(live, "capture_toggle")  # the next activity's capture starts first
+        time.sleep(0.003)
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger="chat_reader"):
+            window.rows = list(history)
+            reader.read_once()  # popped out again: the same history, nothing new typed
+        assert [m["text"] for m in chat.messages] == [r.text for r in history]
+        assert any("re-baselin" in r.getMessage() and f"{len(history)} rows" in r.getMessage() for r in caplog.records)
+        history.append(Row("Participant D", typed, "19:47"))
+        window.rows = list(history)
+        reader.read_once()
+        time.sleep(0.003)
+        run_action(live, "capture_toggle")
+    assert [m["text"] for m in cap.messages_for("act-takeaway")] == ["first round answer", "second round answer"]
+    assert [m["text"] for m in chat.messages] == [r.text for r in history]  # every row stored once
+
+
+def test_an_empty_snapshot_between_two_identical_ones_posts_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    window = _FakeWindow(monkeypatch)
+    sink = _Collect()
+    reader = Reader(sink, "cls", "Meeting chat", 500, None)  # type: ignore[arg-type]
+    rows = [Row("Participant A", "one", "18:20"), Row("Participant B", "two", "18:21")]
+    window.rows = list(rows)
+    reader.read_once()
+    window.rows = []
+    reader.read_once()
+    window.rows = list(rows)
+    reader.read_once()
+    assert sink.fresh == []
+
+
+def test_a_relabelled_sender_is_history_and_a_new_row_after_it_is_posted_once(live_demo) -> None:
+    """A participant renaming themselves makes Zoom relabel their past rows."""
+    _, chat, _ = live_demo
+    prev = [Row("Participant A", "one", "18:20"), Row("Participant B", "two", "18:21")]
+    cur = [Row("Participant A", "one", "18:20"), Row("Participant B (renamed)", "two", "18:21"),
+           Row("Participant C", "three", "18:22")]
+    assert new_rows(prev, cur) == ([cur[2]], "append")
+    chat.ingest("a-1", [_msg(r.sender, r.text, r.time) for r in prev], baseline=False, source="zoom")
+    stored = chat.ingest("b-1", [_msg(r.sender, r.text, r.time) for r in cur], baseline=True, source="zoom")
+    assert [m["text"] for m in stored] == ["three"]
+
+
+def test_a_batch_of_old_rows_leaves_a_warning(live_demo, caplog: pytest.LogCaptureFixture) -> None:
+    _, chat, _ = live_demo
+    now = time.localtime()
+    hhmm = f"{now.tm_hour}:{now.tm_min:02d}"
+    two_hours_ago = f"{(now.tm_hour - 2) % 24}:{now.tm_min:02d}"
+    with caplog.at_level(logging.WARNING, logger="src.chat.hub"):
+        chat.ingest("o-1", [_msg("Sam", "just typed", hhmm)], baseline=False, source="zoom")
+        assert not any("history posted again" in r.getMessage() for r in caplog.records)
+        chat.ingest("o-2", [_msg("Sam", "from earlier", two_hours_ago)], baseline=False, source="zoom")
+    assert any("starts at " + two_hours_ago in r.getMessage() and "120 min ago" in r.getMessage() for r in caplog.records)
+
+
+def test_a_snapshot_sharing_nothing_is_history_not_new_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert new_rows(_rows("a", "b"), [Row("Q", "elsewhere", "19:00")])[0] == []
+    window = _FakeWindow(monkeypatch)
+    sink = _Collect()
+    reader = Reader(sink, "cls", "Meeting chat", 500, None)  # type: ignore[arg-type]
+    window.rows = _rows("a", "b")
+    reader.read_once()
+    window.rows = [Row("Q", "a breakout room's chat", "19:00")]
+    reader.read_once()
+    assert sink.fresh == [] and sink.batches[-1] == ([Row("Q", "a breakout room's chat", "19:00")], True)
