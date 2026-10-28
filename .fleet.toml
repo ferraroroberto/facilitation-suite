@@ -6,7 +6,7 @@ layer       = "working-web"
 icon        = "🎤"
 port        = ":8449"
 description = "<b>facilitation-suite</b> — local app to run a live online workshop: stage, cockpit, Zoom chat."
-chips       = ["public: cloudflared quiz.robertoferraro.net → :8451 /play"]
+chips       = ["public: cloudflared quiz.robertoferraro.net → :8451 /play", "this PC: http://127.0.0.1:8456 (loopback)"]
 shape       = "webapp-tray"
 # Root folders the webapp-tray preset does not list; docs/layout.md says why each stays.
 extra_roots = ["themes", "webapp"]

@@ -257,3 +257,48 @@ def test_a_helpers_stderr_is_relayed_at_its_own_level(isolated_env: Path, caplog
     got = [(r.levelno, r.getMessage()) for r in caplog.records if r.name == "parent"]
     assert got == [(logging.ERROR, "freeze: ❌ boom"), (logging.INFO, "freeze: ✅ frozen"),
                    (logging.INFO, "Traceback (most recent call last):")]
+
+
+def test_open_url_is_the_local_listener_when_the_app_speaks_https(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.webapp import manager as manager_mod
+
+    monkeypatch.setattr(manager_mod, "cert_hostname", lambda: "pc.example.ts.net")
+    monkeypatch.setattr(manager_mod, "cert_paths", lambda: ("cert.pem", "key.pem"))
+    up = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601, local_port=8656))
+    monkeypatch.setattr(up, "is_local_listener_up", lambda: True)
+    assert up.open_url == "http://127.0.0.1:8656"
+    assert up.public_url == "https://pc.example.ts.net:8601"  # Copy URL and the pairing link stay on the tailnet
+    # A loopback bind keeps the local listener as this PC's URL too (the loopback HTTPS URL would warn).
+    only_here = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="127.0.0.1", port=8601, local_port=8656))
+    monkeypatch.setattr(only_here, "is_local_listener_up", lambda: True)
+    assert only_here.open_url == "http://127.0.0.1:8656"
+
+
+def test_open_url_falls_back_when_there_is_no_local_listener(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.webapp import manager as manager_mod
+
+    monkeypatch.setattr(manager_mod, "cert_hostname", lambda: "pc.example.ts.net")
+    monkeypatch.setattr(manager_mod, "cert_paths", lambda: ("cert.pem", "key.pem"))
+    down = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601, local_port=8656))
+    monkeypatch.setattr(down, "is_local_listener_up", lambda: False)  # a busy port, or an app started before it existed
+    assert down.open_url == down.public_url == "https://pc.example.ts.net:8601"
+    off = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601))
+    assert off.local_url is None and off.open_url == off.public_url
+    # No certificate: the app is plain HTTP on loopback already, so there is nothing better to open.
+    monkeypatch.setattr(manager_mod, "cert_hostname", lambda: None)
+    monkeypatch.setattr(manager_mod, "cert_paths", lambda: None)
+    plain = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601, local_port=8656))
+    monkeypatch.setattr(plain, "is_local_listener_up", lambda: True)
+    assert plain.open_url == "http://127.0.0.1:8601"
+
+
+def test_local_listener_probe_needs_something_answering() -> None:
+    import socket
+
+    from app.webapp import manager as manager_mod
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    nobody = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601, local_port=port))
+    assert nobody.is_local_listener_up() is False

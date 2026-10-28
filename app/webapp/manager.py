@@ -55,13 +55,14 @@ class WebappManagerConfig:
 
     host: str
     port: int
+    local_port: int = 0
     startup_timeout_seconds: float = 20.0
     request_timeout_seconds: float = 1.5
     poll_interval_seconds: float = 0.4
 
     @classmethod
     def from_app_config(cls, config: AppConfig) -> WebappManagerConfig:
-        return cls(host=config.host, port=config.port)
+        return cls(host=config.host, port=config.port, local_port=config.local_port)
 
 
 @dataclass
@@ -119,6 +120,34 @@ class WebappManager:
         if host and self.config.host not in LOOPBACK_HOSTS:
             return f"https://{host}:{self.config.port}"
         return self.base_url
+
+    @property
+    def local_url(self) -> str | None:
+        """The plain-HTTP loopback URL of the local listener, or ``None`` when it is off."""
+        return f"http://127.0.0.1:{self.config.local_port}" if self.config.local_port else None
+
+    @property
+    def open_url(self) -> str:
+        """The URL to open on *this PC*: the local listener when the app speaks HTTPS (the
+        certificate names only the tailnet host, so the loopback HTTPS URL would warn) and the
+        listener answers — it is optional, a busy port leaves it down — else ``public_url``."""
+        local = self.local_url
+        if local and cert_paths() and self.is_local_listener_up():
+            return local
+        return self.public_url
+
+    def is_local_listener_up(self) -> bool:
+        """A real ``/healthz`` round-trip on the local listener."""
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", self.config.local_port,
+                                              timeout=self.config.request_timeout_seconds)
+            try:
+                conn.request("GET", "/healthz")
+                return conn.getresponse().status == 200
+            finally:
+                conn.close()
+        except (OSError, http.client.HTTPException):
+            return False
 
     def is_reachable(self) -> bool:
         """A real ``/healthz`` round-trip — a port check cannot see a wedge."""

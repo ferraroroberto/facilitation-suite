@@ -31,6 +31,7 @@ CONFIG_SAMPLE_PATH = CONFIG_DIR / "config.sample.json"
 DEFAULT_LEDGER_PATH = PROJECT_ROOT / "sessions.local.yaml"
 DEFAULT_PORT = 8449
 DEFAULT_PLAYER_PORT = 8451
+DEFAULT_LOCAL_PORT = 8456
 # Light/dark for the facilitator's screens — the app, the presenter and the
 # phone remote, never the stage or /play (they follow the session theme): one
 # value for every open page on every device.
@@ -123,6 +124,9 @@ LEGACY_PIP_ZONE = [0.72, 0.04, 0.98, 0.3]
 class AppConfig:
     host: str = "0.0.0.0"
     port: int = DEFAULT_PORT
+    # Plain HTTP on 127.0.0.1 only, serving the same app: what the tray opens on this PC, so the
+    # presenter and the stage need no certificate and no tailnet hop. 0 turns it off.
+    local_port: int = DEFAULT_LOCAL_PORT
     # Default parent folder for new sessions: <session_root>/<workshop>/<session>.
     session_root: str = ""
     appearance: str = "system"  # one of APPEARANCES

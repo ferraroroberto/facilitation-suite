@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 from pathlib import Path
 
 import pytest
@@ -153,3 +154,25 @@ def test_the_request_log_never_shows_the_token() -> None:
     assert "s3cret" not in rec.getMessage() and "/remote?token=<redacted>&x=1" in rec.getMessage()
     assert isinstance(rec.args, tuple) and len(rec.args) == 5  # uvicorn's access formatter unpacks all five
     assert rec.args[2] == "/remote?token=<redacted>&x=1"
+
+
+def test_the_local_page_still_offers_the_tailnet_pairing_link(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A page on the local listener (plain HTTP on this PC) builds the link for the phone: the
+    tailnet HTTPS URL on the main port, never the page's own ``http://127.0.0.1:<local_port>``."""
+    from app.webapp.routers import settings as settings_router
+    from app.webapp.server import create_app
+
+    with socket.socket() as probe:  # a free port: the listener really binds it, never the live :8456
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    monkeypatch.setattr(settings_router, "cert_hostname", lambda: "pc.example.ts.net")
+    write_test_config(isolated_env / "config.json", session_root=str(isolated_env / "sessions"), local_port=port)
+    with TestClient(create_app(), client=("127.0.0.1", 50000), base_url=f"http://127.0.0.1:{port}") as pc:
+        body = pc.post("/api/settings/remote/token").json()["remote"]
+        assert body["https"] is True
+        assert body["base_url"] == "https://pc.example.ts.net:8449"
+        assert body["link"].startswith("https://pc.example.ts.net:8449/remote?token=")
+    # A plain-HTTP page on any other port is still not given an https link.
+    with TestClient(create_app(), client=("127.0.0.1", 50000), base_url="http://127.0.0.1:9999") as dev:
+        body = dev.get("/api/settings").json()["remote"]
+        assert body["https"] is False and body["link"] is None
