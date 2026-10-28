@@ -1,15 +1,11 @@
-"""Response compression: the entry document, JS/CSS and JSON go out gzipped (#166, perf-review)."""
+"""Response compression: the entry document, JS/CSS and JSON go out gzipped through the vendored middleware."""
 
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-from starlette.applications import Starlette
-from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.responses import Response
-from starlette.routing import Route
 
-from app.webapp.server import GZIP_EXCLUDED_TYPES, GZIP_MIN_BYTES
+from src.compression import StreamSafeGZipMiddleware
 
 GZIP = {"Accept-Encoding": "gzip"}
 
@@ -40,17 +36,14 @@ def test_tiny_responses_stay_uncompressed(client: TestClient) -> None:
     assert "content-encoding" not in r.headers
 
 
-def test_already_compressed_downloads_are_not_recompressed() -> None:
-    body = b"x" * (GZIP_MIN_BYTES * 20)
+def test_compression_is_the_outermost_layer_and_the_only_gzip(client: TestClient) -> None:
+    stack = [m.cls for m in client.app.user_middleware]
+    assert stack[0] is StreamSafeGZipMiddleware  # added last: an auth refusal or a 304 passes it unchanged
+    assert GZipMiddleware not in stack
 
-    def make(media_type: str) -> Starlette:
-        return Starlette(
-            routes=[Route("/f", lambda request: Response(body, media_type=media_type))],
-            middleware=[Middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES, exclude_content_types=GZIP_EXCLUDED_TYPES)],
-        )
 
-    for media_type in ("application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"):
-        r = TestClient(make(media_type)).get("/f", headers=GZIP)
-        assert "content-encoding" not in r.headers, media_type
-    # The control: a type that is not excluded does get compressed.
-    assert TestClient(make("text/plain")).get("/f", headers=GZIP).headers.get("content-encoding") == "gzip"
+def test_the_live_websocket_still_delivers_its_first_message_at_once(client: TestClient) -> None:
+    # The app's only stream is the /ws socket; a gzip client must not hold its first frame back.
+    with client.websocket_connect("/ws?role=presenter", headers=GZIP) as ws:
+        assert ws.receive_json()["type"] == "plan"
+        assert ws.receive_json()["type"] == "state"

@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -49,8 +49,8 @@ from typing import Optional
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.player.listener import PlayerListener
 from app.webapp.assets import CachingStaticFiles
@@ -76,6 +76,7 @@ from src.build_info import build_identity
 from src.certs import cert_paths
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
+from src.compression import StreamSafeGZipMiddleware
 from src.config import data_dir, load_config, profiles
 from src.errors import DomainError
 from src.importer.service import Importer
@@ -102,16 +103,6 @@ BUILD = build_identity()
 ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
 USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only)
-
-
-# Bodies under this size go out as they are: gzip framing would cost more than it saves.
-GZIP_MIN_BYTES = 1000
-# Starlette already leaves PNG/JPEG/WebP/woff2/audio/video alone; these two downloads are zip/PDF inside.
-GZIP_EXCLUDED_TYPES = (
-    *DEFAULT_EXCLUDED_CONTENT_TYPES,
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
 
 
 @asynccontextmanager
@@ -161,6 +152,22 @@ def _install_error_handlers(app: FastAPI) -> None:
         return error_response(exc.status_code, code, str(exc.detail))
 
 
+class _NoteServerAddress:
+    """Reports the address each HTTP request arrived on. Plain ASGI, not ``@app.middleware("http")``:
+    that wrapper re-streams every body in chunks, which hides a body's size from the compression middleware."""
+
+    def __init__(self, app: ASGIApp, note: Callable[[str, int], None]) -> None:
+        self.app = app
+        self.note = note
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            server = scope.get("server")
+            if server and server[1]:
+                self.note(scope["scheme"], server[1])
+        await self.app(scope, receive, send)
+
+
 def _install_chat(app: FastAPI) -> None:
     """The chat hub and its reader process: the reader runs while a session is
     live (when the config enables it) and can be started by hand for a test."""
@@ -175,14 +182,12 @@ def _install_chat(app: FastAPI) -> None:
     capture.freeze_url = f"{scheme}://127.0.0.1:{cfg.port}"
     app.state.capture = capture
 
-    @app.middleware("http")
-    async def _note_server_address(request: Request, call_next):  # noqa: ANN202 — Starlette middleware signature
+    def note_address(scheme: str, port: int) -> None:
         # The reader and the freeze renderer must reach the port this server
         # really listens on (a dev or test instance can differ from the config).
-        server = request.scope.get("server")
-        if server and server[1]:
-            proc.server_url = capture.freeze_url = f"{request.url.scheme}://127.0.0.1:{server[1]}"
-        return await call_next(request)
+        proc.server_url = capture.freeze_url = f"{scheme}://127.0.0.1:{port}"
+
+    app.add_middleware(_NoteServerAddress, note=note_address)
     chat_hub.process_running = proc.running
     chat_hub.chosen_source = proc.source
     app.state.chat = chat_hub
@@ -260,11 +265,6 @@ def _install_quiz(app: FastAPI) -> None:
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="facilitation-suite", version="0.1.0", lifespan=_lifespan)
-    # Gzip the pages, JS/CSS and JSON for a phone on cellular. Registered first so it is the
-    # innermost middleware: the ``@app.middleware("http")`` in ``_install_chat`` re-streams every body,
-    # and a gzip outside it would ignore the minimum size and compress even the bodyless 304.
-    # WebSocket scopes pass through untouched; Starlette skips ``text/event-stream``.
-    app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES, compresslevel=6, exclude_content_types=GZIP_EXCLUDED_TYPES)
     app.state.config = load_config()
     app.state.build = BUILD
     app.state.assets = ASSETS
@@ -287,6 +287,9 @@ def create_app() -> FastAPI:
     _install_error_handlers(app)
     # Outermost: other devices need the phone-remote token before anything else runs.
     app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)
+    # Added last, so the outermost layer: gzips the pages, JS/CSS and JSON for a phone on cellular and
+    # leaves a 304, an auth refusal and the websocket alone. No route here is SSE or MJPEG, so no bypass.
+    app.add_middleware(StreamSafeGZipMiddleware, bypass_paths=())
     redact_server_logs()
     app.mount("/static", CachingStaticFiles(directory=str(STATIC_DIR), prefix="/static", versions=ASSETS), name="static")
     # Stage themes (public, repo-level): the stage follows the session theme, not the fleet design.
