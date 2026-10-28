@@ -9,6 +9,9 @@ PNG when one exists, else a rendered summary of its distribution — and a
 podium page per game, where they happened; the appendix then lists each
 game's final leaderboard. A session without a quiz prints exactly as before.
 
+The participants' copy (``activities_html``) is the same run-order pages with the
+slides, the podiums and the appendix left out, behind a title page.
+
 The document is one HTML file printed by headless Chromium, so the images go
 in untouched and the appendix flows over as many pages as it needs. The
 printing runs as its own process (``python -m src.results.pdf <html> <out>``)
@@ -58,6 +61,9 @@ table.part th { font-size: 8.5pt; }
 table.part th.who, table.part td.name { text-align: left; width: 19%; padding-left: 1mm; overflow-wrap: anywhere; }
 table.part .nb { white-space: nowrap; }
 .zero { color: #9e9e9e; }
+.title-page { display: flex; flex-direction: column; justify-content: center; padding: 0 30mm; box-sizing: border-box; background: #f2f2f2; }
+.title-page h1 { font-size: 40pt; margin: 0 0 6mm; }
+.title-page p { font-size: 18pt; color: #5e5e5e; margin: 0; }
 """
 
 QUIZ_CSS = """
@@ -153,31 +159,53 @@ def _participation_appendix(table: dict[str, Any]) -> str:
             f"<tbody>{body}</tbody></table></div>")
 
 
+def _page_html(folder: Path, p: dict[str, Any], acts: dict[str, Any], quizzes: dict[str, Any], appendix: bool = True) -> str:
+    """One timeline page; ``appendix`` says whether a capture without its image can point the reader to the answers."""
+    if p["kind"] == "slide":
+        src = (folder / "slides" / p["file"]).as_uri()
+        return f"<div class='page'><img src='{src}' alt='{escape(p['title'])}'></div>"
+    if p["kind"] == "quiz_question":
+        q = quizzes[p["game"]]
+        return _quiz_question(folder, q, next(x for x in q["questions"] if x["item_id"] == p["item_id"]))
+    if p["kind"] == "quiz_podium":
+        return _quiz_podium(quizzes[p["game"]])
+    a = acts[p["item_id"]]
+    if a["has_png"]:
+        png = folder / "live" / "captures" / f"{a['id']}.png"
+        return f"<div class='page'><img src='{png.as_uri()}' alt='{escape(a['title'])}'></div>"
+    tail = " — every answer is in the appendix" if appendix else ""
+    return (f"<div class='page missing'><h1>{escape(a['title'])}</h1>"
+            f"<p>{escape(a['summary'])} · the stage image of this capture was not saved{tail}.</p></div>")
+
+
+def _head(results: dict[str, Any], quizzes: dict[str, Any]) -> str:
+    return (f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(results['session']['title'])}</title>"
+            f"<style>{CSS}{QUIZ_CSS if quizzes else ''}</style></head><body>")
+
+
+def activities_pages(results: dict[str, Any]) -> list[dict[str, Any]]:
+    """The pages the participants' copy holds, in run order: live results and quiz questions — no slide, no podium (it names people)."""
+    return [p for p in results["pages"] if p["kind"] in ("capture", "quiz_question")]
+
+
+def activities_html(folder: Path, results: dict[str, Any]) -> str:
+    """The participants' copy: a title page, then only what they built together, as the stage drew it."""
+    acts = {a["id"]: a for a in results["activities"]}
+    quizzes = {q["id"]: q for q in results.get("quizzes") or []}
+    date = (results["session"].get("date") or "")[:10]
+    parts = [_head(results, quizzes),
+             f"<div class='page title-page'><h1>{escape(results['session']['title'])}</h1>{f'<p>{escape(date)}</p>' if date else ''}</div>"]
+    parts += [_page_html(folder, p, acts, quizzes, appendix=False) for p in activities_pages(results)]
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
 def session_html(folder: Path, results: dict[str, Any], people: list[dict[str, Any]]) -> str:
     """``people`` is ``collect.participation`` for the session: the table the Excel report prints as well."""
     acts = {a["id"]: a for a in results["activities"]}
     quizzes = {q["id"]: q for q in results.get("quizzes") or []}
-    parts = [f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(results['session']['title'])}</title>"
-             f"<style>{CSS}{QUIZ_CSS if quizzes else ''}</style></head><body>"]
-    for p in results["pages"]:
-        if p["kind"] == "slide":
-            src = (folder / "slides" / p["file"]).as_uri()
-            parts.append(f"<div class='page'><img src='{src}' alt='{escape(p['title'])}'></div>")
-            continue
-        if p["kind"] == "quiz_question":
-            q = quizzes[p["game"]]
-            parts.append(_quiz_question(folder, q, next(x for x in q["questions"] if x["item_id"] == p["item_id"])))
-            continue
-        if p["kind"] == "quiz_podium":
-            parts.append(_quiz_podium(quizzes[p["game"]]))
-            continue
-        a = acts[p["item_id"]]
-        png = folder / "live" / "captures" / f"{a['id']}.png"
-        if a["has_png"]:
-            parts.append(f"<div class='page'><img src='{png.as_uri()}' alt='{escape(a['title'])}'></div>")
-        else:
-            parts.append(f"<div class='page missing'><h1>{escape(a['title'])}</h1>"
-                         f"<p>{escape(a['summary'])} · the stage image of this capture was not saved — every answer is in the appendix.</p></div>")
+    parts = [_head(results, quizzes)]
+    parts += [_page_html(folder, p, acts, quizzes) for p in results["pages"]]
     date = (results["session"].get("date") or "")[:10]
     parts.append("<section class='appendix'>")
     parts.append(f"<h1>Answers</h1><p class='sub'>{escape(results['session']['title'])}{' · ' + escape(date) if date else ''}</p>")

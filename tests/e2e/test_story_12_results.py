@@ -125,8 +125,10 @@ def _check_exports(page: Page, pane: Locator, folder) -> None:
     page.on("download", lambda d: downloads.append(d))
     expect(pane.locator(".export-open")).to_have_count(0)  # nothing exported yet: nothing to open
     pane.locator("[data-pdf]").click()
-    expect(page.locator("#toast")).to_contain_text("Session PDF saved in exports/", timeout=120000)
-    assert (folder / "exports" / "session.pdf").read_bytes()[:5] == b"%PDF-"
+    expect(page.locator("#toast")).to_contain_text("and participants' PDF", timeout=120000)
+    expect(page.locator("#toast")).to_contain_text("saved in exports/")
+    for name in ("session.pdf", "session-activities.pdf"):
+        assert (folder / "exports" / name).read_bytes()[:5] == b"%PDF-"
     expect(pane.locator(".pdf-head")).to_contain_text("pages")
 
     pane.locator("[data-xlsx]").click()
@@ -135,8 +137,8 @@ def _check_exports(page: Page, pane: Locator, folder) -> None:
 
     # another device opens the file inline from the link; this PC saves no copy
     links = pane.locator(".export-open a")
-    expect(links).to_have_count(2)
-    for link, kind in ((links.nth(0), "application/pdf"), (links.nth(1), "spreadsheetml")):
+    expect(links).to_have_count(3)
+    for link, kind in ((links.nth(0), "application/pdf"), (links.nth(1), "application/pdf"), (links.nth(2), "spreadsheetml")):
         assert link.get_attribute("target") == "_blank" and link.get_attribute("download") is None
         res = page.request.get(link.evaluate("a => a.href"))
         assert res.ok and kind in res.headers["content-type"]
