@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 SESSION_FILE = "session.yaml"
 SUBDIRS = ("slides", "live", "exports")
 # What a duplicate carries over: the plan and its inputs, never live data or exports.
-DUPLICATE_ENTRIES = ("session.yaml", "slides", "roster.xlsx", "groups.yaml", "theme.css", "source", "audio")
+DUPLICATE_ENTRIES = ("session.yaml", "slides", "roster.xlsx", "groups.yaml", "theme.css", "source", "audio", "playbook.md")
 
 
 class SessionError(DomainError):

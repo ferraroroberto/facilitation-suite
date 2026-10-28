@@ -19,6 +19,9 @@ sessions.local.yaml
 # session event/log streams (chat.jsonl, events.jsonl, quiz.jsonl): only synthetic fixtures
 *.jsonl
 !tests/fixtures/**/*.jsonl
+# a session's playbook.md lives in its session folder, outside the repo: only synthetic fixtures
+playbook.md
+!tests/fixtures/**/playbook.md
 
 # --- python / tooling ------------------------------------------------------
 __pycache__/
