@@ -17,6 +17,18 @@ A suggestion compares names without case, accents or punctuation, after dropping
 
 Results count the canonical name wherever they count people: each activity's people, the answer rows (shown as `Ana Perez (as iPhone de Ana)`), *Participation* and the exports, and a scale or map is recounted so a person who voted under two names counts once, by their latest answer. `chat.jsonl` and the live stage keep the raw names. Quiz players are keyed by name when they join, so a quiz is not merged.
 
+## Rebuild results
+
+A session's results are frozen when each capture stops, so a session that ran before a fix keeps the old behaviour, and turning a word-cloud option on in the Plan does not change a capture that already happened. The **Rebuild results** card, at the bottom of the Results tab of a session that is not live, recomputes every frozen capture with today's rules, through the same replay engine as `python -m src.activities.replay` (`src/activities/rebuild.py`, `routers/rebuild.py`):
+
+- **Preview** lists each activity with what would move: answers before → after, answers shown whole, entries added, removed and merged, counts changed, reposted rows dropped, windows cut. It writes nothing; with nothing to change, the confirm button stays disabled.
+- **Rebuild** (the confirm step) draws the new stage pictures first and changes nothing if one cannot be drawn. It then copies `live/captures/` and `live/captures.json` to `live/rebuild-backup-<time>/`, and swaps in the rebuilt records and pictures.
+- **Undo last rebuild** puts the latest backup back, file for file; the folder is kept as `live/rebuild-undone-<time>`.
+
+A rebuild uses each activity's options as the Plan says now, the session's *Capture scope* setting (a session that never set it is not cut where an activity was left, because cutting drops real late answers), and leaves out the rows the chat reader posted again when the Zoom chat window came back: a row received more than a minute after the time Zoom printed on it, with an identical earlier row (same sender, text and Zoom time). A late row with no earlier twin is the only record of that message and stays. Captures that were never frozen are left alone. A rebuild exports nothing: export the PDF and the Excel report again afterwards, into `exports/`.
+
+The stage picture waits for the session's title font (the *Session Font* face is loaded by name, then checked) before the screenshot, and no picture is written when that font fails to load, so a title never comes out in the fallback font.
+
 ## Session analysis
 
 The report a facilitator hands on after a session (an assessment of the room, notes per participant, whatever the session needs) is written by a coding agent with the repo's `analyze-session` skill (`.claude/skills/analyze-session/SKILL.md`), run from the repo root as `/analyze-session "<session folder>"` or `/analyze-session last`. The app itself makes no LLM call.

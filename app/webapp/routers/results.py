@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
+from src.activities.rebuild import backups
 from src.config import data_dir
 from src.errors import DomainError
 from src.groups.roster import roster_state
@@ -92,6 +93,7 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     data["reconciliation"] = _reconciliation(folder)
     data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
     data["people"] = _people(folder, session, data)
+    data["rebuild_backup"] = (backups(folder) or [None])[-1]
     return data
 
 

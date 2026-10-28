@@ -25,10 +25,14 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from src.config import CONFIG_SAMPLE_PATH, PROJECT_ROOT
+import yaml
+
+from src.config import CONFIG_SAMPLE_PATH, PROJECT_ROOT, AppConfig, load_config
+from src.library import THEME_PREFIX, library_theme_css, themes_dir
 from src.live.capture import STATE_FILE
 from src.live.freeze import render
 from src.no_window import NO_WINDOW
+from src.sessions.model import parse_session
 from src.sessions.store import SESSION_FILE
 
 logger = logging.getLogger("replay")
@@ -60,6 +64,13 @@ def _stage_copy(folder: Path, out: Path, item_ids: list[str], root: Path) -> Pat
             shutil.copy2(folder / name, copy / name)
     if (folder / "slides").is_dir():
         shutil.copytree(folder / "slides", copy / "slides")
+    # A library theme lives beside the real session folders, which the disposable server does not see.
+    theme = parse_session(yaml.safe_load((folder / SESSION_FILE).read_text(encoding="utf-8"))).theme
+    css = library_theme_css(load_config(), theme)
+    if css:
+        themes = themes_dir(AppConfig(session_root=str(root / "sessions")))
+        themes.mkdir(parents=True, exist_ok=True)
+        (themes / f"{theme[len(THEME_PREFIX):]}.css").write_text(css, encoding="utf-8")
     windows = {}
     for item_id in item_ids:
         shutil.copy2(out / f"{item_id}.json", copy / "live" / "captures" / f"{item_id}.json")

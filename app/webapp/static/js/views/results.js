@@ -8,12 +8,15 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, pageHead, setStatus, toast } from '/static/js/ui.js';
 import { analyzeCard } from '/static/js/views/analyze-card.js';
+import { rebuildCard } from '/static/js/views/rebuild-card.js';
 
 let root;
 let ctx;
 let head;
 let checkEl;
 let peopleEl;
+let rebuildEl;
+let rebuildSid = null; // the card keeps its own state across the reloads a rebuild or an undo causes
 let listEl;
 let detailEl;
 let data = null;
@@ -39,9 +42,10 @@ export async function mount(el, context) {
   listEl = document.createElement('div');
   listEl.className = 'card list-card';
   peopleEl = document.createElement('div');
-  list.append(head, checkEl, peopleEl, listEl);
+  rebuildEl = document.createElement('div');
+  list.append(head, checkEl, peopleEl, listEl, rebuildEl);
 
-  ctx.onSession(() => { selected = null; load(); });
+  ctx.onSession(() => { selected = null; rebuildSid = null; load(); });
   await load();
 }
 
@@ -55,6 +59,8 @@ async function load() {
     setStatus(head, '');
     checkEl.innerHTML = '';
     peopleEl.innerHTML = '';
+    rebuildEl.hidden = true;
+    rebuildSid = null;
     listEl.innerHTML = '';
     listEl.appendChild(emptyStateEl('calendar-days', 'Pick a session in the Sessions tab first.', { actionLabel: 'Sessions', onAction: () => ctx.goTo('sessions') }));
     detailEl.innerHTML = '';
@@ -86,8 +92,17 @@ function render() {
   setStatus(head, [data.session.title, shortDate(data.session.date)].filter(Boolean).join(' · '));
   renderCheck();
   renderPeople();
+  renderRebuild();
   renderList();
   renderDetail();
+}
+
+// A rebuild only makes sense once something was frozen; the card is built once per session.
+function renderRebuild() {
+  rebuildEl.hidden = !data.activities.length;
+  if (rebuildEl.hidden || rebuildSid === ctx.sessionId) return;
+  rebuildSid = ctx.sessionId;
+  rebuildEl.replaceChildren(rebuildCard(ctx.sessionId, data.rebuild_backup, load));
 }
 
 // ---- one person under several names -------------------------------------------

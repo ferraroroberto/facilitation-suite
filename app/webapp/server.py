@@ -65,6 +65,7 @@ from app.webapp.routers import (
     live,
     pages,
     quiz,
+    rebuild,
     results,
     sessions,
     settings,
@@ -298,6 +299,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(groups.router)
     app.include_router(results.router)
+    app.include_router(rebuild.router)
     app.include_router(settings.router)
     app.include_router(actions.router)
     app.include_router(quiz.router)

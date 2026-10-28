@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 
 import pytest
+import yaml
 from PIL import Image
 
 from src.activities import replay
 from src.activities.registry import counted_for, parser
 from tests.fixtures.demo import build_demo_session, write_demo_run
+
+VENDORED_FONT = Path(__file__).resolve().parent.parent / "app" / "webapp" / "static" / "fonts" / "PatrickHand-Regular.ttf"
 
 
 @pytest.fixture
@@ -146,3 +150,60 @@ def test_replay_cuts_a_capture_that_was_never_stopped_where_the_activity_was_lef
     cut = replay.replay(recorded, tmp_path / "cut", items=["act-enemy"], stop_on_leave=True)[0]
     assert (kept["windows_cut"], cut["windows_cut"]) == (0, 1)
     assert cut["frozen"] is False and cut["answers"] <= kept["answers"]
+
+
+def _row(id_: int, text: str, time: str, received: str, sender: str = "Ana") -> dict:
+    """A chat row typed at Zoom's ``time`` and received at the local clock ``received`` (HH:MM) that day."""
+    ms = int(datetime.fromisoformat(f"2026-10-27T{received}:30").timestamp() * 1000)
+    return {"id": id_, "sender": sender, "text": text, "time": time, "received_at": ms}
+
+
+def test_a_row_received_over_a_minute_after_its_zoom_time_with_an_identical_earlier_row_is_a_repost() -> None:
+    chat = [
+        _row(1, "calm", "18:20", "18:20"),
+        _row(2, "calm", "18:20", "19:11"),  # the window came back: the same row posted again, 51 minutes late
+        _row(3, "calm", "18:20", "18:21"),  # an identical row a minute late is a slow read at most
+        _row(4, "late", "18:21", "19:11"),  # late, but nothing earlier says it: the only record of that message
+        _row(5, "calm", "18:30", "18:30", sender="Ben"),  # same text, another sender
+        _row(6, "yes", "23:59", "23:59"),
+        _row(7, "yes", "23:59", "00:02"),  # past midnight: three minutes late
+        {**_row(8, "ok", "", "19:11"), "time": ""},  # a row without Zoom's time cannot be told
+        {**_row(9, "ok", "", "19:12"), "time": ""},
+    ]
+    assert replay.reposted_ids(chat) == {2, 7}
+
+
+def test_replay_drops_reposted_rows_only_when_asked(recorded: Path, tmp_path: Path) -> None:
+    live = recorded / "live"
+    chat = [json.loads(line) for line in (live / "chat.jsonl").read_text(encoding="utf-8").splitlines()]
+    start = json.loads((live / "captures" / "act-enemy.json").read_text(encoding="utf-8"))["windows"][0][0]
+    first = json.loads((live / "captures" / "act-kryptonite.json").read_text(encoding="utf-8"))["answers"][0]
+    original = next(m for m in chat if m["id"] == first["id"])
+    with (live / "chat.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({**original, "id": len(chat) + 1, "received_at": start + 1_000}) + "\n")
+    kept = replay.replay(recorded, tmp_path / "kept", items=["act-enemy"])[0]
+    dropped = replay.replay(recorded, tmp_path / "dropped", items=["act-enemy"], drop_reposts=True)[0]
+    assert (kept["reposts_dropped"], dropped["reposts_dropped"]) == (0, 1)
+    assert dropped["answers"] == kept["answers"] - 1
+    assert json.loads((tmp_path / "dropped" / "summary.json").read_text(encoding="utf-8"))["totals"]["reposts_dropped"] == 1
+
+
+def _with_font(folder: Path, font: Path) -> None:
+    raw = yaml.safe_load((folder / "session.yaml").read_text(encoding="utf-8"))
+    raw["font"] = {"file": str(font)}
+    (folder / "session.yaml").write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
+
+
+def test_the_picture_waits_for_the_session_font_and_is_not_written_when_it_does_not_load(recorded: Path, tmp_path: Path) -> None:
+    good = Path(shutil.copy(VENDORED_FONT, tmp_path / "Synthetic-Regular.ttf"))
+    _with_font(recorded, good)
+    out = tmp_path / "good"
+    assert replay.main([str(recorded), "--out", str(out), "--item", "act-kryptonite", "--render"]) == 0
+    assert (out / "act-kryptonite.png").is_file()
+
+    broken = tmp_path / "Broken.ttf"
+    broken.write_bytes(b"not a font")  # served as a font, never decodes: the title would show the fallback
+    _with_font(recorded, broken)
+    out = tmp_path / "broken"
+    assert replay.main([str(recorded), "--out", str(out), "--item", "act-kryptonite", "--render"]) == 2
+    assert not (out / "act-kryptonite.png").exists()
