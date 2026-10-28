@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ from src.quiz.results import quiz_results
 from src.quiz.service import replay, scopes_of
 from src.results.collect import load_results, participation, timeline
 from src.results.excel import build_report, quiz_sheet_title
-from src.results.pdf import session_html
+from src.results.pdf import activities_html, session_html
 from src.sessions.model import parse_session
 from tests.fixtures.demo import PLAN, build_demo_session, write_demo_run
 from tests.fixtures.quiz_run import (
@@ -168,6 +169,17 @@ def test_the_session_pdf_has_the_quiz_pages_in_order(isolated_env: Path) -> None
                                      "Space quiz · run 2 · podium", "Quiz · Space quiz · run 1")]
     assert order == sorted(order)
     assert "Zenith" in html and "chat" in html
+
+
+def test_the_participants_pdf_keeps_the_questions_and_leaves_the_podiums_out(isolated_env: Path) -> None:
+    _, folder, data = _quiz_run(isolated_env)
+    html = activities_html(folder, data).partition("<body>")[2]  # the document, not its stylesheet
+    asked = [p["item_id"] for p in data["pages"] if p["kind"] in ("capture", "quiz_question")]
+    assert len(asked) == 6 + 6 and html.count("<div class='page") == 1 + len(asked)  # title page + captures + 6 questions
+    assert "podium" not in html and "Zenith" not in html and "Quiz ·" not in html  # no nicknames, no leaderboard
+    questions = [x["question"] for q in data["quizzes"] for x in q["questions"]]
+    positions = [html.index(escape(t)) for t in dict.fromkeys(questions)]
+    assert positions == sorted(positions)
 
 
 def test_a_game_that_never_reached_its_podium_still_ends_on_its_standings(isolated_env: Path) -> None:

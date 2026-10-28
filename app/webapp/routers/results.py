@@ -33,7 +33,7 @@ from src.results.aliases import Excluded, read_aliases, seen_names, suggest, wri
 from src.results.analysis import analysis_facts
 from src.results.collect import load_results, participation
 from src.results.excel import build_report
-from src.results.pdf import session_html
+from src.results.pdf import activities_html, activities_pages, session_html
 from src.results.reconcile import reconcile_file
 from src.sessions.model import ITEM_ID, Session
 from src.sessions.store import SessionStore, atomic_write_text
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-PDF_FILE, XLSX_FILE, RECONCILE_FILE = "session.pdf", "report.xlsx", "zoom-reconciliation.json"
+PDF_FILE, ACTIVITIES_FILE, XLSX_FILE, RECONCILE_FILE = "session.pdf", "session-activities.pdf", "report.xlsx", "zoom-reconciliation.json"
 PDF_TIMEOUT_S = 300
 
 
@@ -91,7 +91,8 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     folder, session = _load(request, sid)
     data = load_results(folder, session)
     data["reconciliation"] = _reconciliation(folder)
-    data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
+    data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "activities": _file_info(folder / "exports" / ACTIVITIES_FILE),
+                       "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
     data["people"] = _people(folder, session, data)
     data["rebuild_backup"] = (backups(folder) or [None])[-1]
     return data
@@ -191,12 +192,18 @@ async def export_pdf(request: Request, sid: str) -> dict[str, Any]:
         raise AppError(409, "nothing_to_export", "Nothing was shown live in this session yet")
     out = folder / "exports" / PDF_FILE
     pages = await asyncio.to_thread(_print, session_html(folder, data, _participation(folder, session, data)), out)
+    # the participants' copy has nothing to print for a session of slides only; an older one is left as it was
+    shared_out = folder / "exports" / ACTIVITIES_FILE
+    shared_pages = (await asyncio.to_thread(_print, activities_html(folder, data), shared_out)
+                    if activities_pages(data) else None)
     missing = [a["title"] for a in data["activities"] if not a["has_png"]]
     logger.info("✅ session PDF for %s: %d slides + %d live results + %d quiz pages, %d pages", sid, data["slides"],
                 data["captures"], data["quiz_pages"], pages)
     return {"file": PDF_FILE, "pages": pages or None, "slides": data["slides"], "captures": data["captures"],
             "quiz_pages": data["quiz_pages"],
-            "missing_images": missing, **(_file_info(out) or {})}
+            "missing_images": missing, **(_file_info(out) or {}),
+            "activities": {"file": ACTIVITIES_FILE, "pages": shared_pages or None, **(_file_info(shared_out) or {})}
+            if shared_pages is not None else None}
 
 
 @router.post("/exports/xlsx")
@@ -227,6 +234,11 @@ def _open_export(request: Request, sid: str, name: str, media_type: str, hint: s
 @router.get("/exports/session.pdf")
 def open_pdf(request: Request, sid: str) -> FileResponse:
     return _open_export(request, sid, PDF_FILE, "application/pdf", "Export the session PDF first")
+
+
+@router.get("/exports/session-activities.pdf")
+def open_activities_pdf(request: Request, sid: str) -> FileResponse:
+    return _open_export(request, sid, ACTIVITIES_FILE, "application/pdf", "Export the session PDF first")
 
 
 @router.get("/exports/report.xlsx")
