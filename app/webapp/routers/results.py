@@ -28,12 +28,12 @@ from src.groups.roster import roster_state
 from src.jsonl import read_jsonl
 from src.logger import relay
 from src.no_window import NO_WINDOW
-from src.results.aliases import read_aliases, seen_names, suggest, write_aliases
+from src.results.aliases import Excluded, read_aliases, seen_names, suggest, write_aliases
 from src.results.collect import load_results, participation
 from src.results.excel import build_report
 from src.results.pdf import session_html
 from src.results.reconcile import reconcile_file
-from src.sessions.model import ITEM_ID
+from src.sessions.model import ITEM_ID, Session
 from src.sessions.store import SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     data = load_results(folder, session)
     data["reconciliation"] = _reconciliation(folder)
     data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
-    data["people"] = _people(folder, data)
+    data["people"] = _people(folder, session, data)
     return data
 
 
@@ -102,10 +102,11 @@ def _roster_names(folder: Path) -> list[str]:
         return []
 
 
-def _people(folder: Path, data: dict[str, Any]) -> dict[str, Any]:
+def _people(folder: Path, session: Session, data: dict[str, Any]) -> dict[str, Any]:
     """The names seen, the merges in force and the likely ones still to confirm (never applied here)."""
     aliases = read_aliases(folder)
-    names = seen_names(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"))
+    names = seen_names(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"),
+                       Excluded(session.excluded_senders, aliases))
     return {"names": sorted({aliases.canonical(n) for n in names}, key=str.casefold), "merges": aliases.groups,
             "suggestions": suggest(names, aliases, _roster_names(folder))}
 
@@ -196,7 +197,9 @@ def download_xlsx(request: Request, sid: str) -> FileResponse:
     data = load_results(folder, session)
     if not data["activities"] and not data["quizzes"]:
         raise AppError(409, "nothing_to_export", "No activity was captured in this session yet")
-    people = participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"), read_aliases(folder))
+    aliases = read_aliases(folder)
+    people = participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"), aliases,
+                           Excluded(session.excluded_senders, aliases))
     out = folder / "exports" / XLSX_FILE
     try:
         build_report(data, people, out)

@@ -133,6 +133,12 @@
 .p-msg.counted { box-shadow: inset 3px 0 0 var(--success); padding-left: 10px; }
 .p-msg.hidden-msg .p-msg-text { text-decoration: line-through; color: var(--muted); }
 .p-msg.hidden-msg { opacity: 0.7; }
+.p-msg.excluded-msg { opacity: 0.55; cursor: default; }
+.p-msg.excluded-msg .p-msg-text { color: var(--muted); }
+.p-sender { cursor: pointer; }
+.p-sender:hover { text-decoration: underline; }
+.p-excluded { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px var(--space-md); border-bottom: 1px solid var(--line-muted); }
+.p-excluded .chip { cursor: pointer; border: 0; }
 
 /* Zoom chat: chronological, newest at the bottom, the list scrolls inside the card. */
 .p-chat .p-body { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 0; gap: 0; }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -100,3 +101,48 @@ def test_render_draws_each_replayed_cloud_through_the_real_stage(recorded: Path,
     with Image.open(out / "act-kryptonite.png") as im:
         assert im.size == (1920, 1080)
     assert not list(out.glob("render-*"))  # the temp copy of the session is gone
+
+
+def _events(*rows: tuple[str, dict]) -> list[dict]:
+    """Events at whole seconds past a fixed instant, as ``events.jsonl`` holds them."""
+    return [{"at": f"2026-10-27T18:00:{sec:02d}+00:00", "event": name, **fields} for sec, (name, fields) in enumerate(rows)]
+
+
+def test_a_window_is_cut_where_the_activity_was_left_the_timer_hid_it_or_the_session_closed() -> None:
+    t0 = int(datetime.fromisoformat("2026-10-27T18:00:00+00:00").timestamp() * 1000)
+    events = _events(("capture_start", {"item_id": "a"}), ("item", {"item_id": "a"}), ("timer_end", {"item_id": "a", "end": "hide"}),
+                     ("item", {"item_id": "b"}), ("session_closed", {}))
+    # opened at second 0: the move to "a" itself and nothing else before the hide at second 2
+    assert replay.cut_windows("a", [[t0 - 1, None]], events) == [[t0 - 1, t0 + 2000]]
+    assert replay.cut_windows("a", [[t0 + 2500, None]], events) == [[t0 + 2500, t0 + 3000]]  # then the move to "b"
+    assert replay.cut_windows("a", [[t0 + 3500, None]], events) == [[t0 + 3500, t0 + 4000]]  # then the close
+    assert replay.cut_windows("a", [[t0 - 1, t0 + 500]], events) == [[t0 - 1, t0 + 500]]  # stopped sooner: unchanged
+    assert replay.cut_windows("a", [[t0 + 5000, None]], events) == [[t0 + 5000, None]]  # nothing after: stays open
+
+
+def test_replay_leaves_out_excluded_senders_and_cuts_windows_on_request(recorded: Path, tmp_path: Path) -> None:
+    sender = json.loads((recorded / "live" / "captures" / "act-kryptonite.json").read_text(encoding="utf-8"))["answers"][0]["sender"]
+    out = tmp_path / "out"
+    base = replay.replay(recorded, out, items=["act-kryptonite"])[0]
+    cmp = replay.replay(recorded, out, items=["act-kryptonite"], exclude=(sender,))[0]
+    assert base["excluded_rows"] == 0 and cmp["excluded_rows"] >= 1
+    assert cmp["answers"] == base["answers"] - cmp["excluded_rows"] and not cmp["same_result"]
+    totals = json.loads((out / "summary.json").read_text(encoding="utf-8"))["totals"]
+    assert totals["excluded_rows"] == cmp["excluded_rows"]
+    replayed = json.loads((out / "act-kryptonite.json").read_text(encoding="utf-8"))
+    assert [a["sender"] for a in replayed["answers"] if a.get("excluded")] == [sender] * cmp["excluded_rows"]
+
+
+def test_replay_cuts_a_capture_that_was_never_stopped_where_the_activity_was_left(recorded: Path, tmp_path: Path) -> None:
+    live = recorded / "live"
+    frozen = json.loads((live / "captures" / "act-enemy.json").read_text(encoding="utf-8"))
+    windows = [[w[0], None] for w in frozen["windows"]]  # opened and never stopped
+    (live / "captures.json").write_text(json.dumps({"windows": {"act-enemy": windows}, "hidden": [], "places": {}}), encoding="utf-8")
+    (live / "captures" / "act-enemy.json").unlink()  # so never frozen either
+    left = datetime.fromtimestamp(windows[-1][0] / 1000 + 1).astimezone().isoformat()
+    with (live / "events.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"at": left, "event": "item", "item_id": "somewhere-else"}) + "\n")
+    kept = replay.replay(recorded, tmp_path / "kept", items=["act-enemy"], stop_on_leave=False)[0]
+    cut = replay.replay(recorded, tmp_path / "cut", items=["act-enemy"], stop_on_leave=True)[0]
+    assert (kept["windows_cut"], cut["windows_cut"]) == (0, 1)
+    assert cut["frozen"] is False and cut["answers"] <= kept["answers"]

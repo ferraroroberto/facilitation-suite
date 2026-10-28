@@ -338,3 +338,21 @@ def test_both_capture_routes_use_the_one_rule(client) -> None:
     assert r.status_code == 404 and r.json()["error"]["message"] == "Not captured yet"
     r = client.get("/api/live/captures/act.Q1")
     assert r.status_code == 404 and r.json()["error"]["message"] == "No such capture"
+
+
+def test_a_new_session_stops_captures_on_leave_and_an_old_plan_keeps_its_behaviour(tmp_path: Path) -> None:
+    st = _store(tmp_path)
+    entry = st.create("Fresh", "w", "fresh", root=str(tmp_path / "root"))
+    assert st.load(entry.id).stop_capture_on_leave is True
+    assert parse_session(PLAN).stop_capture_on_leave is False  # a plan that never set it: unchanged
+
+
+def test_the_plan_tab_save_keeps_the_senders_excluded_meanwhile(client, tmp_path: Path) -> None:
+    sid = client.post("/api/sessions", json={"title": "Cohort A", "workshop": "icebreak", "folder": "cohort-a",
+                                             "date": "2026-10-27T18:00:00", "duration_minutes": 120}).json()["id"]
+    stale = client.get(f"/api/sessions/{sid}").json()["session"]  # the Plan tab loads it
+    store = client.app.state.store
+    store.edit(sid, lambda s: setattr(s, "excluded_senders", ["Co Host"]))  # the presenter excludes a sender
+    assert client.put(f"/api/sessions/{sid}", json={"session": dict(stale, title="Renamed")}).status_code == 200
+    saved = store.load(sid)
+    assert (saved.title, saved.excluded_senders) == ("Renamed", ["Co Host"])

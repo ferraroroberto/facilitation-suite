@@ -156,6 +156,8 @@ def session_html(folder: Path, results: dict[str, Any]) -> str:
         meta = f"{a['answers']} answers from {a['people']} people · captured {a['captured']}"
         if a["hidden"]:
             meta += f" · {a['hidden']} hidden answer{'s' if a['hidden'] != 1 else ''} left out"
+        if a["excluded"]:
+            meta += f" · {a['excluded']} from excluded senders left out"
         parts.append(f"<div class='act'><h2>{a['number']} · {escape(a['title'])}</h2><p class='meta'>{escape(meta)}</p>")
         if rows:
             parts.append("<table><thead><tr><th>Name</th><th>Time</th><th>Answer</th></tr></thead><tbody>")

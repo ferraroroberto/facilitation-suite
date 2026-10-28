@@ -31,7 +31,7 @@ from src.importer.review import read_meta
 from src.jsonl import read_jsonl
 from src.live.plan import build_run, one_line
 from src.quiz.results import PODIUM_PAGE, page_keys, place_pages, quiz_results
-from src.results.aliases import Aliases, read_aliases
+from src.results.aliases import Aliases, Excluded, read_aliases
 from src.sessions.model import Session
 
 logger = logging.getLogger(__name__)
@@ -67,13 +67,18 @@ def _regrouped(item: dict[str, Any], counted: list[dict[str, Any]], aliases: Ali
     return aggregate_for(item.get("type") or "", item.get("options") or {}, contributions)
 
 
-def _activity(item_id: str, frozen: dict[str, Any], png: Path, aliases: Aliases) -> dict[str, Any]:
+def _activity(item_id: str, frozen: dict[str, Any], png: Path, aliases: Aliases, excluded: Excluded) -> dict[str, Any]:
     item = frozen["item"]
     kind = item.get("type") or ""
     answers = frozen.get("answers") or []
-    counted = [a for a in answers if not a.get("hidden")]
+    hidden = [a for a in answers if a.get("hidden")]
+    left_out = [a for a in answers if not a.get("hidden") and a.get("sender", "") in excluded]
+    counted = [a for a in answers if not a.get("hidden") and a not in left_out]
     result = frozen.get("result")
-    if any(aliases.canonical(a["sender"]) != a["sender"] for a in counted if a.get("sender")):
+    # The list is read as it stands now: an answer excluded (or restored) since the freeze, or a name
+    # merged with an excluded one, changes who counts without a re-freeze.
+    restated = any((a.get("sender", "") in excluded) != bool(a.get("excluded")) for a in answers if not a.get("hidden"))
+    if restated or any(aliases.canonical(a["sender"]) != a["sender"] for a in counted if a.get("sender")):
         result = _regrouped(item, counted, aliases) or result
     rep = report_for(kind, result)
     windows = [w for w in frozen.get("windows") or [] if w and w[0] is not None]
@@ -87,26 +92,30 @@ def _activity(item_id: str, frozen: dict[str, Any], png: Path, aliases: Aliases)
         "question": item.get("question") or "",
         "answers": len(counted),
         "people": len({aliases.canonical(a["sender"]) for a in counted if a.get("sender")}),
-        "hidden": len(answers) - len(counted),
+        "hidden": len(hidden),
+        "excluded": len(left_out),
         "start_ms": start,
         "stop_ms": stop,
         "captured": f"{hhmm(start)}–{hhmm(stop)}" if start and stop and hhmm(start) != hhmm(stop) else hhmm(start),
         "frozen_at": frozen.get("frozen_at"),
         "has_png": png.is_file(),
         **rep,
-        "answer_rows": [_answer_row(kind, a, aliases, result) for a in answers],
+        "answer_rows": [_answer_row(kind, a, aliases, result, excluded) for a in answers],
     }
 
 
-def _answer_row(kind: str, a: dict[str, Any], aliases: Aliases, result: Optional[dict[str, Any]]) -> dict[str, Any]:
-    """One answer; ``sender`` is the person, ``raw`` the name it was sent under when that differs (so a merge can be audited)."""
+def _answer_row(kind: str, a: dict[str, Any], aliases: Aliases, result: Optional[dict[str, Any]],
+                excluded: Excluded) -> dict[str, Any]:
+    """One answer; ``sender`` is the person, ``raw`` the name it was sent under when that differs (so a merge can be audited).
+    ``hidden`` is every answer that does not count; ``excluded`` says it is the sender, not the presenter's click."""
     raw = a.get("sender", "")
     person = aliases.canonical(raw) if raw else raw
+    left_out = not a.get("hidden") and raw in excluded
     return {
         "id": a.get("id"), "sender": person, "raw": raw if person != raw else "",
         "label": f"{person} (as {raw})" if person != raw else raw,
-        "text": a.get("text", ""), "time": a.get("time", ""), "hidden": bool(a.get("hidden")),
-        "value": value_for(kind, a.get("parsed"), result),
+        "text": a.get("text", ""), "time": a.get("time", ""), "hidden": bool(a.get("hidden")) or left_out,
+        "excluded": left_out, "value": value_for(kind, a.get("parsed"), result),
     }
 
 
@@ -164,7 +173,8 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
     run = build_run(session, read_meta(folder / "slides" / "slides.json"))
     cap_dir = folder / "live" / "captures"
     aliases = read_aliases(folder)
-    acts = {iid: _activity(iid, fr, cap_dir / f"{iid}.png", aliases) for iid, fr in captures.items()}
+    excluded = Excluded(session.excluded_senders, aliases)
+    acts = {iid: _activity(iid, fr, cap_dir / f"{iid}.png", aliases, excluded) for iid, fr in captures.items()}
     quizzes = quiz_results(folder, run["items"])
     pages = timeline(events, run["items"], set(acts), page_keys(quizzes))
     place_pages(pages, quizzes)
@@ -199,13 +209,15 @@ def load_results(folder: Path, session: Session) -> dict[str, Any]:
 
 
 def participation(activities: list[dict[str, Any]], chat: list[dict[str, Any]],
-                  aliases: Optional[Aliases] = None) -> list[dict[str, Any]]:
+                  aliases: Optional[Aliases] = None, excluded: Optional[Excluded] = None) -> list[dict[str, Any]]:
     """Per person: counted answers per activity, their total, and chat messages sent.
 
-    The answer rows already carry the person (``load_results``); ``aliases`` does the same for the chat messages.
+    The answer rows already carry the person (``load_results``); ``aliases`` does the same for the chat
+    messages, and the ``excluded`` senders write none.
     """
     people: dict[str, dict[str, Any]] = {}
     aliases = aliases or Aliases()
+    excluded = excluded or Excluded()
 
     def row(name: str) -> dict[str, Any]:
         return people.setdefault(name, {"name": name, "total": 0, "messages": 0, "by_activity": {}})
@@ -218,6 +230,6 @@ def participation(activities: list[dict[str, Any]], chat: list[dict[str, Any]],
             r["by_activity"][a["id"]] = r["by_activity"].get(a["id"], 0) + 1
             r["total"] += 1
     for m in chat:
-        if not m.get("own") and m.get("sender"):
+        if not m.get("own") and m.get("sender") and m["sender"] not in excluded:
             row(aliases.canonical(m["sender"]))["messages"] += 1
     return sorted(people.values(), key=lambda r: (-r["total"], -r["messages"], r["name"].casefold()))

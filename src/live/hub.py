@@ -63,6 +63,7 @@ from src.groups.roster import RosterError, load_groups
 from src.importer.review import read_meta
 from src.jsonl import JsonlAppender
 from src.live.plan import build_run
+from src.sessions.model import Session
 from src.sessions.store import SessionError, SessionStore, atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,9 @@ class LiveHub:
         self.folder: Optional[Path] = None
         self.session_title = ""
         self.duration_minutes = 0
+        # From session.yaml: the senders no capture counts, and whether leaving an activity stops its capture.
+        self.excluded_senders: list[str] = []
+        self.stop_capture_on_leave = False
         self.run: dict[str, Any] = {"items": [], "sections": [], "planned_minutes": 0}
         self.plan_rev = 0
         self.index = 0
@@ -159,6 +163,8 @@ class LiveHub:
         self.session_listeners: list[Callable[[Optional[str]], None]] = []
         # The live session was reset: services drop what they hold of the old run.
         self.reset_listeners: list[Callable[[], None]] = []
+        # The live session is about to close or be replaced: services settle what they hold open.
+        self.close_listeners: list[Callable[[], None]] = []
         # A service that steps through the item on stage takes ``next`` while it has steps left
         # (the quiz: question → reveal → leaderboard) by returning True; else the plan moves on.
         self.next_handlers: list[Callable[[], bool]] = []
@@ -272,9 +278,11 @@ class LiveHub:
             session = self.store.load(sid)
         except SessionError as exc:
             raise LiveError(exc.status, exc.code, str(exc)) from exc
+        if self.session_id is not None:
+            self._closing()  # going live over another session closes that one first
         self._cancel_timer_handles()
         self.session_id, self.folder = sid, folder
-        self.session_title, self.duration_minutes = session.title, session.duration_minutes
+        self._take_session(session)
         self.run = build_run(session, read_meta(folder / "slides" / "slides.json"), _rounds(folder), self.zones())
         self.plan_rev += 1
         self.index, self.blackout, self.names = 0, False, False
@@ -300,6 +308,7 @@ class LiveHub:
         if self.session_id is None:
             return
         logger.info("ℹ️ live: session %s is no longer live", self.session_id)
+        self._closing()
         self.event("session_closed")
         self._save_state(closed=True)
         self._point_to(None)
@@ -313,6 +322,34 @@ class LiveHub:
             fn(None)
         self.broadcast(self.plan_message())
         self.push_state()
+
+    def _closing(self) -> None:
+        for fn in self.close_listeners:
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 — one service failing to settle must not keep the session open
+                logger.exception("❌ live: closing session %s — a service failed to settle", self.session_id)
+
+    def _take_session(self, session: Session) -> None:
+        """What a loaded ``session.yaml`` sets on the live hub (at activation and after a plan save)."""
+        self.session_title, self.duration_minutes = session.title, session.duration_minutes
+        self.excluded_senders = list(session.excluded_senders)
+        self.stop_capture_on_leave = session.stop_capture_on_leave
+
+    def set_excluded_senders(self, names: list[str]) -> None:
+        """Save the excluded senders in ``session.yaml`` (the file first: a failed save changes nothing)."""
+        if self.session_id is None:
+            raise LiveError(409, "not_live", "No session is live")
+
+        def change(session: Session) -> None:
+            session.excluded_senders = names
+
+        try:
+            self.store.edit(self.session_id, change)
+        except (SessionError, OSError) as exc:
+            logger.error("❌ live: the excluded senders could not be saved (%s)", exc)
+            raise LiveError(500, "excluded_not_saved", "The excluded senders could not be saved to session.yaml") from exc
+        self.excluded_senders = list(names)
 
     def reset(self) -> None:
         """Start the live session over — the run so far is kept as ``live-<stamp>/``."""
@@ -360,7 +397,7 @@ class LiveHub:
             logger.warning("⚠️ live: reload of %s failed (%s) — keeping the previous plan", sid, exc)
             return
         cur = self.current()
-        self.session_title, self.duration_minutes = session.title, session.duration_minutes
+        self._take_session(session)
         self.run = build_run(session, read_meta(self.folder / "slides" / "slides.json"), _rounds(self.folder), self.zones())
         self.plan_rev += 1
         found = self.item_by_id(cur["id"]) if cur else None

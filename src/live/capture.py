@@ -7,7 +7,14 @@ it was stopped stays out). The facilitator's own messages ("You") never
 count, unless the presenter's rehearsal switch (``count_own``) is on — it is
 never saved, so it starts off after a restart, on every session activation,
 and on "Start the session over". Hidden messages are excluded everywhere and
-can be un-hidden.
+can be un-hidden. So are the session's **excluded senders** (a co-host or
+producer account, ``excluded_senders`` in ``session.yaml``, set by clicking a
+sender in the presenter's chat): matched as people through the merged names of
+``aliases.yaml``, and restored by clicking again.
+
+With the session's ``stop_capture_on_leave`` on, a capture also stops when its
+activity is left or its timer ends with ``hide``. A capture still live when the
+session is closed (or another goes live) is stopped, so it is always frozen.
 
 At every Stop the result is **frozen**: ``live/captures/<item>.json`` (every
 answer with its name and parsed value, plus the result) at once, and
@@ -42,6 +49,7 @@ from src.live.actions import Action, register
 from src.live.hub import LiveError, LiveHub, now_ms
 from src.logger import relay
 from src.no_window import NO_WINDOW
+from src.results.aliases import ALIASES_FILE, Excluded, ident, read_aliases
 from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -61,6 +69,7 @@ class CaptureService:
         # Rehearsal: the facilitator's own messages count. Deliberately not persisted.
         self.count_own = False
         self._push_pending = False
+        self._excluded: tuple[Any, Excluded] = (None, Excluded())  # (what it was built from, the senders)
         self._session: Optional[str] = None
         self.freeze_url: Optional[str] = None  # the server's own base URL, for the PNG
         live.extra_state.append(self.state_fields)
@@ -69,11 +78,16 @@ class CaptureService:
         live.timer_listeners.append(self._on_timer)
         live.session_listeners.append(self._on_session)
         live.reset_listeners.append(self._forget)
+        live.close_listeners.append(self._on_close)
         chat.listeners.append(self._on_messages)
         register(Action("capture_toggle", "Capture start/stop", lambda h, a: self.toggle()))
         register(Action("space", "Space: lock a quiz question, the capture, else the timer", lambda h, a: self.space(), stream_deck=False))
         register(Action("hide_message", "Hide a chat message", lambda h, a: self.set_hidden(_int(a), True), arg="id", stream_deck=False))
         register(Action("unhide_message", "Show a hidden message", lambda h, a: self.set_hidden(_int(a), False), arg="id", stream_deck=False))
+        register(Action("exclude_sender", "Do not count a chat sender (a co-host)",
+                        lambda h, a: self.set_excluded(_name(a), True), arg="name", stream_deck=False))
+        register(Action("include_sender", "Count an excluded chat sender again",
+                        lambda h, a: self.set_excluded(_name(a), False), arg="name", stream_deck=False))
         register(Action("capture_count_own", "Count my own chat messages (rehearsal) on/off",
                         lambda h, a: self.toggle_count_own(), stream_deck=False))
 
@@ -88,9 +102,26 @@ class CaptureService:
     def active_item(self) -> Optional[str]:
         return next((k for k in self.windows if self.status(k) == "live"), None)
 
+    def excluded(self) -> Excluded:
+        """The excluded senders as people, with the names merged in ``aliases.yaml``; rebuilt only when
+        the list or that file changed."""
+        names = tuple(self.live.excluded_senders)
+        if not names:
+            return Excluded()
+        folder = self.live.folder
+        try:
+            stamp = (folder / ALIASES_FILE).stat().st_mtime_ns if folder is not None else None
+        except OSError:
+            stamp = None  # no aliases file: no merges
+        key = (names, str(folder), stamp)
+        if self._excluded[0] != key:
+            self._excluded = (key, Excluded(names, read_aliases(folder) if folder is not None else None))
+        return self._excluded[1]
+
     def messages_for(self, item_id: str, *, include_hidden: bool = False) -> list[dict[str, Any]]:
         return select_messages(self.chat.messages, self.windows.get(item_id) or [], hidden=self.hidden,
-                               places=self.places, count_own=self.count_own, include_hidden=include_hidden)
+                               places=self.places, count_own=self.count_own, include_hidden=include_hidden,
+                               excluded=self.excluded())
 
     def result(self, item: dict[str, Any]) -> Optional[dict[str, Any]]:
         if item.get("kind") != "activity" or not item.get("type"):
@@ -100,13 +131,17 @@ class CaptureService:
     def state_fields(self) -> dict[str, Any]:
         self._load()
         cur = self.live.current()
-        out: dict[str, Any] = {"hidden": sorted(self.hidden), "count_own": self.count_own, "capture": None}
+        out: dict[str, Any] = {"hidden": sorted(self.hidden), "count_own": self.count_own, "capture": None,
+                               "excluded_senders": list(self.live.excluded_senders)}
         if cur and cur.get("capture"):
             counted = self.messages_for(cur["id"])
-            hidden_in = [m["id"] for m in self.messages_for(cur["id"], include_hidden=True) if m["id"] in self.hidden]
+            every = self.messages_for(cur["id"], include_hidden=True)
+            hidden_in = [m["id"] for m in every if m["id"] in self.hidden]
+            left_out = [m for m in every if m["id"] not in self.hidden and m["sender"] in self.excluded()]
             out["capture"] = {
                 "item_id": cur["id"], "status": self.status(cur["id"]), "windows": self.windows.get(cur["id"], []),
                 "answers": len(counted), "people": len({m["sender"] for m in counted}), "hidden": len(hidden_in),
+                "excluded": len(left_out),
                 "result": self.result(cur) if parser(cur["type"] or "") else None,
             }
         return out
@@ -184,6 +219,27 @@ class CaptureService:
                     self._freeze(item)
         self.live.commit()
 
+    def set_excluded(self, name: str, excluded: bool) -> None:
+        """Do not count a chat sender anywhere (or count them again): saved in ``session.yaml`` and
+        every stopped capture it changes is frozen again, so its files match what counts."""
+        name = " ".join(name.split())
+        if not name:
+            raise LiveError(422, "bad_argument", "the sender's name is empty")
+        key = ident(name)
+        names = [n for n in self.live.excluded_senders if ident(n) != key]
+        if excluded:
+            names.append(name)
+        stopped = [i for i in self.windows if self.status(i) == "stopped"]
+        before = {i: [m["id"] for m in self.messages_for(i)] for i in stopped}
+        self.live.set_excluded_senders(names)
+        logger.info("ℹ️ capture: a sender is %s", "no longer counted" if excluded else "counted again")
+        self.live.event("exclude" if excluded else "include", sender=name)
+        for item_id in stopped:
+            item = self.live.item_by_id(item_id)
+            if item is not None and before[item_id] != [m["id"] for m in self.messages_for(item_id)]:
+                self._freeze(item)
+        self.live.commit()
+
     def toggle_count_own(self) -> None:
         """The presenter's rehearsal switch: the facilitator's own messages count while on."""
         self.count_own = not self.count_own
@@ -206,6 +262,9 @@ class CaptureService:
     # ------------------------------------------------------------- hooks
 
     def _on_item(self, prev: Optional[dict[str, Any]], cur: dict[str, Any]) -> None:
+        if self.live.stop_capture_on_leave and prev is not None and prev["id"] != cur["id"] and self.status(prev["id"]) == "live":
+            logger.info("ℹ️ capture on %s stopped: the activity was left", prev["id"])
+            self.stop(prev["id"], by_hand=False)
         # Each activity opens with its own "show names" option; the presenter can flip it.
         if cur.get("kind") == "activity" and cur.get("type"):
             opts = options_with_defaults(cur["type"], cur.get("options") or {})
@@ -224,8 +283,15 @@ class CaptureService:
             self.stop(item["id"], by_hand=False)
 
     def _on_timer_end(self, item: dict[str, Any], end: str) -> None:
-        if end == "stop_capture" and self.status(item["id"]) == "live":
+        stops = end == "stop_capture" or (end == "hide" and self.live.stop_capture_on_leave)
+        if stops and self.status(item["id"]) == "live":
             self.stop(item["id"], by_hand=False)
+
+    def _on_close(self) -> None:
+        """The session is closing: a capture still live is stopped so it is frozen and in the report."""
+        for item_id in [k for k in self.windows if self.status(k) == "live"]:
+            logger.info("ℹ️ capture on %s stopped: the session closed with it still open", item_id)
+            self.stop(item_id, by_hand=False)
 
     def _on_messages(self, records: list[dict[str, Any]]) -> None:
         active = self.active_item()
@@ -293,7 +359,7 @@ class CaptureService:
         frozen = {
             "item": item, "frozen_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "windows": self.windows.get(item["id"], []),
-            "answers": frozen_answers(item, self.messages_for(item["id"], include_hidden=True), self.hidden),
+            "answers": frozen_answers(item, self.messages_for(item["id"], include_hidden=True), self.hidden, self.excluded()),
             "result": self.result(item), "names": self.live.names,
         }
         try:
@@ -335,10 +401,12 @@ class CaptureService:
 
 
 def select_messages(messages: list[dict[str, Any]], windows: list[list[Optional[int]]], *, hidden: set[int],
-                    places: dict[int, str], count_own: bool = False, include_hidden: bool = False) -> list[dict[str, Any]]:
+                    places: dict[int, str], count_own: bool = False, include_hidden: bool = False,
+                    excluded: Optional[Excluded] = None) -> list[dict[str, Any]]:
     """The messages a capture counts: received inside one of its ``[start, stop)`` windows, not the
-    facilitator's own (unless ``count_own``), not hidden (unless ``include_hidden``), with any place
-    fixed by hand. Pure, so the offline replay (``src.activities.replay``) selects exactly as live did."""
+    facilitator's own (unless ``count_own``), not hidden and not from an excluded sender (unless
+    ``include_hidden``, which a freeze uses to keep both for the report), with any place fixed by
+    hand. Pure, so the offline replay (``src.activities.replay``) selects exactly as live did."""
     if not windows:
         return []
     out = []
@@ -347,26 +415,35 @@ def select_messages(messages: list[dict[str, Any]], windows: list[list[Optional[
             continue
         t = m["received_at"]
         inside = any(s is not None and t >= s and (e is None or t < e) for s, e in windows)
-        if inside and (include_hidden or m["id"] not in hidden):
+        if inside and (include_hidden or (m["id"] not in hidden and not (excluded and m["sender"] in excluded))):
             out.append(dict(m, place_id=places[m["id"]]) if m["id"] in places else m)
     return out
 
 
-def frozen_answers(item: dict[str, Any], messages: list[dict[str, Any]], hidden: set[int]) -> list[dict[str, Any]]:
-    """A frozen record's answers: every selected message (hidden ones too) with its parsed value."""
+def frozen_answers(item: dict[str, Any], messages: list[dict[str, Any]], hidden: set[int],
+                   excluded: Optional[Excluded] = None) -> list[dict[str, Any]]:
+    """A frozen record's answers: every selected message (hidden and excluded ones too, flagged) with its parsed value."""
     mod = parser(item.get("type") or "")
     opts = options_with_defaults(item.get("type") or "", item.get("options") or {})
     answers = []
     for m in messages:
         parsed = None
-        if mod is not None and m["id"] not in hidden:
+        left_out = bool(excluded) and m["sender"] in excluded and m["id"] not in hidden
+        if mod is not None and m["id"] not in hidden and not left_out:
             try:
                 parsed = mod.parse(m, opts)
             except Exception:  # noqa: BLE001 — a parser crash leaves this answer unparsed, not the freeze failed
                 logger.exception("❌ capture %s: parse failed on message %s", item["id"], m["id"])
         answers.append({"id": m["id"], "sender": m["sender"], "text": m["text"], "time": m["time"],
-                        "received_at": m["received_at"], "hidden": m["id"] in hidden, "parsed": parsed})
+                        "received_at": m["received_at"], "hidden": m["id"] in hidden, "parsed": parsed,
+                        **({"excluded": True} if left_out else {})})
     return answers
+
+
+def _name(arg: Optional[str]) -> str:
+    if not arg or not arg.strip():
+        raise LiveError(422, "bad_argument", "the sender's name is empty")
+    return arg
 
 
 def _int(arg: Optional[str]) -> int:

@@ -131,6 +131,21 @@ class Aliases:
         self._index()
 
 
+class Excluded:
+    """The senders a session does not count (a co-host or producer account), as people:
+    excluding a name excludes every name merged with it, and a merge made later extends it."""
+
+    def __init__(self, names: Iterable[str] = (), aliases: Optional[Aliases] = None) -> None:
+        self._aliases = aliases or Aliases()
+        self._people = frozenset(ident(self._aliases.canonical(n)) for n in names if n.strip())
+
+    def __bool__(self) -> bool:
+        return bool(self._people)
+
+    def __contains__(self, sender: object) -> bool:
+        return isinstance(sender, str) and ident(self._aliases.canonical(sender)) in self._people
+
+
 def read_aliases(folder: Path, *, strict: bool = False) -> Aliases:
     """The session's ``aliases.yaml``. A missing file is no merges; a damaged one reads as none and is logged
     (``strict``: raises instead, so a write never replaces a file the owner edited by hand)."""
@@ -226,15 +241,16 @@ def suggest(names: Iterable[str], aliases: Aliases, roster: Iterable[str] = ()) 
     return sorted(out, key=lambda g: g["canonical"].casefold())
 
 
-def seen_names(activities: list[dict[str, Any]], chat: list[dict[str, Any]]) -> list[str]:
-    """Every raw name that answered or wrote (the facilitator's own messages excluded), each once."""
+def seen_names(activities: list[dict[str, Any]], chat: list[dict[str, Any]], excluded: Optional[Excluded] = None) -> list[str]:
+    """Every raw name that answered or wrote (the facilitator's own messages and the excluded senders left out), each once."""
     seen: dict[str, str] = {}
+    excluded = excluded or Excluded()
     for a in activities:
         for r in a["answer_rows"]:
             name = r.get("raw") or r["sender"]
             if name and not r["hidden"]:
                 seen.setdefault(ident(name), name)
     for m in chat:
-        if not m.get("own") and m.get("sender"):
+        if not m.get("own") and m.get("sender") and m["sender"] not in excluded:
             seen.setdefault(ident(m["sender"]), m["sender"])
     return sorted(seen.values(), key=str.casefold)

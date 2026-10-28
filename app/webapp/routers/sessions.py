@@ -154,7 +154,7 @@ def put_session(request: Request, sid: str, body: dict[str, Any]) -> dict[str, A
         session = parse_session(raw)
     except (ValueError, ValidationError) as exc:
         raise AppError(422, "invalid_session", "The plan is not valid", str(exc)) from exc
-    store(request).save(sid, session)
+    store(request).save_plan(sid, session)
     hub = getattr(request.app.state, "live", None)
     if hub is not None:
         hub.session_saved(sid)
