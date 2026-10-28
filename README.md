@@ -9,30 +9,39 @@ One local app for running a live online workshop:
 
 Slides stay authored in PowerPoint and are imported as images. Everything runs on one Windows PC; nothing leaves it except Zoom itself.
 
-## Requirements
+## Portable install
 
-- Windows 10/11, Python 3.14
+A clean clone runs the same on any Windows PC: nothing outside the repo and the tools below is needed, and no other project has to be installed.
+
+**Prerequisites**
+
+- Windows 10/11, Python 3.14 (the `py` launcher), Git
 - PowerPoint desktop (slide import through COM)
-- Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom))
-- OBS Studio 28+ with obs-websocket enabled (optional: scene switching per item)
+- Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams in the browser with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom))
+- Optional: OBS Studio 28+ with obs-websocket enabled (scene switching per item), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), and a `.env` with the Spotify login (item music from Spotify)
 
-## Setup
+**Steps**, from the repo root in PowerShell:
 
 ```powershell
 py -3.14 -m venv .venv
 & .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 & .\.venv\Scripts\python.exe -m playwright install chromium
 copy config\config.sample.json config\config.json   # then edit session_root, OBS password
+.\tray.bat                                           # then open http://127.0.0.1:8456/
 ```
 
-Never activate the venv; invoke its interpreter directly.
+Never activate the venv; invoke its interpreter directly. Playwright's Chromium renders the frozen captures and the session PDF. `tray.bat` and `tray.bat --restart` need nothing but the repo's own `.venv`; when the fleet's shared tray helper happens to be installed they use it, and the result is the same.
+
+**What stays on the PC and is carried over by hand** (none of it is in the repo): the session folders (`session_root` in `config/config.json`, default under OneDrive), the ledger `sessions.local.yaml` that lists them (shape: `sessions.example.yaml`; the app creates an empty one), `config/config.json`, `.env`, and the Tailscale certificate and cloudflared config under `webapp/`. Copy the folders and the ledger, fix the paths in the ledger, and the sessions open as they were. Settings: [docs/configuration.md](docs/configuration.md).
+
+**Developer-only tools** keep their own needs and are not part of running the app: `scripts/gen_icons.py` needs a project-scaffolding checkout, and the pre-ship gate (`scripts/verify-before-ship.ps1`) needs Node for its duplicate-block check.
 
 ## Run
 
 | Command | What |
 |---|---|
 | `tray.bat` | tray icon that owns the server on **:8449** (and the loopback-only listener on **:8456**; idempotent; put it in the Startup folder) |
-| `tray.bat --restart` | orphan-proof restart; verifies the served build (`/api/version`) matches `HEAD` |
+| `tray.bat --restart` | orphan-proof restart; verifies the served build (`/api/version`) matches `HEAD`; without the shared tray helper it ends only this app's own tray and server and starts them again |
 | `webapp.bat` | foreground server (dev / headless) |
 
 Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11) on the display OBS captures — on this PC at `http://127.0.0.1:8456/` (the tray's **Open**: plain HTTP on loopback only, so no certificate warning and no tailnet hop). Other devices (the phone remote, a Stream Deck) use `https://<this PC>.<tailnet>.ts.net:8449/` once [HTTPS](docs/operations.md#https) is set up, or `http://127.0.0.1:8449/` while it is not. This PC never needs a token either way.
@@ -78,7 +87,7 @@ app/
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
 src/                 config, defaults (what new sessions start from), library (stage fonts and themes), logger, build identity, certs, tunnel (cloudflared), sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, quiz/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
-scripts/             verify-before-ship.ps1, quiz_bots.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
+scripts/             verify-before-ship.ps1, standalone_restart.py, quiz_bots.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)
 webapp/              machine-local, gitignored: certificates/, cloudflared.yml (template: cloudflared.sample.yml, committed)

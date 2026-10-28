@@ -95,19 +95,13 @@ set "TRAY_VENV=%SCRIPT_DIR%.venv"
 REM  ONE shared, machine-local copy owned by fleet-config (project-scaffolding#153)
 REM  -- junctioned by fleet-config's install.ps1, never vendored per-app.
 set "TRAY_PS=%USERPROFILE%/.claude/tray/tray_lifecycle.ps1"
-REM  --restart without the helper stays a hard error: the orphan-proof restart
-REM  is fleet-config's job, and degrading it to a plain start would adopt the
-REM  stale build, see project-scaffolding#54. A plain start has no such risk, so
-REM  it jumps to the standalone start at the bottom. Two flat ifs, not a nested
+REM  Without the helper a plain start and --restart each take their own standalone
+REM  path at the bottom. --restart is never degraded to a plain start: that would
+REM  adopt the stale build, see project-scaffolding#54. Two flat ifs, not a nested
 REM  block: an `exit /b 1` nested inside a block that also holds a `goto` comes
 REM  back as exit code 0 under cmd.exe (project-scaffolding#345).
 if not exist "%TRAY_PS%" if not defined WANT_RESTART goto :standalone_start
-if not exist "%TRAY_PS%" (
-    echo ERROR: missing shared tray helper "%TRAY_PS%"
-    echo        --restart needs it: install fleet-config and run its install.ps1, then retry.
-    echo        See ferraroroberto/fleet-config's README for details.
-    exit /b 1
-)
+if not exist "%TRAY_PS%" goto :standalone_restart
 
 REM === ADAPT (4/4): replace 8449 with this tray's exclusively-owned
 REM     ports as a comma list, e.g. 8445,8446 . Exclude any mutex-shared port. ===
@@ -129,18 +123,41 @@ REM  Standalone start (project-scaffolding#345): the shared helper is missing,
 REM  e.g. this app was moved to a PC that has none of the other fleet repos, and
 REM  a plain start was asked for. Launch the tray straight from this repo's .venv
 REM  and exit 0. No detect/adopt here: the tray's own single-instance guard
-REM  (app/tray/single_instance.py) stops a duplicate, and --restart is refused
-REM  above, so nothing in this path can mask a stale build.
+REM  (app/tray/single_instance.py) stops a duplicate, and --restart takes the
+REM  standalone restart below, so nothing in this path can mask a stale build.
 :standalone_start
 set "TRAY_PYW=%TRAY_VENV%\Scripts\pythonw.exe"
 if not exist "%TRAY_PYW%" (
     echo ERROR: missing "%TRAY_PYW%" - create this app's .venv first.
     exit /b 1
 )
-echo NOTE: shared tray helper not found, starting the %TRAY_APP_NAME% tray standalone - --restart needs fleet-config.
+echo NOTE: shared tray helper not found, starting the %TRAY_APP_NAME% tray standalone.
 REM  Start-Process (as the shared helper does), not cmd `start`: `start` lets the
 REM  tray inherit this script's stdout pipe, so a caller capturing our output (an
 REM  agent shell, a finisher skill) would block until the tray exits. Values go
 REM  through the environment, so no quoting nests inside the -Command string.
 %PS% -NoProfile -NonInteractive -Command "Start-Process -FilePath $env:TRAY_PYW -ArgumentList $env:TRAY_LAUNCH -WorkingDirectory $env:SCRIPT_DIR_ARG -WindowStyle Hidden -ErrorAction Stop"
+exit /b %ERRORLEVEL%
+
+REM  Standalone restart: the shared helper is missing and --restart was asked for.
+REM  scripts\standalone_restart.py ends only THIS app's tray and server (command line
+REM  under this repo's .venv, plus the owners of its configured ports, never a name
+REM  match), this script starts the tray again the same way as above, and the
+REM  script then polls /api/version until the served git_sha is HEAD's. Each step's
+REM  exit code stops the chain, so a failed stop never starts a second tray and a
+REM  restart is never reported done on a stale build.
+:standalone_restart
+set "TRAY_PY=%TRAY_VENV%\Scripts\python.exe"
+set "TRAY_PYW=%TRAY_VENV%\Scripts\pythonw.exe"
+if not exist "%TRAY_PY%" echo ERROR: missing "%TRAY_PY%" - create this app's .venv first.
+if not exist "%TRAY_PY%" exit /b 1
+if not exist "%TRAY_PYW%" echo ERROR: missing "%TRAY_PYW%" - create this app's .venv first.
+if not exist "%TRAY_PYW%" exit /b 1
+echo NOTE: shared tray helper not found, restarting the %TRAY_APP_NAME% tray standalone.
+set "PYTHONUTF8=1"
+"%TRAY_PY%" -m scripts.standalone_restart stop
+if errorlevel 1 exit /b 1
+%PS% -NoProfile -NonInteractive -Command "Start-Process -FilePath $env:TRAY_PYW -ArgumentList $env:TRAY_LAUNCH -WorkingDirectory $env:SCRIPT_DIR_ARG -WindowStyle Hidden -ErrorAction Stop"
+if errorlevel 1 exit /b 1
+"%TRAY_PY%" -m scripts.standalone_restart verify
 exit /b %ERRORLEVEL%
