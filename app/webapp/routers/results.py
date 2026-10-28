@@ -33,7 +33,7 @@ from src.results.aliases import Excluded, read_aliases, seen_names, suggest, wri
 from src.results.analysis import analysis_facts
 from src.results.collect import load_results, participation
 from src.results.excel import build_report
-from src.results.pdf import activities_html, activities_pages, session_html
+from src.results.pdf import activities_html, activities_pages, session_html, share_html, share_pages
 from src.results.reconcile import reconcile_file
 from src.sessions.model import ITEM_ID, Session
 from src.sessions.store import SessionStore, atomic_write_text
@@ -42,7 +42,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-PDF_FILE, ACTIVITIES_FILE, XLSX_FILE, RECONCILE_FILE = "session.pdf", "session-activities.pdf", "report.xlsx", "zoom-reconciliation.json"
+PDF_FILE, SHARE_FILE, ACTIVITIES_FILE = "session-full.pdf", "session-share.pdf", "session-activities.pdf"
+LEGACY_PDF_FILE = "session.pdf"  # what the full PDF was called before the share copy existed
+XLSX_FILE, RECONCILE_FILE = "report.xlsx", "zoom-reconciliation.json"
 PDF_TIMEOUT_S = 300
 
 
@@ -75,6 +77,13 @@ def _file_info(path: Path) -> Optional[dict[str, Any]]:
     return {"file": path.name, "modified_ms": int(st.st_mtime * 1000), "bytes": st.st_size}
 
 
+def _full_pdf(folder: Path) -> Path:
+    """The facilitator's PDF; an older session folder only has the file under its former name until it is exported again."""
+    full = folder / "exports" / PDF_FILE
+    legacy = folder / "exports" / LEGACY_PDF_FILE
+    return legacy if not full.is_file() and legacy.is_file() else full
+
+
 def _reconciliation(folder: Path) -> Optional[dict[str, Any]]:
     path = folder / "exports" / RECONCILE_FILE
     try:
@@ -91,8 +100,8 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     folder, session = _load(request, sid)
     data = load_results(folder, session)
     data["reconciliation"] = _reconciliation(folder)
-    data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "activities": _file_info(folder / "exports" / ACTIVITIES_FILE),
-                       "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
+    data["exports"] = {"pdf": _file_info(_full_pdf(folder)), "share": _file_info(folder / "exports" / SHARE_FILE),
+                       "activities": _file_info(folder / "exports" / ACTIVITIES_FILE), "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
     data["people"] = _people(folder, session, data)
     data["rebuild_backup"] = (backups(folder) or [None])[-1]
     return data
@@ -192,16 +201,20 @@ async def export_pdf(request: Request, sid: str) -> dict[str, Any]:
         raise AppError(409, "nothing_to_export", "Nothing was shown live in this session yet")
     out = folder / "exports" / PDF_FILE
     pages = await asyncio.to_thread(_print, session_html(folder, data, _participation(folder, session, data)), out)
-    # the participants' copy has nothing to print for a session of slides only; an older one is left as it was
+    # each copy prints in its own process; a copy with no page to print leaves an older one as it was
+    share_out = folder / "exports" / SHARE_FILE
+    share_count = (await asyncio.to_thread(_print, share_html(folder, data), share_out) if share_pages(data) else None)
     shared_out = folder / "exports" / ACTIVITIES_FILE
     shared_pages = (await asyncio.to_thread(_print, activities_html(folder, data), shared_out)
                     if activities_pages(data) else None)
     missing = [a["title"] for a in data["activities"] if not a["has_png"]]
-    logger.info("✅ session PDF for %s: %d slides + %d live results + %d quiz pages, %d pages", sid, data["slides"],
-                data["captures"], data["quiz_pages"], pages)
+    logger.info("✅ session PDFs for %s: %d slides + %d live results + %d quiz pages, %d pages full, %s share, %s participants'", sid,
+                data["slides"], data["captures"], data["quiz_pages"], pages, share_count, shared_pages)
     return {"file": PDF_FILE, "pages": pages or None, "slides": data["slides"], "captures": data["captures"],
             "quiz_pages": data["quiz_pages"],
             "missing_images": missing, **(_file_info(out) or {}),
+            "share": {"file": SHARE_FILE, "pages": share_count or None, **(_file_info(share_out) or {})}
+            if share_count is not None else None,
             "activities": {"file": ACTIVITIES_FILE, "pages": shared_pages or None, **(_file_info(shared_out) or {})}
             if shared_pages is not None else None}
 
@@ -231,9 +244,15 @@ def _open_export(request: Request, sid: str, name: str, media_type: str, hint: s
     return FileResponse(path, media_type=media_type, filename=name, content_disposition_type="inline")
 
 
-@router.get("/exports/session.pdf")
+@router.get("/exports/session-full.pdf")
+@router.get("/exports/session.pdf")  # the former name, kept for links to an older export
 def open_pdf(request: Request, sid: str) -> FileResponse:
-    return _open_export(request, sid, PDF_FILE, "application/pdf", "Export the session PDF first")
+    return _open_export(request, sid, _full_pdf(_store(request).folder(sid)).name, "application/pdf", "Export the session PDF first")
+
+
+@router.get("/exports/session-share.pdf")
+def open_share_pdf(request: Request, sid: str) -> FileResponse:
+    return _open_export(request, sid, SHARE_FILE, "application/pdf", "Export the session PDF first")
 
 
 @router.get("/exports/session-activities.pdf")

@@ -14,7 +14,8 @@ notes.md          the facilitator's own notes from the session, read by the anal
 theme.css         per-session stage theme override (optional; applied after the stage lettering)
                   (session.yaml `theme:` names the base: a repo theme or `library/<name>` from the stage library)
 live/             chat.jsonl, events.jsonl, quiz.jsonl, captures/ — append-only during the session
-exports/          session.pdf, session-activities.pdf, report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
+exports/          session-full.pdf (the facilitator: slides, results, appendix), session-share.pdf (the client and the participants: no stats),
+                  session-activities.pdf (the participants: live results only), report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv
 report/           the analysis report, written only by the analyze-session skill (see results.md)
 ```
 
