@@ -241,7 +241,9 @@ def _open_export(request: Request, sid: str, name: str, media_type: str, hint: s
     path = _store(request).folder(sid) / "exports" / name
     if not path.is_file():
         raise AppError(404, "not_built", hint)
-    return FileResponse(path, media_type=media_type, filename=name, content_disposition_type="inline")
+    # no-transform: the xlsx is a zip, which the compression middleware cannot tell from its content type.
+    return FileResponse(path, media_type=media_type, filename=name, content_disposition_type="inline",
+                        headers={"Cache-Control": "no-transform"})
 
 
 @router.get("/exports/session-full.pdf")

@@ -188,6 +188,7 @@ def test_excel_report_has_a_sheet_per_activity_and_participation(client, isolate
     opened = client.get(f"/api/sessions/{sid}/exports/report.xlsx")
     assert opened.status_code == 200 and opened.content[:2] == b"PK"
     assert opened.headers["content-disposition"].startswith("inline")  # opens in a tab, never lands in Downloads
+    assert "content-encoding" not in opened.headers  # a zip is not gzipped again
     wb = load_workbook(folder / "exports" / "report.xlsx")
     assert wb.sheetnames[0] == "Summary" and wb.sheetnames[-1] == "Participation"
     assert len(wb.sheetnames) == 8 and all(len(n) <= 31 for n in wb.sheetnames)
