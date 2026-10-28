@@ -12,6 +12,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_CONFIG = REPO_ROOT / "config" / "config.sample.json"
+TEST_CLIENT_HOST = "testserver"
 
 
 def write_test_config(path: Path, **overrides: object) -> Path:
@@ -50,6 +51,12 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pa
     monkeypatch.setattr(reach, "resolve_public", offline)
     monkeypatch.setattr(reach, "ping_edge", lambda *_: "tests are offline")
     monkeypatch.setattr(tunnel, "CONFIG_PATH", root / "cloudflared.yml")
+    # Starlette's TestClient names every request "testserver"; a test's loopback client stands
+    # for this PC, so that name is one of this PC's here.
+    from app.webapp import errors
+
+    names = errors.this_pc_names() | {TEST_CLIENT_HOST}
+    monkeypatch.setattr(errors, "this_pc_names", lambda: names)
     yield root
 
 
