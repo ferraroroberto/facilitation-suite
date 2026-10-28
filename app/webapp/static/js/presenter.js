@@ -11,6 +11,7 @@ import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, hms, timin
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 import { isQuiz, buildQuiz, drawQuiz, tickQuiz } from '/static/js/presenter-quiz.js';
+import { senderKey, drawExcluded } from '/static/js/presenter-excluded.js';
 
 // The cockpit is one view; the stage and the phone remote never load the usage log.
 initUsageLog().trackView('live');
@@ -708,9 +709,6 @@ async function loadSuggestions(id, text, box, fresh) {
     : '<span class="small muted">No close match — type the place below.</span>';
 }
 
-/** The same name as the server reads it: spacing and case do not make another sender. */
-const senderKey = (name) => String(name).split(/\s+/).filter(Boolean).join(' ').toLowerCase();
-
 /** Mark each chat row: counted in the current capture, hidden, or from an excluded sender. Click toggles hidden; a name, excluded. */
 function markChat() {
   const list = root.querySelector('[data-msgs]');
@@ -723,7 +721,7 @@ function markChat() {
   const sig = JSON.stringify([s.hidden, s.excluded_senders, wins, chat.length]);
   if (list.dataset.sig === sig) return;
   list.dataset.sig = sig;
-  drawExcluded(s.excluded_senders || []);
+  drawExcluded(root.querySelector('[data-excluded]'), s.excluded_senders || []);
   const byId = new Map(chat.map((m) => [m.id, m]));
   list.querySelectorAll('.p-msg').forEach((li) => {
     const m = byId.get(Number(li.dataset.id));
@@ -737,17 +735,6 @@ function markChat() {
       : isExcluded ? 'From an excluded sender — click the name to count them again'
         : isHidden ? 'Hidden — click to count it again' : 'Click to hide it from the activity';
   });
-}
-
-/** The senders no activity counts, each one click from counting again. */
-function drawExcluded(names) {
-  const bar = root.querySelector('[data-excluded]');
-  if (!bar) return;
-  bar.hidden = !names.length;
-  bar.innerHTML = names.length
-    ? `<span class="small muted">Not counted</span>` + names.map((n) =>
-      `<button type="button" class="chip" data-restore="${esc(n)}" data-track="live.include-sender" title="Count ${esc(n)} again">${esc(n)} ${icon('x')}</button>`).join('')
-    : '';
 }
 
 function addChat(messages) {

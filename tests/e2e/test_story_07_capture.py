@@ -74,6 +74,19 @@ def check_crowded_clouds(page: Page, stage: Page) -> None:
     expect(page.locator("[data-capleft]")).to_have_text(f"{60 - len(preview['words'])} entries not shown on the stage")
 
 
+def exclude_cohost(page: Page, stage: Page, base_url: str) -> None:
+    """A co-host account is not a participant: click its name in the chat and nothing it writes counts."""
+    cohost = {"batch": "cohost", "messages": [{"sender": "Co Host", "text": "ten minutes break", "time": "18:42"}]}
+    assert page.request.post(f"{base_url}/api/chat/messages", data=cohost).ok
+    expect(page.locator("[data-capcounts]")).to_contain_text("13 answers", timeout=20000)
+    page.locator(".p-msg", has_text="ten minutes break").locator(".p-sender").click()
+    expect(page.locator(".p-msg.excluded-msg")).to_have_count(1)
+    expect(page.locator("[data-capcounts]")).to_contain_text("12 answers from")
+    expect(page.locator("[data-capcounts]")).to_contain_text("1 not counted")
+    expect(stage.locator(".wc-word", has_text="ten minutes break")).to_have_count(0)
+    expect(page.locator("[data-excluded] [data-restore]")).to_have_count(1)
+
+
 def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "capture-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
@@ -113,16 +126,7 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     expect(stage.locator(".wc-word", has_text="hello 3")).to_be_visible()
     expect(stage.locator(".st-count")).to_contain_text("12")
 
-    # a co-host account is not a participant: click its name in the chat and nothing it writes counts
-    cohost = {"batch": "cohost", "messages": [{"sender": "Co Host", "text": "ten minutes break", "time": "18:42"}]}
-    assert page.request.post(f"{webapp.base_url}/api/chat/messages", data=cohost).ok
-    expect(page.locator("[data-capcounts]")).to_contain_text("13 answers", timeout=20000)
-    page.locator(".p-msg", has_text="ten minutes break").locator(".p-sender").click()
-    expect(page.locator(".p-msg.excluded-msg")).to_have_count(1)
-    expect(page.locator("[data-capcounts]")).to_contain_text("12 answers from")
-    expect(page.locator("[data-capcounts]")).to_contain_text("1 not counted")
-    expect(stage.locator(".wc-word", has_text="ten minutes break")).to_have_count(0)
-    expect(page.locator("[data-excluded] [data-restore]")).to_have_count(1)
+    exclude_cohost(page, stage, webapp.base_url)
 
     # "hello 3" is noise: click it in the presenter's chat to hide it
     page.locator(".p-msg", has_text="hello 3").click()
