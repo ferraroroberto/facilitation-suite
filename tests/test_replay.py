@@ -176,6 +176,19 @@ def test_a_row_received_over_a_minute_after_its_zoom_time_with_an_identical_earl
     assert replay.reposted_ids(chat) == {2, 7}
 
 
+def test_a_repost_is_a_twin_when_its_earlier_copy_is_stored_under_a_renamed_sender() -> None:
+    chat = [
+        _row(1, "Calm", "18:20", "18:20", sender="Ana (old name)"),
+        _row(2, "Éxito", "18:21", "18:21", sender="Iphone de Ben"),
+        _row(3, "calm", "18:20", "19:11", sender="Ana"),  # renamed in Zoom: the window's history relabels the row
+        _row(4, "exito", "18:21", "19:11", sender="Ben"),  # merged since: case and accents are folded
+        _row(5, "calm", "18:20", "19:11", sender="Cleo"),  # third copy of a row already dropped once: still a twin
+        _row(6, "brand new", "18:25", "19:11", sender="Ana"),  # late, but no earlier text and time: kept
+        _row(7, "calm", "18:40", "19:11", sender="Ana"),  # same text, another minute: kept
+    ]
+    assert replay.reposted_ids(chat) == {3, 4, 5}
+
+
 def test_replay_drops_reposted_rows_only_when_asked(recorded: Path, tmp_path: Path) -> None:
     live = recorded / "live"
     chat = [json.loads(line) for line in (live / "chat.jsonl").read_text(encoding="utf-8").splitlines()]

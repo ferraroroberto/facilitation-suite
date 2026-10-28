@@ -39,7 +39,7 @@ from src.jsonl import read_jsonl
 from src.live.capture import STATE_FILE, frozen_answers, select_messages
 from src.live.plan import build_run
 from src.logger import configure_logging
-from src.results.aliases import Excluded, read_aliases
+from src.results.aliases import Excluded, fold, read_aliases
 from src.sessions.model import parse_session
 from src.sessions.store import SESSION_FILE
 
@@ -52,11 +52,14 @@ REPOST_LAG_MINUTES = 1
 
 def reposted_ids(chat: list[dict[str, Any]]) -> set[int]:
     """The ids of the rows the reader posted again as new: received more than ``REPOST_LAG_MINUTES``
-    after the time Zoom printed on them, with an identical (sender, text, time) row stored earlier."""
-    seen: set[tuple[Any, Any, Any]] = set()
+    after the time Zoom printed on them, with a row of the same text (case and accents folded) and
+    Zoom time stored earlier. The sender is left out of the match, as the live reader's fallback does:
+    a participant renamed in Zoom (or merged since) has the window's history relabelled, and a row
+    this late is never a second person typing the same word in the same minute."""
+    seen: set[tuple[str, Any]] = set()
     out: set[int] = set()
     for m in sorted(chat, key=lambda m: m["id"]):
-        key = (m.get("sender"), m.get("text"), m.get("time"))
+        key = (fold(str(m.get("text") or "")), m.get("time"))
         printed = minute_of_day(str(m.get("time") or ""))
         if key in seen and printed is not None:
             at = datetime.fromtimestamp(m["received_at"] / 1000)
