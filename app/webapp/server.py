@@ -74,9 +74,9 @@ from app.webapp.routers import (
 from src.activities.registry import ACTIVITIES_DIR
 from src.build_info import build_identity
 from src.certs import cert_paths
-from src.compression import StreamSafeGZipMiddleware
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
+from src.compression import StreamSafeGZipMiddleware
 from src.config import data_dir, load_config, profiles
 from src.errors import DomainError
 from src.importer.service import Importer
