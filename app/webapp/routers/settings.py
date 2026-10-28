@@ -88,13 +88,18 @@ def remote_payload(request: Request) -> dict[str, Any]:
     A loopback bind (``config.host`` 127.0.0.1 / ::1 / localhost) never hands out
     that link: no other device can reach a listener bound to loopback only,
     however good the cert on disk (#101) — the same bind check ``public_url``
-    already makes for the tray's Open link (#39)."""
-    token = request.app.state.config.remote.token
-    loopback = request.app.state.config.host in LOOPBACK_HOSTS
+    already makes for the tray's Open link (#39). A page on the local listener
+    (plain HTTP on this PC, ``local_port``) still gets the tailnet HTTPS link: it
+    is for the phone, not for the page it is shown on."""
+    cfg = request.app.state.config
+    token = cfg.remote.token
+    loopback = cfg.host in LOOPBACK_HOSTS
+    server_port = (request.scope.get("server") or ("", cfg.port))[1]
+    on_local_listener = bool(cfg.local_port) and server_port == cfg.local_port
     # Only a server that really speaks HTTPS gives out an https link (a dev or test instance may not).
-    cert_host = cert_hostname() if request.url.scheme == "https" else None
+    cert_host = cert_hostname() if request.url.scheme == "https" or on_local_listener else None
     host = cert_host if not loopback else None
-    port = (request.scope.get("server") or ("", request.app.state.config.port))[1]
+    port = cfg.port if on_local_listener else server_port
     base = f"https://{host}:{port}" if host else f"{request.url.scheme}://127.0.0.1:{port}"
     link = f"{base}/remote?token={token}" if token and host and is_local(request.scope) else None
     return {"enabled": bool(token), "https": bool(cert_host), "bind_loopback": loopback, "base_url": base, "link": link}

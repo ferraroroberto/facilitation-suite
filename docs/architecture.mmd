@@ -7,6 +7,7 @@ flowchart LR
     stage["/stage (OBS display capture)"]
   end
   tray["tray.bat → app/tray/tray.py"] --> server
+  tray -.->|"Open → http://127.0.0.1:8456 (this PC)"| localapp
   tray -.->|"spawns + cycles (when webapp/cloudflared.yml exists)"| cloudflared["src/tunnel.py → cloudflared<br/>named tunnel facilitation-quiz · /ready on 127.0.0.1:8452"]
   phones["players' phones (public internet, not the tailnet)"] -->|HTTPS · WS| cfedge["Cloudflare edge<br/>quiz.robertoferraro.net · no Access policy"]
   cfedge -->|tunnel| cloudflared
@@ -19,6 +20,8 @@ flowchart LR
   playerpush -->|player_view only| quizsvc
   server -.->|lifespan starts / stops| listener["app/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
   listener --> playerapp
+  server -.->|lifespan starts / stops| locallistener["app/webapp/local_listener.py<br/>LocalListener · plain HTTP on 127.0.0.1:8456 · loopback only · busy port = ❌ log, tray opens the HTTPS URL"]
+  locallistener -->|"serves this same app (second uvicorn.Server, same loop)"| server
   remotev -->|HTTPS · pairing cookie| gate["app/webapp/auth.py<br/>RemoteAuth — this PC always, others with the token"]
   gate --> server
   remotev <-->|WS snapshots / intents| liver

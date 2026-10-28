@@ -166,7 +166,7 @@ class TrayApp:
     # -- menu actions ---------------------------------------------------------
 
     def open_local(self, icon, item) -> None:  # noqa: ARG002
-        webbrowser.open(self.manager.public_url)
+        webbrowser.open(self.manager.open_url)
 
     def copy_local(self, icon, item) -> None:  # noqa: ARG002
         url = self.manager.public_url

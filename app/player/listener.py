@@ -96,7 +96,7 @@ def quiet_player_requests() -> None:
         lg.addFilter(QuietPlayerRequests())
 
 
-class _EmbeddedServer(uvicorn.Server):
+class EmbeddedServer(uvicorn.Server):
     """A uvicorn server that leaves signal handling to the main server."""
 
     @contextlib.contextmanager
@@ -133,7 +133,7 @@ class PlayerListener:
         self.port = port
         self.quiz = quiz
         self.app: Optional[FastAPI] = None
-        self.server: Optional[_EmbeddedServer] = None
+        self.server: Optional[EmbeddedServer] = None
         self.task: Optional[asyncio.Task[None]] = None
 
     @property
@@ -170,7 +170,7 @@ class PlayerListener:
             ws_ping_timeout=20.0,
             http=_CappedHTTPProtocol,
         )
-        self.server = _EmbeddedServer(config)
+        self.server = EmbeddedServer(config)
         self.task = asyncio.create_task(self.server.serve(sockets=[sock]), name="quiz-player-listener")
         self.task.add_done_callback(self._on_done)
         deadline = asyncio.get_running_loop().time() + START_TIMEOUT_S

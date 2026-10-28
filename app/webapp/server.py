@@ -19,7 +19,9 @@ stopped live again (``LiveHub.resume_last``, #95; off with ``live.resume_on_star
 The lifespan also runs the **quiz player listener** — a second, separate app on
 ``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface the
 Cloudflare tunnel publishes (``src/tunnel.py``, run by the tray). It shares this
-loop and the one ``QuizService``, never this app's routes.
+loop and the one ``QuizService``, never this app's routes. A second listener serves *this*
+app in plain HTTP on ``127.0.0.1:<local_port>`` (``app/webapp/local_listener.py``): what the
+tray opens on this PC, with no certificate and no tailnet hop.
 
 Static assets carry one fleet hash (``?v=``, ``src/static_versioning.py``) and are cached for good
 under it (``app/webapp/assets.py``); the pages stay ``no-cache``, so a restart with changed assets
@@ -54,6 +56,7 @@ from app.player.listener import PlayerListener
 from app.webapp.assets import CachingStaticFiles
 from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import error_response
+from app.webapp.local_listener import LocalListener
 from app.webapp.routers import (
     actions,
     activities,
@@ -119,6 +122,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     player = PlayerListener(cfg.quiz.public_port, app.state.quiz)
     app.state.player = player
     await player.start()  # optional: a busy port is logged, never fatal
+    local = LocalListener(cfg.local_port, app)
+    app.state.local_listener = local
+    await local.start()  # optional too: the tray falls back to the HTTPS URL
     reach = asyncio.create_task(app.state.quiz_reach.run_periodic(), name="quiz-reach")
     # After every service is wired and the loop bound (timers, the quiz, the music): the session
     # that was live when the server stopped comes back by itself.
@@ -129,6 +135,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
     reach.cancel()
+    await local.stop()
     await player.stop()
     monitor.cancel()
     app.state.obs.stop()

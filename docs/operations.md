@@ -8,6 +8,8 @@
 
 For the phone remote: `& .venv\Scripts\python.exe scripts\gen_tailscale_cert.py` writes a Tailscale certificate (a real Let's Encrypt leaf for this PC's tailnet name) to `webapp/certificates/`; after `tray.bat --restart` the server speaks HTTPS only, on the tailnet name. The leaf lasts ~90 days and renews itself at every start (`--check`), so there is no date to remember.
 
+**Which URL is for which device.** The certificate names only the tailnet host, so `https://127.0.0.1:8449` would meet a certificate warning. This PC therefore opens the app on a second listener in the same process: plain HTTP on `http://127.0.0.1:8456` (`local_port`), bound to loopback whatever `host` says. The tray's **Open** uses it (and falls back to the HTTPS URL if the port is busy); its presenter and stage links are relative, so they stay on `127.0.0.1`. Other devices keep `https://<this PC>.<tailnet>.ts.net:8449`: the tray's **Copy URL** and the phone pairing link in Settings still give that URL, also when Settings is open on the `:8456` page. Use `127.0.0.1`, not `localhost`: the server listens on IPv4 only, and `localhost` costs about 215 ms per new connection. Browser storage (theme, text size) is per origin, so a page opened on `:8456` starts with its defaults once.
+
 ## Logs
 
 Logs live in `data/logs/` (under `FS_DATA_DIR` when it is set). Each file has exactly one writer, because Windows cannot rotate a file another process holds open; each rotates at 1 MB and keeps 3 backups (`.log.1`–`.log.3`):
