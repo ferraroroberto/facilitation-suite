@@ -17,7 +17,7 @@ A clean clone runs the same on any Windows PC: nothing outside the repo and the 
 
 - Windows 10/11, Python 3.14 (the `py` launcher), Git
 - PowerPoint desktop (slide import through COM)
-- Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams in the browser with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom))
+- Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams in the browser with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom)), or a Google Meet tab with its chat panel open (see [Google Meet](docs/chat-reader.md#google-meet))
 - Optional: OBS Studio 28+ with obs-websocket enabled (scene switching per item), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), and a `.env` with the Spotify login (item music from Spotify)
 
 **Steps**, from the repo root in PowerShell:
@@ -67,7 +67,7 @@ Each feature has its own reference in `docs/`:
 - **Breakout groups** — roster, shuffle, Zoom pre-assign: [docs/groups.md](docs/groups.md)
 - **OBS** — camera layouts over obs-websocket: [docs/obs.md](docs/obs.md)
 - **Stream Deck** — every live control as one URL: [docs/stream-deck.md](docs/stream-deck.md)
-- **The chat reader (Zoom or Teams)** — how answers are read locally: [docs/chat-reader.md](docs/chat-reader.md)
+- **The chat reader (Zoom, Teams or Meet)** — how answers are read locally: [docs/chat-reader.md](docs/chat-reader.md)
 - **Settings** and **Configuration** — [docs/settings.md](docs/settings.md), [docs/configuration.md](docs/configuration.md)
 - **Sessions** — the session folder: [docs/sessions.md](docs/sessions.md)
 - **Running and operating** — appearance, HTTPS, logs: [docs/operations.md](docs/operations.md)

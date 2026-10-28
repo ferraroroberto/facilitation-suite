@@ -18,7 +18,7 @@ Logs live in `data/logs/` (under `FS_DATA_DIR` when it is set). Each file has ex
 |---|---|
 | `facilitation-suite.log` | the webapp (the server, including `✅ facilitation-suite up — build <sha>`), plus the lines of the freeze-PNG and session-PDF helpers it spawns — they log to stderr and the server relays them |
 | `tray.log` | the tray: starting, adopting and restarting the webapp |
-| `chat-reader.log` | the chat reader (Zoom or Teams) |
+| `chat-reader.log` | the chat reader (Zoom, Teams or Meet) |
 | `cloudflared.log` | cloudflared, the quiz player's tunnel (its own writer; the tray moves it to `.log.1` past 5 MB when it starts cloudflared) |
 | `webapp/watchdog.log` (repo root) | the tray's watchdog breadcrumbs |
 

@@ -6,7 +6,7 @@ readiness "Test"; it passes its own PID so the reader exits when the server
 does (a restarted server never finds two readers posting). One reader at a
 time — starting the simulator stops the Zoom reader and vice versa. The
 reader reads the source chosen when it starts (``reader.source``, the
-presenter's Zoom · Teams switch, #239), passed as ``--source``; starting on
+presenter's Zoom · Teams · Meet switch, #239), passed as ``--source``; starting on
 another source than the running reader's restarts it.
 """
 

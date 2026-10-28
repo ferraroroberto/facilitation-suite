@@ -38,7 +38,7 @@ class Row(BaseModel):
 class Batch(BaseModel):
     batch: str = Field("", max_length=64)
     baseline: bool = False
-    source: Literal["zoom", "teams", "simulator"] = "zoom"
+    source: Literal["zoom", "teams", "meet", "simulator"] = "zoom"
     messages: list[Row] = Field(default_factory=list, max_length=5000)
 
 
@@ -49,7 +49,7 @@ class Beat(BaseModel):
 
 
 class SourceChoice(BaseModel):
-    source: Literal["zoom", "teams"]
+    source: Literal["zoom", "teams", "meet"]
 
 
 class Simulate(BaseModel):
@@ -97,7 +97,7 @@ async def reader_stop(request: Request) -> dict[str, Any]:
 
 @router.put("/reader/source")
 async def reader_source(request: Request, body: SourceChoice) -> dict[str, Any]:
-    """The presenter's Zoom · Teams switch (#239): save the choice; a running
+    """The presenter's Zoom · Teams · Meet switch (#239): save the choice; a running
     reader restarts on it (its first read is a baseline, so nothing already in
     the chat is posted again). A stopped reader or a simulation only saves it."""
     require_local(request, "The chat source can only be changed on this PC")

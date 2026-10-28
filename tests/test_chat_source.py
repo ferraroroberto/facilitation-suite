@@ -1,4 +1,4 @@
-"""The presenter's Zoom · Teams switch (#239): the choice is saved, a running
+"""The presenter's Zoom · Teams · Meet switch (#239): the choice is saved, a running
 reader restarts on it, a stopped one only saves it. No real reader starts:
 ``subprocess.Popen`` is a fake that records the command."""
 
@@ -84,7 +84,19 @@ def test_switch_saves_and_restarts_only_a_running_reader(client, fake_popen: lis
     proc.stop()
 
 
-def test_switch_is_local_only_and_knows_two_sources(client, fake_popen: list[list[str]]) -> None:
+def test_switch_offers_meet_and_restarts_the_reader_on_it(client, fake_popen: list[list[str]]) -> None:
+    assert client.post("/api/chat/reader/start").json()["running"] == "zoom"
+    res = client.put("/api/chat/reader/source", json={"source": "meet"}).json()
+    assert res == {"source": "meet", "restarted": True, "running": "meet"} and _arg(fake_popen[-1], "--source") == "meet"
+    assert load_config().reader.source == "meet"
+    assert client.post("/api/chat/reader/start").json() == {"running": "meet", "hint": "open the chat panel in the active Meet tab"}
+    # The Meet reader's first read is history: nothing in it is stored as new.
+    batch = {"batch": "m-1", "baseline": True, "source": "meet", "messages": [{"sender": "Alex Rivera", "text": "old"}]}
+    assert client.post("/api/chat/messages", json=batch).json() == {"stored": 0}
+    client.app.state.reader_process.stop()
+
+
+def test_switch_is_local_only_and_knows_its_sources(client, fake_popen: list[list[str]]) -> None:
     from app.webapp.server import create_app
 
     assert client.put("/api/chat/reader/source", json={"source": "slack"}).status_code == 422

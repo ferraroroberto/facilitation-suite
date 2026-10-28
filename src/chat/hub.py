@@ -77,7 +77,7 @@ class ChatHub:
         self.tested: Optional[dict[str, Any]] = None
         self._state = "off"
         self.process_running: Callable[[], bool] = lambda: False
-        self.chosen_source: Callable[[], str] = lambda: "zoom"  # the presenter's Zoom · Teams switch
+        self.chosen_source: Callable[[], str] = lambda: "zoom"  # the presenter's Zoom · Teams · Meet switch
         self.listeners: list[Callable[[list[dict[str, Any]]], None]] = []
         self._log = JsonlAppender(CHAT_FILE, live.write_failed, live.write_ok)
         live.extra_state.append(self.state_fields)
@@ -211,8 +211,8 @@ class ChatHub:
                 "chat_count": len(self.messages)}
 
     def chat_noun(self) -> str:
-        """What the chosen source reads: Zoom's popped-out chat window, or the Teams meeting chat."""
-        return "meeting chat" if self.chosen_source() == "teams" else "popped-out chat"
+        """What the chosen source reads: Zoom's popped-out chat window, the Teams meeting chat or Meet's chat panel."""
+        return {"teams": "meeting chat", "meet": "Meet chat panel"}.get(self.chosen_source(), "popped-out chat")
 
     def readiness(self) -> dict[str, Any]:
         source = self.chosen_source()

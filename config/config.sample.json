@@ -5,7 +5,7 @@
   "session_root": "",
   "appearance": "system",
   "obs": { "enabled": true, "host": "127.0.0.1", "port": 4455, "password": "" },
-  "reader": { "enabled": true, "source": "zoom", "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat", "teams_title": "Microsoft Teams" },
+  "reader": { "enabled": true, "source": "zoom", "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat", "teams_title": "Microsoft Teams", "meet_title": "Meet", "meet_panel": "In-call messages" },
   "remote": { "token": "" },
   "quiz": { "public_port": 8451, "public_url": "" },
   "defaults": {

@@ -1,8 +1,8 @@
-"""The chat reader (Zoom, or Teams with ``reader.source = "teams"``, #237;
-the server passes the presenter's choice as ``--source``, #239) — its own
-process, so a crash never takes the server down.
+"""The chat reader (Zoom, Teams with ``reader.source = "teams"``, #237, or Google
+Meet with ``"meet"``; the server passes the presenter's choice as ``--source``,
+#239) — its own process, so a crash never takes the server down.
 
-    python -m src.chat.reader --server http://127.0.0.1:8449 [--parent-pid N] [--source zoom|teams]
+    python -m src.chat.reader --server http://127.0.0.1:8449 [--parent-pid N] [--source zoom|teams|meet]
     python -m src.chat.reader --server … --simulate burst:50
     python -m src.chat.reader --server … --simulate script.yaml
 
@@ -11,7 +11,9 @@ from the config) → MSAA walk → the message rows of the "Chat messages
 history" list → diff against the previous snapshot by order → POST the new
 rows to ``/api/chat/messages``. With ``reader.source = "teams"`` the window is
 the one titled ``… Microsoft Teams`` showing a chat, read through UI Automation
-(``src/chat/uia.py`` → ``src/chat/teams.py``); everything after the snapshot —
+(``src/chat/uia.py`` → ``src/chat/teams.py``); with ``"meet"`` it is a window
+titled ``Meet …`` whose page shows the chat panel (``src/chat/meet.py``).
+Everything after the snapshot —
 diff, baseline, retry, heartbeat, stop file — is shared. A heartbeat with the
 state and the last scan's duration (``scan_ms``) goes to ``/api/chat/heartbeat``
 every second from a thread of its own, so a scan that takes seconds never reads
@@ -24,7 +26,7 @@ each with its own message:
 
 - ``reading``          — the window was read
 - ``window_not_found`` — Zoom closed, or the chat is not popped out (Teams:
-  no window shows a chat)
+  no window shows a chat; Meet: no Meet tab shows its chat panel)
 - ``error``            — the walk raised (the detail says what)
 - ``simulating``       — replaying a script instead of reading Zoom
 
@@ -71,7 +73,7 @@ from src.logger import configure_logging, log_path
 
 logger = logging.getLogger("chat_reader")
 
-SOURCES = ("zoom", "teams")
+SOURCES = ("zoom", "teams", "meet")
 HISTORY_LIST_PREFIX = "Chat messages history"
 ROLE_LIST, ROLE_LISTITEM = 33, 34
 # Tail reads: the already-seen children a scan re-reads to line the new ones up, the most it reads
@@ -182,11 +184,13 @@ class Poster:
 
 class Reader:
     def __init__(self, poster: Poster, window_class: str, window_title: str, poll_ms: int, parent_pid: Optional[int],
-                 stop_file: Optional[Path] = None, source: str = "zoom", teams_title: str = "Microsoft Teams") -> None:
+                 stop_file: Optional[Path] = None, source: str = "zoom", teams_title: str = "Microsoft Teams",
+                 meet_title: str = "Meet", meet_panel: str = "In-call messages") -> None:
         self.poster = poster
         self.stop_file = stop_file
         self.window_class, self.window_title = window_class, window_title
         self.source, self.teams_title = source, teams_title
+        self.meet_title, self.meet_panel = meet_title, meet_panel
         self.poll = max(0.1, poll_ms / 1000)
         self.parent_pid = parent_pid
         self.prev: Optional[list[Row]] = None
@@ -223,6 +227,8 @@ class Reader:
         try:
             if self.source == "teams":
                 self._read_teams()
+            elif self.source == "meet":
+                self._read_meet()
             else:
                 self._read_zoom()
         finally:
@@ -334,15 +340,7 @@ class Reader:
 
         try:
             hwnds = teams.candidates(uia.visible_titles(), self.teams_title)
-            if self.hwnd in hwnds:  # stay with the window that worked last time
-                hwnds.remove(self.hwnd)
-                hwnds.insert(0, self.hwnd)
-            nodes = None
-            for hwnd in hwnds:
-                nodes = uia.chat_list(hwnd)
-                if nodes is not None:
-                    self.hwnd = hwnd
-                    break
+            nodes = self._first_chat(hwnds, uia.chat_list)
         except Exception as exc:  # noqa: BLE001 — COM errors vary; the detail tells them apart
             self._lost("error", f"Reading the Teams chat failed: {exc}")
             return
@@ -362,6 +360,37 @@ class Reader:
             self.prev = rows
         self.prev_ids = ids
         self._publish(rows, len(nodes), "Teams chat list found")
+
+    def _first_chat(self, hwnds: list[int], read: Callable[[int], Optional[list[Any]]]) -> Optional[list[Any]]:
+        """The first of the browser windows ``read`` finds a chat in, the one that worked last time first."""
+        if self.hwnd in hwnds:
+            hwnds.remove(self.hwnd)
+            hwnds.insert(0, self.hwnd)
+        for hwnd in hwnds:
+            nodes = read(hwnd)
+            if nodes is not None:
+                self.hwnd = hwnd
+                return nodes
+        return None
+
+    def _read_meet(self) -> None:
+        from src.chat import meet, uia
+
+        try:
+            hwnds = meet.candidates(uia.visible_titles(), self.meet_title)
+            nodes = self._first_chat(hwnds, lambda h: uia.meet_window(h, self.meet_panel))
+        except Exception as exc:  # noqa: BLE001 — COM errors vary; the detail tells them apart
+            self._lost("error", f"Reading the Meet chat failed: {exc}")
+            return
+        if not hwnds:
+            self._lost("window_not_found", "Open the Meet call in a browser, as the active tab of its window")
+            return
+        if nodes is None:
+            # A closed panel is a lost chat, so reopening it re-baselines on its history.
+            self._lost("window_not_found", "Meet is open but its chat is not: open the chat panel")
+            return
+        rows, _ = meet.rows_from_tree(nodes, self.meet_panel)
+        self._publish(rows, len(nodes), "Meet chat panel found")
 
     def _beat_loop(self, stop: threading.Event) -> None:
         """The "alive" signal, on its own clock: a slow scan shows as a large ``scan_ms``,
@@ -465,7 +494,7 @@ def simulate(poster: Poster, script: list[dict[str, Any]], parent_pid: Optional[
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="Read the Zoom or Teams meeting chat (or simulate it) and post to the server.")
+    ap = argparse.ArgumentParser(description="Read the Zoom, Teams or Meet meeting chat (or simulate it) and post to the server.")
     ap.add_argument("--server", required=True)
     ap.add_argument("--parent-pid", type=int)
     ap.add_argument("--simulate", help="burst:N | random:N[:every_ms] | script.yaml")
@@ -487,10 +516,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         logger.warning("⚠️ config reader.source %r is not one of %s — reading Zoom", cfg.source, ", ".join(SOURCES))
     if source == "teams":
         logger.info("✅ reader up — Teams, a window titled …%r… every %d ms, posting to %s", cfg.teams_title, cfg.poll_ms, args.server)
+    elif source == "meet":
+        logger.info("✅ reader up — Meet, a window titled %r… with the %r panel, every %d ms, posting to %s",
+                    cfg.meet_title, cfg.meet_panel, cfg.poll_ms, args.server)
     else:
         logger.info("✅ reader up — window %r / %r every %d ms, posting to %s", cfg.window_class, cfg.window_title, cfg.poll_ms, args.server)
     return Reader(poster, cfg.window_class, cfg.window_title, cfg.poll_ms, args.parent_pid, args.stop_file,
-                  source=source, teams_title=cfg.teams_title).run()
+                  source=source, teams_title=cfg.teams_title, meet_title=cfg.meet_title, meet_panel=cfg.meet_panel).run()
 
 
 if __name__ == "__main__":
