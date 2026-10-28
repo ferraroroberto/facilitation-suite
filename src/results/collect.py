@@ -7,8 +7,8 @@ Results tab works on any session without it being live:
   every answer with its name (hidden ones flagged) and the result;
 - ``live/captures/<item>.png`` — the stage exactly as it looked at the stop;
 - ``live/events.jsonl`` — what was shown when, which gives the session PDF
-  its order: every slide at its first showing, each capture at its last stop
-  (the frozen image is the one from that stop);
+  its order: every slide at its first showing, each capture where it last
+  started (the frozen image is the one from its last stop);
 - ``live/chat.jsonl`` — every chat message (participation counts, the Zoom
   reconciliation);
 - ``live/quiz.jsonl`` — every quiz game, replayed through the engine
@@ -123,9 +123,11 @@ def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], capt
              quiz: Optional[set[tuple[str, str]]] = None) -> list[dict[str, Any]]:
     """The session PDF's pages in the order they happened.
 
-    A slide is a page at its first showing; a capture is a page at its last
-    stop. Items shown that are not slides (activities, breaks) only count
-    through their captures. A slide no longer in the plan is left out.
+    A slide is a page at its first showing; a capture is a page where it last
+    started (its stop is logged after the next item when the capture ends on
+    leave, so the stop would put it behind the slide that followed). Items
+    shown that are not slides (activities, breaks) only count through their
+    captures. A slide no longer in the plan is left out.
     ``quiz`` holds the quiz pages that exist (``quiz.results.page_keys``): a
     question is a page when it was first asked, a game's podium when it was
     first shown.
@@ -143,6 +145,13 @@ def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], capt
         seen.add(item_id)
         pages.append({"kind": "slide", "item_id": item_id, "title": one_line(it["title"]), "file": it["slide_file"], "at": at})
 
+    on_page: set[str] = set()
+
+    def run_of(item_id: str, at: str) -> None:
+        pages[:] = [p for p in pages if not (p["kind"] == "capture" and p["item_id"] == item_id)]
+        pages.append({"kind": "capture", "item_id": item_id, "at": at})
+        on_page.add(item_id)
+
     for ev in events:
         name, at = ev.get("event"), ev.get("at", "")
         if name == "session_live":
@@ -153,9 +162,10 @@ def timeline(events: list[dict[str, Any]], run_items: list[dict[str, Any]], capt
             live_once = True
         elif name == "item":
             shown(ev.get("item_id"), at)
-        elif name == "capture_stop" and ev.get("item_id") in captured:
-            pages[:] = [p for p in pages if not (p["kind"] == "capture" and p["item_id"] == ev["item_id"])]
-            pages.append({"kind": "capture", "item_id": ev["item_id"], "at": at})
+        elif name in ("capture_start", "capture_reopen") and ev.get("item_id") in captured:
+            run_of(ev["item_id"], at)
+        elif name == "capture_stop" and ev.get("item_id") in captured and ev["item_id"] not in on_page:
+            run_of(ev["item_id"], at)  # a log from before the start was kept: the stop is all there is
         elif name == "quiz_phase" and quiz and ev.get("phase") in ("question", "podium"):
             podium = ev["phase"] == "podium"
             key = (ev.get("game") or "", PODIUM_PAGE if podium else ev.get("item_id") or "")
