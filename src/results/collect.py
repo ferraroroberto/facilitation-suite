@@ -233,3 +233,30 @@ def participation(activities: list[dict[str, Any]], chat: list[dict[str, Any]],
         if not m.get("own") and m.get("sender") and m["sender"] not in excluded:
             row(aliases.canonical(m["sender"]))["messages"] += 1
     return sorted(people.values(), key=lambda r: (-r["total"], -r["messages"], r["name"].casefold()))
+
+
+def _span(label: str, first: int, last: int) -> str:
+    """``Early (1–4)``, ``Late (5)``; bare when the half holds no activity."""
+    if first > last:
+        return label
+    return f"{label} ({first})" if first == last else f"{label} ({first}–{last})"
+
+
+def participation_table(activities: list[dict[str, Any]], people: list[dict[str, Any]]) -> dict[str, Any]:
+    """The participation rows laid out as the Excel sheet and the PDF both print them.
+
+    Activities are in the order they happened: the first half (the odd one out included) is *early*, the rest
+    *late*, so a person's two counts show who answered at the start and who warmed up later.
+    """
+    half = (len(activities) + 1) // 2
+    early = {a["id"] for a in activities[:half]}
+    late = {a["id"] for a in activities[half:]}
+    rows = [{"name": p["name"],
+             "cells": [p["by_activity"].get(a["id"], 0) for a in activities],
+             "total": p["total"],
+             "early": sum(n for i, n in p["by_activity"].items() if i in early),
+             "late": sum(n for i, n in p["by_activity"].items() if i in late),
+             "messages": p["messages"]} for p in people]
+    return {"activities": [{"number": a["number"], "title": a["title"]} for a in activities],
+            "early_label": _span("Early", 1, half), "late_label": _span("Late", half + 1, len(activities)),
+            "rows": rows}

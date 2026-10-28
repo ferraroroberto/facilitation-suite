@@ -126,7 +126,7 @@ def test_a_session_without_a_quiz_has_no_quiz_results(isolated_env: Path) -> Non
     data = load_results(folder, parse_session(PLAN))
     assert (data["quizzes"], data["quiz_pages"]) == ([], 0)
     assert not any(p["kind"].startswith("quiz_") for p in data["pages"])
-    html = session_html(folder, data)
+    html = session_html(folder, data, [])
     assert "page quiz" not in html and ".podium" not in html and "Quiz ·" not in html
 
 
@@ -162,7 +162,7 @@ def test_the_session_pdf_has_the_quiz_pages_in_order(isolated_env: Path) -> None
         ("quiz_podium", "qz-lobby-2", "qz-podium"),
     ]
     assert kinds[-9] == ("slide", None, "slide-110") and data["quiz_pages"] == 8
-    html = session_html(folder, data)
+    html = session_html(folder, data, [])
     assert html.count("<div class='page quiz'>") == 8
     order = [html.index(t) for t in ("Which planet is known as the red planet?", "Space quiz · run 1 · podium",
                                      "Space quiz · run 2 · podium", "Quiz · Space quiz · run 1")]
