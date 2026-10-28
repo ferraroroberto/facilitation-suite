@@ -40,12 +40,31 @@ def ev(name: str, item: str | None = None, **kw) -> dict:
     return {"event": name, "at": "t", **({"item_id": item} if item else {}), **kw}
 
 
-def test_slides_at_first_showing_and_captures_at_their_last_stop() -> None:
+def test_slides_at_first_showing_and_captures_at_their_last_run() -> None:
     events = [ev("session_live", "slide-1"), ev("item", "act-a"), ev("capture_start", "act-a"), ev("capture_stop", "act-a"),
               ev("item", "slide-2"), ev("item", "act-a"), ev("capture_reopen", "act-a"), ev("capture_stop", "act-a"),
               ev("item", "slide-1"), ev("item", "brk"), ev("item", "slide-gone")]
     pages = timeline(events, ITEMS, {"act-a"})
     assert [(p["kind"], p["item_id"]) for p in pages] == [("slide", "slide-1"), ("slide", "slide-2"), ("capture", "act-a")]
+
+
+def test_a_capture_sits_where_it_was_run_not_where_the_next_item_stopped_it() -> None:
+    # A capture stops when the facilitator leaves (the stop is logged after the next item), so the stop
+    # lands behind the slide shown next; the page belongs at the run, planned order notwithstanding.
+    items = [{"id": f"slide-{n}", "kind": "slide", "title": str(n), "slide_file": f"slide-{n}.png"} for n in (1, 2, 3)]
+    items += [{"id": "act-a", "kind": "activity", "title": "A"}, {"id": "act-b", "kind": "activity", "title": "B"}]
+    events = [ev("session_live", "slide-3"),
+              ev("item", "act-b"), ev("capture_start", "act-b"), ev("item", "slide-1"), ev("capture_stop", "act-b"),
+              ev("item", "act-a"), ev("capture_start", "act-a"), ev("item", "slide-2"), ev("capture_stop", "act-a")]
+    pages = timeline(events, items, {"act-a", "act-b"})
+    assert [p["item_id"] for p in pages] == ["slide-3", "act-b", "slide-1", "act-a", "slide-2"]
+
+
+def test_a_reopened_capture_moves_to_where_it_was_reopened() -> None:
+    events = [ev("session_live", "slide-1"), ev("item", "act-a"), ev("capture_start", "act-a"), ev("item", "slide-2"),
+              ev("capture_stop", "act-a"), ev("item", "act-a"), ev("capture_reopen", "act-a"), ev("capture_stop", "act-a")]
+    pages = timeline(events, ITEMS, {"act-a"})
+    assert [p["item_id"] for p in pages] == ["slide-1", "slide-2", "act-a"]
 
 
 def test_an_old_log_without_the_starting_item_starts_on_item_one() -> None:
@@ -58,6 +77,23 @@ def test_a_capture_without_its_frozen_file_is_not_a_page() -> None:
 
 
 # ---- the results of a finished run ---------------------------------------------
+
+def test_the_pdf_follows_the_run_when_each_stop_is_logged_after_the_next_item(isolated_env: Path) -> None:
+    _, folder, run = _run(isolated_env)
+    events = list(run["events"])
+    i = 0
+    while i < len(events) - 1:  # stop-on-leave writes a capture_stop just after the item that ended it
+        if events[i]["event"] == "capture_stop" and events[i + 1]["event"] == "item":
+            events[i], events[i + 1] = events[i + 1], events[i]
+            i += 1
+        i += 1
+    assert events != run["events"]
+    (folder / "live" / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+    frozen = {p.stem for p in (folder / "live" / "captures").glob("*.json")}
+    ran = [e["item_id"] for e in run["events"] if e["event"] in ("session_live", "item") and (e["item_id"].startswith("slide") or e["item_id"] in frozen)]
+    pages = load_results(folder, parse_session(PLAN))["pages"]
+    assert [p["item_id"] for p in pages if p["kind"] in ("slide", "capture")] == ran
+
 
 def test_results_read_back_in_the_order_they_happened(isolated_env: Path) -> None:
     _, folder, run = _run(isolated_env)
