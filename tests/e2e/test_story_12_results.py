@@ -159,7 +159,8 @@ def _check_analyze_command(page: Page, pane: Locator, folder: Path) -> None:
     expect(page.locator("#toast")).to_contain_text("Command copied")
     assert page.evaluate("navigator.clipboard.readText()") == expected
 
-    page.evaluate("navigator.clipboard.writeText = () => Promise.reject(new Error('blocked'))")
+    # a statement, not an expression: Playwright calls a function an expression evaluates to
+    page.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('blocked')); }")
     card.locator("[data-copy]").click()
     expect(card.locator(".analyze-note")).to_contain_text("blocked copying")
     assert page.evaluate("getSelection().toString() || document.activeElement.value.substring(document.activeElement.selectionStart, document.activeElement.selectionEnd)") == expected
