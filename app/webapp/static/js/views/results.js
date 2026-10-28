@@ -389,7 +389,8 @@ function exportActions() {
 function openLinks() {
   const links = [];
   const tag = 'target="_blank" rel="noopener"';
-  if (data.exports.pdf) links.push(`<a class="button-tint" href="${base()}/exports/session.pdf" ${tag} data-track="results.open-pdf">${icon('external-link')} Open session PDF</a>`);
+  if (data.exports.pdf) links.push(`<a class="button-tint" href="${base()}/exports/session-full.pdf" ${tag} data-track="results.open-pdf">${icon('external-link')} Open full PDF</a>`);
+  if (data.exports.share) links.push(`<a class="button-tint" href="${base()}/exports/session-share.pdf" ${tag} data-track="results.open-share-pdf">${icon('external-link')} Open share PDF</a>`);
   if (data.exports.activities) links.push(`<a class="button-tint" href="${base()}/exports/session-activities.pdf" ${tag} data-track="results.open-activities-pdf">${icon('external-link')} Open participants' PDF</a>`);
   if (data.exports.xlsx) links.push(`<a class="button-tint" href="${base()}/exports/report.xlsx" ${tag} data-track="results.open-xlsx">${icon('external-link')} Open Excel report</a>`);
   if (!links.length) return null;
@@ -404,8 +405,9 @@ async function exportPdf(e) {
   if (!r) return;
   const gaps = r.missing_images.length ? ` · ${r.missing_images.length} capture${r.missing_images.length === 1 ? '' : 's'} without an image` : '';
   const count = (n) => (n ? ` (${n} pages)` : '');
-  const shared = r.activities ? ` and participants' PDF${count(r.activities.pages)}` : '';
-  toast(`Session PDF${count(r.pages)}${shared} saved in exports/${gaps}`);
+  const copies = [r.share && `share PDF${count(r.share.pages)}`, r.activities && `participants' PDF${count(r.activities.pages)}`].filter(Boolean);
+  const more = copies.length ? ` and ${copies.join(' and ')}` : '';
+  toast(`Full session PDF${count(r.pages)}${more} saved in exports/${gaps}`);
 }
 
 async function exportXlsx(e) {
@@ -423,6 +425,7 @@ async function runExport(e, key) {
   try {
     r = await api(`${base()}/exports/${key}`, { method: 'POST' });
     data.exports[key] = { modified_ms: r.modified_ms, pages: r.pages };
+    if (r.share) data.exports.share = { modified_ms: r.share.modified_ms, pages: r.share.pages };
     if (r.activities) data.exports.activities = { modified_ms: r.activities.modified_ms, pages: r.activities.pages };
   } catch (err) { toast(err.message, 'error'); }
   busy = false;

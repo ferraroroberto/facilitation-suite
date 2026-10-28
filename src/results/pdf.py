@@ -9,8 +9,9 @@ PNG when one exists, else a rendered summary of its distribution — and a
 podium page per game, where they happened; the appendix then lists each
 game's final leaderboard. A session without a quiz prints exactly as before.
 
-The participants' copy (``activities_html``) is the same run-order pages with the
-slides, the podiums and the appendix left out, behind a title page.
+The share copy (``share_html``) is the same run-order pages without the podiums and
+the appendix: nothing that counts or ranks a person. The participants' copy
+(``activities_html``) also leaves the slides out, behind a title page.
 
 The document is one HTML file printed by headless Chromium, so the images go
 in untouched and the appendix flows over as many pages as it needs. The
@@ -186,6 +187,21 @@ def _head(results: dict[str, Any], quizzes: dict[str, Any]) -> str:
 def activities_pages(results: dict[str, Any]) -> list[dict[str, Any]]:
     """The pages the participants' copy holds, in run order: live results and quiz questions — no slide, no podium (it names people)."""
     return [p for p in results["pages"] if p["kind"] in ("capture", "quiz_question")]
+
+
+def share_pages(results: dict[str, Any]) -> list[dict[str, Any]]:
+    """The pages the share copy holds, in run order: everything but the quiz podiums (they rank people)."""
+    return [p for p in results["pages"] if p["kind"] != "quiz_podium"]
+
+
+def share_html(folder: Path, results: dict[str, Any]) -> str:
+    """The copy for the client and the participants: every slide and live result, with no appendix and no podium."""
+    acts = {a["id"]: a for a in results["activities"]}
+    quizzes = {q["id"]: q for q in results.get("quizzes") or []}
+    parts = [_head(results, quizzes)]
+    parts += [_page_html(folder, p, acts, quizzes, appendix=False) for p in share_pages(results)]
+    parts.append("</body></html>")
+    return "".join(parts)
 
 
 def activities_html(folder: Path, results: dict[str, Any]) -> str:

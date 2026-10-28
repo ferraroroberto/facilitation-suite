@@ -16,7 +16,7 @@ from src.quiz.results import quiz_results
 from src.quiz.service import replay, scopes_of
 from src.results.collect import load_results, participation, timeline
 from src.results.excel import build_report, quiz_sheet_title
-from src.results.pdf import activities_html, session_html
+from src.results.pdf import activities_html, session_html, share_html, share_pages
 from src.sessions.model import parse_session
 from tests.fixtures.demo import PLAN, build_demo_session, write_demo_run
 from tests.fixtures.quiz_run import (
@@ -180,6 +180,16 @@ def test_the_participants_pdf_keeps_the_questions_and_leaves_the_podiums_out(iso
     questions = [x["question"] for q in data["quizzes"] for x in q["questions"]]
     positions = [html.index(escape(t)) for t in dict.fromkeys(questions)]
     assert positions == sorted(positions)
+
+
+def test_the_share_pdf_keeps_the_questions_and_leaves_the_podiums_and_leaderboards_out(isolated_env: Path) -> None:
+    _, folder, data = _quiz_run(isolated_env)
+    html = share_html(folder, data).partition("<body>")[2]  # the document, not its stylesheet
+    assert len(share_pages(data)) == len(data["pages"]) - 2  # one podium per game
+    assert html.count("<div class='page") == len(share_pages(data)) and html.count("<div class='page quiz'>") == 8 - 2
+    assert "podium" not in html and "Zenith" not in html and "Quiz ·" not in html and "appendix" not in html
+    assert "Participation" not in html and "<table" not in html
+    assert "podium" in session_html(folder, data, [])  # the full copy keeps them
 
 
 def test_a_game_that_never_reached_its_podium_still_ends_on_its_standings(isolated_env: Path) -> None:

@@ -16,7 +16,7 @@ from src.geo.gazetteer import gazetteer
 from src.results.aliases import AliasError, Aliases, read_aliases, suggest, write_aliases
 from src.results.collect import load_results, participation, participation_table, timeline
 from src.results.excel import sheet_title
-from src.results.pdf import activities_html, session_html
+from src.results.pdf import activities_html, activities_pages, session_html, share_html, share_pages
 from src.results.reconcile import minutes_of, norm_text, parse_saved_chat, reconcile
 from src.sessions.model import parse_session
 from tests.fixtures.demo import LONG_TOP_ANSWER, PLAN, build_demo_session, write_demo_run, zoom_saved_chat
@@ -173,7 +173,7 @@ def test_results_api_and_the_frozen_image(client, isolated_env: Path) -> None:
     sid, _, _ = _run(isolated_env)
     data = client.get(f"/api/sessions/{sid}/results").json()
     assert data["went_live"] and len(data["activities"]) == 6
-    assert data["reconciliation"] is None and data["exports"] == {"pdf": None, "activities": None, "xlsx": None}
+    assert data["reconciliation"] is None and data["exports"] == {"pdf": None, "share": None, "activities": None, "xlsx": None}
     r = client.get(f"/api/sessions/{sid}/results/captures/act-kryptonite.png")
     assert r.status_code == 200 and r.content[:4] == b"\x89PNG"
     assert client.get(f"/api/sessions/{sid}/results/captures/nope.png").status_code == 404
@@ -199,8 +199,8 @@ def test_excel_report_has_a_sheet_per_activity_and_participation(client, isolate
     assert part[0][0] == "Name" and part[0][-1] == "Chat messages" and len(part[0]) == 11
     assert part[0][-3:-1] == ["Early (1–3)", "Late (4–6)"]
     assert all(r[-3] + r[-2] == r[1] for r in part[1:])  # every counted answer is early or late
-    assert client.get(f"/api/sessions/{sid}/exports/session.pdf").status_code == 404
-    assert client.get(f"/api/sessions/{sid}/exports/session-activities.pdf").status_code == 404
+    for name in ("session.pdf", "session-full.pdf", "session-share.pdf", "session-activities.pdf"):
+        assert client.get(f"/api/sessions/{sid}/exports/{name}").status_code == 404
 
 
 def test_excel_needs_a_capture(client, isolated_env: Path) -> None:
@@ -283,6 +283,35 @@ def test_the_participants_pdf_does_not_point_to_an_appendix_it_does_not_have(iso
     assert "every answer is in the appendix" in session_html(folder, data, [])
 
 
+def test_the_share_pdf_holds_every_slide_and_capture_in_run_order_and_no_stats(isolated_env: Path) -> None:
+    _, folder, run = _run(isolated_env)
+    data = load_results(folder, parse_session(PLAN))
+    html = share_html(folder, data).partition("<body>")[2]  # the document, not its stylesheet
+    shown = [p for p in data["pages"] if p["kind"] in ("slide", "capture")]
+    assert len(shown) == 16 and share_pages(data) == data["pages"]  # no quiz in this run: nothing to leave out
+    assert re.findall(r"/(?:slides|captures)/([^/']+)'", html) == [p["file"] if p["kind"] == "slide" else f"{p['item_id']}.png" for p in shown]
+    assert len(re.findall(r"<div class='page[^']*'>", html)) == len(shown) and "title-page" not in html  # no extra page
+    assert "appendix" not in html and "Participation" not in html and "<table" not in html
+    assert not any(r["name"] in html for r in participation(data["activities"], run["chat"]))  # no per-person name anywhere
+    assert "slides/" not in activities_html(folder, data)  # the participants' copy still leaves the slides out
+
+
+def test_the_share_pdf_does_not_point_to_an_appendix_it_does_not_have(isolated_env: Path) -> None:
+    _, folder, _ = _run(isolated_env)
+    (folder / "live" / "captures" / "act-ideas.png").unlink()
+    data = load_results(folder, parse_session(PLAN))
+    body = share_html(folder, data).partition("<body>")[2]
+    assert "What do we need to win?" in body and "was not saved." in body and "appendix" not in body
+
+
+def test_a_session_of_slides_only_still_has_a_share_pdf(isolated_env: Path) -> None:
+    _, folder, _ = _run(isolated_env)
+    data = load_results(folder, parse_session(PLAN))
+    slides = {**data, "pages": [p for p in data["pages"] if p["kind"] == "slide"], "activities": []}
+    assert len(share_pages(slides)) == 10 and activities_pages(slides) == []
+    assert share_html(folder, slides).count("<div class='page") == 10
+
+
 def test_sheet_titles_are_valid_and_unique() -> None:
     taken: set[str] = set()
     a = sheet_title(1, "What is our [common] enemy? / really: *", taken)
@@ -304,10 +333,18 @@ def test_session_pdf_prints_every_page_then_the_appendix(client, isolated_env: P
     assert (body["slides"], body["captures"]) == (10, 6)
     assert body["missing_images"] == ["What do we need to win?"]
     assert body["pages"] is not None and body["pages"] >= 17  # 16 pages + at least one appendix page
-    pdf = client.get(f"/api/sessions/{sid}/exports/session.pdf")
+    assert body["file"] == "session-full.pdf"
+    pdf = client.get(f"/api/sessions/{sid}/exports/session-full.pdf")
     assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"
     assert pdf.headers["content-disposition"].startswith("inline")  # opens in a tab, never lands in Downloads
-    assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["pdf"]["file"] == "session.pdf"
+    assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["pdf"]["file"] == "session-full.pdf"
+    # the same click wrote the share copy: the 10 slides + 6 live results, no appendix
+    assert body["share"]["file"] == "session-share.pdf" and body["share"]["pages"] == 16
+    share = client.get(f"/api/sessions/{sid}/exports/session-share.pdf")
+    assert share.status_code == 200 and share.content[:5] == b"%PDF-"
+    assert share.headers["content-disposition"].startswith("inline")
+    assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["share"]["file"] == "session-share.pdf"
+    assert not (folder / "exports" / "session.pdf").exists()  # the old name is not written any more
     # the same click wrote the participants' copy: a title page + the 6 live results, no slide, no appendix
     assert body["activities"]["file"] == "session-activities.pdf" and body["activities"]["pages"] == 7
     shared = client.get(f"/api/sessions/{sid}/exports/session-activities.pdf")
@@ -315,6 +352,19 @@ def test_session_pdf_prints_every_page_then_the_appendix(client, isolated_env: P
     assert shared.headers["content-disposition"].startswith("inline")
     assert (folder / "exports" / "session-activities.pdf").is_file()
     assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["activities"]["file"] == "session-activities.pdf"
+
+
+def test_an_older_export_still_opens_under_its_former_name_until_it_is_exported_again(client, isolated_env: Path) -> None:
+    sid, folder, _ = _run(isolated_env)
+    (folder / "exports").mkdir(exist_ok=True)
+    (folder / "exports" / "session.pdf").write_bytes(b"%PDF-old")
+    for name in ("session.pdf", "session-full.pdf"):  # the link the Results tab builds, and the former one
+        assert client.get(f"/api/sessions/{sid}/exports/{name}").content == b"%PDF-old"
+    assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["pdf"]["file"] == "session.pdf"
+    assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["share"] is None
+    (folder / "exports" / "session-full.pdf").write_bytes(b"%PDF-new")  # an export since: the new name wins
+    assert client.get(f"/api/sessions/{sid}/exports/session.pdf").content == b"%PDF-new"
+    assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["pdf"]["file"] == "session-full.pdf"
 
 
 # ---- the check against Zoom's saved chat -----------------------------------------
