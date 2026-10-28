@@ -1,4 +1,4 @@
-# The chat reader (Zoom or Teams)
+# The chat reader (Zoom, Teams or Meet)
 
 Participants answer in the Zoom chat; a separate local process reads it — no bot, no Zoom app. In Zoom, **pop out the meeting chat** (Chat → … → Pop out): the reader finds that window (`Meeting chat`) and reads every message through Windows accessibility (MSAA) twice a second, then posts the new ones to the server, which appends them to the session's `live/chat.jsonl` and shows them on the presenter.
 
@@ -11,7 +11,7 @@ Participants answer in the Zoom chat; a separate local process reads it — no b
 
 ## Teams instead of Zoom
 
-The same reader reads a Microsoft Teams meeting chat, locally and read only — no bot, no Microsoft Graph app, nothing clicked or typed in Teams. Choose the platform on the presenter: the **Zoom · Teams** switch under the chat panel. While the reader runs, a switch restarts it on the other platform; its first read is a baseline, so what is already in that chat is history, never new answers. While it is stopped, the switch only saves the choice, and the next start (by hand, or going live) reads that platform. The choice is saved as `reader.source` in `config/config.json` (`zoom`, the default, or `teams`), so it survives an app restart and is where the next session starts. A simulation keeps running through a switch.
+The same reader reads a Microsoft Teams meeting chat, locally and read only — no bot, no Microsoft Graph app, nothing clicked or typed in Teams. Choose the platform on the presenter: the **Zoom · Teams · Meet** switch under the chat panel. While the reader runs, a switch restarts it on the other platform; its first read is a baseline, so what is already in that chat is history, never new answers. While it is stopped, the switch only saves the choice, and the next start (by hand, or going live) reads that platform. The choice is saved as `reader.source` in `config/config.json` (`zoom`, the default, `teams` or `meet`), so it survives an app restart and is where the next session starts. A simulation keeps running through a switch.
 
 - **Open the meeting chat** in Teams on the web (Chrome or Edge) in a browser window of its own: **Chat** in Teams' left bar → the meeting's chat. Keep that Teams tab the **active tab of its window** — a browser exposes only the active tab to Windows accessibility. The reader finds the window whose title carries `Microsoft Teams` (`reader.teams_title`), an open chat (`Chat | … | Microsoft Teams`) first, and reads its message list through UI Automation twice a second.
 - **Tested:** a meeting chat opened from Teams' Chat list, in Teams on the web. **Not tested yet:** the chat panel inside a running meeting, and Teams desktop (the new Teams is the same engine, but whether its popped-out meeting chat is a window of its own is not known) — before a live session, check that the chip says *Teams chat · reading* with the count you expect.
@@ -19,5 +19,17 @@ The same reader reads a Microsoft Teams meeting chat, locally and read only — 
 - Times come from Teams' message ids (your PC's clock, `HH:MM`); system lines (meeting started or ended, someone invited) are dropped; your own messages arrive as *You*, as in Zoom, so they never count as answers unless the rehearsal switch is on.
 - **Opening another chat** in that window while the reader runs: the reader takes the other chat's messages as history (logged), not as new answers. Messages that arrive in the meeting chat while another chat is shown are not read.
 - Like Zoom's, Teams' chat list holds only the messages it has drawn: keep the chat scrolled to the bottom.
+
+## Google Meet
+
+The reader also reads a Google Meet call's chat, the same way and just as read only: no bot, no Google app, nothing clicked or typed in Meet. Choose **Meet** on the presenter's switch.
+
+- **Open the call** in Chrome or Edge, in a browser window of its own, and keep the Meet tab the **active tab of its window**. Then **open the chat panel** (the chat button in Meet's bottom bar, so that *In-call messages* shows on the right). Meet has no pop-out chat. The reader finds the window whose title names `Meet` (`reader.meet_title`), a `Meet - …` tab first, looks for the panel titled `In-call messages` (`reader.meet_panel`), and reads it through UI Automation twice a second.
+- **Not tested yet in a live meeting.** The reader was built against synthetic accessibility trees modelled on Meet's chat panel, not a recording of a real call. Before a session on Meet, rehearse with a second account: send a few messages and check that the chip says *Meet chat · reading* with the count you expect, and that sender, time and text land on the presenter.
+- Meet's class names change with every release, so the reader goes by structure instead: a sender and a time head each run of that sender's consecutive messages, and every message below them becomes a row with that time (your PC's clock as Meet shows it, turned into `HH:MM`). Text outside such a run (the panel's notice, system lines such as someone joining, the message box) is dropped. So are buttons, participant tiles and captions. Your own messages arrive as *You*, as in Zoom.
+- The labels are Meet's English ones. With Meet in another language, set `reader.meet_title` and `reader.meet_panel` to what that language shows, and note that your own messages then carry its word for *You*.
+- The chip and the remote say *Meet chat · …*; *open the chat* means no Meet tab shows its chat panel.
+- **Closing the panel** reads as a lost chat: when it is opened again, the next read is lined up with what was stored, so nothing already stored is posted twice. Messages that arrived while it was closed are stored then if Meet still shows them.
+- Each read takes the whole Meet page (the chat panel has no id to aim at), so a call with many video tiles reads more slowly. A read slower than `poll_ms` shows in the log with its node count.
 
 Log: `data/logs/chat-reader.log` (see [Logs](operations.md#logs)).

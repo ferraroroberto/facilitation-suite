@@ -1,4 +1,4 @@
-"""Read the open Teams chat through Windows UI Automation (#237).
+"""Read the open Teams or Google Meet chat through Windows UI Automation (#237).
 
 Teams on the web and the new Teams desktop app are Chromium (WebView2), which
 exposes the page to UI Automation — MSAA reaches the same text but without the
@@ -6,9 +6,11 @@ class names and automation ids the parser keys on (``src/chat/teams.py``).
 Read only: the walk asks for properties and never uses a control pattern, so
 nothing is clicked, focused, scrolled or typed.
 
-Chromium exposes only the active tab, so a Teams tab must be the active one in
-its browser window. The message list is found by automation id and fetched in
-one cached request (the whole subtree in one cross-process round trip).
+Chromium exposes only the active tab, so a Teams or Meet tab must be the active
+one in its browser window. Teams' message list is found by automation id; Meet's
+chat panel by its name, after which the whole window is read (``src/chat/meet.py``
+finds the panel in it). Either way it is fetched in one cached request (the whole
+subtree in one cross-process round trip).
 
 Windows only; imported lazily by the reader so the rest of the app (and the
 test suite) never loads COM.
@@ -65,21 +67,44 @@ def chat_list(hwnd: int, max_nodes: int = MAX_NODES) -> Optional[list[UNode]]:
     itself first, at depth 0), or None when the window shows no chat list."""
     uia, U = _client()
     root = uia.ElementFromHandle(hwnd)
+    cond = uia.CreatePropertyCondition(U.UIA_AutomationIdPropertyId, LIST_ID)
+    found = root.FindFirstBuildCache(U.TreeScope_Descendants, cond, _subtree_cache(uia, U, with_type=False))
+    return _flatten(found, max_nodes, with_type=False) if found else None
+
+
+def meet_window(hwnd: int, panel: str, max_nodes: int = MAX_NODES) -> Optional[list[UNode]]:
+    """The whole window in document order when it shows the Meet chat panel (an
+    element named ``panel``), or None. Meet has no ids to aim at, so the parser
+    (``src/chat/meet.py``) finds the panel inside the page."""
+    uia, U = _client()
+    root = uia.ElementFromHandle(hwnd)
+    cond = uia.CreatePropertyCondition(U.UIA_NamePropertyId, panel)
+    # The search goes through a raw-view cache request: the default control view hides the page.
+    if not root.FindFirstBuildCache(U.TreeScope_Descendants, cond, _subtree_cache(uia, U, with_type=False)):
+        return None
+    return _flatten(root.BuildUpdatedCache(_subtree_cache(uia, U, with_type=True)), max_nodes, with_type=True)
+
+
+def _subtree_cache(uia: Any, U: Any, *, with_type: bool) -> Any:
+    """A request for the whole subtree's names, class names, ids (and control types) in one round trip."""
     cache = uia.CreateCacheRequest()
-    for prop in (U.UIA_ClassNamePropertyId, U.UIA_AutomationIdPropertyId, U.UIA_NamePropertyId):
+    props = [U.UIA_ClassNamePropertyId, U.UIA_AutomationIdPropertyId, U.UIA_NamePropertyId]
+    for prop in props + ([U.UIA_ControlTypePropertyId] if with_type else []):
         cache.AddProperty(prop)
     cache.TreeScope = U.TreeScope_Subtree
     cache.TreeFilter = uia.RawViewCondition  # the default control view hides Chromium's page content
-    cond = uia.CreatePropertyCondition(U.UIA_AutomationIdPropertyId, LIST_ID)
-    found = root.FindFirstBuildCache(U.TreeScope_Descendants, cond, cache)
-    if not found:
-        return None
+    return cache
+
+
+def _flatten(found: Any, max_nodes: int, *, with_type: bool) -> list[UNode]:
+    """The cached subtree of ``found`` in document order, ``found`` itself first at depth 0."""
     out: list[UNode] = []
 
     def visit(el: Any, depth: int) -> None:
         if len(out) >= max_nodes:
             return
-        out.append(UNode(depth, el.CachedClassName or "", el.CachedAutomationId or "", el.CachedName or ""))
+        out.append(UNode(depth, el.CachedClassName or "", el.CachedAutomationId or "", el.CachedName or "",
+                         el.CachedControlType if with_type else 0))
         kids = el.GetCachedChildren()
         if not kids:  # a leaf: a NULL pointer, not None
             return

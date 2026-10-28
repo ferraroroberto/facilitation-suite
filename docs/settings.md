@@ -7,7 +7,7 @@ The gear in any tab's header opens **Settings**: what is common to every present
 | **Appearance** | light / dark / system for the app, the presenter and the phone remote · text size | global (every device) · text size per device |
 | **Stage defaults** | the stage theme and lettering (title font, text font, each kind of text) new sessions start from · the **stage library** of fonts and themes | defaults only: a new session **copies** them into its `session.yaml`, then owns them |
 | **Music** | the Spotify account (state, device, last check, **Connect / Reconnect Spotify**) · the fades a newly switched-on music item starts with | global (the login is in `.env`, the fades in `config/config.json`) |
-| **Live tools** | OBS profiles and connection · the chat reader (Zoom or Teams) · what a click on the stage does · the Stream Deck buttons · the phone remote | global |
+| **Live tools** | OBS profiles and connection · the chat reader (Zoom, Teams or Meet) · what a click on the stage does · the Stream Deck buttons · the phone remote | global |
 | **About** | the build and the credits | — |
 
 **Per session** stays in the session's own plan: its stage theme and lettering (Sessions tab → **Session settings** → *Stage look*), each item's own font exceptions and music (Plan tab). Changing a default never touches an existing session. The session's Stage look says **Using the default** or **Overridden**, marks each title font, size and capitals that differs from the default with its own **Reset to global**, and **Reset all to defaults** copies the current defaults in after a confirm (the session's theme and lettering; items keep their own exceptions). The stage always follows the session's own look.

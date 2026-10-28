@@ -461,9 +461,14 @@ const READER_CHIP = {
   error: ['bad', 'error'],
   off: ['', 'off', 'start-reader'],
 };
-// The reader's source: its last heartbeat says Teams or Zoom (the simulator counts as Zoom);
+// The reader's source: its last heartbeat says Zoom, Teams or Meet (the simulator counts as Zoom);
 // a stopped reader shows the source chosen on the switch, the one it starts on.
-const isTeams = (r) => (r.state === 'off' || !r.source ? r.chosen : r.source) === 'teams';
+const SOURCE_NAMES = { zoom: 'Zoom', teams: 'Teams', meet: 'Meet' };
+const sourceOf = (r) => {
+  const s = r.state === 'off' || !r.source ? r.chosen : r.source;
+  return s in SOURCE_NAMES ? s : 'zoom';
+};
+const sourceName = (r) => SOURCE_NAMES[sourceOf(r)];
 
 function drawChips() {
   const box = root.querySelector('[data-chips]');
@@ -473,8 +478,8 @@ function drawChips() {
   if (!live.online) chips.push(['bad', 'Server · reconnecting']);
   const r = s.reader || { state: 'off' };
   const rc = READER_CHIP[r.state] || ['bad', r.state];
-  const what = isTeams(r) && r.state === 'window_not_found' ? 'open the chat' : rc[1];
-  chips.push([rc[0], `${isTeams(r) ? 'Teams' : 'Zoom'} chat · ${what}`, rc[2], r.detail]);
+  const what = sourceOf(r) !== 'zoom' && r.state === 'window_not_found' ? 'open the chat' : rc[1];
+  chips.push([rc[0], `${sourceName(r)} chat · ${what}`, rc[2], r.detail]);
   const o = s.obs || { state: 'off' };
   const profileLabel = { camera_strip: 'Camera strip', camera_pip: 'Camera PiP', screen_only: 'Screen only' }[o.profile] || '';
   if (o.state === 'connected') {
@@ -764,18 +769,19 @@ function drawChatFoot() {
   const running = r.state !== 'off';
   let hint = '';
   if (r.state === 'window_not_found') {
-    hint = isTeams(r)
-      ? 'In Teams: open the meeting chat. In a browser, keep the Teams tab the active tab of its window.'
-      : 'In Zoom: Chat → … → Pop out. The reader only sees the popped-out chat.';
+    hint = {
+      teams: 'In Teams: open the meeting chat. In a browser, keep the Teams tab the active tab of its window.',
+      meet: 'In Meet: open the chat panel, and keep the Meet tab the active tab of its window.',
+    }[sourceOf(r)] || 'In Zoom: Chat → … → Pop out. The reader only sees the popped-out chat.';
   } else if (r.state === 'stale' || r.state === 'error') hint = r.detail || '';
-  else if (!chat.length && r.state === 'off') hint = `Start the reader to see the ${isTeams(r) ? 'Teams' : 'Zoom'} chat here, or simulate answers to rehearse.`;
-  const chosen = r.chosen === 'teams' ? 'teams' : 'zoom';
-  root.querySelector('.p-chat .p-label').textContent = `${isTeams(r) ? 'Teams' : 'Zoom'} chat`;
+  else if (!chat.length && r.state === 'off') hint = `Start the reader to see the ${sourceName(r)} chat here, or simulate answers to rehearse.`;
+  const chosen = r.chosen in SOURCE_NAMES ? r.chosen : 'zoom';
+  root.querySelector('.p-chat .p-label').textContent = `${sourceName(r)} chat`;
   const key = `${r.state}|${hint}|${chosen}`;
   if (foot.dataset.key === key) return;
   foot.dataset.key = key;
   foot.innerHTML = (hint ? `<p class="small muted p-chat-hint">${esc(hint)}</p>` : '') +
-    `<div class="segmented" role="group" aria-label="Chat source">${[['zoom', 'Zoom'], ['teams', 'Teams']].map(([v, l]) =>
+    `<div class="segmented" role="group" aria-label="Chat source">${Object.entries(SOURCE_NAMES).map(([v, l]) =>
       `<button type="button" class="segmented-item" data-track="live.reader-source" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
     `<div class="row-actions">` +
     (running && r.state !== 'simulating'
@@ -790,9 +796,9 @@ function drawChatFoot() {
   }));
 }
 
-// Zoom · Teams: saved for the next session too; a running reader restarts on it.
+// Zoom · Teams · Meet: saved for the next session too; a running reader restarts on it.
 async function chooseSource(source, foot) {
-  const name = source === 'teams' ? 'Teams' : 'Zoom';
+  const name = SOURCE_NAMES[source];
   foot.querySelectorAll('[data-source]').forEach((b) => { b.disabled = true; });
   try {
     const res = await api('/api/chat/reader/source', { method: 'PUT', body: { source } });

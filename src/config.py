@@ -52,8 +52,10 @@ class ObsConfig:
 @dataclass(frozen=True)
 class ReaderConfig:
     """The chat reader process (``python -m src.chat.reader``). ``source`` is
-    ``"zoom"`` (the popped-out chat: ``window_class`` + ``window_title``) or
-    ``"teams"`` (a window whose title carries ``teams_title``, #237)."""
+    ``"zoom"`` (the popped-out chat: ``window_class`` + ``window_title``),
+    ``"teams"`` (a window whose title carries ``teams_title``, #237) or ``"meet"``
+    (a window whose title names ``meet_title``, showing the chat panel named
+    ``meet_panel`` — Meet's English labels; another UI language needs its own)."""
 
     enabled: bool = True
     source: str = "zoom"
@@ -61,6 +63,8 @@ class ReaderConfig:
     window_class: str = "ZConfChatPopupContainerWndClass"
     window_title: str = "Meeting chat"
     teams_title: str = "Microsoft Teams"
+    meet_title: str = "Meet"
+    meet_panel: str = "In-call messages"
 
 
 @dataclass(frozen=True)

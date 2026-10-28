@@ -25,7 +25,8 @@ def _check(key: str, label: str, state: str, detail: str, action: Optional[str] 
 
 # What the facilitator does before testing the chat reader, per source (``reader.source``).
 READER_TEST_HINT = {"zoom": "pop out the chat",
-                    "teams": "open the meeting chat as the active tab"}
+                    "teams": "open the meeting chat as the active tab",
+                    "meet": "open the chat panel in the active Meet tab"}
 
 
 def reader_test_hint(source: Any) -> str:

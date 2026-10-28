@@ -289,14 +289,17 @@ async function editConnection() {
 function readerCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
-  const teams = data.reader.source === 'teams';
-  card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('message-square')} ${teams ? 'Teams' : 'Zoom'} chat reader</h3></div>`;
+  const source = data.reader.source;
+  const name = { teams: 'Teams', meet: 'Meet' }[source] || 'Zoom';
+  card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('message-square')} ${name} chat reader</h3></div>`;
   card.appendChild(switchRow(data.reader.enabled, 'Start the reader when a session goes live', (next) => save({ reader: { enabled: next } })));
   const note = document.createElement('p');
   note.className = 'small muted settings-note';
-  note.textContent = teams
-    ? `It reads the Teams chat open in a window titled “… ${data.reader.teams_title}” every ${data.reader.poll_ms} ms. Choose Zoom or Teams on the presenter, under the chat.`
-    : `It reads the popped-out Zoom window titled “${data.reader.window_title}” every ${data.reader.poll_ms} ms. Choose Zoom or Teams on the presenter, under the chat.`;
+  const what = {
+    teams: `the Teams chat open in a window titled “… ${data.reader.teams_title}”`,
+    meet: `the chat panel of the Meet tab in a window titled “${data.reader.meet_title} …”`,
+  }[source] || `the popped-out Zoom window titled “${data.reader.window_title}”`;
+  note.textContent = `It reads ${what} every ${data.reader.poll_ms} ms. Choose Zoom, Teams or Meet on the presenter, under the chat.`;
   card.appendChild(note);
   return card;
 }

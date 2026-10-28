@@ -58,7 +58,7 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     expect(page.locator(".p-msg")).to_have_count(50)
     expect(page.locator(".p-chips")).to_contain_text("Zoom chat · off", timeout=15000)  # the simulation ended
 
-    # #239: the Zoom · Teams switch. The reader is stopped, so a switch only saves the choice.
+    # #239: the Zoom · Teams · Meet switch. The reader is stopped, so a switch only saves the choice.
     switch = page.locator('[data-chatfoot] [role="group"][aria-label="Chat source"]')
     expect(switch.locator('.segmented-item[aria-pressed="true"]')).to_have_text("Zoom")
     switch.get_by_role("button", name="Teams").click()
@@ -66,6 +66,10 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     expect(switch.locator('.segmented-item[aria-pressed="true"]')).to_have_text("Teams")
     expect(page.locator(".p-chips")).to_contain_text("Teams chat · off")
     assert page.request.get(f"{webapp.base_url}/api/settings").json()["reader"]["source"] == "teams"
+    switch.get_by_role("button", name="Meet").click()
+    expect(page.locator("#toast")).to_contain_text("Meet chat chosen")
+    expect(page.locator(".p-chips")).to_contain_text("Meet chat · off")
+    expect(page.locator(".p-chat .p-label")).to_have_text("Meet chat")
     switch.get_by_role("button", name="Zoom").click()
     expect(page.locator(".p-chips")).to_contain_text("Zoom chat · off")
 

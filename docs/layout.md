@@ -45,7 +45,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `sessions/` | the session folder: model, store, readiness, theme, offline use |
 | `importer/` | PowerPoint import through COM and the re-import review |
 | `live/` | live state: the plan clock, capture, freeze, the hub, actions |
-| `chat/` | the chat reader (Zoom through MSAA, Teams through UI Automation) and answer parsing |
+| `chat/` | the chat reader (Zoom through MSAA, Teams and Meet through UI Automation) and answer parsing |
 | `activities/` | the activity registry and the answer handling the plug-ins share |
 | `groups/` | roster and shuffle |
 | `obs/` | obs-websocket scene switching |

@@ -37,12 +37,14 @@ _MS_MIN, _MS_MAX = 10**12, 10**13
 
 @dataclass(frozen=True)
 class UNode:
-    """One UI Automation element: tree depth, class name, automation id, name."""
+    """One UI Automation element: tree depth, class name, automation id, name and
+    control type (0 where the walk does not ask for it)."""
 
     depth: int
     cls: str
     aid: str
     name: str
+    ctype: int = 0
 
 
 def time_from_id(msg_id: str) -> str:
