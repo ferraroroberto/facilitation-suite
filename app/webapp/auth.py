@@ -29,7 +29,7 @@ from http.cookies import SimpleCookie
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlsplit
 
-from app.webapp.errors import is_local
+from app.webapp.errors import host_header, is_local
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,8 @@ class RemoteAuth:
     async def _refuse(scope: dict[str, Any], send: Any, status: int, close_code: int, code: str, message: str,
                       extra_headers: Optional[list[tuple[bytes, bytes]]] = None) -> None:
         client = (scope.get("client") or ("?",))[0]
-        logger.info("ℹ️ refused %s %s from %s (%s)", scope["type"], scope.get("path", ""), client, code)
+        logger.info("ℹ️ refused %s %s from %s as %s (%s)", scope["type"], scope.get("path", ""), client,
+                    host_header(scope) or "?", code)
         if scope["type"] == "websocket":
             await send({"type": "websocket.close", "code": close_code})
             return

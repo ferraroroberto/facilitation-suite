@@ -101,6 +101,31 @@ def test_a_page_of_another_site_cannot_act_on_this_pc(app) -> None:
             assert ws.receive_json()["type"] in ("plan", "state")
 
 
+def test_this_pc_is_reached_only_under_its_own_names(app) -> None:
+    def asked_for(host: str) -> dict[str, object]:
+        return {"client": ("127.0.0.1", 1), "server": ("127.0.0.1", 8456), "headers": [(b"host", host.encode())]}
+
+    for host in ("127.0.0.1:8456", "[::1]:8449", "LOCALHOST:8456", f"{socket.gethostname()}:8449", "100.107.0.1:8449"):
+        assert is_local(asked_for(host)), host
+    assert not is_local(asked_for("elsewhere.example:8456"))
+    assert not is_local(asked_for(""))
+
+    other = "http://elsewhere.example:8456"
+    with TestClient(app, client=("127.0.0.1", 50000), base_url=other) as caller:
+        refused = caller.get("/api/sessions")
+        assert refused.status_code == 401 and refused.json()["error"]["code"] == "remote_off"
+        assert caller.post("/api/actions/blackout", headers={"origin": other}).status_code == 401
+        assert caller.get("/healthz").status_code == 200  # the open pages stay open
+        with pytest.raises(WebSocketDisconnect) as closed, caller.websocket_connect(
+                "/ws?role=app", headers={"origin": other, "host": "elsewhere.example:8456"}):
+            pass
+        assert closed.value.code == 4401
+        token = _token(app)
+        assert caller.get("/api/sessions", headers={"authorization": f"Bearer {token}"}).status_code == 200
+    with TestClient(app, client=("127.0.0.1", 50000), base_url="http://127.0.0.1:8456") as pc:
+        assert pc.get("/api/sessions").status_code == 200
+
+
 def test_a_new_link_unpairs_and_off_locks_out(app) -> None:
     old = _token(app)
     new = _token(app)
