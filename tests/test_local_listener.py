@@ -77,8 +77,8 @@ def test_listener_stops_with_the_main_app(isolated_env: Path) -> None:
     _with_local_port(isolated_env, port)
     with TestClient(create_app(), client=("127.0.0.1", 50000)):
         assert _get(f"http://127.0.0.1:{port}/healthz")[0] == 200
-    with socket.socket() as s:  # the port is free again once the main app stopped
-        s.bind(("127.0.0.1", port))
+    with pytest.raises(OSError), socket.create_connection(("127.0.0.1", port), timeout=2):
+        pass  # nothing listens once the main app stopped
 
 
 @pytest.mark.parametrize("holder", ["127.0.0.1", "0.0.0.0"])
