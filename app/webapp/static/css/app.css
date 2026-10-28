@@ -638,6 +638,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .pdf-note { margin: 0; }
 .export-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 .export-actions .button-primary, .export-actions .button-surface { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; }
+.export-open .button-tint { display: inline-flex; align-items: center; gap: 8px; min-height: var(--hit-min); padding: 0 16px; }
 
 /* ---- Settings ----------------------------------------------------------- */
 .settings-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }

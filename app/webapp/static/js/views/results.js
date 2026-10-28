@@ -271,6 +271,8 @@ function renderDetail() {
   if (q) detailEl.appendChild(quizDetail(q));
   if (data.pages.length || data.activities.length) detailEl.appendChild(pdfCard());
   if (data.pages.length || data.activities.length) detailEl.appendChild(exportActions());
+  const open = openLinks();
+  if (open) detailEl.appendChild(open);
 }
 
 function activityDetail(a) {
@@ -359,42 +361,48 @@ function exportActions() {
   row.innerHTML = `<button type="button" class="button-primary" data-pdf data-track="results.export-pdf">${icon('download')} Export session PDF</button>` +
     `<button type="button" class="button-surface" data-xlsx data-track="results.export-xlsx" ${data.activities.length || data.quizzes.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
   row.querySelector('[data-pdf]').addEventListener('click', exportPdf);
-  row.querySelector('[data-xlsx]').addEventListener('click', () => download(`${base()}/exports/report.xlsx`, 'report.xlsx', 'Excel report saved in exports/'));
+  row.querySelector('[data-xlsx]').addEventListener('click', exportXlsx);
+  return row;
+}
+
+// The files stay in the session folder's exports/; these links open them in a tab
+// (inline, never a download) for a device that cannot reach that folder.
+function openLinks() {
+  const links = [];
+  const tag = 'target="_blank" rel="noopener"';
+  if (data.exports.pdf) links.push(`<a class="button-tint" href="${base()}/exports/session.pdf" ${tag} data-track="results.open-pdf">${icon('external-link')} Open session PDF</a>`);
+  if (data.exports.xlsx) links.push(`<a class="button-tint" href="${base()}/exports/report.xlsx" ${tag} data-track="results.open-xlsx">${icon('external-link')} Open Excel report</a>`);
+  if (!links.length) return null;
+  const row = document.createElement('div');
+  row.className = 'row-actions export-open';
+  row.innerHTML = links.join('');
   return row;
 }
 
 async function exportPdf(e) {
-  if (busy) return;
+  const r = await runExport(e, 'pdf');
+  if (!r) return;
+  const gaps = r.missing_images.length ? ` · ${r.missing_images.length} capture${r.missing_images.length === 1 ? '' : 's'} without an image` : '';
+  toast(`Session PDF saved in exports/${r.pages ? ` · ${r.pages} pages` : ''}${gaps}`);
+}
+
+async function exportXlsx(e) {
+  if (await runExport(e, 'xlsx')) toast('Excel report saved in exports/');
+}
+
+// Builds one export on the server and records its file info; null when it failed (the toast says why).
+async function runExport(e, key) {
+  if (busy) return null;
   busy = true;
   const btn = e.currentTarget;
   btn.disabled = true;
   btn.textContent = 'Exporting…';
+  let r = null;
   try {
-    const r = await api(`${base()}/exports/pdf`, { method: 'POST' });
-    data.exports.pdf = { modified_ms: r.modified_ms, pages: r.pages };
-    const gaps = r.missing_images.length ? ` · ${r.missing_images.length} capture${r.missing_images.length === 1 ? '' : 's'} without an image` : '';
-    await download(`${base()}/exports/session.pdf`, 'session.pdf', `Session PDF ready${r.pages ? ` · ${r.pages} pages` : ''}${gaps}`);
+    r = await api(`${base()}/exports/${key}`, { method: 'POST' });
+    data.exports[key] = { modified_ms: r.modified_ms, pages: r.pages };
   } catch (err) { toast(err.message, 'error'); }
   busy = false;
   renderDetail();
-}
-
-async function download(url, name, done) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      let msg = `Download failed (${res.status})`;
-      try { msg = (await res.json()).error.message || msg; } catch (e) { /* not JSON */ }
-      throw new Error(msg);
-    }
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-    toast(done);
-  } catch (e) { toast(e.message, 'error'); }
+  return r;
 }
