@@ -29,6 +29,7 @@ from src.jsonl import read_jsonl
 from src.logger import relay
 from src.no_window import NO_WINDOW
 from src.results.aliases import Excluded, read_aliases, seen_names, suggest, write_aliases
+from src.results.analysis import analysis_facts
 from src.results.collect import load_results, participation
 from src.results.excel import build_report
 from src.results.pdf import session_html
@@ -92,6 +93,13 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     data["exports"] = {"pdf": _file_info(folder / "exports" / PDF_FILE), "xlsx": _file_info(folder / "exports" / XLSX_FILE)}
     data["people"] = _people(folder, session, data)
     return data
+
+
+@router.get("/analysis")
+def analysis(request: Request, sid: str) -> dict[str, Any]:
+    """The *Analyze session* button's state: the command to copy and which inputs the analysis will find."""
+    folder, session = _load(request, sid)
+    return analysis_facts(folder, len(load_results(folder, session)["activities"]))
 
 
 def _roster_names(folder: Path) -> list[str]:

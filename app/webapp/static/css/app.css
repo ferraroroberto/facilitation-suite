@@ -668,6 +668,12 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .export-actions .button-primary, .export-actions .button-surface { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; }
 .export-open .button-tint { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; min-height: var(--hit-min); padding: 0 16px; }
 
+/* The Analyze session card: the inputs the analysis will find, the command in a field the browser can always select. */
+.analyze-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
+.analyze-inputs { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.analyze-command { width: 100%; font-family: var(--mono); font-size: var(--font-body-sm); text-overflow: ellipsis; }
+.analyze-note { margin: 0; }
+
 /* ---- Settings ----------------------------------------------------------- */
 .settings-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
 .settings-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-left: 0; padding-right: 0; }

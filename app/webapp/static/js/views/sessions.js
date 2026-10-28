@@ -10,6 +10,7 @@ import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { playbookCard } from '/static/js/views/playbook-card.js';
+import { analyzeCard } from '/static/js/views/analyze-card.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
 import { words, LANGUAGES } from '/static/js/stage-words.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
@@ -322,6 +323,7 @@ async function renderDetail() {
   top.appendChild(plan);
 
   detailEl.appendChild(playbookCard(sid, f.playbook, renderDetail));
+  detailEl.appendChild(analyzeCard(sid));
 
   detailEl.appendChild(settingsCard(sid, s, data.look, () => paintTitle(title, s)));
 

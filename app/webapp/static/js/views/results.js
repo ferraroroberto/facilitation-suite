@@ -7,6 +7,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, pageHead, setStatus, toast } from '/static/js/ui.js';
+import { analyzeCard } from '/static/js/views/analyze-card.js';
 
 let root;
 let ctx;
@@ -17,6 +18,7 @@ let listEl;
 let detailEl;
 let data = null;
 let selected = null;
+let analyzeEl = null; // built once per load, so choosing another activity does not re-read the session
 let busy = false;
 
 export async function mount(el, context) {
@@ -80,6 +82,7 @@ function stamp(ms) {
 }
 
 function render() {
+  analyzeEl = analyzeCard(ctx.sessionId);
   setStatus(head, [data.session.title, shortDate(data.session.date)].filter(Boolean).join(' · '));
   renderCheck();
   renderPeople();
@@ -273,6 +276,7 @@ function renderDetail() {
   if (data.pages.length || data.activities.length) detailEl.appendChild(exportActions());
   const open = openLinks();
   if (open) detailEl.appendChild(open);
+  detailEl.appendChild(analyzeEl);
 }
 
 function activityDetail(a) {
