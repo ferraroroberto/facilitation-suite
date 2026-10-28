@@ -10,8 +10,8 @@
   the choice, correct or not, its points, the response time). A replay of the
   same quiz adds `` run <n>`` to both names.
 - **Participation** — per person: answers counted in each activity, the
-  total, and chat messages sent (the StreamAlive "fans" idea), most active
-  first.
+  total, the early and late halves of the session, and chat messages sent
+  (the StreamAlive "fans" idea), most active first.
 
 Sheet names are at most 31 characters, free of the characters Excel refuses, and unique.
 """
@@ -25,6 +25,8 @@ from typing import Any
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
+
+from src.results.collect import participation_table
 
 BAD_SHEET_CHARS = re.compile(r"[\[\]:*?/\\]")
 BOLD = Font(bold=True)
@@ -101,10 +103,11 @@ def build_report(results: dict[str, Any], people: list[dict[str, Any]], out: Pat
         _quiz_sheets(wb, q, taken)
 
     ps = wb.create_sheet("Participation")
-    acts = results["activities"]
-    _table(ps, ["Name", "Answers", *[f"{a['number']} {a['title']}"[:40] for a in acts], "Chat messages"],
-           [[p["name"], p["total"], *[p["by_activity"].get(a["id"], 0) for a in acts], p["messages"]] for p in people],
-           [26, 10, *[14 for _ in acts], 14])
+    table = participation_table(results["activities"], people)
+    _table(ps, ["Name", "Answers", *[f"{a['number']} {a['title']}"[:40] for a in table["activities"]],
+                table["early_label"], table["late_label"], "Chat messages"],
+           [[r["name"], r["total"], *r["cells"], r["early"], r["late"], r["messages"]] for r in table["rows"]],
+           [26, 10, *[14 for _ in table["activities"]], 14, 14, 14])
     ps.freeze_panes = "B2"
 
     out.parent.mkdir(parents=True, exist_ok=True)

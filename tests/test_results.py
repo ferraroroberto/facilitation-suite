@@ -13,8 +13,9 @@ from openpyxl import load_workbook
 from src.activities.registry import options_with_defaults, parser, result_for
 from src.geo.gazetteer import gazetteer
 from src.results.aliases import AliasError, Aliases, read_aliases, suggest, write_aliases
-from src.results.collect import load_results, participation, timeline
+from src.results.collect import load_results, participation, participation_table, timeline
 from src.results.excel import sheet_title
+from src.results.pdf import session_html
 from src.results.reconcile import minutes_of, norm_text, parse_saved_chat, reconcile
 from src.sessions.model import parse_session
 from tests.fixtures.demo import LONG_TOP_ANSWER, PLAN, build_demo_session, write_demo_run, zoom_saved_chat
@@ -154,7 +155,9 @@ def test_excel_report_has_a_sheet_per_activity_and_participation(client, isolate
     header = rows.index(["Name", "Time", "Answer", "Parsed", "Hidden"])
     assert ["yes"] == [r[4] for r in rows[header + 1:] if r[2] == "hello"]
     part = [[c.value for c in row] for row in wb["Participation"].iter_rows()]
-    assert part[0][0] == "Name" and part[0][-1] == "Chat messages" and len(part[0]) == 9
+    assert part[0][0] == "Name" and part[0][-1] == "Chat messages" and len(part[0]) == 11
+    assert part[0][-3:-1] == ["Early (1–3)", "Late (4–6)"]
+    assert all(r[-3] + r[-2] == r[1] for r in part[1:])  # every counted answer is early or late
     assert client.get(f"/api/sessions/{sid}/exports/session.pdf").status_code == 404
 
 
@@ -162,6 +165,56 @@ def test_excel_needs_a_capture(client, isolated_env: Path) -> None:
     sid, _ = build_demo_session(isolated_env / "sessions" / "demo" / "empty", isolated_env / "sessions.local.yaml")
     assert client.get(f"/api/sessions/{sid}/exports/report.xlsx").json()["error"]["code"] == "nothing_to_export"
     assert client.post(f"/api/sessions/{sid}/exports/pdf").json()["error"]["code"] == "nothing_to_export"
+
+
+# ---- the participation table: early vs late, one helper for the PDF and the Excel sheet ----
+
+def _answers(*senders: str) -> list[dict]:
+    return [{"sender": s, "hidden": False} for s in senders]
+
+
+def _acts(per_activity: list[list[str]]) -> list[dict]:
+    return [{"id": f"a{n}", "number": n, "title": f"Activity {n}", "answer_rows": _answers(*who)}
+            for n, who in enumerate(per_activity, start=1)]
+
+
+def _table(per_activity: list[list[str]]) -> dict:
+    acts = _acts(per_activity)
+    return participation_table(acts, participation(acts, []))
+
+
+def test_the_odd_activity_out_is_early() -> None:
+    t = _table([["Ana"], ["Ana"], ["Ana", "Lee"], ["Lee"], ["Lee"]])
+    assert (t["early_label"], t["late_label"]) == ("Early (1–3)", "Late (4–5)")
+    assert {r["name"]: (r["early"], r["late"]) for r in t["rows"]} == {"Ana": (3, 0), "Lee": (1, 2)}
+
+
+def test_an_even_count_splits_down_the_middle_and_a_late_only_person_has_no_early() -> None:
+    t = _table([["Ana", "Sam"], ["Ana"], ["Sam", "Lee"], ["Lee"]])
+    assert (t["early_label"], t["late_label"]) == ("Early (1–2)", "Late (3–4)")
+    rows = {r["name"]: r for r in t["rows"]}
+    assert (rows["Lee"]["early"], rows["Lee"]["late"], rows["Lee"]["total"]) == (0, 2, 2)
+    assert rows["Sam"]["cells"] == [1, 0, 1, 0]
+    assert all(r["early"] + r["late"] == r["total"] for r in t["rows"])
+
+
+def test_a_single_activity_is_all_early() -> None:
+    t = _table([["Ana"]])
+    assert (t["early_label"], t["late_label"]) == ("Early (1)", "Late")
+    assert (t["rows"][0]["early"], t["rows"][0]["late"]) == (1, 0)
+
+
+def test_the_pdf_appendix_opens_with_the_participation_table(isolated_env: Path) -> None:
+    _, folder, run = _run(isolated_env)
+    data = load_results(folder, parse_session(PLAN))
+    people = participation(data["activities"], run["chat"])
+    html = session_html(folder, data, people)
+    assert html.index("<h2>Participation</h2>") < html.index("<h2>1 · ")
+    t = participation_table(data["activities"], people)
+    assert all(f"<span class='nb'>{label.partition(' ')[2]}</span>" in html for label in (t["early_label"], t["late_label"]))
+    assert [r["total"] for r in t["rows"]] == [p["total"] for p in people]  # the Excel sheet prints these same rows
+    assert "Participation" not in session_html(folder, {**data, "activities": [], "pages": []}, people)
+    assert "Participation" not in session_html(folder, data, [])
 
 
 def test_sheet_titles_are_valid_and_unique() -> None:

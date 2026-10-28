@@ -139,6 +139,13 @@ def capture_png(request: Request, sid: str, item_id: str) -> FileResponse:
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
+def _participation(folder: Path, session: Session, data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Each person's counts, the same rows for the PDF and the Excel report."""
+    aliases = read_aliases(folder)
+    return participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"), aliases,
+                         Excluded(session.excluded_senders, aliases))
+
+
 def _print(html: str, out: Path) -> int:
     """Write the print document to a scratch file and print it in its own process."""
     scratch = data_dir() / "tmp"
@@ -173,7 +180,7 @@ async def export_pdf(request: Request, sid: str) -> dict[str, Any]:
     if not data["pages"] and not data["activities"]:
         raise AppError(409, "nothing_to_export", "Nothing was shown live in this session yet")
     out = folder / "exports" / PDF_FILE
-    pages = await asyncio.to_thread(_print, session_html(folder, data), out)
+    pages = await asyncio.to_thread(_print, session_html(folder, data, _participation(folder, session, data)), out)
     missing = [a["title"] for a in data["activities"] if not a["has_png"]]
     logger.info("✅ session PDF for %s: %d slides + %d live results + %d quiz pages, %d pages", sid, data["slides"],
                 data["captures"], data["quiz_pages"], pages)
@@ -197,9 +204,7 @@ def download_xlsx(request: Request, sid: str) -> FileResponse:
     data = load_results(folder, session)
     if not data["activities"] and not data["quizzes"]:
         raise AppError(409, "nothing_to_export", "No activity was captured in this session yet")
-    aliases = read_aliases(folder)
-    people = participation(data["activities"], read_jsonl(folder / "live" / "chat.jsonl"), aliases,
-                           Excluded(session.excluded_senders, aliases))
+    people = _participation(folder, session, data)
     out = folder / "exports" / XLSX_FILE
     try:
         build_report(data, people, out)

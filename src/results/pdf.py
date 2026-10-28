@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.logger import configure_logging
+from src.results.collect import participation_table
 
 logger = logging.getLogger("session_pdf")
 
@@ -51,6 +52,12 @@ th { text-align: left; font-weight: 600; border-bottom: 1.5px solid #1f1f1f; pad
 td { border-bottom: 0.5px solid #d6d6d6; padding: 1.3mm 2mm; vertical-align: top; }
 tr { break-inside: avoid; }
 td.name { width: 28%; font-weight: 600; } td.time { width: 8%; color: #5e5e5e; }
+table.part { table-layout: fixed; font-size: 9.5pt; }
+table.part th, table.part td { text-align: center; padding: 1.3mm 0.4mm; }
+table.part th { font-size: 8.5pt; }
+table.part th.who, table.part td.name { text-align: left; width: 19%; padding-left: 1mm; overflow-wrap: anywhere; }
+table.part .nb { white-space: nowrap; }
+.zero { color: #9e9e9e; }
 """
 
 QUIZ_CSS = """
@@ -124,7 +131,30 @@ def _quiz_appendix(q: dict[str, Any]) -> str:
     return out + "</div>"
 
 
-def session_html(folder: Path, results: dict[str, Any]) -> str:
+def _participation_appendix(table: dict[str, Any]) -> str:
+    """Who contributed where: a column per activity (by number, titles in the legend), then the total, early, late and chat counts."""
+    def cell(n: int) -> str:
+        return str(n) if n else "<span class='zero'>–</span>"
+
+    def half(label: str) -> str:
+        """``Early (1–6)`` on two lines, the range kept whole."""
+        word, _, span = label.partition(" ")
+        return f"{escape(word)}<br><span class='nb'>{escape(span)}</span>" if span else escape(word)
+
+    legend = ", ".join(f"{a['number']} · {escape(a['title'])}" for a in table["activities"])
+    head = "".join(f"<th>{a['number']}</th>" for a in table["activities"])
+    body = "".join(
+        f"<tr><td class='name'>{escape(r['name'])}</td>{''.join(f'<td>{cell(n)}</td>' for n in r['cells'])}"
+        f"<td>{r['total']}</td><td>{cell(r['early'])}</td><td>{cell(r['late'])}</td><td>{cell(r['messages'])}</td></tr>"
+        for r in table["rows"])
+    return (f"<div class='act'><h2>Participation</h2><p class='meta'>{legend}</p>"
+            f"<table class='part'><thead><tr><th class='who'>Name</th>{head}<th>Answers</th>"
+            f"<th>{half(table['early_label'])}</th><th>{half(table['late_label'])}</th><th>Chat messages</th></tr></thead>"
+            f"<tbody>{body}</tbody></table></div>")
+
+
+def session_html(folder: Path, results: dict[str, Any], people: list[dict[str, Any]]) -> str:
+    """``people`` is ``collect.participation`` for the session: the table the Excel report prints as well."""
     acts = {a["id"]: a for a in results["activities"]}
     quizzes = {q["id"]: q for q in results.get("quizzes") or []}
     parts = [f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(results['session']['title'])}</title>"
@@ -151,6 +181,8 @@ def session_html(folder: Path, results: dict[str, Any]) -> str:
     date = (results["session"].get("date") or "")[:10]
     parts.append("<section class='appendix'>")
     parts.append(f"<h1>Answers</h1><p class='sub'>{escape(results['session']['title'])}{' · ' + escape(date) if date else ''}</p>")
+    if results["activities"] and people:
+        parts.append(_participation_appendix(participation_table(results["activities"], people)))
     for a in results["activities"]:
         rows = [r for r in a["answer_rows"] if not r["hidden"]]
         meta = f"{a['answers']} answers from {a['people']} people · captured {a['captured']}"
