@@ -145,6 +145,27 @@ def _check_exports(page: Page, pane: Locator, folder) -> None:
     assert downloads == []
 
 
+def _check_analyze_command(page: Page, pane: Locator, folder: Path) -> None:
+    """Analyze session copies the skill's command for this folder; a browser that refuses leaves it selected."""
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    card = pane.locator(".analyze-card")
+    expect(card).to_have_attribute("data-state", "ready")
+    expect(card.locator(".chip")).to_have_count(3)
+    expect(card).to_contain_text("No playbook.md")
+    expect(card).to_contain_text("report/ is empty")
+    expected = f'/analyze-session "{folder}"'
+    expect(card.locator(".analyze-command")).to_have_value(expected)
+    card.locator("[data-copy]").click()
+    expect(page.locator("#toast")).to_contain_text("Command copied")
+    assert page.evaluate("navigator.clipboard.readText()") == expected
+
+    # a statement, not an expression: Playwright calls a function an expression evaluates to
+    page.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('blocked')); }")
+    card.locator("[data-copy]").click()
+    expect(card.locator(".analyze-note")).to_contain_text("blocked copying")
+    assert page.evaluate("getSelection().toString() || document.activeElement.value.substring(document.activeElement.selectionStart, document.activeElement.selectionEnd)") == expected
+
+
 def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, saved: Path, chat: list) -> None:
     """A saved chat with a message from before the reader started turns the banner amber and lists it."""
     # a file with a message from before the reader started: the banner turns amber and lists it
@@ -214,6 +235,7 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     chat, saved = _reconcile_with_zoom(page, base, sid, folder, tmp_path)
     pane = _open_results(page, base, sid, shots)
     _check_exports(page, pane, folder)
+    _check_analyze_command(page, pane, folder)
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
     _check_merge_names(page, pane, folder)
     _check_phone_layout(page, pane, shots)
