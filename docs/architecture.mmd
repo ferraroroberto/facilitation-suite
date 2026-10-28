@@ -142,6 +142,7 @@ flowchart LR
   sessr --> ready["src/sessions/readiness.py"]
   sessr --> stheme["src/sessions/theme.py<br/>stage font → theme.css · /font"]
   stheme --> themes
+  sessr --> pbook["src/sessions/playbook.py<br/>playbook.md → safe HTML · template"]
   store --> ledger[("sessions.local.yaml")]
   store --> folder[("session folder<br/>session.yaml · slides/ · live/ · exports/")]
   appv --> pages

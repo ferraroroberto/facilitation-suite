@@ -22,6 +22,7 @@ from src.quiz.importer import import_kahoot
 from src.sessions import readiness
 from src.sessions.model import dump_session, parse_session
 from src.sessions.offline import check_folder, pin_folder
+from src.sessions.playbook import PLAYBOOK_FILE, create_playbook, read_playbook
 from src.sessions.store import SessionStore
 from src.sessions.theme import FONT_TYPES, font_file, theme_css
 
@@ -53,7 +54,7 @@ class Duplicate(BaseModel):
 
 
 class OpenTarget(BaseModel):
-    what: str = Field(pattern="^(folder|yaml)$")
+    what: str = Field(pattern="^(folder|yaml|playbook)$")
 
 
 @router.get("")
@@ -130,6 +131,7 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
             "slides": len(meta.get("slides") or []),
             "roster": (folder / "roster.xlsx").is_file(),
             "groups": (folder / "groups.yaml").is_file(),
+            "playbook": (folder / PLAYBOOK_FILE).is_file(),
             "offline": offline.as_dict(),
         },
         "readiness": readiness.build(folder, session, offline, facts),
@@ -172,6 +174,18 @@ def reset_look(request: Request, sid: str) -> dict[str, Any]:
     if hub is not None:
         hub.session_saved(sid)
     return session_payload(request, sid)
+
+
+@router.get("/{sid}/playbook")
+def get_playbook(request: Request, sid: str) -> dict[str, Any]:
+    """The session's ``playbook.md`` rendered to safe HTML (``exists`` false and no html when there is none)."""
+    return read_playbook(store(request).folder(sid))
+
+
+@router.post("/{sid}/playbook", status_code=201)
+def post_playbook(request: Request, sid: str) -> dict[str, Any]:
+    """Create ``playbook.md`` from the generic template; 409 when the session already has one."""
+    return create_playbook(store(request).folder(sid))
 
 
 @router.get("/{sid}/theme.css", include_in_schema=False)
@@ -237,9 +251,11 @@ def pin(request: Request, sid: str) -> dict[str, Any]:
 
 @router.post("/{sid}/open")
 def open_in_explorer(request: Request, sid: str, body: OpenTarget) -> dict[str, str]:
-    """Open the folder (Explorer) or session.yaml (default editor) on this PC."""
+    """Open the folder (Explorer), session.yaml or playbook.md (default editor) on this PC."""
     folder = store(request).folder(sid)
-    target = folder if body.what == "folder" else folder / "session.yaml"
+    target = {"folder": folder, "yaml": folder / "session.yaml", "playbook": folder / PLAYBOOK_FILE}[body.what]
+    if body.what == "playbook" and not target.is_file():
+        raise AppError(404, "playbook_missing", "This session has no playbook yet")
     if sys.platform != "win32":
         raise AppError(501, "unsupported", "Opening files is only available on Windows")
     try:

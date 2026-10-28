@@ -1,7 +1,8 @@
 """Story 2: create a session folder from the app, see it in the ledger with its readiness list; it
 starts from Settings → Stage defaults, can override them and reset to them (#110). An opened
 session takes the whole pane; X, Esc and Back return to the list, /#sessions/<id> reopens it (#150).
-Its details edit inline in its Session settings card and survive a reload (#151)."""
+Its details edit inline in its Session settings card and survive a reload (#151). Its Playbook card creates
+playbook.md from a template, renders the file safely and reloads it after an edit (#338)."""
 
 from __future__ import annotations
 
@@ -163,10 +164,48 @@ def _check_inline_details(page: Page, session_yaml: Path) -> None:
     expect(hint).to_have_text("Contesta en el chat")
 
 
+def _check_playbook(page: Page, session_yaml: Path) -> None:
+    """The Playbook card: Create writes the template, a hand-edited file shows on Reload, raw HTML stays text."""
+    card = page.locator(".playbook-card")
+    expect(card.locator(".empty-state-message")).to_have_text("No playbook for this session yet")
+    expect(page.locator(".file-box")).not_to_contain_text("playbook.md")
+    card.get_by_role("button", name="Create playbook").click()
+    expect(card.locator(".prose h5").first).to_have_text("Purpose")
+    playbook = session_yaml.parent / "playbook.md"
+    assert playbook.is_file() and playbook.read_text(encoding="utf-8").startswith("# Playbook")
+    expect(page.locator(".file-box")).to_contain_text("playbook.md")  # the folder card lists it after the redraw
+    surface(page, "sessions.playbook")
+
+    table = "| a | b |\n|---|---|\n| 1 | 2 |"
+    lines = "\n".join(f"- line {n}" for n in range(40))
+    long_text = f"# Edited\n\n<script>window.__pwned = 1</script> **bold**\n\n{table}\n\n{lines}\n"
+    playbook.write_text(long_text, encoding="utf-8")
+    card.get_by_role("button", name="Reload").click()
+    body = card.locator(".playbook-body")
+    expect(body.locator("h4")).to_have_text("Edited")
+    expect(body.locator("strong")).to_have_text("bold")
+    expect(body.locator("td")).to_have_text(["1", "2"])
+    expect(body).to_contain_text("<script>window.__pwned = 1</script>")  # shown as text, never run
+    assert page.evaluate("() => window.__pwned") is None and body.locator("script").count() == 0
+    toggle = card.locator("[data-toggle]")
+    expect(toggle).to_be_visible()  # forty lines are longer than the collapsed box
+    assert_min_target(toggle)
+    expect(body).to_have_attribute("data-collapsed", "")
+    collapsed_height = body.bounding_box()["height"]
+    toggle.click()
+    expect(body).not_to_have_attribute("data-collapsed", "")
+    expect(toggle).to_have_attribute("aria-expanded", "true")
+    assert body.bounding_box()["height"] > collapsed_height * 2  # the whole list, not the first lines
+    toggle.click()
+    expect(body).to_have_attribute("data-collapsed", "")
+    expect(toggle).to_have_text("Show all")
+
+
 def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> None:
     defaults = webapp.base_url + "/api/settings/defaults"
     _set_timer_default(page, webapp, defaults)
     deep_link, session_yaml = _create_session(page, webapp, shots)
+    _check_playbook(page, session_yaml)
     _check_session_lettering(page, session_yaml, defaults)
     _check_open_and_close(page, webapp, deep_link)
     _check_inline_details(page, session_yaml)

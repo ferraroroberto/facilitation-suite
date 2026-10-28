@@ -9,6 +9,7 @@ import { api, esc, pageHead, setStatus, toast, fmtMinutes, switchRow } from '/st
 import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
+import { playbookCard } from '/static/js/views/playbook-card.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
 import { words, LANGUAGES } from '/static/js/stage-words.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
@@ -295,7 +296,7 @@ async function renderDetail() {
   folder.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('folder')} Session folder</h3></div>` +
     `<p class="crumbs">${f.crumbs.slice(0, -1).map(esc).join(' › ')} › <b>${esc(f.crumbs[f.crumbs.length - 1])}</b></p>` +
-    `<div class="file-box mono">session.yaml${f.roster ? ' · roster.xlsx' : ''}${f.groups ? ' · groups.yaml' : ''}<br>` +
+    `<div class="file-box mono">session.yaml${f.roster ? ' · roster.xlsx' : ''}${f.groups ? ' · groups.yaml' : ''}${f.playbook ? ' · playbook.md' : ''}<br>` +
     `slides/ · ${f.slides ? f.slides + ' images, titles, notes' : 'not imported yet'}<br>live/ · chat log, captured visuals<br>exports/ · PDF, Excel</div>` +
     offLine +
     `<div class="row-actions"><button type="button" class="button-surface" data-open="folder" data-track="sessions.open-folder">${icon('folder-open')} Open folder</button>` +
@@ -319,6 +320,8 @@ async function renderDetail() {
       : `<p class="muted small">No sections yet — import the PowerPoint, then plan.</p>`);
   plan.querySelector('[data-edit-plan]').addEventListener('click', () => ctx.goTo('plan'));
   top.appendChild(plan);
+
+  detailEl.appendChild(playbookCard(sid, f.playbook, renderDetail));
 
   detailEl.appendChild(settingsCard(sid, s, data.look, () => paintTitle(title, s)));
 

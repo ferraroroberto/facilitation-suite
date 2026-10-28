@@ -252,6 +252,34 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .status-line.unknown { color: var(--muted); }
 .card .row-actions .button-surface, .card-head .button-surface { display: inline-flex; align-items: center; gap: 6px; }
 .plan-row { min-height: var(--row-sm); padding: 8px 0; }
+
+/* The playbook card: playbook.md rendered by the server into .prose; collapsed to a few lines until Show all. */
+.playbook-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+.playbook-body[data-collapsed] {
+  max-height: 9.5rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 65%, transparent);
+  mask-image: linear-gradient(#000 65%, transparent);
+}
+.prose { line-height: 1.5; overflow-wrap: anywhere; }
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+.prose h4, .prose h5, .prose h6 { margin: 16px 0 4px; font-weight: 700; line-height: 1.25; }
+.prose h4 { font-size: var(--font-heading-md); }
+.prose h5 { font-size: var(--font-body); }
+.prose h6 { font-size: var(--font-body); color: var(--muted); }
+.prose p, .prose ul, .prose ol, .prose blockquote, .prose pre, .prose table { margin: 0 0 10px; }
+.prose ul, .prose ol { padding-left: 22px; }
+.prose li > p { margin: 0; }
+.prose a { color: var(--accent-text); }
+.prose code { font-family: var(--mono); font-size: 0.875em; padding: 1px 6px; border-radius: 6px; background: var(--neutral-soft); }
+.prose pre { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--card); overflow-x: auto; }
+.prose pre code { padding: 0; background: none; font-size: 13px; line-height: 1.5; }
+.prose blockquote { padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose hr { border: 0; border-top: 1px solid var(--line-muted); margin: 12px 0; }
+.prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.prose th, .prose td { padding: 6px 10px; border: 1px solid var(--line-muted); text-align: left; }
+.prose th { background: var(--neutral-soft); }
 .ready-card { padding-bottom: 4px; }
 .ready-row { gap: 10px; min-height: var(--row-sm); padding: 8px 0; }
 .ready-icon { display: inline-flex; width: var(--icon-feature); justify-content: flex-start; flex: none; }
