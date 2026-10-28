@@ -125,9 +125,9 @@ baseline = ".instruction-ratchet-baseline.json"
 [doc_refs_ratchet]
 enabled  = true
 baseline = ".doc-refs-ratchet-baseline.json"
-# Other listeners the docs name on purpose: the quiz player (:8451), cloudflared's metrics
+# Other listeners the docs name on purpose: the quiz player (:8451), the local listener (:8456), cloudflared's metrics
 # endpoint (:8452), the Spotify OAuth redirect (:8765) and the Funnel alternative (:10000).
-allow_refs = [":8451", ":8452", ":8765", ":10000"]
+allow_refs = [":8451", ":8456", ":8452", ":8765", ":10000"]
 
 # [dead_code_ratchet] -- the scaffold's baseline-and-ratchet check for functions, classes and
 # methods nothing refers to. The gate runs scripts/dead_code_ratchet.py: a definition that no
