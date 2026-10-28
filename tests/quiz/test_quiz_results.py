@@ -222,8 +222,8 @@ def test_a_quiz_only_session_exports_its_report_and_pdf(client, isolated_env: Pa
     data = client.get(f"/api/sessions/{sid}/results").json()
     assert [q["label"] for q in data["quizzes"]] == ["Space quiz · run 1", "Space quiz · run 2"]
     assert data["activities"] == [] and data["quiz_pages"] == 8
-    r = client.get(f"/api/sessions/{sid}/exports/report.xlsx")
-    assert r.status_code == 200 and r.content[:2] == b"PK"
+    r = client.post(f"/api/sessions/{sid}/exports/xlsx")
+    assert r.status_code == 200 and r.json()["file"] == "report.xlsx"
     assert load_workbook(folder / "exports" / "report.xlsx").sheetnames == [
         "Summary", "Quiz – Space quiz", "Quiz – Space quiz answers", "Quiz – Space quiz run 2",
         "Quiz – Space quiz run 2 answers", "Participation"]

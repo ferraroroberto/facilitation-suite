@@ -115,24 +115,34 @@ def _open_results(page: Page, base: str, sid: str, shots) -> Locator:
 
 
 def _check_exports(page: Page, pane: Locator, folder) -> None:
-    """A live tile selects its activity; the session PDF and the Excel report download."""
+    """A live tile selects its activity; the PDF and the Excel report land in exports/ with no browser download."""
     # a click on a live tile in the PDF strip selects that activity
     pane.locator(".pdf-tile.live", has_text="Live scale").click()
     expect(pane.locator(".result-row.selected")).to_contain_text("inner weather")
     expect(pane.locator(".top-row").first).to_contain_text("sun")
 
-    with page.expect_download(timeout=120000) as dl:
-        pane.locator("[data-pdf]").click()
-    assert dl.value.suggested_filename == "session.pdf"
-    expect(page.locator("#toast")).to_contain_text("Session PDF ready")
+    downloads: list = []
+    page.on("download", lambda d: downloads.append(d))
+    expect(pane.locator(".export-open")).to_have_count(0)  # nothing exported yet: nothing to open
+    pane.locator("[data-pdf]").click()
+    expect(page.locator("#toast")).to_contain_text("Session PDF saved in exports/", timeout=120000)
     assert (folder / "exports" / "session.pdf").read_bytes()[:5] == b"%PDF-"
     expect(pane.locator(".pdf-head")).to_contain_text("pages")
 
-    with page.expect_download() as dl:
-        pane.locator("[data-xlsx]").click()
-    assert dl.value.suggested_filename == "report.xlsx"
-    wb = load_workbook(folder / "exports" / "report.xlsx")
-    assert len(wb.sheetnames) == 8
+    pane.locator("[data-xlsx]").click()
+    expect(page.locator("#toast")).to_contain_text("Excel report saved in exports/")
+    assert len(load_workbook(folder / "exports" / "report.xlsx").sheetnames) == 8
+
+    # another device opens the file inline from the link; this PC saves no copy
+    links = pane.locator(".export-open a")
+    expect(links).to_have_count(2)
+    for link, kind in ((links.nth(0), "application/pdf"), (links.nth(1), "spreadsheetml")):
+        assert link.get_attribute("target") == "_blank" and link.get_attribute("download") is None
+        res = page.request.get(link.evaluate("a => a.href"))
+        assert res.ok and kind in res.headers["content-type"]
+        assert res.headers["content-disposition"].startswith("inline")
+    page.wait_for_timeout(500)
+    assert downloads == []
 
 
 def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, saved: Path, chat: list) -> None:

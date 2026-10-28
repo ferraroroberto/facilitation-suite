@@ -181,8 +181,12 @@ def test_results_api_and_the_frozen_image(client, isolated_env: Path) -> None:
 
 def test_excel_report_has_a_sheet_per_activity_and_participation(client, isolated_env: Path) -> None:
     sid, folder, _ = _run(isolated_env)
-    r = client.get(f"/api/sessions/{sid}/exports/report.xlsx")
-    assert r.status_code == 200 and r.content[:2] == b"PK"
+    assert client.get(f"/api/sessions/{sid}/exports/report.xlsx").status_code == 404  # nothing built yet
+    r = client.post(f"/api/sessions/{sid}/exports/xlsx")
+    assert r.status_code == 200 and r.json()["file"] == "report.xlsx"
+    opened = client.get(f"/api/sessions/{sid}/exports/report.xlsx")
+    assert opened.status_code == 200 and opened.content[:2] == b"PK"
+    assert opened.headers["content-disposition"].startswith("inline")  # opens in a tab, never lands in Downloads
     wb = load_workbook(folder / "exports" / "report.xlsx")
     assert wb.sheetnames[0] == "Summary" and wb.sheetnames[-1] == "Participation"
     assert len(wb.sheetnames) == 8 and all(len(n) <= 31 for n in wb.sheetnames)
@@ -199,7 +203,7 @@ def test_excel_report_has_a_sheet_per_activity_and_participation(client, isolate
 
 def test_excel_needs_a_capture(client, isolated_env: Path) -> None:
     sid, _ = build_demo_session(isolated_env / "sessions" / "demo" / "empty", isolated_env / "sessions.local.yaml")
-    assert client.get(f"/api/sessions/{sid}/exports/report.xlsx").json()["error"]["code"] == "nothing_to_export"
+    assert client.post(f"/api/sessions/{sid}/exports/xlsx").json()["error"]["code"] == "nothing_to_export"
     assert client.post(f"/api/sessions/{sid}/exports/pdf").json()["error"]["code"] == "nothing_to_export"
 
 
@@ -276,6 +280,7 @@ def test_session_pdf_prints_every_page_then_the_appendix(client, isolated_env: P
     assert body["pages"] is not None and body["pages"] >= 17  # 16 pages + at least one appendix page
     pdf = client.get(f"/api/sessions/{sid}/exports/session.pdf")
     assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"
+    assert pdf.headers["content-disposition"].startswith("inline")  # opens in a tab, never lands in Downloads
     assert client.get(f"/api/sessions/{sid}/results").json()["exports"]["pdf"]["file"] == "session.pdf"
 
 
@@ -492,7 +497,7 @@ def test_the_results_tab_suggests_and_only_a_click_merges(client, isolated_env: 
     assert data["people"]["suggestions"] == [] and data["people"]["merges"] == {"Participant A": SPLIT_GROUP}
     assert next(a for a in data["activities"] if a["id"] == "act-split")["people"] == 2
 
-    assert client.get(f"/api/sessions/{sid}/exports/report.xlsx").status_code == 200
+    assert client.post(f"/api/sessions/{sid}/exports/xlsx").status_code == 200
     part = [[c.value for c in row] for row in load_workbook(folder / "exports" / "report.xlsx")["Participation"].iter_rows()]
     assert [row[0] for row in part if str(row[0]).startswith(("Participant", "iPhone"))] == ["Participant A", "Participant B"]
 

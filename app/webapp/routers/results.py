@@ -189,17 +189,8 @@ async def export_pdf(request: Request, sid: str) -> dict[str, Any]:
             "missing_images": missing, **(_file_info(out) or {})}
 
 
-@router.get("/exports/session.pdf")
-def download_pdf(request: Request, sid: str) -> FileResponse:
-    folder, _ = _load(request, sid)
-    path = folder / "exports" / PDF_FILE
-    if not path.is_file():
-        raise AppError(404, "not_built", "Export the session PDF first")
-    return FileResponse(path, media_type="application/pdf", filename=PDF_FILE)
-
-
-@router.get("/exports/report.xlsx")
-def download_xlsx(request: Request, sid: str) -> FileResponse:
+@router.post("/exports/xlsx")
+def export_xlsx(request: Request, sid: str) -> dict[str, Any]:
     folder, session = _load(request, sid)
     data = load_results(folder, session)
     if not data["activities"] and not data["quizzes"]:
@@ -212,8 +203,26 @@ def download_xlsx(request: Request, sid: str) -> FileResponse:
         raise AppError(500, "write_failed", f"Could not write {XLSX_FILE}: {exc}") from exc
     logger.info("✅ Excel report for %s: %d activities, %d quiz games, %d people", sid, len(data["activities"]),
                 len(data["quizzes"]), len(people))
-    return FileResponse(out, filename=XLSX_FILE,
-                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return {"file": XLSX_FILE, **(_file_info(out) or {})}
+
+
+def _open_export(request: Request, sid: str, name: str, media_type: str, hint: str) -> FileResponse:
+    """Serve a built export inline: a tab (or the phone's viewer) opens it, nothing is saved to Downloads."""
+    path = _store(request).folder(sid) / "exports" / name
+    if not path.is_file():
+        raise AppError(404, "not_built", hint)
+    return FileResponse(path, media_type=media_type, filename=name, content_disposition_type="inline")
+
+
+@router.get("/exports/session.pdf")
+def open_pdf(request: Request, sid: str) -> FileResponse:
+    return _open_export(request, sid, PDF_FILE, "application/pdf", "Export the session PDF first")
+
+
+@router.get("/exports/report.xlsx")
+def open_xlsx(request: Request, sid: str) -> FileResponse:
+    return _open_export(request, sid, XLSX_FILE,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Export the Excel report first")
 
 
 @router.post("/reconcile")
