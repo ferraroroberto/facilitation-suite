@@ -105,6 +105,22 @@ def _slug_folder(text: str) -> str:
     return "-".join(keep.split()) or "session"
 
 
+def read_session_file(folder: Path) -> Session:
+    """The folder's ``session.yaml``, parsed; it needs no ledger, so a folder outside the ledger reads too."""
+    path = folder / SESSION_FILE
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SessionError(404, "session_file_missing", "session.yaml is missing from the folder") from exc
+    except (OSError, yaml.YAMLError) as exc:
+        logger.error("❌ cannot read %s: %s", path, exc)
+        raise SessionError(422, "session_file_invalid", "session.yaml could not be read") from exc
+    try:
+        return parse_session(raw)
+    except ValueError as exc:
+        raise SessionError(422, "session_file_invalid", f"session.yaml is not valid: {exc}") from exc
+
+
 class SessionStore:
     def __init__(self, config: AppConfig, ledger: Optional[Path] = None) -> None:
         self.config = config
@@ -219,18 +235,7 @@ class SessionStore:
     # -- session.yaml ---------------------------------------------------------
 
     def _load_from(self, folder: Path) -> Session:
-        path = folder / SESSION_FILE
-        try:
-            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except FileNotFoundError as exc:
-            raise SessionError(404, "session_file_missing", "session.yaml is missing from the folder") from exc
-        except (OSError, yaml.YAMLError) as exc:
-            logger.error("❌ cannot read %s: %s", path, exc)
-            raise SessionError(422, "session_file_invalid", "session.yaml could not be read") from exc
-        try:
-            return parse_session(raw)
-        except ValueError as exc:
-            raise SessionError(422, "session_file_invalid", f"session.yaml is not valid: {exc}") from exc
+        return read_session_file(folder)
 
     def _save_to(self, folder: Path, session: Session) -> None:
         header = "# facilitation-suite session plan (schema v1) — safe to edit by hand.\n"

@@ -106,6 +106,7 @@ flowchart LR
   reconcile --> chatfile
   resultsr -.->|spawns| pdf["src/results/pdf.py<br/>headless Chromium print"]
   resultsr --> exportfiles[("exports/session.pdf · report.xlsx · zoom-reconciliation.json")]
+  dump["src/results/dump.py<br/>JSON dump for the analyze-session skill"] --> collect
   stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg
