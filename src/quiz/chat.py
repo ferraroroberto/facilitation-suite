@@ -18,6 +18,7 @@ A message is an answer when all of these hold:
   question is ignored);
 - it is not the facilitator's own message ("You") — unless the presenter's
   rehearsal switch (``count_own``) is on, so a rehearsal alone works.
+- its sender is not one of the session's excluded senders (a co-host account).
 
 The sender plays as a chat player: joined on their first answer with
 ``source="chat"``, their Zoom name as the nickname (``(2)`` added when a
@@ -62,8 +63,9 @@ def parse_choice(text: Any) -> Optional[int]:
 class ChatAnswers:
     """Scores chat messages as quiz answers (see the module docstring)."""
 
-    def __init__(self, quiz: QuizService, chat: ChatHub, count_own: Callable[[], bool] = lambda: False) -> None:
-        self.quiz, self.count_own = quiz, count_own
+    def __init__(self, quiz: QuizService, chat: ChatHub, count_own: Callable[[], bool] = lambda: False,
+                 is_excluded: Callable[[str], bool] = lambda sender: False) -> None:
+        self.quiz, self.count_own, self.is_excluded = quiz, count_own, is_excluded
         chat.listeners.append(self.on_messages)
 
     def on_messages(self, records: list[dict[str, Any]]) -> None:
@@ -83,6 +85,8 @@ class ChatAnswers:
     def _one(self, game: Game, question: QuizQuestion, rec: dict[str, Any]) -> None:
         if rec.get("own") and not self.count_own():
             return
+        if self.is_excluded(str(rec.get("sender") or "")):
+            return  # a co-host or producer account never plays
         choice = parse_choice(rec.get("text"))
         if choice is None or not question.answers[choice - 1]:
             return

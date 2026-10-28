@@ -30,7 +30,8 @@ class Rig:
         self.chat = ChatHub(self.hub)
         self.capture = CaptureService(self.hub, self.chat)
         self.quiz = QuizService(self.hub, clock=clock)
-        self.answers = ChatAnswers(self.quiz, self.chat, count_own=lambda: self.capture.count_own)
+        self.answers = ChatAnswers(self.quiz, self.chat, count_own=lambda: self.capture.count_own,
+                                     is_excluded=lambda sender: sender in self.capture.excluded())
         self.hub.activate(sid)
 
     def say(self, *rows: tuple[str, str], after_ms: int = 0) -> None:
@@ -114,6 +115,13 @@ def test_chat_b_scores_for_that_zoom_name_and_the_first_answer_wins(rig: Rig) ->
     rig.hub.next()  # question 2
     rig.say(("Ana Diaz", "1"), after_ms=1000)  # the same chat player again, no second join
     assert len(rig.players()) == 2 and rig.answer("Ana Diaz", "qz-2").choice == 1
+
+
+def test_an_excluded_sender_never_plays_from_the_chat(rig: Rig) -> None:
+    goto_id(rig.hub, "qz-1")
+    run_action(rig.hub, "exclude_sender", "Co Host")
+    rig.say(("Co Host", "B"), ("Ana Diaz", "B"), after_ms=500)
+    assert set(rig.players()) == {"Ana Diaz"}
 
 
 def test_letters_beyond_the_questions_answers_are_ignored(rig: Rig) -> None:

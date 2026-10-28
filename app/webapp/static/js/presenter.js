@@ -367,8 +367,8 @@ function drawCapture(body, c) {
   body.querySelector('[data-capstate]').textContent = { idle: 'Not started — answers are not counted yet', live: 'Capturing answers', stopped: 'Stopped — the result is frozen' }[status];
   drawUnplaced(body, c);
   drawLeftOut(body);
-  body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden)
-    ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}`
+  body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden || c.excluded)
+    ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}${c.excluded ? ` · ${c.excluded} not counted` : ''}`
     : status === 'idle' ? 'Press Space when the question is on stage.' : 'No answers yet.';
 }
 
@@ -629,11 +629,21 @@ let chat = [];
 
 function buildChat() {
   const body = root.querySelector('.p-chat [data-body]');
-  body.innerHTML = `<ol class="p-msgs" data-msgs></ol><div class="p-chat-foot" data-chatfoot></div>`;
+  body.innerHTML = `<div class="p-excluded" data-excluded hidden></div><ol class="p-msgs" data-msgs></ol><div class="p-chat-foot" data-chatfoot></div>`;
   body.querySelector('[data-msgs]').addEventListener('click', (e) => {
     const li = e.target.closest('.p-msg');
     if (!li || li.classList.contains('own')) return;
+    const sender = e.target.closest('[data-sender]');
+    if (sender) {  // the name: stop counting (or count again) everything this sender writes
+      live.send(li.classList.contains('excluded-msg') ? 'include_sender' : 'exclude_sender', sender.dataset.sender);
+      return;
+    }
+    if (li.classList.contains('excluded-msg')) return;
     live.send(li.classList.contains('hidden-msg') ? 'unhide_message' : 'hide_message', li.dataset.id);
+  });
+  body.querySelector('[data-excluded]').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-restore]');
+    if (b) live.send('include_sender', b.dataset.restore);
   });
   chat = [];
   loadChat();
@@ -698,26 +708,46 @@ async function loadSuggestions(id, text, box, fresh) {
     : '<span class="small muted">No close match — type the place below.</span>';
 }
 
-/** Mark each chat row: counted in the current capture, or hidden. Click toggles hidden. */
+/** The same name as the server reads it: spacing and case do not make another sender. */
+const senderKey = (name) => String(name).split(/\s+/).filter(Boolean).join(' ').toLowerCase();
+
+/** Mark each chat row: counted in the current capture, hidden, or from an excluded sender. Click toggles hidden; a name, excluded. */
 function markChat() {
   const list = root.querySelector('[data-msgs]');
   const s = live.state;
   if (!list || !s) return;
   const hidden = new Set(s.hidden || []);
+  const excluded = new Set((s.excluded_senders || []).map(senderKey));
   const wins = (s.capture && s.capture.windows) || [];
   const inWin = (m) => wins.some(([a, b]) => m.received_at >= a && (b == null || m.received_at < b));
-  const sig = JSON.stringify([s.hidden, wins, chat.length]);
+  const sig = JSON.stringify([s.hidden, s.excluded_senders, wins, chat.length]);
   if (list.dataset.sig === sig) return;
   list.dataset.sig = sig;
+  drawExcluded(s.excluded_senders || []);
   const byId = new Map(chat.map((m) => [m.id, m]));
   list.querySelectorAll('.p-msg').forEach((li) => {
     const m = byId.get(Number(li.dataset.id));
     if (!m) return;
     const isHidden = hidden.has(m.id);
+    const isExcluded = !m.own && excluded.has(senderKey(m.sender));
     li.classList.toggle('hidden-msg', isHidden);
-    li.classList.toggle('counted', !isHidden && !m.own && inWin(m));
-    li.title = m.own ? 'Your own message — never counted' : isHidden ? 'Hidden — click to count it again' : 'Click to hide it from the activity';
+    li.classList.toggle('excluded-msg', isExcluded);
+    li.classList.toggle('counted', !isHidden && !isExcluded && !m.own && inWin(m));
+    li.title = m.own ? 'Your own message — never counted'
+      : isExcluded ? 'From an excluded sender — click the name to count them again'
+        : isHidden ? 'Hidden — click to count it again' : 'Click to hide it from the activity';
   });
+}
+
+/** The senders no activity counts, each one click from counting again. */
+function drawExcluded(names) {
+  const bar = root.querySelector('[data-excluded]');
+  if (!bar) return;
+  bar.hidden = !names.length;
+  bar.innerHTML = names.length
+    ? `<span class="small muted">Not counted</span>` + names.map((n) =>
+      `<button type="button" class="chip" data-restore="${esc(n)}" data-track="live.include-sender" title="Count ${esc(n)} again">${esc(n)} ${icon('x')}</button>`).join('')
+    : '';
 }
 
 function addChat(messages) {
@@ -729,7 +759,7 @@ function addChat(messages) {
   const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
   chat.push(...fresh);
   list.insertAdjacentHTML('beforeend', fresh.map((m) =>
-    `<li class="p-msg${m.own ? ' own' : ''}" data-id="${m.id}"><div class="p-msg-top"><b>${esc(m.sender)}</b>` +
+    `<li class="p-msg${m.own ? ' own' : ''}" data-id="${m.id}"><div class="p-msg-top"><b${m.own ? '' : ` class="p-sender" data-sender="${esc(m.sender)}"`}>${esc(m.sender)}</b>` +
     `${m.own ? '<span class="chip">you</span>' : ''}${m.source === 'simulator' ? '<span class="chip accent">sim</span>' : ''}` +
     `<span class="p-msg-time">${esc(m.time)}</span></div><div class="p-msg-text">${esc(m.text) || '<i class="muted">(emoji only)</i>'}</div></li>`).join(''));
   // Keep a long session light: the list holds the latest 400 rows.

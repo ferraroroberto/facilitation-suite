@@ -276,7 +276,7 @@ function renderDetail() {
 function activityDetail(a) {
   const wrap = document.createElement('div');
   wrap.className = 'result-detail';
-  const meta = [`${a.answers} answers from ${a.people} people`, a.captured ? `captured ${a.captured}` : '', a.hidden ? `${a.hidden} hidden` : '']
+  const meta = [`${a.answers} answers from ${a.people} people`, a.captured ? `captured ${a.captured}` : '', a.hidden ? `${a.hidden} hidden` : '', a.excluded ? `${a.excluded} from excluded senders` : '']
     .filter(Boolean).join(' · ');
   wrap.innerHTML = `<div class="detail-title"><h1>${esc(a.title)}</h1><p class="muted">${esc(meta)}</p></div>` +
     (a.has_png
@@ -291,7 +291,7 @@ function activityDetail(a) {
   const rows = a.answer_rows;
   grid.insertAdjacentHTML('beforeend', `<div class="card answers-card"><h3 class="card-title">Answers, with names</h3>${rows.length ? `<div class="list">${
     rows.map((r) => `<div class="list-row answer-row${r.hidden ? ' hidden-answer' : ''}"><b class="answer-name" title="${esc(r.label)}">${esc(r.label)}</b>` +
-      `<span class="grow">${esc(r.text)}${r.hidden ? ' <span class="chip">hidden</span>' : ''}</span><span class="muted small">${esc(r.time)}</span></div>`).join('')
+      `<span class="grow">${esc(r.text)}${r.hidden ? ` <span class="chip">${r.excluded ? 'excluded' : 'hidden'}</span>` : ''}</span><span class="muted small">${esc(r.time)}</span></div>`).join('')
   }</div>` : '<p class="muted small">No answers.</p>'}</div>`);
   wrap.appendChild(grid);
   return wrap;

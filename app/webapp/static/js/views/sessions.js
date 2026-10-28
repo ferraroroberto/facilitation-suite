@@ -5,7 +5,8 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc, pageHead, setStatus, toast, fmtMinutes } from '/static/js/ui.js';
+import { api, esc, pageHead, setStatus, toast, fmtMinutes, switchRow } from '/static/js/ui.js';
+import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { importDialog } from '/static/js/importer.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
@@ -372,6 +373,7 @@ function settingsHtml(s, look) {
     `</select><span class="small muted">The words the stage says by itself: the chat hint, default titles, breakout rooms, the quiz.</span></span></label>` +
     `<label class="font-row"><span class="small">Stage hint</span><span class="meta-control"><input class="input" data-meta="chat_hint" value="${esc(s.chat_hint || '')}" placeholder="${esc(words(s.language).chat_hint)}" aria-label="Stage hint under activities">` +
     `<span class="small muted">Under activities. Empty = the language's own: “${esc(words('en').chat_hint)}” · “${esc(words('es').chat_hint)}”.</span></span></label>` +
+    `<div class="font-row"><span class="small">Capture scope</span><span class="meta-control" data-capture-scope></span></div>` +
     `</div>` +
     `<div class="settings-sub"><h4 class="settings-sub-title">${icon('type')} Stage look</h4>` +
     `<span class="chip ${look.uses_defaults ? 'ok' : ''}" data-look-state>${look.uses_defaults ? 'Using the default' : 'Overridden'}</span>` +
@@ -473,6 +475,12 @@ function wireDetails(card, sid, s, saveSession, onDetails) {
       if (e.key === 'Escape') { showField[name](el); el.blur(); }
     });
   });
+  card.querySelector('[data-capture-scope]').append(
+    switchRow(!!s.stop_capture_on_leave, 'Stop a capture when its activity is left, or its timer ends with “hide”', async (next, btn) => {
+      if (await saveSession({ stop_capture_on_leave: next })) toast('Saved to session.yaml');
+      else setSwitch(btn, !next);
+    }),
+    Object.assign(document.createElement('span'), { className: 'small muted', textContent: 'Off keeps a capture open until you stop it or start another. A capture still open when the session closes is always stopped and saved.' }));
 }
 
 /**

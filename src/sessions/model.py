@@ -221,6 +221,11 @@ class Session(_Open):
     language: Language = "en"
     # The chip on the stage under every activity; empty = the language's own.
     chat_hint: str = ""
+    # Chat senders no activity counts (a co-host, a producer account), set from the presenter's chat.
+    excluded_senders: list[str] = Field(default_factory=list)
+    # A capture stops when its activity is left or its timer ends with ``hide``. Off for a plan
+    # that never set it (its behaviour is unchanged); new sessions are created with it on.
+    stop_capture_on_leave: bool = False
     font: Optional[StageFont] = None
     source: Optional[Source] = None
     # Manual readiness confirmations (e.g. zoom_autoupdate_off) the app cannot detect itself.

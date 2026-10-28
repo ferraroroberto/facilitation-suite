@@ -245,7 +245,8 @@ def _install_quiz(app: FastAPI) -> None:
     service.reach = reach.current
     live.session_listeners.append(lambda sid: reach.kick() if sid and quiz_live() else None)
     app.state.quiz_reach = reach
-    app.state.quiz_chat = ChatAnswers(service, app.state.chat, count_own=lambda: app.state.capture.count_own)
+    app.state.quiz_chat = ChatAnswers(service, app.state.chat, count_own=lambda: app.state.capture.count_own,
+                                       is_excluded=lambda sender: sender in app.state.capture.excluded())
 
 
 def create_app() -> FastAPI:

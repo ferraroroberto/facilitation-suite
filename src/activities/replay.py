@@ -7,8 +7,12 @@ captured activity's messages are selected exactly as the live capture did
 item's options plus any ``--set key=value`` overrides, and written as
 ``<item>.json`` (the frozen record's shape) beside ``<item>.compare.json``: the
 result against the frozen one — entries added, removed and merged, count
-changes, and the answers the result does not show whole. ``--render`` draws
-each result through the real stage (``src.activities.replay_render``).
+changes, and the answers the result does not show whole. The session's excluded
+senders (``--exclude`` adds more) are left out as live does, and
+``stop_capture_on_leave`` (``--stop-on-leave`` forces it) cuts each window where
+the activity was left, its timer ended with ``hide`` or the session closed, as
+live would have stopped it. ``--render`` draws each result through the real
+stage (``src.activities.replay_render``).
 
 Outputs hold participants' answers, so they go under the gitignored
 ``data/replay/<folder-name>/`` by default and never into the repo.
@@ -20,6 +24,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -32,15 +37,18 @@ from src.jsonl import read_jsonl
 from src.live.capture import STATE_FILE, frozen_answers, select_messages
 from src.live.plan import build_run
 from src.logger import configure_logging
+from src.results.aliases import Excluded, read_aliases
 from src.sessions.model import parse_session
 from src.sessions.store import SESSION_FILE
 
 logger = logging.getLogger("replay")
 
 
-def load_recording(folder: Path, live_dir: str = "live") -> dict[str, Any]:
+def load_recording(folder: Path, live_dir: str = "live", *, exclude: tuple[str, ...] = (),
+                   stop_on_leave: Optional[bool] = None) -> dict[str, Any]:
     """Everything the replay reads from a session folder (read-only): the plan's items, the chat,
-    each capture's windows, the hidden ids, the places fixed by hand and the frozen records."""
+    each capture's windows, the hidden ids, the places fixed by hand, the frozen records, the events
+    and who is excluded (the session's list plus ``exclude``; ``stop_on_leave`` None follows the session)."""
     live = folder / live_dir
     state: dict[str, Any] = {}
     if (live / STATE_FILE).is_file():
@@ -57,7 +65,29 @@ def load_recording(folder: Path, live_dir: str = "live") -> dict[str, Any]:
     return {
         "items": items, "chat": read_jsonl(live / "chat.jsonl"), "windows": windows, "hidden": hidden,
         "places": {int(k): str(v) for k, v in (state.get("places") or {}).items()}, "frozen": frozen,
+        "events": read_jsonl(live / "events.jsonl"),
+        "excluded": Excluded([*session.excluded_senders, *exclude], read_aliases(folder)),
+        "stop_on_leave": session.stop_capture_on_leave if stop_on_leave is None else stop_on_leave,
     }
+
+
+def cut_windows(item_id: str, windows: list[list[Optional[int]]], events: list[dict[str, Any]]) -> list[list[Optional[int]]]:
+    """The windows as ``stop_capture_on_leave`` would have left them: each ends at the first move to
+    another item, timer end with ``hide`` on this item, or session close after it opened (or earlier
+    than it was stopped by hand)."""
+    marks = []
+    for ev in events:
+        name = ev.get("event")
+        leaves = (name == "item" and ev.get("item_id") != item_id) or name == "session_closed" or (
+            name == "timer_end" and ev.get("item_id") == item_id and ev.get("end") == "hide")
+        if leaves and ev.get("at"):
+            marks.append(int(datetime.fromisoformat(ev["at"]).timestamp() * 1000))
+    marks.sort()
+    out: list[list[Optional[int]]] = []
+    for start, end in windows:
+        cut = next((t for t in marks if start is not None and t > start and (end is None or t < end)), None)
+        out.append([start, end if cut is None else cut])
+    return out
 
 
 def parse_sets(pairs: list[str]) -> dict[str, Any]:
@@ -82,12 +112,14 @@ def replay_item(rec: dict[str, Any], item_id: str, sets: dict[str, Any]) -> Opti
         return None
     known = defaults(item["type"])
     item["options"] = {**(item.get("options") or {}), **{k: v for k, v in sets.items() if k in known}}
-    windows = rec["windows"].get(item_id) or []
+    recorded = rec["windows"].get(item_id) or []
+    windows = cut_windows(item_id, recorded, rec["events"]) if rec["stop_on_leave"] else recorded
     selected = select_messages(rec["chat"], windows, hidden=rec["hidden"], places=rec["places"], include_hidden=True)
-    counted = [m for m in selected if m["id"] not in rec["hidden"]]
+    counted = [m for m in selected if m["id"] not in rec["hidden"] and m["sender"] not in rec["excluded"]]
     return {
         "item": item, "frozen_at": None, "windows": windows,
-        "answers": frozen_answers(item, selected, rec["hidden"]),
+        "windows_cut": sum(a != b for a, b in zip(windows, recorded, strict=True)),
+        "answers": frozen_answers(item, selected, rec["hidden"], rec["excluded"]),
         "result": result_for(item["type"], item["options"], counted),
         "names": bool((frozen or {}).get("names")),
     }
@@ -99,7 +131,7 @@ def _shown(activity_type: str, record: Optional[dict[str, Any]]) -> Optional[dic
         return None
     out = {}
     for a in record.get("answers") or []:
-        if a.get("hidden"):
+        if a.get("hidden") or a.get("excluded"):
             continue
         c = counted_for(activity_type, a["text"], a.get("parsed"), record.get("result"))
         if c is None:
@@ -112,9 +144,10 @@ def compare(frozen: Optional[dict[str, Any]], replayed: dict[str, Any]) -> dict[
     """The replayed result against the frozen one (``frozen`` None: the capture was never frozen)."""
     activity_type = replayed["item"]["type"]
     new_result = json.loads(json.dumps(replayed["result"], ensure_ascii=False))
-    answers = [a for a in replayed["answers"] if not a["hidden"]]
+    answers = [a for a in replayed["answers"] if not a["hidden"] and not a.get("excluded")]
     out: dict[str, Any] = {
         "item_id": replayed["item"]["id"], "type": activity_type, "answers": len(answers),
+        "excluded_rows": sum(bool(a.get("excluded")) for a in replayed["answers"]), "windows_cut": replayed.get("windows_cut", 0),
         "frozen": frozen is not None, "same_result": frozen is not None and frozen.get("result") == new_result,
     }
     before, after = _shown(activity_type, frozen), _shown(activity_type, replayed)
@@ -148,12 +181,12 @@ def _write(path: Path, data: Any) -> None:
 
 
 def replay(folder: Path, out: Path, *, items: Optional[list[str]] = None, sets: Optional[dict[str, Any]] = None,
-           live_dir: str = "live") -> list[dict[str, Any]]:
+           live_dir: str = "live", exclude: tuple[str, ...] = (), stop_on_leave: Optional[bool] = None) -> list[dict[str, Any]]:
     """Replay every captured activity (or ``items``) into ``out``; returns one comparison per item."""
     folder, out = folder.resolve(), out.resolve()
     if out == folder or folder in out.parents:
         raise ValueError("the replay never writes inside the session folder; pick another --out")
-    rec = load_recording(folder, live_dir)
+    rec = load_recording(folder, live_dir, exclude=exclude, stop_on_leave=stop_on_leave)
     order = {k: it["index"] for k, it in rec["items"].items()}
     wanted = items or sorted(rec["windows"], key=lambda k: order.get(k, len(order)))
     summary = []
@@ -166,7 +199,9 @@ def replay(folder: Path, out: Path, *, items: Optional[list[str]] = None, sets: 
         _write(out / f"{item_id}.json", replayed)
         _write(out / f"{item_id}.compare.json", cmp)
         summary.append(cmp)
-    _write(out / "summary.json", {"session": folder.name, "live": live_dir, "set": sets or {}, "items": summary})
+    totals = {"excluded_rows": sum(c["excluded_rows"] for c in summary), "windows_cut": sum(c["windows_cut"] for c in summary),
+              "never_frozen": sum(not c["frozen"] for c in summary)}
+    _write(out / "summary.json", {"session": folder.name, "live": live_dir, "set": sets or {}, "totals": totals, "items": summary})
     return summary
 
 
@@ -174,7 +209,8 @@ def _line(c: dict[str, Any]) -> str:
     whole = f"{c.get('whole_before', '–')}→{c['whole_after']}/{c['answers']} whole" if "whole_after" in c else ""
     diff = f"+{len(c['added'])} -{len(c['removed'])} merged {len(c['merged'])}" if "added" in c else ""
     state = "same" if c["same_result"] else ("changed" if c["frozen"] else "never frozen")
-    return f"{c['item_id']:<14} {c['type']:<12} {c['answers']:>3} answers  {state:<12} {whole:<18} {diff}"
+    kept = f"excluded {c['excluded_rows']} cut {c['windows_cut']}" if c["excluded_rows"] or c["windows_cut"] else ""
+    return f"{c['item_id']:<14} {c['type']:<12} {c['answers']:>3} answers  {state:<12} {whole:<18} {diff} {kept}".rstrip()
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -183,6 +219,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--item", action="append", default=[], help="replay only this item id (repeatable)")
     ap.add_argument("--set", action="append", default=[], dest="sets", metavar="KEY=VALUE",
                     help="override one activity option, e.g. terms=verbatim (repeatable)")
+    ap.add_argument("--exclude", action="append", default=[], metavar="NAME",
+                    help="also leave this chat sender out, as an excluded sender (repeatable)")
+    ap.add_argument("--stop-on-leave", action=argparse.BooleanOptionalAction, default=None,
+                    help="cut each capture where its activity was left (default: the session's setting)")
     ap.add_argument("--live", default="live", help="the folder's live-data subfolder (default: live)")
     ap.add_argument("--out", type=Path, help="output folder (default: data/replay/<folder-name>/)")
     ap.add_argument("--render", action="store_true", help="also draw each result to <item>.png through the real stage")
@@ -193,13 +233,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
     out = args.out or data_dir() / "replay" / args.folder.resolve().name
     try:
-        summary = replay(args.folder, out, items=args.item or None, sets=parse_sets(args.sets), live_dir=args.live)
+        summary = replay(args.folder, out, items=args.item or None, sets=parse_sets(args.sets), live_dir=args.live,
+                         exclude=tuple(args.exclude), stop_on_leave=args.stop_on_leave)
     except ValueError as exc:
         logger.error("❌ %s", exc)
         return 1
     for c in summary:
         logger.info("ℹ️ %s", _line(c))
-    logger.info("✅ %d captures replayed into %s", len(summary), out)
+    logger.info("✅ %d captures replayed into %s: %d rows excluded, %d windows cut, %d captures never frozen", len(summary), out,
+                sum(c["excluded_rows"] for c in summary), sum(c["windows_cut"] for c in summary),
+                sum(not c["frozen"] for c in summary))
     if args.render:
         from src.activities.replay_render import render_all
 

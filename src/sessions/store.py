@@ -24,6 +24,7 @@ import shutil
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -182,7 +183,7 @@ class SessionStore:
         for sub in SUBDIRS:
             (folder / sub).mkdir(parents=True, exist_ok=True)
         session = Session(title=title or "Untitled session", date=date, duration_minutes=duration_minutes,
-                          theme=theme, font=font.model_copy(deep=True) if font else None)
+                          theme=theme, font=font.model_copy(deep=True) if font else None, stop_capture_on_leave=True)
         self._save_to(folder, session)
         logger.info("✅ created session folder %s", session_id(folder))
         return self._add_to_ledger(title or folder.name, folder)
@@ -250,6 +251,23 @@ class SessionStore:
                     self._write_ledger(entries)
                     break
         return session
+
+    def edit(self, sid: str, change: Callable[[Session], None]) -> Session:
+        """Load, change and save ``session.yaml`` in one step, so a concurrent save cannot slip between."""
+        with self._lock:
+            session = self.load(sid)
+            change(session)
+            return self.save(sid, session)
+
+    def save_plan(self, sid: str, session: Session) -> Session:
+        """The Plan tab's save. The excluded senders belong to the presenter, so a plan sent from a
+        copy loaded before one was excluded keeps the list as the file has it now."""
+        with self._lock:
+            try:
+                session.excluded_senders = self.load(sid).excluded_senders
+            except SessionError:
+                pass  # no readable file to keep it from: the plan as sent is saved
+            return self.save(sid, session)
 
     def summary(self, entry: LedgerEntry) -> dict[str, Any]:
         folder = Path(entry.path)

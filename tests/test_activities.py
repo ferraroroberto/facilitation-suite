@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from src.activities.registry import parser, preview, result_for, value_for
 from src.chat.hub import ChatHub
@@ -16,6 +17,8 @@ from src.live import capture
 from src.live.actions import run_action
 from src.live.capture import CaptureService
 from src.live.hub import LiveError, LiveHub, now_ms
+from src.results.aliases import Aliases, Excluded, seen_names
+from src.results.collect import load_results, participation
 from src.sessions.store import SessionStore
 from tests.fixtures.demo import build_demo_session
 
@@ -430,3 +433,118 @@ def test_an_unreadable_frozen_capture_and_a_parser_crash_are_logged(svc, monkeyp
     with caplog.at_level("WARNING", logger="src.live.capture"):
         assert cap.frozen("act-kryptonite") is None
     assert "frozen record unreadable" in caplog.text
+
+
+# --------------------------------------- excluded senders, capture scope, closing
+
+
+def _frozen(folder: Path, item_id: str) -> dict[str, Any]:
+    return json.loads((folder / "live" / "captures" / f"{item_id}.json").read_text(encoding="utf-8"))
+
+
+def _setting(live: LiveHub, on: bool) -> None:
+    """Switch the session's ``stop_capture_on_leave`` the way a saved plan does."""
+    live.store.edit(live.session_id, lambda s: setattr(s, "stop_capture_on_leave", on))
+    live._reload(live.session_id)
+
+
+def test_an_excluded_sender_counts_nowhere_and_comes_back(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Ana", "reuniones"), ("Co Host", "ten minutes break"), ("Sam", "silos"))
+    run_action(live, "exclude_sender", "Co Host")
+    snap = live.snapshot()["state"]
+    assert snap["excluded_senders"] == ["Co Host"]
+    assert snap["capture"]["answers"] == 2 and snap["capture"]["excluded"] == 1
+    assert {w["key"] for w in snap["capture"]["result"]["words"]} == {"reuniones", "silos"}
+    assert SessionStore(load_config()).load(live.session_id).excluded_senders == ["Co Host"]  # saved in session.yaml
+
+    run_action(live, "capture_toggle")
+    frozen = _frozen(folder, "act-kryptonite")
+    assert frozen["result"]["answers"] == 2
+    assert [bool(a.get("excluded")) for a in frozen["answers"]] == [False, True, False]  # kept, flagged
+
+    run_action(live, "include_sender", "co  host")  # case and spacing are not another sender
+    assert live.snapshot()["state"]["excluded_senders"] == []
+    assert _frozen(folder, "act-kryptonite")["result"]["answers"] == 3  # the stopped capture was frozen again
+    run_action(live, "exclude_sender", "Co Host")
+    assert _frozen(folder, "act-kryptonite")["result"]["answers"] == 2
+
+
+def test_an_excluded_sender_is_excluded_with_every_name_merged_into_theirs(svc) -> None:
+    live, chat, cap, folder = svc
+    (folder / "aliases.yaml").write_text(yaml.safe_dump({"Co Host": ["iPhone de Co Host"]}), encoding="utf-8")
+    _goto(live, "act-enemy")
+    run_action(live, "capture_toggle")
+    run_action(live, "exclude_sender", "Co Host")
+    _say(chat, ("iPhone de Co Host", "hello from the phone"), ("Ana", "silos"))
+    assert [m["sender"] for m in cap.messages_for("act-enemy")] == ["Ana"]
+
+
+def test_results_and_participation_leave_an_excluded_sender_out(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-enemy")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Ana", "silos"), ("Co Host", "back in five"))
+    run_action(live, "capture_toggle")
+    st = SessionStore(load_config())
+    before = load_results(folder, st.load(live.session_id))["activities"][0]
+    assert (before["answers"], before["people"], before["excluded"]) == (2, 2, 0)
+
+    st.edit(live.session_id, lambda s: setattr(s, "excluded_senders", ["Co Host"]))  # excluded after the freeze
+    session = st.load(live.session_id)
+    data = load_results(folder, session)
+    after = data["activities"][0]
+    assert (after["answers"], after["people"], after["excluded"], after["hidden"]) == (1, 1, 1, 0)
+    assert (before["summary"], after["summary"]) == ("2 cards", "1 card")  # recounted without the excluded sender
+    assert [(r["sender"], r["hidden"], r["excluded"]) for r in after["answer_rows"]] == [("Ana", False, False), ("Co Host", True, True)]
+    people = participation(data["activities"], chat.messages, Aliases(), Excluded(session.excluded_senders))
+    assert [p["name"] for p in people] == ["Ana"]
+    assert seen_names(data["activities"], chat.messages, Excluded(session.excluded_senders)) == ["Ana"]
+
+
+def test_leaving_an_activity_stops_and_freezes_its_capture_with_the_setting_on(svc) -> None:
+    live, chat, cap, folder = svc
+    _setting(live, True)
+    _goto(live, "act-enemy")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Ana", "silos"))
+    live.goto(0)  # on to a slide
+    assert cap.status("act-enemy") == "stopped" and cap.active_item() is None
+    assert _frozen(folder, "act-enemy")["result"]["answers"] == 1
+    _say(chat, ("Ana", "banter during the break"))
+    assert [m["text"] for m in cap.messages_for("act-enemy")] == ["silos"]
+
+
+def test_leaving_an_activity_leaves_its_capture_open_with_the_setting_off(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-enemy")
+    run_action(live, "capture_toggle")
+    live.goto(0)
+    assert cap.status("act-enemy") == "live"
+    assert not (folder / "live" / "captures" / "act-enemy.json").exists()
+
+
+def test_a_timer_ending_with_hide_stops_the_capture_only_with_the_setting_on(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-kryptonite")
+    run_action(live, "capture_toggle")
+    item = live.item_by_id("act-kryptonite")
+    cap._on_timer_end(item, "hide")
+    assert cap.status("act-kryptonite") == "live"
+    _setting(live, True)
+    cap._on_timer_end(item, "hide")
+    assert cap.status("act-kryptonite") == "stopped"
+
+
+def test_a_capture_still_live_when_the_session_closes_is_frozen(svc) -> None:
+    live, chat, cap, folder = svc
+    _goto(live, "act-enemy")
+    run_action(live, "capture_toggle")
+    _say(chat, ("Ana", "silos"))
+    live.deactivate()
+    frozen = _frozen(folder, "act-enemy")
+    assert frozen["result"]["answers"] == 1 and frozen["windows"][-1][1] is not None
+    names = [json.loads(line)["event"] for line in (folder / "live" / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert names.index("capture_stop") < names.index("session_closed")
