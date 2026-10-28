@@ -54,7 +54,7 @@ Each feature has its own reference in `docs/`:
 - **Quiz player (public)** — the separate phone app and its Cloudflare tunnel: [docs/quiz-player.md](docs/quiz-player.md)
 - **Running a quiz** — import to podium, the reachability check, measured limits: [docs/running-a-quiz.md](docs/running-a-quiz.md)
 - **Phone remote** — `/remote`, pairing, the token: [docs/phone-remote.md](docs/phone-remote.md)
-- **Results and exports** — the Results tab, session PDF, Excel report, chat reconciliation, the session analysis skill and its JSON dump: [docs/results.md](docs/results.md)
+- **Results and exports** — the Results tab, session PDF, Excel report, chat reconciliation, the session analysis skill and its JSON dump, rebuilding a past session's results with today's rules: [docs/results.md](docs/results.md)
 - **Breakout groups** — roster, shuffle, Zoom pre-assign: [docs/groups.md](docs/groups.md)
 - **OBS** — camera layouts over obs-websocket: [docs/obs.md](docs/obs.md)
 - **Stream Deck** — every live control as one URL: [docs/stream-deck.md](docs/stream-deck.md)

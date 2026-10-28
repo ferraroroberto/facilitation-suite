@@ -37,9 +37,22 @@ async function renderFrozen(id) {
   await stage.ready();
   void host.offsetHeight; // lay out first, so the fonts the item uses start loading
   await document.fonts.ready;
+  const fonts = await sessionFontState();
   stage.update(ctx);
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  document.body.dataset.fonts = fonts;
   document.body.dataset.ready = '1';
+}
+
+// The session's title font is the @font-face named "Session Font" (src/sessions/theme.py). A face
+// loads only when text first uses it, which can come after fonts.ready, so it is loaded here by name:
+// 'loaded' → the picture has the font, 'failed' → it would show the fallback (the freeze writes none),
+// 'none' → the session declares no font file.
+async function sessionFontState() {
+  const faces = [...document.fonts].filter((f) => f.family.replace(/["']/g, '') === 'Session Font');
+  if (!faces.length) return 'none';
+  await Promise.all(faces.map((f) => f.load().catch(() => null)));
+  return faces.every((f) => f.status === 'loaded') ? 'loaded' : 'failed';
 }
 
 function runLive() {

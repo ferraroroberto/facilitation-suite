@@ -2,7 +2,8 @@
 
 Opens ``/stage?freeze=<item>`` in headless Chromium at the stage's own
 1920×1080, waits until the page says it has drawn the frozen result (fonts
-included), and writes the screenshot next to the capture's JSON. Runs as its
+included: the session's title font is loaded by name and a font that fails to load
+writes no picture), and writes the screenshot next to the capture's JSON. Runs as its
 own process so the server never waits on a browser.
 """
 
@@ -29,6 +30,11 @@ def render(url: str, out: Path, timeout_ms: int = 20000) -> bool:
             page = browser.new_page(viewport={"width": 1920, "height": 1080}, ignore_https_errors=True)
             page.goto(url, wait_until="networkidle", timeout=timeout_ms)
             page.wait_for_selector("body[data-ready='1']", timeout=timeout_ms)
+            fonts = page.evaluate("document.body.dataset.fonts")
+            if fonts == "failed":
+                browser.close()
+                logger.error("❌ freeze PNG of %s not written: the session's font did not load, the title would use the fallback", out.name)
+                return False
             page.screenshot(path=str(tmp), type="png", animations="disabled")
             browser.close()
         tmp.replace(out)

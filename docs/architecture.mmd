@@ -94,6 +94,10 @@ flowchart LR
   deck["Stream Deck · fleet plugin (fleet-config#1006)"] -->|POST /api/actions/id| actionsr["routers/actions.py<br/>home-automation's action contract"]
   actionsr --> acts
   appv --> resultsr["routers/results.py<br/>results · session PDF · Excel · Zoom check"]
+  appv --> rebuildr["routers/rebuild.py<br/>preview · apply · undo"]
+  rebuildr --> rebuild["src/activities/rebuild.py<br/>replay of frozen captures · backup in live/rebuild-backup-*"]
+  rebuild --> replay
+  rebuild --> capfiles
   resultsr --> collect["src/results/collect.py<br/>captures + events.jsonl → PDF order"]
   collect --> capfiles
   collect --> livefiles

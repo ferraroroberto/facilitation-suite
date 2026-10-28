@@ -30,8 +30,11 @@ Each type is a plug-in folder under `app/activities/<type>/`: `editor.json` (the
 | `--set key=value` | override one activity option on every replayed item that has it, e.g. `--set terms=verbatim` (JSON values: `--set merge_variants=false`) |
 | `--exclude <name>` | also leave this chat sender out, as an excluded sender (repeatable; the session's own list always applies) |
 | `--stop-on-leave` / `--no-stop-on-leave` | cut each capture where its activity was left, its timer ended with *hide* or the session closed (default: the session's `stop_capture_on_leave`) |
+| `--drop-reposts` | leave out the rows the chat reader posted again as new: received more than a minute after the time Zoom printed on them, with an identical earlier row |
 | `--live <name>` | read another live-data subfolder of the session, e.g. a backup kept beside `live/` |
 | `--out <dir>` | where the outputs go (default `data/replay/<folder-name>/`) |
 | `--render` | also draw each result to `<item>.png` through the real stage: a temp copy of the session under the output folder, a disposable server on a free loopback port with its own config, ledger and data dir, and `src.live.freeze` — never the running app |
+
+The Results tab's *Rebuild results* card applies this replay to a session's own frozen captures, after a preview and with a backup (see [results.md](results.md)).
 
 The outputs hold participants' names and answers: keep them under the gitignored `data/` (the default) and out of commits, issues and PRs.

@@ -40,7 +40,7 @@ OLD_ROW_MINUTES = 5
 TIME_PARTS_RE = re.compile(r"^(\d{1,2}):(\d{2})\s?([AaPp][Mm])?$")
 
 
-def _minute_of_day(hhmm: str) -> Optional[int]:
+def minute_of_day(hhmm: str) -> Optional[int]:
     """Zoom's ``HH:MM`` (or ``h:MM PM``) → minutes since midnight; None if it is neither."""
     m = TIME_PARTS_RE.match(hhmm.strip())
     if not m:
@@ -54,7 +54,7 @@ def _minute_of_day(hhmm: str) -> Optional[int]:
 def _flag_old_batch(rows: list[Row], source: str) -> None:
     """Leave a trace when a batch of new rows starts well before now: the sign of
     a reader posting the window's history again instead of what was just typed."""
-    first = next(((r.time, t) for r in rows if (t := _minute_of_day(r.time)) is not None), None)
+    first = next(((r.time, t) for r in rows if (t := minute_of_day(r.time)) is not None), None)
     if first is None:
         return
     now = time.localtime()

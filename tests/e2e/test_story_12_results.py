@@ -195,6 +195,31 @@ def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
     assert not (folder / "aliases.yaml").exists()
 
 
+def _check_rebuild(page: Page, base: str, sid: str, pane: Locator, folder: Path) -> None:
+    """Rebuild results: the preview names what moves and writes nothing, confirming backs up and rebuilds, Undo restores."""
+    card = pane.locator(".rebuild-card")
+    expect(card).to_have_attribute("data-state", "idle")
+    session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
+    cloud = next(it for sec in session["sections"] for it in sec["items"] if it["id"] == "act-kryptonite")
+    cloud["options"] = {**(cloud.get("options") or {}), "terms": "words"}  # the Plan changes an option after the session ran
+    assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": session}).ok
+    card.locator("[data-preview]").click()
+    expect(card).to_have_attribute("data-state", "preview")
+    expect(card.locator(".rebuild-row")).to_have_count(6)
+    expect(card.locator(".rebuild-row", has_text="kryptonite")).to_contain_text("removed")
+    expect(card.locator("[data-confirm]")).to_have_text("Rebuild 1 activity")
+    assert not list((folder / "live").glob("rebuild-backup-*"))  # a preview writes nothing
+    surface(page, "results.rebuild-preview")
+
+    card.locator("[data-confirm]").click()
+    expect(page.locator("#toast")).to_contain_text("Results rebuilt", timeout=120000)
+    assert len(list((folder / "live").glob("rebuild-backup-*"))) == 1
+    expect(card).to_have_attribute("data-state", "idle")
+    card.locator("[data-undo]").click()
+    expect(page.locator("#toast")).to_contain_text("Previous results restored")
+    assert not list((folder / "live").glob("rebuild-backup-*"))
+
+
 def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
     """At phone width a long verbatim answer wraps inside its row instead of painting over the next one."""
     page.set_viewport_size({"width": 390, "height": 844})
@@ -238,4 +263,5 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     _check_analyze_command(page, pane, folder)
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
     _check_merge_names(page, pane, folder)
+    _check_rebuild(page, base, sid, pane, folder)
     _check_phone_layout(page, pane, shots)
