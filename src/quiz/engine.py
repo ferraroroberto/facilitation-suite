@@ -1,4 +1,4 @@
-"""The quiz game (#51): players, phases, answers and scores — pure, no I/O, no clock.
+"""The quiz game: players, phases, answers and scores — pure, no I/O, no clock.
 
 **Event-sourced.** Every change to a game is one record (a plain dict with an
 ``op``), and ``Game.apply`` is the only thing that changes a game. The service
@@ -24,12 +24,12 @@ Records (every one also carries ``game`` and ``at``, epoch ms):
 - ``{"op": "lock", "item_id"}`` — a question closes without the stage
   showing its reveal (the presenter moved away mid-question).
 - ``{"op": "answer", "player_id", "item_id", "choice", "elapsed_ms", "client_ms"}``.
-- ``{"op": "podium", "item_id", "step"}`` — the podium shows ``step`` places (#89):
+- ``{"op": "podium", "item_id", "step"}`` — the podium shows ``step`` places:
   3rd, then 2nd, then 1st, one per ``next``; entering the podium phase starts at 0.
 
 Phases: ``lobby → question → reveal → leaderboard → (next question) … →
 podium`` (whose places are revealed one ``next`` at a time, ``podium_step``).
-Which phases the stage steps through is the service's call: since #158 the
+Which phases the stage steps through is the service's call: the
 last question before a podium goes from its reveal straight to the podium.
 Replay applies whatever phases a file holds, so an older file that shows that
 leaderboard replays as written.
@@ -40,7 +40,7 @@ A question is **open** from its ``question`` record until its
 Scoring follows Kahoot's published rule ("How points work",
 https://support.kahoot.com/hc/en-us/articles/115002303908-How-points-work —
 the page refuses scripted fetches, so it was checked through its search
-snippet, 2026-09-28, and matches the formula in #34):
+snippet, and matches the formula below):
 
     points = round(points_possible × (1 − (response_time / time_limit) / 2))
 
@@ -407,11 +407,11 @@ class Game:
         return out
 
     def rank_withheld(self, rank: int, order: list[str], podium_follows: bool) -> bool:
-        """Whether a phone must not learn this rank yet, so it cannot spoil the podium's reveal (#147).
+        """Whether a phone must not learn this rank yet, so it cannot spoil the podium's reveal.
 
         On the podium, a top place is withheld until its step reveals it (3rd first, as the
         stage does) and every other place until the podium is complete. Before it, the last
-        question's reveal (and its leaderboard, in a file written before #158) already holds the
+        question's reveal (and its leaderboard, in a file written by an older build) already holds the
         final ranking, so a game that ends on a podium withholds every rank there too.
         """
         if self.phase == "podium":

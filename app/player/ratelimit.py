@@ -1,16 +1,17 @@
-"""Per-IP rate limits for the public player API (#52): small, in-memory token buckets.
+"""Per-IP rate limits for the public player API: small, in-memory token buckets.
 
 The client address is the **real** phone's. Both ingresses forward from
 loopback, and uvicorn's ``proxy_headers`` trusts ``X-Forwarded-For`` from
 ``127.0.0.1`` only, taking its rightmost entry that is not ``127.0.0.1``:
 
-- **Cloudflare** (probed through the tunnel, 2026-09-29, #82): the edge
-  *appends* the connecting IP, so a phone that sends ``X-Forwarded-For: 6.6.6.6``
-  arrives as ``6.6.6.6,<its real IP>`` — the rightmost entry is the real one,
-  and equals ``CF-Connecting-IP`` (which a client cannot set: Cloudflare
-  refuses such a request with its error 1000).
-- **Tailscale Funnel** (the fallback; probed 2026-09-28, #52): it replaces
-  any value the client sent with the public client IP.
+- **Cloudflare**: the edge *appends* the connecting IP, so a phone that sends
+  ``X-Forwarded-For: 6.6.6.6`` arrives as ``6.6.6.6,<its real IP>`` — the
+  rightmost entry is the real one, and equals ``CF-Connecting-IP`` (which a
+  client cannot set: Cloudflare refuses such a request with its error 1000).
+- **Tailscale Funnel** (the fallback): it replaces any value the client sent
+  with the public client IP.
+
+Measured limits for each ingress: ``docs/running-a-quiz.md``.
 
 So one rule keys both on the real address; trusting ``CF-Connecting-IP`` on
 its own would add nothing through Cloudflare and be spoofable through Funnel.

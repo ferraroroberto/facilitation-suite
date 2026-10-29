@@ -9,7 +9,7 @@ the desktop app open on this PC. The backend targets the ``Computer`` device
 named like this PC (``SPOTIFY_DEVICE_NAME`` in ``.env`` overrides the name),
 else any other desktop-app computer (the active one first), and starts
 playback there by its device id. A web player ("Web Player (…)") is never a
-target, whatever Spotify says about it (#248): Spotify keeps listing a closed
+target, whatever Spotify says about it: Spotify keeps listing a closed
 tab, and reports it active, for a while, and every tab has the same name, so
 the API cannot tell a ghost from the tab you are looking at.
 
@@ -17,7 +17,7 @@ A command Spotify accepts is not proof of sound. After every play or resume the
 backend reads ``GET /me/player`` until it shows the chosen device playing with
 its progress moving (``CONFIRM_S`` at most); only then is the music reported
 playing — otherwise ``not_playing`` says so. A carry-on after a restart, and a
-plain resume after a pause (#251), continue in place only when the account still
+plain resume after a pause, continue in place only when the account still
 has the session's music loaded; anything else loaded gets the session's music
 started over it, never a bare resume that would carry on with the other music or
 that Spotify would refuse ("Restriction violated").
@@ -38,12 +38,12 @@ established (Spotify unreachable, rate-limited, a 5xx), never folded into ok.
 
 A link is shown by its real name (playlist, album and artist, track) fetched once the
 account is connected and kept in a machine-local cache file; until then, or when Spotify
-will not say (a private playlist), by its kind and the first 6 characters of its id (#191).
+will not say (a private playlist), by its kind and the first 6 characters of its id.
 
 The cached status, "configured" answer and access token each remember the
 ``.env`` generation they were computed from (``src.env_file.generation``): a
 save (a new login, a rotated token) makes them stale at once, even when a
-check that started before the save finishes after it (#146).
+check that started before the save finishes after it.
 """
 
 from __future__ import annotations
@@ -256,7 +256,7 @@ class SpotifyClient:
 
     def device(self) -> dict[str, Any]:
         """Where the music plays: the desktop app named like this PC, else another desktop app (the
-        active one first). Never a web player, active or not (#248)."""
+        active one first). Never a web player, active or not."""
         devices = self.call("GET", "/me/player/devices").get("devices") or []
         desktops = [d for d in devices if str(d.get("type", "")).lower() == "computer"
                     and not d.get("is_restricted") and not is_web_player(d)]
@@ -407,7 +407,7 @@ class SpotifyBackend:
 
         A cached answer is reused for ``STATUS_TTL_S`` unless ``.env`` was saved since it was
         computed; an answer is stored with the generation its check started from, so a check
-        that straddles a save is asked again next time (#146)."""
+        that straddles a save is asked again next time."""
         gen = self.client.generation()
         state, detail, at, seen = self._status
         if not fresh and state and time.monotonic() - at < STATUS_TTL_S:
@@ -529,7 +529,7 @@ class SpotifyBackend:
     def _confirm(self) -> bool:
         """After a play or resume: True once ``GET /me/player`` shows the chosen device playing with its
         progress moving; False when a newer command took over first. A command Spotify accepted on a
-        device that does not sound (#248) raises ``not_playing`` after ``CONFIRM_S`` — never "Playing"."""
+        device that does not sound raises ``not_playing`` after ``CONFIRM_S`` — never "Playing"."""
         want, name = str(self.device["id"]), self.device.get("name") or "this PC"
         seen: Optional[int] = None
         now: dict[str, Any] = {}
@@ -568,7 +568,7 @@ class SpotifyBackend:
 
     def _resume(self, volume: int, fade_s: float) -> None:
         """Carry on — but only with the session's music: when other music was loaded since (the owner
-        started it while this was paused, #251), start the session's item over it, with its context."""
+        started it while this was paused), start the session's item over it, with its context."""
         track = self._track
         if track is not None and not self._loaded(track.ref):
             logger.info("ℹ️ spotify: the account no longer has %s loaded — starting it over", track.ref)
@@ -587,7 +587,7 @@ class SpotifyBackend:
     def _put_volume_back(self) -> None:
         """A play or resume failed after the volume was set for it (0 for a fade-in): the desktop app gets
         its own volume back, so the error never leaves it silent — the service does not stop from the
-        error state (#254). A failure here is logged; the caller's error is the one reported."""
+        error state. A failure here is logged; the caller's error is the one reported."""
         if self.restore_volume is None:
             return
         try:

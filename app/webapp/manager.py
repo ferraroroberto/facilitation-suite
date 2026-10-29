@@ -2,11 +2,14 @@
 
 Same shape as the sister trays (photo-ocr / voice-transcriber / app-launcher):
 
-- ``status()`` — a real ``GET /healthz`` round-trip plus a TCP probe.
-- ``start()``  — adopts an already-listening webapp (no second spawn) or
-  spawns ``python -m uvicorn app.webapp.server:app`` from this venv, under the
+- ``status()`` — a real ``GET /healthz`` round-trip plus a TCP probe. A port
+  open with no answer from ``/healthz`` is reported as wedged, a state of its
+  own, never folded into "running".
+- ``start()``  — adopts an already-listening *and reachable* webapp (no second
+  spawn), refuses to adopt a wedged one, or spawns
+  ``python -m uvicorn app.webapp.server:app`` from this venv, under the
   vendored ``cross_process_lock`` so two trays starting at once can't both
-  spawn (project-scaffolding#39). Before the spawn it runs the cert
+  spawn. Before the spawn it runs the cert
   auto-renew (``src.certs.ensure_cert_fresh``) and passes ``--ssl-*`` when
   ``webapp/certificates/{cert,key}.pem`` exist — HTTPS on the tailnet name,
   plain HTTP (logged loudly) otherwise.
@@ -73,6 +76,10 @@ class WebappStatus:
     port: int
     base_url: str
     detail: str
+    # True when the port is open but ``/healthz`` does not answer: a distinct,
+    # unconfirmed state, never folded into ``running`` (a port check alone cannot
+    # tell wedged from healthy).
+    wedged: bool = False
 
 
 def _loopback_host(host: str) -> str:
@@ -183,15 +190,21 @@ class WebappManager:
 
     def status(self) -> WebappStatus:
         running_here = self._proc is not None and self._proc.poll() is None
-        reachable = self.is_reachable() or self.is_port_in_use()
-        if running_here and reachable:
+        reachable = self.is_reachable()
+        if not reachable and not self.is_port_in_use():
+            return WebappStatus(False, OWNERSHIP_NONE, None, self.config.port,
+                                self.base_url, "not running")
+        if not reachable:
+            # Port open, /healthz silent: wedged, not confirmed running either way.
+            ownership = OWNERSHIP_OURS if running_here else OWNERSHIP_EXTERNAL
+            pid = self._proc.pid if running_here else None
+            return WebappStatus(False, ownership, pid, self.config.port, self.base_url,
+                                "wedged (listening, /healthz not answering)", wedged=True)
+        if running_here:
             return WebappStatus(True, OWNERSHIP_OURS, self._proc.pid, self.config.port,
                                 self.base_url, "running (started by this tray)")
-        if reachable:
-            return WebappStatus(True, OWNERSHIP_EXTERNAL, None, self.config.port,
-                                self.base_url, "running (external — adopted)")
-        return WebappStatus(False, OWNERSHIP_NONE, None, self.config.port,
-                            self.base_url, "not running")
+        return WebappStatus(True, OWNERSHIP_EXTERNAL, None, self.config.port,
+                            self.base_url, "running (external — adopted)")
 
     def start(self, wait: bool = True) -> WebappStatus:
         # Serialize status()-then-Popen across processes: the loser of a
@@ -199,6 +212,11 @@ class WebappManager:
         # webapp instead of spawning a duplicate. Fails open on a mutex glitch.
         with cross_process_lock(rf"Global\facilitation-suite-webapp-start-{self.config.port}"):
             current = self.status()
+            if current.wedged:
+                raise RuntimeError(
+                    f"webapp on :{self.config.port} is listening but /healthz is not "
+                    "answering (wedged) — not adopting it as running; use tray.bat --restart"
+                )
             if current.running and current.ownership == OWNERSHIP_OURS:
                 logger.info("ℹ️ Webapp already %s", current.detail)
                 return current
@@ -235,11 +253,11 @@ class WebappManager:
 
     def restart(self, wait: bool = True) -> WebappStatus:
         status = self.status()
-        if status.running and status.ownership == OWNERSHIP_EXTERNAL:
+        if status.ownership == OWNERSHIP_EXTERNAL and (status.running or status.wedged):
             raise RuntimeError(
-                "Webapp is running but was started externally — use tray.bat --restart"
+                f"Webapp is {status.detail} and was started externally — use tray.bat --restart"
             )
-        if status.running:
+        if status.running or status.wedged:
             self.stop()
         return self.start(wait=wait)
 
@@ -248,7 +266,10 @@ class WebappManager:
         if status.ownership == OWNERSHIP_EXTERNAL:
             logger.info("✋ Leaving external webapp running (not ours)")
             return status
-        if not status.running or self._proc is None:
+        # Gate on the process handle, not status.running: a wedged process we spawned
+        # (port open, /healthz silent) still needs terminating, even though status()
+        # no longer folds it into "running".
+        if self._proc is None or self._proc.poll() is not None:
             return status
         try:
             stop_process(self._proc, "webapp")

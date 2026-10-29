@@ -3,12 +3,12 @@
 ``configure_logging()`` is idempotent: the first caller installs a stream
 handler (when a console exists) plus a rotating file under the data dir's
 ``logs/`` (``FS_DATA_DIR`` when set, so a test run or a scratch server never
-writes into the tray's log — #26); later callers are no-ops. Under ``pythonw``
+writes into the tray's log); later callers are no-ops. Under ``pythonw``
 (the tray) ``sys.stderr`` is ``None`` — the file handler is then the *only*
 durable trail, which is why it is always installed. Emoji markers are the
 fleet convention: ℹ️ ⚠️ ❌ ✅.
 
-**One writer per file (#37).** On Windows a file another process holds open
+**One writer per file.** On Windows a file another process holds open
 cannot be renamed, so two processes rotating one file both fail (WinError 32)
 and drop every line once it is full. Each long-lived process therefore owns
 its own file — the tray ``tray.log``, the webapp ``facilitation-suite.log``,
@@ -16,7 +16,7 @@ the chat reader ``chat-reader.log`` — and the short-lived helpers the webapp
 spawns (freeze PNG, session PDF) log to stderr only (``to_file=False``); the
 webapp reads their stderr and ``relay()``s it into its own log.
 
-**An outside holder (#100).** One writer per file stops the *processes this
+**An outside holder.** One writer per file stops the *processes this
 app owns* from fighting each other, but an outside process — a stray old
 server from a previous session, an editor, a ``tail`` — can still hold
 ``facilitation-suite.log`` open, and Windows then refuses the rename rotation
@@ -45,7 +45,7 @@ _LEVELS = logging.getLevelNamesMapping()
 
 class ResilientRotatingFileHandler(RotatingFileHandler):
     """A ``RotatingFileHandler`` that keeps writing when an outside process
-    holds the file open (#100).
+    holds the file open.
 
     On Windows, renaming a file another process has open fails with
     ``PermissionError`` (WinError 32) — proven with a plain read-only
