@@ -1,4 +1,4 @@
-"""The live quiz (#51): the game engine wired to the live hub, persisted to ``live/quiz.jsonl``.
+"""The live quiz: the game engine wired to the live hub, persisted to ``live/quiz.jsonl``.
 
 Wired like ``CaptureService``: it hears items change, sessions go live and
 resets, adds ``quiz`` to every ``/ws`` snapshot and registers its actions. It
@@ -17,7 +17,7 @@ any scope is shown as a plain item.
 (``question``, deadline = now + its time limit). Then ``next`` (every control
 surface's "next") steps ``question → reveal → leaderboard`` and only from
 ``leaderboard`` moves on to the next plan item — except the **last question
-of a game that ends on a podium** (#158): its reveal's ``next`` moves on at
+of a game that ends on a podium**: its reveal's ``next`` moves on at
 once, so the stage goes straight to the podium (at step 0) and never shows
 the final top 5 before the podium reveals them, as Kahoot does
 (``state.quiz.podium_follows`` says the game ends on one; ``prev`` from the
@@ -26,9 +26,9 @@ shows that leaderboard replays as written. Time up (plus
 ``engine.GRACE_MS``) or ``quiz_lock`` reveals by themselves — and so does
 every active player answering, about ``EARLY_CLOSE_MS`` after the last one
 does, while the lobby's "end questions when everyone has answered" option is
-on (default; #105). All three share the one reveal path (``time_up``), so a
+on (default). All three share the one reveal path (``time_up``), so a
 lock is a lock whatever brought it forward. On the
-**podium** (#89) ``next`` reveals one place at a time — 3rd, 2nd, then 1st
+**podium** ``next`` reveals one place at a time — 3rd, 2nd, then 1st
 (only the places that exist with fewer than three players) — and only once
 1st shows moves on; ``prev`` hides the last place shown, and with none shown
 goes to the previous item. The step (``podium_step`` in ``state.quiz``, with
@@ -50,8 +50,8 @@ are derived, never stored — and a question whose time ran out while the
 server was down is revealed at once. A failed write keeps the record in
 memory, shows ``write_error`` and is written with the next record.
 
-**In-process API** for the player page (Step 4) and the chat fallback
-(Step 6). Every call must run on the live hub's event loop (an ``async``
+**In-process API** for the player page and the chat fallback.
+Every call must run on the live hub's event loop (an ``async``
 route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
 
 - ``join(nickname, game_id=None, key=None, *, source="phone") -> JoinResult``
@@ -79,7 +79,7 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
   answer numbers) and ``answer.correct`` only once the question has closed.
   ``rank`` never arrives before the stage reveals that place: on the podium,
   and on the last question of a game that ends on one, a withheld rank is
-  ``rank_pending: true`` instead (#147). ``lang`` is the session's language (``en`` | ``es``, #91): the phone says
+  ``rank_pending: true`` instead. ``lang`` is the session's language (``en`` | ``es``): the phone says
   everything in it, as the stage does.
 - ``language() -> str`` — the live session's language (``en`` with none
   live); the player page asks it before joining (``/play/api/ping``).
@@ -104,7 +104,7 @@ and ``reach``.
 ``state.quiz`` also carries ``accept_chat``: the lobby's "answers typed in
 the chat count too" switch for this game (default on).
 
-**Sounds chip** (#102): ``state.quiz.sounds`` (present whenever a quiz item is
+**Sounds chip.** ``state.quiz.sounds`` (present whenever a quiz item is
 on stage, valid or not) is ``{have, total, missing, device, device_detail}`` —
 how many of the four cue files (``src/quiz/cues.py``) are in ``audio/``, which
 are missing (by short name: ``lobby``, ``countdown``, ``reveal``, ``podium``),
@@ -168,7 +168,7 @@ class Scope:
 
     def goes_to_podium(self, item_id: str) -> bool:
         """``item_id`` is the last question of a game that ends on a podium: its reveal's Next
-        goes straight to the podium, with no leaderboard to give the podium away (#158)."""
+        goes straight to the podium, with no leaderboard to give the podium away."""
         return self.podium_follows and bool(self.order) and item_id == self.order[-1]
 
 
@@ -277,7 +277,7 @@ class QuizService:
         return self._scopes[1]
 
     def sound_cues(self) -> dict[str, Any]:
-        """The Sounds chip (#102): the quiz cue files in ``audio/`` plus the output device.
+        """The Sounds chip: the quiz cue files in ``audio/`` plus the output device.
 
         Cached per plan revision — computed when the session goes live or the
         plan is saved (``plan_rev`` bumps then), never on every snapshot."""
@@ -319,7 +319,7 @@ class QuizService:
         return bool(options_with_defaults(LOBBY, lobby.get("options") or {}).get("accept_chat", True))
 
     def closes_early(self, scope: Scope) -> bool:
-        """The lobby's "end questions when everyone has answered" switch (default on, #105)."""
+        """The lobby's "end questions when everyone has answered" switch (default on)."""
         lobby = self.live.item_by_id(scope.lobby_id) or {}
         return bool(options_with_defaults(LOBBY, lobby.get("options") or {}).get("close_when_all_answered", True))
 
@@ -593,7 +593,7 @@ class QuizService:
     def _maybe_close_early(self, game: Game, item_id: str) -> None:
         """Once every active player has answered ``item_id`` and the lobby's "end questions when
         everyone has answered" option is on (default), reveal it ``EARLY_CLOSE_MS`` from now —
-        reusing the same reveal path as time-up and ``quiz_lock`` (#105). Never brings the reveal
+        reusing the same reveal path as time-up and ``quiz_lock``. Never brings the reveal
         *later* than whatever is already scheduled (the deadline, or an earlier early close)."""
         if self.live.loop is None or game.item_id != item_id:
             return
