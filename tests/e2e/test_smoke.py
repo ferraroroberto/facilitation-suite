@@ -18,8 +18,8 @@ from tests.fixtures.demo import build_demo_session
 
 # A touch phone (coarse pointer, <=520px): the vendored nav-tabs.css phone rule applies.
 PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
-# top = safe area (0 in emulation) · sides = --gap · bottom = 21 + 61 + 21 + --gap
-PHONE_PADDING = ["0px", "12px", "115px", "12px"]
+# top = safe area (0 in emulation) + 4px · sides = --gap · bottom = 21 + 61 + 21 + --gap
+PHONE_PADDING = ["4px", "12px", "115px", "12px"]
 UNPAINTED = "el => { const s = getComputedStyle(el); return [s.backgroundColor, s.borderTopWidth]; }"
 APP_PADDING = """() => {
   const s = getComputedStyle(document.querySelector('.app'));
