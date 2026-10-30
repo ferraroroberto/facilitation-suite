@@ -40,8 +40,10 @@
   --attention-soft: color-mix(in srgb, var(--attention) 16%, transparent);
   --deficit-soft: color-mix(in srgb, var(--deficit) 12%, transparent);
   --deficit-border-soft: color-mix(in srgb, var(--deficit) 30%, transparent);
-  --tabbar-bg: rgba(255, 255, 255, 0.85);
-  --tabbar-border: rgba(31, 35, 40, 0.12);
+  --tabbar-bg: rgba(255, 255, 255, 0.62);
+  --tabbar-border: rgba(0, 0, 0, 0.08);
+  --tabbar-pill: rgba(0, 0, 0, 0.07);
+  --tabbar-shadow: 0 8px 28px -6px rgba(20, 24, 40, 0.2), 0 1px 4px rgba(20, 24, 40, 0.06);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius: 16px;
@@ -112,8 +114,10 @@
   --input-bg: var(--line-muted);
   --toggle-knob: var(--ink);
   --close-bg: transparent;
-  --tabbar-bg: rgba(22, 27, 34, 0.85);
-  --tabbar-border: rgba(240, 246, 252, 0.1);
+  --tabbar-bg: rgba(42, 45, 52, 0.55);
+  --tabbar-border: rgba(255, 255, 255, 0.14);
+  --tabbar-pill: rgba(255, 255, 255, 0.14);
+  --tabbar-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
 

@@ -46,3 +46,4 @@ test-results/
 !/.claude/skills/analyze-session/
 .agents/
 .codex/
+.proof/
