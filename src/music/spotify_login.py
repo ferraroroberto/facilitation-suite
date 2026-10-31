@@ -28,6 +28,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from src.env_file import get_value, set_value
+from src.errors import DomainError
 from src.music.spotify import CLIENT_ID_KEY, REFRESH_KEY, SCOPES, TOKEN_URL, Http, parse_json, urllib_http
 
 logger = logging.getLogger(__name__)
@@ -39,8 +40,11 @@ WAIT_S = 300
 IDLE, WAITING, DONE, FAILED = "idle", "waiting", "done", "failed"
 
 
-class LoginError(Exception):
+class LoginError(DomainError):
     """A login that did not end with a saved token; the message is safe to show."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(409, "spotify_login", message)
 
 
 def redirect_uri(port: int) -> str:

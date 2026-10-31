@@ -41,6 +41,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.errors import DomainError
 from src.importer.analyze import detect_profile, dhash, text_hash
 from src.no_window import NO_WINDOW
 from src.sessions.model import Item, Section, Session, Source, ensure_ids
@@ -59,12 +60,11 @@ _MAP_WORDS = re.compile(r"\b(map|mapa|where|dónde|donde)\b", re.I)
 _SCALE_WORDS = re.compile(r"\b(weather|tiempo|clima|scale|escala|1\s*[-–a]\s*5)\b", re.I)
 
 
-class ImportError_(Exception):
-    """A failed import with a user-facing message (distinct per condition)."""
+class DeckImportError(DomainError):
+    """A failed import with a user-facing message (distinct per condition); a second import while one runs is a 409."""
 
     def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
+        super().__init__(409 if code == "busy" else 422, code, message)
 
 
 def display_title(s: dict[str, Any]) -> str:
@@ -113,7 +113,7 @@ def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None]
             env={**os.environ, "PYTHONUTF8": "1"},
         )
     except OSError as exc:
-        raise ImportError_("spawn_failed", "The import process could not start") from exc
+        raise DeckImportError("spawn_failed", "The import process could not start") from exc
     last_error = ""
     timed_out = threading.Event()
 
@@ -137,15 +137,15 @@ def run_exporter(deck: Path, out_dir: Path, progress: Callable[[int, int], None]
     finally:
         timer.cancel()
     if timed_out.is_set():
-        raise ImportError_("timeout", "PowerPoint did not finish within 5 minutes — is a dialog open in PowerPoint?")
+        raise DeckImportError("timeout", "PowerPoint did not finish within 5 minutes — is a dialog open in PowerPoint?")
     if code == 2:
-        raise ImportError_("powerpoint_unavailable", "PowerPoint is not available on this PC")
+        raise DeckImportError("powerpoint_unavailable", "PowerPoint is not available on this PC")
     if code == 3:
-        raise ImportError_("deck_unreadable", "PowerPoint could not open the deck")
+        raise DeckImportError("deck_unreadable", "PowerPoint could not open the deck")
     if code == 5:
-        raise ImportError_("slide_not_found", last_error or "This deck has no such slide")
+        raise DeckImportError("slide_not_found", last_error or "This deck has no such slide")
     if code != 0:
-        raise ImportError_("export_failed", last_error or f"The export failed (exit {code})")
+        raise DeckImportError("export_failed", last_error or f"The export failed (exit {code})")
     return json.loads((out_dir / "export.json").read_text(encoding="utf-8"))
 
 
@@ -262,9 +262,9 @@ def _normalize_slides(only: Optional[list[int]]) -> Optional[list[int]]:
     if only is None:
         return None
     if not only:
-        raise ImportError_("no_slides", "Pick at least one slide")
+        raise DeckImportError("no_slides", "Pick at least one slide")
     if any(isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in only):
-        raise ImportError_("bad_slide", "Slide numbers start at 1")
+        raise DeckImportError("bad_slide", "Slide numbers start at 1")
     return list(dict.fromkeys(only))
 
 
@@ -338,12 +338,12 @@ class Importer:
         path = Path(deck.strip().strip('"'))
         only = _normalize_slides(only)
         if path.suffix.lower() not in (".pptx", ".ppt", ".pptm"):
-            raise ImportError_("not_a_deck", "Choose a PowerPoint file (.pptx)")
+            raise DeckImportError("not_a_deck", "Choose a PowerPoint file (.pptx)")
         if not path.is_file():
-            raise ImportError_("deck_not_found", "That PowerPoint file does not exist")
+            raise DeckImportError("deck_not_found", "That PowerPoint file does not exist")
         with self._lock:
             if any(j.state in ("queued", "running") for j in self._jobs.values()):
-                raise ImportError_("busy", "An import is already running")
+                raise DeckImportError("busy", "An import is already running")
             job = ImportJob(id=uuid.uuid4().hex[:10], session_id=session_id, deck=str(path), only=only)
             self._jobs[job.id] = job
         threading.Thread(target=self._run, args=(job,), daemon=True, name=f"import-{job.id}").start()
@@ -360,7 +360,7 @@ class Importer:
             session = self._load(job.session_id)
             first = not session.all_items()
             if job.only and first:
-                raise ImportError_("selection_needs_import",
+                raise DeckImportError("selection_needs_import",
                                    "Import the whole PowerPoint first, then re-import the slides you pick")
             slides_dir = folder / "slides"
             staged = slides_dir / INCOMING
@@ -388,7 +388,7 @@ class Importer:
             if job.only:
                 stored = slides_dir / "slides.json"
                 if not stored.is_file():
-                    raise ImportError_("slides_missing", "Import the PowerPoint before re-importing selected slides")
+                    raise DeckImportError("slides_missing", "Import the PowerPoint before re-importing selected slides")
                 meta = merge_partial(json.loads(stored.read_text(encoding="utf-8")), meta)
             (target / "slides.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
             exported = len(export["slides"])
@@ -406,7 +406,7 @@ class Importer:
             job.result = {"slides": exported, "unsure_profiles": unsure, **summary}
             job.state = "done"
             logger.info("✅ import: %s slides for session %s (%s)", exported, job.session_id, summary)
-        except ImportError_ as exc:
+        except DeckImportError as exc:
             job.state, job.code, job.message = "error", exc.code, str(exc)
             logger.error("❌ import failed (%s): %s", exc.code, exc)
         except Exception as exc:  # noqa: BLE001 — surfaced to the UI, detail in the log

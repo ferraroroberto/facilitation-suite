@@ -29,7 +29,7 @@ import yaml
 
 from src.config import CONFIG_SAMPLE_PATH, PROJECT_ROOT, AppConfig, load_config
 from src.library import THEME_PREFIX, library_theme_css, themes_dir
-from src.live.capture import STATE_FILE
+from src.live.capture import CAPTURES_FILE
 from src.live.freeze import render
 from src.no_window import NO_WINDOW
 from src.sessions.model import parse_session
@@ -75,7 +75,7 @@ def _stage_copy(folder: Path, out: Path, item_ids: list[str], root: Path) -> Pat
     for item_id in item_ids:
         shutil.copy2(out / f"{item_id}.json", copy / "live" / "captures" / f"{item_id}.json")
         windows[item_id] = json.loads((out / f"{item_id}.json").read_text(encoding="utf-8"))["windows"]
-    (copy / "live" / STATE_FILE).write_text(json.dumps({"windows": windows, "hidden": [], "places": {}}), encoding="utf-8")
+    (copy / "live" / CAPTURES_FILE).write_text(json.dumps({"windows": windows, "hidden": [], "places": {}}), encoding="utf-8")
     return copy
 
 

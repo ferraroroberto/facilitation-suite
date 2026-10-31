@@ -20,7 +20,6 @@ from src.certs import cert_hostname
 from src.config import profiles
 from src.env_file import get_value
 from src.music.spotify import CLIENT_ID_KEY, REFRESH_KEY
-from src.music.spotify_login import LoginError
 from src.sessions.model import StageFont
 from src.sessions.theme import FONT_TYPES, lettering_css, stage_font_file
 
@@ -315,9 +314,6 @@ async def connect_spotify(request: Request) -> dict[str, Any]:
     """Start the Spotify login on this PC: the browser opens Spotify's consent page; the page
     polls GET /api/settings/spotify until ``login.state`` is ``done`` or ``failed``."""
     require_local(request, "Spotify can only be connected on this PC")
-    try:
-        await asyncio.to_thread(request.app.state.spotify_login.start)
-    except LoginError as exc:
-        raise AppError(409, "spotify_login", str(exc)) from exc
+    await asyncio.to_thread(request.app.state.spotify_login.start)
     account = {"state": "unknown", "detail": "Waiting for the Spotify login", "device": "", "checked_at": None}
     return spotify_payload(request, account)

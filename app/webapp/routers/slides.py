@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError, require_local
 from src.importer import review as rv
-from src.importer.service import INCOMING, Importer, ImportError_, deck_status
+from src.importer.service import INCOMING, Importer, deck_status
 from src.music.library import AUDIO_TYPES
 from src.sessions.model import Session, Source, ensure_ids
 from src.sessions.store import SessionStore, atomic_write_text
@@ -47,12 +47,7 @@ class ImportRequest(BaseModel):
 @router.post("/api/sessions/{sid}/import", status_code=202)
 def start_import(request: Request, sid: str, body: ImportRequest) -> dict[str, Any]:
     _folder(request, sid)
-    try:
-        job = _importer(request).start(sid, body.pptx, body.slides)
-    except ImportError_ as exc:
-        status = 409 if exc.code == "busy" else 422
-        raise AppError(status, exc.code, str(exc)) from exc
-    return job.as_dict()
+    return _importer(request).start(sid, body.pptx, body.slides).as_dict()
 
 
 @router.get("/api/imports/{job_id}")

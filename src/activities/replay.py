@@ -36,7 +36,7 @@ from src.chat.hub import minute_of_day
 from src.config import data_dir
 from src.importer.review import read_meta
 from src.jsonl import read_jsonl
-from src.live.capture import STATE_FILE, frozen_answers, select_messages
+from src.live.capture import CAPTURES_FILE, frozen_answers, select_messages
 from src.live.plan import build_run
 from src.logger import configure_logging
 from src.results.aliases import Excluded, read_aliases
@@ -79,8 +79,8 @@ def load_recording(folder: Path, live_dir: str = "live", *, exclude: tuple[str, 
     activity use the options the Plan says now instead of the ones it was frozen with."""
     live = folder / live_dir
     state: dict[str, Any] = {}
-    if (live / STATE_FILE).is_file():
-        state = json.loads((live / STATE_FILE).read_text(encoding="utf-8"))
+    if (live / CAPTURES_FILE).is_file():
+        state = json.loads((live / CAPTURES_FILE).read_text(encoding="utf-8"))
     frozen: dict[str, dict[str, Any]] = {}
     for path in sorted((live / "captures").glob("*.json")):
         frozen[path.stem] = json.loads(path.read_text(encoding="utf-8"))

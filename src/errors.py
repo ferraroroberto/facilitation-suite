@@ -1,7 +1,7 @@
 """The one domain-error shape: an HTTP status, a stable machine code and a message.
 
 Every domain module's error (``SessionError``, ``ReviewError``, ``LiveError``,
-``RosterError``, ``SettingsError``) subclasses it, and the webapp turns any of
+``RosterError``, ``SettingsError``, ``DeckImportError``, ``LoginError``) subclasses it, and the webapp turns any of
 them into its JSON error envelope with one exception handler
 (``app/webapp/server.py``), so routers let them propagate instead of
 translating each one.

@@ -33,15 +33,7 @@ from src.sessions.store import SessionStore
 from tests.conftest import REPO_ROOT, write_test_config
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import add_quiz_section
-from tests.quiz.test_quiz_engine import (  # noqa: F401 — fixtures
-    Clock,
-    at_lobby_with,
-    clock,
-    goto_id,
-    make_rig,
-    quiz_session,
-    rig,
-)
+from tests.fixtures.quiz_rig import Clock, at_lobby_with, goto_id, make_rig
 
 PUBLIC_URL = "https://quiz.example.test:10000"
 
@@ -424,7 +416,7 @@ def test_the_default_limits_let_60_players_behind_one_nat_play() -> None:
 
 # ---- the PIN (engine + service) ----
 
-def test_every_game_has_its_own_pin_and_it_survives_a_restart(quiz_session, clock: Clock) -> None:  # noqa: F811
+def test_every_game_has_its_own_pin_and_it_survives_a_restart(quiz_session, clock: Clock) -> None:
     sid, folder = quiz_session
     hub, quiz = make_rig(sid, clock)
     goto_id(hub, "qz-lobby")
@@ -443,7 +435,7 @@ def test_every_game_has_its_own_pin_and_it_survives_a_restart(quiz_session, cloc
     assert {g.game_id: g.pin for g in quiz2.games.values()} == {first.game_id: first.pin, second.game_id: second.pin}
 
 
-def test_a_game_from_before_pins_gets_one(quiz_session, clock: Clock) -> None:  # noqa: F811
+def test_a_game_from_before_pins_gets_one(quiz_session, clock: Clock) -> None:
     sid, folder = quiz_session
     hub, quiz = make_rig(sid, clock)
     goto_id(hub, "qz-lobby")
@@ -454,7 +446,7 @@ def test_a_game_from_before_pins_gets_one(quiz_session, clock: Clock) -> None:  
     assert len(pin) == 6 and [r["pin"] for r in read_jsonl(path) if r["op"] == "pin"] == [pin]
 
 
-def test_change_listeners_hear_every_record(rig) -> None:  # noqa: F811
+def test_change_listeners_hear_every_record(rig) -> None:
     hub, quiz = rig
     heard: list[int] = []
     quiz.change_listeners.append(lambda: heard.append(1))

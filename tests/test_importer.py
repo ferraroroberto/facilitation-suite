@@ -194,10 +194,10 @@ def test_import_rejects_non_decks(client, tmp_path: Path) -> None:
 
 
 def test_exporter_failure_is_reported(client, tmp_path: Path) -> None:
-    from src.importer.service import ImportError_
+    from src.importer.service import DeckImportError
 
     def broken(deck, out, progress, only=None):
-        raise ImportError_("powerpoint_unavailable", "PowerPoint is not available on this PC")
+        raise DeckImportError("powerpoint_unavailable", "PowerPoint is not available on this PC")
 
     sid = client.post("/api/sessions", json={"title": "Demo"}).json()["id"]
     client.app.state.importer._exporter = broken
@@ -249,3 +249,10 @@ def test_real_powerpoint_export(tmp_path: Path) -> None:
     assert [b["text"] for b in first["boxes"]] == ["Opening"] and first["boxes"][0]["size"] > 0
     assert first["boxes"][0]["title"] is True  # the title placeholder: lettered as a title on the stage
     assert dhash(tmp_path / "out" / first["file"]) != dhash(tmp_path / "out" / first["bg_file"])  # the text is gone from it
+
+
+def test_a_deck_import_error_carries_its_http_status() -> None:
+    from src.importer.service import DeckImportError
+
+    assert DeckImportError("busy", "An import is already running").status == 409
+    assert DeckImportError("not_a_deck", "Choose a PowerPoint file (.pptx)").status == 422
