@@ -35,6 +35,7 @@ from unittest import mock
 import yaml
 
 from tests.fixtures.demo import PLAN, RUN_START_MS, build_demo_session
+from tests.fixtures.quiz_rig import Clock
 
 HERE = Path(__file__).resolve().parent
 QUIZ_JSONL = HERE / "quiz.jsonl"
@@ -79,14 +80,6 @@ RUN2: dict[str, list[tuple[str, int, int]]] = {
 LAST = "qz-sun"  # the quiz's last question, before its podium
 KICKED = "Meteor"  # removed by the host after the first question
 LATENCY_MS = 300  # a phone's answer reaches the server this long after the tap
-
-
-class Clock:
-    def __init__(self, t: int) -> None:
-        self.t = t
-
-    def __call__(self) -> int:
-        return self.t
 
 
 def generate(folder: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

@@ -12,12 +12,13 @@ import yaml
 from openpyxl import load_workbook
 
 from src.activities.registry import options_with_defaults, parser, result_for
+from src.chat.hub import minute_of_day
 from src.geo.gazetteer import gazetteer
 from src.results.aliases import AliasError, Aliases, read_aliases, suggest, write_aliases
 from src.results.collect import load_results, participation, participation_table, timeline
 from src.results.excel import sheet_title
 from src.results.pdf import activities_html, activities_pages, session_html, share_html, share_pages
-from src.results.reconcile import minutes_of, norm_text, parse_saved_chat, reconcile
+from src.results.reconcile import norm_text, parse_saved_chat, reconcile
 from src.sessions.model import parse_session
 from tests.fixtures.demo import LONG_TOP_ANSWER, PLAN, build_demo_session, write_demo_run, zoom_saved_chat
 
@@ -419,8 +420,8 @@ def test_the_same_answer_twice_matches_twice_not_once() -> None:
 
 
 def test_clock_and_text_normalisation() -> None:
-    assert minutes_of("18:40:12") == minutes_of("6:40 PM") == 18 * 60 + 40
-    assert minutes_of("12:05 AM") == 5 and minutes_of("nope") is None
+    assert minute_of_day("18:40:12") == minute_of_day("6:40 PM") == 18 * 60 + 40
+    assert minute_of_day("12:05 AM") == 5 and minute_of_day("nope") is None
     assert norm_text("  Great 🎉   Session ") == "great session"
 
 

@@ -20,7 +20,6 @@ import io
 import logging
 import random
 import shutil
-import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +31,7 @@ from openpyxl import load_workbook
 from src.errors import DomainError
 from src.groups.shuffle import _assign_ids, build_groups
 from src.sessions.store import atomic_write_text
+from src.text import fold
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +54,6 @@ class Person:
     country: str = ""
     email: str = ""
     present: bool = True
-
-
-def sort_key(name: str) -> str:
-    """Alphabetical with accents ignored (Á sorts with A)."""
-    return "".join(c for c in unicodedata.normalize("NFD", name.lower()) if unicodedata.category(c) != "Mn")
 
 
 def _present(value: object) -> bool:
@@ -98,7 +93,7 @@ def read_roster(path: Path) -> list[Person]:
 
         present_cell = row[col["present"]] if "present" in col and col["present"] < len(row) else None
         people[name] = Person(name, get("role"), get("company"), get("country"), get("email"), _present(present_cell))
-    return sorted(people.values(), key=lambda p: sort_key(p.name))
+    return sorted(people.values(), key=lambda p: fold(p.name))
 
 
 def import_roster(folder: Path, source: Path) -> list[Person]:
@@ -160,7 +155,7 @@ def set_present(folder: Path, name: str, present: bool) -> None:
     if name not in {p.name for p in people}:
         raise RosterError(404, "unknown_person", f"{name!r} is not on the roster")
     absent = [n for n in state["absent"] if n != name] + ([] if present else [name])
-    state["absent"] = sorted(absent, key=sort_key)
+    state["absent"] = sorted(absent, key=fold)
     save_groups(folder, state)
 
 
@@ -201,7 +196,7 @@ def zoom_csv(people: list[Person], groups: list[list[str]]) -> tuple[Optional[st
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\r\n")
     w.writerow(["Pre-assign Room Name", "Email Address"])
-    for room, n in sorted(((room, n) for n, room in _assign_ids(groups).items()), key=lambda x: (x[0], sort_key(x[1]))):
+    for room, n in sorted(((room, n) for n, room in _assign_ids(groups).items()), key=lambda x: (x[0], fold(x[1]))):
         w.writerow([f"Room {room}", email[n]])
     return buf.getvalue(), []
 

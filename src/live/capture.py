@@ -54,7 +54,7 @@ from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = "captures.json"
+CAPTURES_FILE = "captures.json"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PUSH_EVERY_S = 0.25  # at most four result pushes a second during a burst
 
@@ -319,15 +319,15 @@ class CaptureService:
         self._session = self.live.session_id
         self.windows, self.hidden, self.places = {}, set(), {}
         d = self._dir()
-        if d is None or not (d / STATE_FILE).is_file():
+        if d is None or not (d / CAPTURES_FILE).is_file():
             return
         try:
-            data = json.loads((d / STATE_FILE).read_text(encoding="utf-8"))
+            data = json.loads((d / CAPTURES_FILE).read_text(encoding="utf-8"))
             self.windows = {k: [list(w) for w in v] for k, v in (data.get("windows") or {}).items()}
             self.hidden = {int(x) for x in data.get("hidden") or []}
             self.places = {int(k): str(v) for k, v in (data.get("places") or {}).items()}
         except (OSError, ValueError, TypeError) as exc:
-            logger.warning("⚠️ %s unreadable (%s) — captures start empty", STATE_FILE, exc)
+            logger.warning("⚠️ %s unreadable (%s) — captures start empty", CAPTURES_FILE, exc)
 
     def _forget(self) -> None:
         """After a reset: nothing captured, hidden or placed (the old run is set aside), and the
@@ -341,12 +341,12 @@ class CaptureService:
         if d is None:
             return
         try:
-            atomic_write_text(d / STATE_FILE, json.dumps({"windows": self.windows, "hidden": sorted(self.hidden),
+            atomic_write_text(d / CAPTURES_FILE, json.dumps({"windows": self.windows, "hidden": sorted(self.hidden),
                                                           "places": {str(k): v for k, v in self.places.items()}}, indent=1))
         except OSError as exc:
-            self.live.write_failed(STATE_FILE, exc)
+            self.live.write_failed(CAPTURES_FILE, exc)
             return
-        self.live.write_ok(STATE_FILE)
+        self.live.write_ok(CAPTURES_FILE)
 
     def frozen_path(self, item_id: str, ext: str) -> Optional[Path]:
         d = self._dir()

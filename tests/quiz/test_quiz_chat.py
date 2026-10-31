@@ -20,7 +20,7 @@ from src.quiz.chat import ChatAnswers, parse_choice
 from src.quiz.service import QuizService
 from src.sessions.store import SESSION_FILE, SessionStore
 from tests.fixtures.demo import build_demo_session
-from tests.quiz.test_quiz_engine import QUIZ_SECTION, T0, Clock, goto_id, state
+from tests.fixtures.quiz_rig import QUIZ_SECTION, T0, Clock, goto_id, state
 
 
 class Rig:
@@ -59,11 +59,6 @@ def _session(env: Path, *, accept_chat: bool | None = None) -> str:
     raw["sections"].insert(1, section)
     (folder / SESSION_FILE).write_text(yaml.safe_dump(raw, sort_keys=False, allow_unicode=True), encoding="utf-8")
     return sid
-
-
-@pytest.fixture
-def clock() -> Clock:
-    return Clock()
 
 
 @pytest.fixture

@@ -159,9 +159,9 @@ class FakeExporter:
             wanted = set(only)
             missing = wanted - {i for i, _ in chosen}
             if missing:
-                from src.importer.service import ImportError_
+                from src.importer.service import DeckImportError
 
-                raise ImportError_("slide_not_found", f"This deck has no slide {min(missing)}")
+                raise DeckImportError("slide_not_found", f"This deck has no slide {min(missing)}")
             chosen = [(i, s) for i, s in chosen if i in wanted]
         slides = []
         for k, (i, s) in enumerate(chosen, start=1):

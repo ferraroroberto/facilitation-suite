@@ -19,71 +19,7 @@ from src.quiz.model import QuizError, QuizQuestion
 from src.quiz.service import QUIZ_FILE, QuizService
 from src.sessions.store import SESSION_FILE, SessionStore
 from tests.fixtures.demo import build_demo_session
-
-T0 = 1_800_000_000_000
-
-QUIZ_SECTION: dict[str, Any] = {"id": "sec-quiz", "name": "Planets quiz", "minutes": 10, "items": [
-    {"kind": "activity", "id": "qz-lobby", "type": "quiz_lobby", "options": {"title": "Planets"}},
-    {"kind": "activity", "id": "qz-1", "type": "quiz", "question": "Which planet is the red one?",
-     "options": {"answer_1": "Venus", "answer_2": "Mars", "answer_3": "Jupiter", "answer_4": "Saturn",
-                 "correct": "2", "time_limit": 20, "points": "standard"}},
-    {"kind": "activity", "id": "qz-2", "type": "quiz", "question": "Which have rings?",
-     "options": {"answer_1": "Saturn", "answer_2": "Mars", "answer_3": "Uranus",
-                 "correct": "1,3", "time_limit": 10, "points": "double"}},
-    # Options left at their defaults are not written: correct "1", 20 s, standard points.
-    {"kind": "activity", "id": "qz-3", "type": "quiz", "question": "Is the Sun a star?",
-     "options": {"answer_1": "Yes", "answer_2": "No"}},
-    {"kind": "activity", "id": "qz-podium", "type": "quiz_podium"},
-    {"kind": "activity", "id": "qz-orphan", "type": "quiz", "question": "A question outside any game",
-     "options": {"answer_1": "One", "answer_2": "Two"}},
-]}
-
-
-class Clock:
-    def __init__(self) -> None:
-        self.t = T0
-
-    def __call__(self) -> int:
-        return self.t
-
-
-@pytest.fixture
-def quiz_session(isolated_env: Path) -> tuple[str, Path]:
-    sid, folder = build_demo_session(isolated_env / "sessions" / "demo" / "quiz", isolated_env / "sessions.local.yaml")
-    raw = yaml.safe_load((folder / SESSION_FILE).read_text(encoding="utf-8"))
-    raw["sections"].insert(1, QUIZ_SECTION)
-    (folder / SESSION_FILE).write_text(yaml.safe_dump(raw, sort_keys=False, allow_unicode=True), encoding="utf-8")
-    return sid, folder
-
-
-def make_rig(sid: str, clock: Clock) -> tuple[LiveHub, QuizService]:
-    hub = LiveHub(SessionStore(load_config()))
-    quiz = QuizService(hub, clock=clock)
-    hub.activate(sid)
-    return hub, quiz
-
-
-@pytest.fixture
-def clock() -> Clock:
-    return Clock()
-
-
-@pytest.fixture
-def rig(quiz_session: tuple[str, Path], clock: Clock) -> tuple[LiveHub, QuizService]:
-    return make_rig(quiz_session[0], clock)
-
-
-def goto_id(hub: LiveHub, item_id: str) -> None:
-    hub.goto(hub.item_by_id(item_id)["index"])
-
-
-def state(hub: LiveHub) -> dict[str, Any]:
-    return hub.snapshot()["state"]["quiz"]
-
-
-def at_lobby_with(hub: LiveHub, quiz: QuizService, *names: str) -> list[Any]:
-    goto_id(hub, "qz-lobby")
-    return [quiz.join(n) for n in names]
+from tests.fixtures.quiz_rig import QUIZ_SECTION, T0, Clock, at_lobby_with, goto_id, make_rig, state
 
 
 async def bound_rig(sid: str, clock: Clock) -> tuple[LiveHub, QuizService]:

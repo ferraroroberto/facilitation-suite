@@ -16,7 +16,7 @@
 }
 .presenter.picker { display: grid; place-items: center; }
 .p-picker { width: min(560px, 100%); display: grid; gap: var(--space-sm); }
-.p-picker .list-row .button-tint { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; min-height: var(--control-h); }
+.p-picker .list-row .button-tint { padding: 0 14px; min-height: var(--control-h); }
 
 /* ---- top bar ---------------------------------------------------------- */
 .p-top { display: flex; align-items: center; gap: var(--space-md); min-width: 0; }
@@ -86,7 +86,7 @@
 .p-timer-clock.done { color: var(--danger-text); }
 .p-timer-clock.paused { color: var(--attention-text); background: var(--attention-soft); border-radius: var(--radius-sm); padding: 0 6px; }
 .p-timer-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-.p-timer-actions .button-primary { flex: 1 1 160px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.p-timer-actions .button-primary { flex: 1 1 160px; gap: 8px; }
 .p-timer-actions kbd, .p-keylist kbd {
   font-family: var(--mono);
   font-size: var(--font-caption);
@@ -105,7 +105,7 @@
 .p-music-now { display: flex; align-items: center; gap: 8px; font-weight: 700; min-width: 0; }
 .p-music-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 130px; }
 .p-music .select-native { width: 100%; }
-.p-music .p-timer-actions .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.p-music .p-timer-actions .button-surface { padding: 0 12px; min-height: var(--control-h); }
 /* The volume shares the "now playing" row; the title keeps room for "Nothing playing". */
 .p-music-vol { display: flex; align-items: center; gap: var(--space-sm); flex: 0 1 160px; min-width: 120px; font-weight: 400; }
 .p-music-vol .icon { width: 18px; height: 18px; color: var(--muted); flex: none; }
@@ -113,7 +113,7 @@
 .p-music-vol output { width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
 .p-music-link { display: flex; gap: var(--space-sm); }
 .p-music-link .input { flex: 1; min-width: 0; }
-.p-music-link .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); flex: none; }
+.p-music-link .button-surface { padding: 0 12px; min-height: var(--control-h); flex: none; }
 .p-music-hint { margin: 0; }
 .p-music-hint.warn { color: var(--danger-text); }
 @keyframes p-pulse { 50% { box-shadow: 0 0 0 8px transparent; } }
@@ -151,7 +151,7 @@
 .p-msg-text { overflow-wrap: anywhere; }
 .p-msg.own .p-msg-text { color: var(--muted); }
 .p-chat-foot { padding: var(--space-sm) var(--space-md) var(--space-md); border-top: 1px solid var(--line-muted); display: grid; gap: 6px; }
-.p-chat-foot .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.p-chat-foot .button-surface { padding: 0 12px; min-height: var(--control-h); }
 .p-chat-hint { margin: 0; }
 .p-chat-foot .segmented { max-width: 240px; }
 
@@ -273,7 +273,7 @@
 .p-quiz-url { min-width: 0; flex: 1 1 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); }
 /* "Next phase" keeps one line; Lock answers (and New game) sit beside it, or wrap under it. */
 .p-quiz-actions .p-cap-btn { width: auto; flex: 1 1 auto; white-space: nowrap; }
-.p-quiz-join .button-surface { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; min-height: var(--control-h); }
+.p-quiz-join .button-surface { padding: 0 12px; min-height: var(--control-h); }
 .p-quiz-head { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-xs); }
 .p-quiz-players { list-style: none; margin: 0; padding: 0; }
 .p-quiz-players li { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; border-bottom: 1px solid var(--line-muted); }

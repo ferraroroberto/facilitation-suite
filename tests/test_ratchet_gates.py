@@ -1,12 +1,13 @@
-"""The gate's comment- and docs-ratchet stages map the vendored scripts' exit codes.
+"""The gate's wrapped ratchet stages (static, comment, docs) map the vendored scripts' exit codes.
 
-`scripts/comment_ratchet.py` and `scripts/docs_ratchet.py` exit 3 when they could not
-read what they check (an unscannable source file, an unreadable or unclosed doc):
-nothing was counted. These tests pin that 3 fails as NOT CONFIRMED -- never a pass,
-never a skip -- and that the pre-ship gate calls the wrapper that guarantees it rather
-than the script. The mapping tests use fake scripts; the last group copies the real
-vendored script into a throwaway git repo so a new issue reference and an unreadable
-file are caught by name. Nothing here reads the live ledger or config.
+Each script exits 3 when it could not check what it reads (a detector that could not
+run, an unscannable source file, an unreadable or unclosed doc): nothing was counted.
+These tests pin that 3 fails as NOT CONFIRMED -- never a pass, never a skip -- and that
+the pre-ship gate calls the wrapper that guarantees it rather than the script. The
+mapping tests use fake scripts; the last group copies the real vendored script into a
+throwaway git repo so a new issue reference and an unreadable file are caught by name
+(the static ratchet needs `npx` there, so it has no row in that group). Nothing here
+reads the live ledger or config.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from types import ModuleType
 
 import pytest
 
-from scripts import comment_ratchet_gate, docs_ratchet_gate
+from scripts import comment_ratchet_gate, docs_ratchet_gate, static_ratchet_gate
 from src.no_window import NO_WINDOW
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,13 +37,14 @@ class Stage:
     name: str  # the `Invoke-Stage` name
     after: str  # the stage it runs after
     before: str  # the stage it runs before
-    file: str
-    clean: str
-    marked: str  # `clean`, plus an issue reference
-    unreadable: str  # content the script cannot scan: exit 3
+    file: str = ""  # empty: the stage has no throwaway-repo group
+    clean: str = ""
+    marked: str = ""  # `clean`, plus an issue reference
+    unreadable: str = ""  # content the script cannot scan: exit 3
 
 
 STAGES = [
+    Stage("static_ratchet", static_ratchet_gate, "static ratchet", "ruff", "docs ratchet"),
     Stage(
         "comment_ratchet", comment_ratchet_gate, "comment ratchet", "docs ratchet",
         "pytest (unit, non-e2e)", "src/sample.py",
@@ -58,6 +60,9 @@ STAGES = [
 ]
 
 stages = pytest.mark.parametrize("stage", STAGES, ids=lambda s: s.key)
+repo_stages = pytest.mark.parametrize("stage", [s for s in STAGES if s.file], ids=lambda s: s.key)
+# Every vendored ratchet the gate runs: the wrapped stages plus the one called directly.
+RATCHETS = [*(s.key for s in STAGES), "conventions_ratchet"]
 
 
 def _fake_script(tmp_path: Path, body: str) -> Path:
@@ -115,6 +120,22 @@ def test_an_interpreter_that_cannot_start_is_not_confirmed(
 
 
 @stages
+def test_the_wrapper_runs_under_the_venv_interpreter(
+    stage: Stage, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[list[str]] = []
+    real = subprocess.run
+
+    def spy(argv: list[str], **kwargs: object) -> object:
+        seen.append(argv)
+        return real(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    stage.gate.run(_exits(tmp_path, 0))
+    assert seen[0][0] == sys.executable  # the python that has ruff, not PATH's
+
+
+@stages
 def test_the_pre_ship_gate_calls_the_wrapper_not_the_script(stage: Stage) -> None:
     gate_ps1 = (REPO_ROOT / "scripts" / "verify-before-ship.ps1").read_text(encoding="utf-8")
     stage_lines = [
@@ -128,13 +149,13 @@ def test_the_pre_ship_gate_calls_the_wrapper_not_the_script(stage: Stage) -> Non
     assert names.index(stage.after) < names.index(stage.name) < names.index(stage.before)
 
 
-@stages
-def test_the_ratchet_is_declared_and_its_script_is_vendored(stage: Stage) -> None:
+@pytest.mark.parametrize("key", RATCHETS)
+def test_the_ratchet_is_declared_and_its_script_is_vendored(key: str) -> None:
     fleet = tomllib.loads((REPO_ROOT / ".fleet.toml").read_text(encoding="utf-8"))
-    assert fleet[stage.key]["enabled"] is True
-    assert (REPO_ROOT / fleet[stage.key]["baseline"]).is_file()
-    entry = fleet["vendored"][stage.key]
-    assert entry["dest"] == f"scripts/{stage.key}.py"
+    assert fleet[key]["enabled"] is True
+    assert (REPO_ROOT / fleet[key]["baseline"]).is_file()
+    entry = fleet["vendored"][key]
+    assert entry["dest"] == f"scripts/{key}.py"
     assert (REPO_ROOT / entry["dest"]).is_file()
 
 
@@ -176,7 +197,7 @@ def _init_baseline(repo: Path, stage: Stage) -> None:
     assert proc.returncode == 0, proc.stderr
 
 
-@stages
+@repo_stages
 def test_a_new_issue_reference_fails_the_gate_by_name(
     stage: Stage, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -192,7 +213,7 @@ def test_a_new_issue_reference_fails_the_gate_by_name(
     assert "#123" in out
 
 
-@stages
+@repo_stages
 def test_an_unreadable_file_is_not_confirmed_and_fails_the_gate(
     stage: Stage, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

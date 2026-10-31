@@ -34,13 +34,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.chat.hub import minute_of_day
+from src.results.aliases import ident
+
 logger = logging.getLogger(__name__)
 
 HEAD_TO = re.compile(r"^(\d{1,2}:\d{2}:\d{2})\s+From\s+(.+?)\s+to\s+(.+?)\s*:\s*(.*)$", re.IGNORECASE)
 HEAD_OLD = re.compile(r"^(\d{1,2}:\d{2}:\d{2})\s+From\s+(.+?)\s*:\s?(.*)$", re.IGNORECASE)
 REACTION = re.compile(r'^(Reacted to|Removed a) "', re.IGNORECASE)
 REPLY = re.compile(r'^Replying to "', re.IGNORECASE)
-PANEL_TIME = re.compile(r"^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$")
 MAX_LISTED = 200
 
 
@@ -86,29 +88,6 @@ def norm_text(text: str) -> str:
     return " ".join(kept.split()).casefold()
 
 
-def norm_sender(sender: str) -> str:
-    return " ".join(sender.split()).casefold()
-
-
-def minutes_of(clock: str) -> Optional[int]:
-    """"18:40:12" / "18:40" / "6:40 PM" → minutes since midnight."""
-    parts = clock.strip().split(":")
-    if len(parts) == 3:
-        try:
-            return int(parts[0]) * 60 + int(parts[1])
-        except ValueError:
-            return None
-    m = PANEL_TIME.match(clock.strip())
-    if not m:
-        return None
-    h, mi, ampm = int(m.group(1)), int(m.group(2)), (m.group(3) or "").lower()
-    if ampm == "pm" and h != 12:
-        h += 12
-    elif ampm == "am" and h == 12:
-        h = 0
-    return h * 60 + mi
-
-
 def _close(a: Optional[int], b: Optional[int]) -> bool:
     if a is None or b is None:
         return True  # no time to compare: text and sender decide
@@ -122,13 +101,13 @@ def reconcile(saved: list[SavedMessage], chat: list[dict[str, Any]]) -> dict[str
     recorded = [m for m in chat if m.get("source", "zoom") != "simulator"]
     simulated = len(chat) - len(recorded)
     used = [False] * len(recorded)
-    keys = [(norm_text(m.get("text", "")), norm_sender(m.get("sender", "")), minutes_of(m.get("time", "")), bool(m.get("own")))
+    keys = [(norm_text(m.get("text", "")), ident(m.get("sender", "")), minute_of_day(m.get("time", "")), bool(m.get("own")))
             for m in recorded]
     missing: list[SavedMessage] = []
     matched = 0
     start = 0  # messages arrive in order: search forward from the last match first
     for s in messages:
-        text, sender, minute = norm_text(s.text), norm_sender(s.sender), minutes_of(s.time)
+        text, sender, minute = norm_text(s.text), ident(s.sender), minute_of_day(s.time)
         found = None
         for j in [*range(start, len(recorded)), *range(0, start)]:
             if used[j]:

@@ -34,7 +34,7 @@ from src.activities.replay import replay_records
 from src.activities.replay_render import render_all
 from src.config import data_dir
 from src.errors import DomainError
-from src.live.capture import STATE_FILE
+from src.live.capture import CAPTURES_FILE
 from src.live.plan import one_line
 from src.sessions.store import atomic_write_text
 
@@ -101,8 +101,8 @@ def _copy_backup(folder: Path, name: str) -> Path:
     live = _live(folder)
     dest = live / name
     shutil.copytree(live / "captures", dest / "captures")
-    if (live / STATE_FILE).is_file():
-        shutil.copy2(live / STATE_FILE, dest / STATE_FILE)
+    if (live / CAPTURES_FILE).is_file():
+        shutil.copy2(live / CAPTURES_FILE, dest / CAPTURES_FILE)
     return dest
 
 
@@ -115,13 +115,13 @@ def _restore(folder: Path, backup: Path) -> None:
             path.unlink()
     for src in (backup / "captures").iterdir():
         shutil.copy2(src, live / "captures" / src.name)
-    if (backup / STATE_FILE).is_file():
-        shutil.copy2(backup / STATE_FILE, live / STATE_FILE)
+    if (backup / CAPTURES_FILE).is_file():
+        shutil.copy2(backup / CAPTURES_FILE, live / CAPTURES_FILE)
 
 
 def _swap_in(folder: Path, staged: Path, pairs: list[tuple[dict[str, Any], dict[str, Any]]]) -> None:
     live = _live(folder)
-    state_path = live / STATE_FILE
+    state_path = live / CAPTURES_FILE
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else None
     for replayed, cmp in pairs:
         item_id = cmp["item_id"]

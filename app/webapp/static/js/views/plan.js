@@ -320,7 +320,7 @@ function renderList() {
   listCard.innerHTML = '';
   const secs = st.session.sections || [];
   if (!secs.length) {
-    listCard.appendChild(emptyStateEl('upload', 'Import the PowerPoint to start the plan.', { actionLabel: 'Import PowerPoint', onAction: reimport }));
+    listCard.appendChild(emptyStateEl('upload', 'Import the PowerPoint to start the plan.', { actionLabel: 'Import PowerPoint', onAction: () => reimport(importCtx()) }));
     return;
   }
   let n = 0;

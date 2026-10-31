@@ -24,12 +24,13 @@ import json
 import logging
 import re
 import threading
-import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
+
+from src.text import fold as fold_accents
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +43,8 @@ SPLIT = re.compile(r"\s*(?:,|/|\s-\s|\(|\)|;)\s*")
 
 
 def fold(text: str) -> str:
-    nfkd = unicodedata.normalize("NFKD", text.lower())
-    out = "".join(c for c in nfkd if not unicodedata.combining(c))
-    return re.sub(r"\s+", " ", re.sub(r"[^\w\s'-]", " ", out)).strip()
+    """The shared fold, then punctuation to single spaces: a typed place and a data name meet on one key."""
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s'-]", " ", fold_accents(text))).strip()
 
 
 @dataclass(frozen=True)
