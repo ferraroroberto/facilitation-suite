@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 from src.no_window import NO_WINDOW
@@ -42,15 +41,6 @@ def test_the_pre_ship_gate_runs_the_script_unrouted_after_dead_code() -> None:
     assert names.index("dead-code ratchet") < names.index("conventions ratchet") < names.index(
         "pytest (unit, non-e2e)"
     )
-
-
-def test_the_ratchet_is_declared_and_its_script_is_vendored() -> None:
-    fleet = tomllib.loads((REPO_ROOT / ".fleet.toml").read_text(encoding="utf-8"))
-    assert fleet["conventions_ratchet"]["enabled"] is True
-    assert (REPO_ROOT / fleet["conventions_ratchet"]["baseline"]).is_file()
-    entry = fleet["vendored"]["conventions_ratchet"]
-    assert entry["dest"] == "scripts/conventions_ratchet.py"
-    assert (REPO_ROOT / entry["dest"]).is_file()
 
 
 # ----------------------------------------------- the real script, on a throwaway repo

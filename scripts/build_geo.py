@@ -1,6 +1,6 @@
 """Build the map's offline data into ``app/activities/map/`` (committed output).
 
-    .venv/Scripts/python.exe scripts/build_geo.py
+    .venv/Scripts/python.exe -m scripts.build_geo
 
 - ``cities.tsv.gz`` — GeoNames ``cities15000`` (every city over 15 000
   people; CC BY 4.0, https://www.geonames.org — attribution in the README
@@ -27,12 +27,13 @@ import io
 import json
 import math
 import re
-import unicodedata
 import urllib.request
 import zipfile
 from pathlib import Path
 
 from babel import Locale
+
+from src.text import fold
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "activities" / "map"
@@ -49,11 +50,6 @@ def fetch(url: str) -> bytes:
     print(f"… {url}")
     with urllib.request.urlopen(url, timeout=120) as r:  # noqa: S310 — fixed public sources
         return r.read()
-
-
-def fold(text: str) -> str:
-    nfkd = unicodedata.normalize("NFKD", text.lower())
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def build_cities() -> dict[tuple[str, str], tuple[float, float, int]]:

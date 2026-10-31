@@ -39,9 +39,10 @@ from src.jsonl import read_jsonl
 from src.live.capture import STATE_FILE, frozen_answers, select_messages
 from src.live.plan import build_run
 from src.logger import configure_logging
-from src.results.aliases import Excluded, fold, read_aliases
+from src.results.aliases import Excluded, read_aliases
 from src.sessions.model import parse_session
 from src.sessions.store import SESSION_FILE
+from src.text import fold
 
 logger = logging.getLogger("replay")
 

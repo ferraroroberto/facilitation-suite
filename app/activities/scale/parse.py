@@ -10,15 +10,11 @@ person: a later answer replaces an earlier one.
 from __future__ import annotations
 
 import re
-import unicodedata
 from typing import Any, Optional
 
+from src.text import fold
+
 NUMBER = re.compile(r"(?<![\d.,])-?\d+(?:[.,]\d+)?")
-
-
-def fold(text: str) -> str:
-    nfkd = unicodedata.normalize("NFKD", text.lower())
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def _range(options: dict[str, Any]) -> tuple[int, int]:

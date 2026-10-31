@@ -37,11 +37,11 @@ STALE_AFTER_MS = 3000
 # A row typed this long before it reaches the server is more likely history
 # posted again than a slow read (a reader scan takes seconds, not minutes).
 OLD_ROW_MINUTES = 5
-TIME_PARTS_RE = re.compile(r"^(\d{1,2}):(\d{2})\s?([AaPp][Mm])?$")
+TIME_PARTS_RE = re.compile(r"^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?$")
 
 
 def minute_of_day(hhmm: str) -> Optional[int]:
-    """Zoom's ``HH:MM`` (or ``h:MM PM``) → minutes since midnight; None if it is neither."""
+    """Zoom's ``HH:MM``, ``HH:MM:SS`` (saved chat) or ``h:MM PM`` → minutes since midnight; None if it is none of them."""
     m = TIME_PARTS_RE.match(hhmm.strip())
     if not m:
         return None

@@ -46,6 +46,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Optional
 
+from src.text import fold
+
 HERE = Path(__file__).resolve().parent
 FILLER = re.compile(r"^(?:(?:ja|je|ji|ha|he|jo)+h?|lol+|xd+|jaj+|hah+|mm+|eh+|ok+|okay)$")
 TOKEN = re.compile(r"[\w'’-]+", re.UNICODE)
@@ -57,12 +59,6 @@ CONJUNCTIONS = frozenset({"y", "e", "and"})
 AND = re.compile(r"\s(?:y|e|and)\s", re.IGNORECASE)
 PHRASE_MAX_WORDS = 3
 MAX_WORDS = 60
-
-
-def fold(text: str) -> str:
-    """Lower-case without accents (grouping key)."""
-    nfkd = unicodedata.normalize("NFKD", text.lower())
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def _stopwords(which: str) -> frozenset[str]:

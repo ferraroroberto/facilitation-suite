@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import re
-import unicodedata
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Optional
@@ -24,6 +23,7 @@ import yaml
 
 from src.errors import DomainError
 from src.sessions.store import atomic_write_text
+from src.text import fold
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,6 @@ class AliasError(DomainError):
 def ident(name: str) -> str:
     """The lookup key of a raw name: spacing and case do not make a different person."""
     return " ".join(name.split()).casefold()
-
-
-def fold(text: str) -> str:
-    """Lowercase without accents."""
-    return "".join(c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c))
 
 
 def _strip_device(name: str) -> tuple[str, bool]:

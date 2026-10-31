@@ -126,13 +126,21 @@ def bind_player_socket(port: int) -> socket.socket:
     return sock
 
 
-class PlayerListener:
-    """Owns the player app's uvicorn server for the lifetime of the main app."""
+class EmbeddedListener:
+    """The lifecycle both embedded listeners share: bind our own socket, serve as a task on the main
+    loop, wait for the server to come up, stop it cleanly or force it. A subclass supplies its uvicorn
+    ``Config`` and its log wording, plus ``_prepare`` / ``_before_stop`` when it has work around the server."""
 
-    def __init__(self, port: int, quiz: QuizService) -> None:
+    label = "listener"  # in every log line: "<label>: ..."
+    task_name = "listener"
+    off_setting = "port"  # the config key whose 0 turns it off, named in the "off" line
+    busy_consequence = ""  # what a busy port costs, in the ❌ line
+    path = ""  # the URL path the listener answers on, in the ✅ line
+    note = ""  # the one-phrase reach of the listener, in the ✅ line
+    log = logger
+
+    def __init__(self, port: int) -> None:
         self.port = port
-        self.quiz = quiz
-        self.app: Optional[FastAPI] = None
         self.server: Optional[EmbeddedServer] = None
         self.task: Optional[asyncio.Task[None]] = None
 
@@ -140,23 +148,92 @@ class PlayerListener:
     def running(self) -> bool:
         return self.server is not None and self.server.started and self.task is not None and not self.task.done()
 
+    def _prepare(self) -> None:
+        """Runs once the socket is bound, before the server is built."""
+
+    def _config(self) -> uvicorn.Config:
+        raise NotImplementedError
+
+    def _before_stop(self) -> None:
+        """Runs first in ``stop``, even when the server never came up."""
+
     async def start(self) -> bool:
         """Bind and serve; ``False`` (logged) when disabled, busy or not up in time — never raises."""
         if not self.port:
-            logger.info("ℹ️ quiz player listener off (quiz.public_port = 0)")
+            self.log.info("ℹ️ %s off (%s = 0)", self.label, self.off_setting)
             return False
         try:
             sock = bind_player_socket(self.port)
         except (OSError, OverflowError) as exc:
-            logger.error(
-                "❌ quiz player listener: %s:%d is busy or unusable (%s) — the public quiz is OFF; "
-                "the main app keeps serving. Free the port (only the player app may use it) and restart.",
-                HOST, self.port, exc,
-            )
+            self.log.error("❌ %s: %s:%d is busy or unusable (%s) — %s", self.label, HOST, self.port, exc, self.busy_consequence)
             return False
+        self._prepare()
+        self.server = EmbeddedServer(self._config())
+        self.task = asyncio.create_task(self.server.serve(sockets=[sock]), name=self.task_name)
+        self.task.add_done_callback(self._on_done)
+        deadline = asyncio.get_running_loop().time() + START_TIMEOUT_S
+        while not self.server.started and not self.task.done():
+            if asyncio.get_running_loop().time() > deadline:
+                self.log.error("❌ %s: not serving %s:%d after %.0f s", self.label, HOST, self.port, START_TIMEOUT_S)
+                await self.stop()
+                return False
+            await asyncio.sleep(0.02)
+        if not self.running:
+            return False
+        self.log.info("✅ %s on http://%s:%d%s (%s)", self.label, HOST, self.port, self.path, self.note)
+        return True
+
+    def _on_done(self, task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            self.log.error("❌ %s crashed: %r", self.label, exc, exc_info=exc)
+
+    async def stop(self) -> None:
+        """Ask the server to finish; force it after ``STOP_TIMEOUT_S``."""
+        self._before_stop()
+        if self.server is None or self.task is None:
+            return
+        self.server.should_exit = True
+        try:
+            await asyncio.wait_for(asyncio.shield(self.task), timeout=STOP_TIMEOUT_S)
+        except TimeoutError:
+            self.log.warning("⚠️ %s: no clean stop in %.0f s — forcing it", self.label, STOP_TIMEOUT_S)
+            self.server.force_exit = True
+            self.task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self.task
+        except Exception:  # noqa: BLE001 — already logged by _on_done
+            pass
+        self.log.info("👋 %s stopped", self.label)
+        self.server = None
+        self.task = None
+
+
+class PlayerListener(EmbeddedListener):
+    """Owns the player app's uvicorn server for the lifetime of the main app."""
+
+    label = "quiz player listener"
+    task_name = "quiz-player-listener"
+    off_setting = "quiz.public_port"
+    busy_consequence = (
+        "the public quiz is OFF; the main app keeps serving. Free the port (only the player app may use it) and restart."
+    )
+    path = "/play"
+    note = "public only through the tunnel"
+
+    def __init__(self, port: int, quiz: QuizService) -> None:
+        super().__init__(port)
+        self.quiz = quiz
+        self.app: Optional[FastAPI] = None
+
+    def _prepare(self) -> None:
         self.app = create_player_app(self.quiz)
         quiet_player_requests()
-        config = uvicorn.Config(
+
+    def _config(self) -> uvicorn.Config:
+        return uvicorn.Config(
             self.app,
             lifespan="off",
             log_config=None,  # the process's logging is already configured; don't reset it
@@ -170,46 +247,8 @@ class PlayerListener:
             ws_ping_timeout=20.0,
             http=_CappedHTTPProtocol,
         )
-        self.server = EmbeddedServer(config)
-        self.task = asyncio.create_task(self.server.serve(sockets=[sock]), name="quiz-player-listener")
-        self.task.add_done_callback(self._on_done)
-        deadline = asyncio.get_running_loop().time() + START_TIMEOUT_S
-        while not self.server.started and not self.task.done():
-            if asyncio.get_running_loop().time() > deadline:
-                logger.error("❌ quiz player listener: not serving %s:%d after %.0f s", HOST, self.port, START_TIMEOUT_S)
-                await self.stop()
-                return False
-            await asyncio.sleep(0.02)
-        if not self.running:
-            return False
-        logger.info("✅ quiz player listener on http://%s:%d/play (public only through the tunnel)", HOST, self.port)
-        return True
 
-    def _on_done(self, task: asyncio.Task[None]) -> None:
-        if task.cancelled():
-            return
-        exc = task.exception()
-        if exc is not None:
-            logger.error("❌ quiz player listener crashed: %r", exc, exc_info=exc)
-
-    async def stop(self) -> None:
-        """Ask the server to finish; force it after ``STOP_TIMEOUT_S``."""
+    def _before_stop(self) -> None:
         if self.app is not None:
             self.app.state.detach()  # the quiz stops pushing to this app's sockets
             self.app = None
-        if self.server is None or self.task is None:
-            return
-        self.server.should_exit = True
-        try:
-            await asyncio.wait_for(asyncio.shield(self.task), timeout=STOP_TIMEOUT_S)
-        except TimeoutError:
-            logger.warning("⚠️ quiz player listener: no clean stop in %.0f s — forcing it", STOP_TIMEOUT_S)
-            self.server.force_exit = True
-            self.task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await self.task
-        except Exception:  # noqa: BLE001 — already logged by _on_done
-            pass
-        logger.info("👋 quiz player listener stopped")
-        self.server = None
-        self.task = None
