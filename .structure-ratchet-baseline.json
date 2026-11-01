@@ -1,5 +1,20 @@
 {
   "version": 1,
   "band": {"files": 1, "functions": 6},
-  "entries": []
+  "root_extras": ["themes"],
+  "entries": [
+    {"key": "place:app/activities", "files": 1},
+    {"key": "place:app/activities/cards", "files": 4},
+    {"key": "place:app/activities/feed", "files": 4},
+    {"key": "place:app/activities/groups_reveal", "files": 3},
+    {"key": "place:app/activities/map", "files": 8},
+    {"key": "place:app/activities/quiz", "files": 3},
+    {"key": "place:app/activities/quiz_lobby", "files": 3},
+    {"key": "place:app/activities/quiz_podium", "files": 3},
+    {"key": "place:app/activities/scale", "files": 4},
+    {"key": "place:app/activities/word_cloud", "files": 6},
+    {"key": "place:app/player", "files": 6},
+    {"key": "place:app/player/static", "files": 2},
+    {"key": "place:app/player/static/fleet", "files": 4}
+  ]
 }
