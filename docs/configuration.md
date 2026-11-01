@@ -15,6 +15,7 @@
 | `remote` | `token`: the phone remote's bearer token (a secret — made and replaced from Settings; empty = only this PC gets in) |
 | `defaults` | what new sessions start from (Settings → Stage defaults and Music): `stage.theme` (a repo theme or `library/<name>`), `stage.font` (a `session.yaml` `font` block; absent = the theme's lettering), `music.fade_in_s` / `fade_out_s` (0–60, default 2) — a bad value falls back, logged |
 | `stage_click` | what a click on the stage window does (Settings → Live tools → Clicking the stage; the open stage follows a change at once): `advance` goes to the next item (default `false`), `restore_camera` re-applies the item's OBS profile when `advance` is off (default `true`) |
+| `copilot` | the live copilot: the hub, how audio is captured, the models, the chunker and the overlay (every key in [Live copilot](copilot.md#configuration)) |
 | `live` | `resume_on_start`: after a restart, take the session that was live when the server stopped live again (default `true`; a closed session never comes back) |
 | `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see [Quiz player](quiz-player.md)). Restart the tray after changing it |
 

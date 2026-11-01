@@ -7,7 +7,7 @@ One local app for running a live online workshop:
 - **activities fed by the Zoom chat**: participants just type in the chat and the stage comes alive (word cloud, map, scale, cards, feed), read locally through Windows accessibility, with **no bot joining the meeting**,
 - **breakout groups** (pairs, then two rounds of four with no repeats), per-item **timers**, and **results** after the session.
 
-Slides stay authored in PowerPoint and are imported as images. Everything runs on one Windows PC; nothing leaves it except Zoom itself.
+Slides stay authored in PowerPoint and are imported as images. Everything runs on one Windows PC; nothing leaves it except Zoom itself (and, while the optional live copilot is on, what the local LLM hub sends to the model it routes hints to).
 
 ## Portable install
 
@@ -68,6 +68,7 @@ Each feature has its own reference in `docs/`:
 - **OBS** — camera layouts over obs-websocket: [docs/obs.md](docs/obs.md)
 - **Stream Deck** — every live control as one URL: [docs/stream-deck.md](docs/stream-deck.md)
 - **The chat reader (Zoom, Teams or Meet)** — how answers are read locally: [docs/chat-reader.md](docs/chat-reader.md)
+- **Live copilot** — your mic and the call recorded and transcribed through the local hub, discreet hints on the presenter and an always-on-top overlay: [docs/copilot.md](docs/copilot.md)
 - **Settings** and **Configuration** — [docs/settings.md](docs/settings.md), [docs/configuration.md](docs/configuration.md)
 - **Sessions** — the session folder: [docs/sessions.md](docs/sessions.md)
 - **Running and operating** — appearance, HTTPS, logs: [docs/operations.md](docs/operations.md)
@@ -85,9 +86,10 @@ app/
   activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
     static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
-src/                 config, defaults (what new sessions start from), library (stage fonts and themes), logger, build identity, certs, tunnel (cloudflared), sessions/, importer/, live/, chat/, geo/, groups/, obs/, music/, quiz/, results/
+    overlay/         the live copilot's always-on-top overlay window (its own process, a client of /ws)
+src/                 config, defaults (what new sessions start from), library (stage fonts and themes), logger, build identity, certs, tunnel (cloudflared), sessions/, importer/, live/, chat/, copilot/, geo/, groups/, obs/, music/, quiz/, results/
 themes/              stage themes (the stage follows these, not the fleet design)
-scripts/             verify-before-ship.ps1, standalone_restart.py, quiz_bots.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
+scripts/             verify-before-ship.ps1, standalone_restart.py, quiz_bots.py, copilot_dry_run.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)
 webapp/              machine-local, gitignored: certificates/, cloudflared.yml (template: cloudflared.sample.yml, committed)

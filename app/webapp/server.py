@@ -10,6 +10,8 @@ Pages (``app/webapp/routers/pages.py``):
     /api/chat/…      → the Zoom chat: the reader process posts here (loopback
                        only), views read it (``src/chat/``)
     /api/quiz/…      → the quiz's join QR code (``app/webapp/routers/quiz.py``)
+    /api/copilot/…   → the live copilot's overlay settings, local-only switch and injected
+                       transcript (``src/copilot/``; the overlay window is ``app/tray/overlay/``)
     GET /healthz     → liveness
     GET /api/version → build identity (git_sha captured at import, schema version)
 
@@ -53,6 +55,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.player.listener import PlayerListener
+from app.tray.overlay.process import OverlayProcess
 from app.webapp.assets import CachingStaticFiles
 from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import error_response
@@ -61,6 +64,7 @@ from app.webapp.routers import (
     actions,
     activities,
     chat,
+    copilot,
     groups,
     live,
     pages,
@@ -78,6 +82,7 @@ from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
 from src.compression import StreamSafeGZipMiddleware
 from src.config import data_dir, load_config, profiles
+from src.copilot.service import CopilotService
 from src.errors import DomainError
 from src.importer.service import Importer
 from src.live.actions import Action, register
@@ -101,6 +106,8 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
 BUILD = build_identity()
 ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
+# An overlay started only for Settings' sample stops this long after it, unless Copilot is on by then.
+OVERLAY_SAMPLE_KEEP_S = 60
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
 USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only)
 
@@ -133,6 +140,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.obs.stop()
     await asyncio.to_thread(app.state.music.close)
     await asyncio.to_thread(app.state.reader_process.stop)
+    app.state.copilot.stop()
+    await asyncio.to_thread(app.state.overlay.stop)
     logger.info("👋 facilitation-suite stopping")
 
 
@@ -182,10 +191,12 @@ def _install_chat(app: FastAPI) -> None:
     capture.freeze_url = f"{scheme}://127.0.0.1:{cfg.port}"
     app.state.capture = capture
 
+    app.state.server_url = capture.freeze_url
+
     def note_address(scheme: str, port: int) -> None:
-        # The reader and the freeze renderer must reach the port this server
+        # The reader, the freeze renderer and the overlay must reach the port this server
         # really listens on (a dev or test instance can differ from the config).
-        proc.server_url = capture.freeze_url = f"{scheme}://127.0.0.1:{port}"
+        proc.server_url = capture.freeze_url = app.state.server_url = f"{scheme}://127.0.0.1:{port}"
 
     app.add_middleware(_NoteServerAddress, note=note_address)
     chat_hub.process_running = proc.running
@@ -202,6 +213,42 @@ def _install_chat(app: FastAPI) -> None:
             live.loop.run_in_executor(None, proc.stop)
 
     live.session_listeners.append(on_session)
+
+
+def _install_copilot(app: FastAPI) -> None:
+    """The live copilot (``src/copilot/``) and its overlay window process (``app/tray/overlay/``): the
+    overlay runs while Copilot is on, or for a short while after Settings asks for a sample."""
+    live = app.state.live
+    copilot = CopilotService(live, lambda: app.state.config.copilot)
+    overlay = OverlayProcess(lambda: app.state.server_url)
+    copilot.overlay_running = overlay.running
+
+    def in_background(fn: Callable[[], None]) -> None:
+        if live.loop is not None:
+            live.loop.run_in_executor(None, fn)
+        else:
+            fn()
+
+    def follow(on: bool) -> None:
+        if on and app.state.config.copilot.overlay.enabled:
+            in_background(overlay.start)
+        elif not on:
+            in_background(overlay.stop)
+
+    def idle_after_sample(asked_at: Optional[int]) -> None:
+        if not copilot.on and copilot.sample_at == asked_at:  # no later sample, Copilot still off
+            in_background(overlay.stop)
+
+    def sample() -> None:
+        in_background(overlay.start)
+        if live.loop is not None:
+            live.loop.call_later(OVERLAY_SAMPLE_KEEP_S, idle_after_sample, copilot.sample_at)
+
+    copilot.listeners.append(follow)
+    copilot.on_sample = sample
+    register(Action("copilot_toggle", "Copilot on/off", lambda hub, arg: copilot.toggle()))
+    app.state.copilot = copilot
+    app.state.overlay = overlay
 
 
 def _install_obs(app: FastAPI) -> None:
@@ -279,6 +326,7 @@ def create_app() -> FastAPI:
     # What a click on the stage does: the stage window reads it from the snapshot.
     app.state.live.extra_state.append(lambda: {"stage_click": settings.stage_click_state(app.state.config)})
     _install_chat(app)
+    _install_copilot(app)
     _install_obs(app)
     _install_music(app)
     _install_quiz(app)
@@ -300,6 +348,7 @@ def create_app() -> FastAPI:
     app.include_router(activities.router)
     app.include_router(live.router)
     app.include_router(chat.router)
+    app.include_router(copilot.router)
     app.include_router(groups.router)
     app.include_router(results.router)
     app.include_router(rebuild.router)

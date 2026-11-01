@@ -100,12 +100,12 @@ function Invoke-Stage {
 Invoke-Stage "personal-data guard" {
     $tracked = git ls-files
     $bad = $tracked | Where-Object {
-        ($_ -match '\.(xlsx|pptx|docx)$' -and $_ -notmatch '^tests/fixtures/') -or
+        ($_ -match '\.(xlsx|pptx|docx|wav)$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)session\.yaml$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)aliases\.yaml$' -and $_ -notmatch '^(tests/fixtures/|app/activities/map/aliases\.yaml$)') -or
         ($_ -match '(^|/)playbook\.md$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)notes\.md$' -and $_ -notmatch '^tests/fixtures/') -or
-        ($_ -match '(^|/)(chat|events|quiz)\.jsonl$' -and $_ -notmatch '^tests/fixtures/') -or
+        ($_ -match '(^|/)(chat|events|quiz|transcript|hints)\.jsonl$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -eq 'sessions.local.yaml') -or
         ($_ -eq 'config/config.json') -or
         ($_ -match '^data/') -or

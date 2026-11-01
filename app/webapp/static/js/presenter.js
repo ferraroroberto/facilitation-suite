@@ -12,6 +12,7 @@ import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 import { isQuiz, buildQuiz, drawQuiz, tickQuiz } from '/static/js/presenter-quiz.js';
 import { senderKey, drawExcluded } from '/static/js/presenter-excluded.js';
+import { drawCopilot, copilotChip } from '/static/js/presenter-copilot.js';
 
 // The cockpit is one view; the stage and the phone remote never load the usage log.
 initUsageLog().trackView('live');
@@ -126,6 +127,7 @@ function buildShell() {
       `<div class="p-col p-col-stage">` +
         card('p-now', '<span class="live-dot"></span>On stage now', 'what Zoom sees', '<span class="p-flag" data-flag hidden></span>') +
         card('p-notes', 'Notes', '') +
+        card('p-copilot', `${icon('wand-sparkles')} Copilot`, '') +
         card('p-timing', 'Timing', '', '<span class="chip" data-drift hidden></span>') +
       `</div>` +
       `<div class="p-col p-col-next">` +
@@ -248,6 +250,7 @@ function draw() {
   drawItemCard(cur, s);
   drawMusic(cur, s);
   drawTiming(cur, s);
+  drawCopilot(root.querySelector('.p-copilot'), live, cur);
   drawChips();
   markChat();
 }
@@ -516,6 +519,7 @@ function drawChips() {
     else chips.push(['ok', `Quiz · PIN ${pin} · ${players}`, null, qz.join_url]);
   }
   if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
+  chips.push(...[copilotChip(s)].filter(Boolean));
   if (s.write_error) chips.push(['bad', s.write_error]);
   const html = chips.map(([k, t, act, title]) => act && act.startsWith('href:')
     ? `<a class="chip ${k}" href="${esc(act.slice(5))}" target="fs-app" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</a>`

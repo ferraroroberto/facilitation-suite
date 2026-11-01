@@ -265,11 +265,13 @@ class SessionStore:
             return self.save(sid, session)
 
     def save_plan(self, sid: str, session: Session) -> Session:
-        """The Plan tab's save. The excluded senders belong to the presenter, so a plan sent from a
-        copy loaded before one was excluded keeps the list as the file has it now."""
+        """The Plan tab's save. The excluded senders and the copilot's local-only switch belong to the
+        presenter, so a plan sent from a copy loaded before either changed keeps them as the file has them now."""
         with self._lock:
             try:
-                session.excluded_senders = self.load(sid).excluded_senders
+                kept = self.load(sid)
+                session.excluded_senders = kept.excluded_senders
+                session.copilot_local_only = kept.copilot_local_only
             except SessionError:
                 pass  # no readable file to keep it from: the plan as sent is saved
             return self.save(sid, session)

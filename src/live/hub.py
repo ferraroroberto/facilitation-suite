@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 STATE_FILE = "state.json"
 EVENTS_FILE = "events.jsonl"
-ROLES = ("stage", "presenter", "remote", "app")
+ROLES = ("stage", "presenter", "remote", "app", "overlay")
 
 
 def now_ms() -> int:

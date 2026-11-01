@@ -1,0 +1,122 @@
+"""The live copilot: its overlay's settings and screens, the session's local-only switch, a sample on
+the overlay and an injected transcript (a test or a rehearsal). Copilot on/off is the live action
+``copilot_toggle`` (``src/live/actions.py``), so the presenter, the remote and a Stream Deck share it."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from dataclasses import asdict
+from typing import Any, Literal, Optional
+
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
+
+from app.tray.overlay.render import FONT_FILES
+from app.tray.overlay.screens import list_screens
+from app.webapp.errors import require_local
+from src import settings as settings_file
+from src.config import OVERLAY_MODES, OVERLAY_POSITIONS, OVERLAY_SHAPES
+from src.copilot.service import CopilotService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/copilot")
+COLOUR = r"^#[0-9a-fA-F]{6}$"
+
+
+def _copilot(request: Request) -> CopilotService:
+    return request.app.state.copilot
+
+
+class OverlayPatch(BaseModel):
+    enabled: Optional[bool] = None
+    mode: Optional[Literal["full", "cue"]] = None  # src.config.OVERLAY_MODES
+    screen: Optional[str] = Field(None, max_length=64)
+    position: Optional[Literal["top-left", "top-center", "top-right", "center",
+                               "bottom-left", "bottom-center", "bottom-right"]] = None  # OVERLAY_POSITIONS
+    margin: Optional[int] = Field(None, ge=0, le=400)
+    shape: Optional[Literal["rounded", "pill", "square"]] = None  # OVERLAY_SHAPES
+    width: Optional[int] = Field(None, ge=240, le=2400)
+    font: Optional[str] = Field(None, max_length=40)
+    font_size: Optional[int] = Field(None, ge=14, le=96)
+    text_color: Optional[str] = Field(None, pattern=COLOUR)
+    background: Optional[str] = Field(None, pattern=COLOUR)
+    opacity: Optional[int] = Field(None, ge=20, le=100)
+    show_seconds: Optional[int] = Field(None, ge=2, le=120)
+
+
+class SettingsBody(BaseModel):
+    overlay: OverlayPatch
+
+
+class LocalOnly(BaseModel):
+    local_only: bool
+
+
+class Spoken(BaseModel):
+    speaker: Literal["me", "them"]
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class Transcript(BaseModel):
+    lines: list[Spoken] = Field(min_length=1, max_length=50)
+
+
+def settings_payload(request: Request) -> dict[str, Any]:
+    cfg = request.app.state.config.copilot
+    return {
+        "overlay": asdict(cfg.overlay),
+        "running": request.app.state.overlay.running(),
+        "screens": [s.as_dict() for s in list_screens()],
+        "fonts": list(FONT_FILES),
+        "modes": list(OVERLAY_MODES), "positions": list(OVERLAY_POSITIONS), "shapes": list(OVERLAY_SHAPES),
+    }
+
+
+@router.get("/settings")
+def get_settings(request: Request) -> dict[str, Any]:
+    """The overlay's settings, with the monitors this PC shows and the fonts it can use."""
+    return settings_payload(request)
+
+
+@router.put("/settings")
+async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
+    """Change the overlay's look or place; an open overlay follows at once and shows a sample there."""
+    require_local(request, "The overlay can only be set up on this PC")
+    patch = body.overlay.model_dump(exclude_none=True)
+    if "font" in patch and patch["font"] not in FONT_FILES:
+        patch.pop("font")
+    if patch:
+        request.app.state.config = await asyncio.to_thread(settings_file.update, {"copilot": {"overlay": patch}})
+        if request.app.state.config.copilot.overlay.enabled:
+            _copilot(request).sample()
+        else:
+            await asyncio.to_thread(request.app.state.overlay.stop)
+            request.app.state.live.push_state()
+    return settings_payload(request)
+
+
+@router.post("/sample")
+async def show_sample(request: Request) -> dict[str, Any]:
+    """Put two sample hints on the overlay (starting it when it is not running) to check where it sits."""
+    require_local(request, "The overlay can only be tried on this PC")
+    _copilot(request).sample()
+    return settings_payload(request)
+
+
+@router.put("/local-only")
+async def put_local_only(request: Request, body: LocalOnly) -> dict[str, Any]:
+    """The live session's switch: hints from the local model only (saved in its ``session.yaml``)."""
+    copilot = _copilot(request)
+    copilot.set_local_only(body.local_only)
+    return copilot.snapshot()
+
+
+@router.post("/transcript")
+async def inject_transcript(request: Request, body: Transcript) -> dict[str, Any]:
+    """Lines added to the transcript as if heard, then hints asked at once (this PC only)."""
+    require_local(request, "A transcript can only be injected on this PC")
+    added = _copilot(request).inject([(line.speaker, line.text) for line in body.lines])
+    return {"added": added}
+

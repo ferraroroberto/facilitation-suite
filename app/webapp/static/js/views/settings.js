@@ -2,8 +2,8 @@
 // Appearance (light/dark on every device, this device's text size), Stage
 // defaults (the theme and lettering new sessions start from, and the stage
 // library of fonts and themes), Music (the Spotify account and the default
-// fades), Live tools (OBS, the chat reader, the Stream Deck buttons, the phone
-// remote) and About (build, credits). Each section has a deep link,
+// fades), Live tools (OBS, the chat reader, the Copilot overlay, the Stream Deck
+// buttons, the phone remote) and About (build, credits). Each section has a deep link,
 // /#settings/<section> (the presenter's music chip opens /#settings/music).
 
 import { icon } from '/static/_vendored/icons/icons.js';
@@ -13,6 +13,7 @@ import { APP, api, esc, pageHead, setStatus, toast, currentAppearance, onAppeara
 import { formDialog } from '/static/js/dialogs.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
 import { words } from '/static/js/stage-words.js';
+import { overlayCard } from '/static/js/views/overlay-card.js';
 
 const CREDITS = [
   ['GeoNames', 'https://www.geonames.org', 'the map\'s cities and countries (cities15000), licensed CC BY 4.0'],
@@ -117,7 +118,7 @@ function render() {
   root.appendChild(section('appearance', [appearanceCard(), textSizeCard()]));
   root.appendChild(section('stage', [themeCard(), letteringCard(), libraryCard()]));
   root.appendChild(section('music', [spotifyCard(), musicDefaultsCard()]));
-  root.appendChild(section('live', [obsCard(), readerCard(), stageClickCard(), streamDeckCard(), remoteCard()]));
+  root.appendChild(section('live', [obsCard(), readerCard(), overlayCard(), stageClickCard(), streamDeckCard(), remoteCard()]));
   root.appendChild(section('about', [aboutCard(), creditsCard()]));
   scrollToWanted();
 }
