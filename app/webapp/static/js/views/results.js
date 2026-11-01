@@ -2,12 +2,14 @@
 // (left) and the selected one (right) — the visual exactly as the stage showed
 // it at the stop, its top items, every answer with the person's name; for a
 // quiz, its podium, leaderboard and each question's distribution — plus the
-// check against Zoom's saved chat, the session PDF and the Excel report.
+// check against Zoom's saved chat, the session PDF, the Excel report and, when the
+// live copilot ran, its conversation with the hints it gave.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, pageHead, setStatus, toast } from '/static/js/ui.js';
 import { analyzeCard } from '/static/js/views/analyze-card.js';
+import { conversationCard } from '/static/js/views/conversation-card.js';
 import { rebuildCard } from '/static/js/views/rebuild-card.js';
 
 let root;
@@ -22,6 +24,7 @@ let detailEl;
 let data = null;
 let selected = null;
 let analyzeEl = null; // built once per load, so choosing another activity does not re-read the session
+let conversationEl = null; // the same, and it keeps the card open or closed across selections
 let busy = false;
 
 export async function mount(el, context) {
@@ -89,6 +92,7 @@ function stamp(ms) {
 
 function render() {
   analyzeEl = analyzeCard(ctx.sessionId);
+  conversationEl = conversationCard(ctx.sessionId);
   setStatus(head, [data.session.title, shortDate(data.session.date)].filter(Boolean).join(' · '));
   renderCheck();
   renderPeople();
@@ -291,7 +295,7 @@ function renderDetail() {
   if (data.pages.length || data.activities.length) detailEl.appendChild(exportActions());
   const open = openLinks();
   if (open) detailEl.appendChild(open);
-  detailEl.appendChild(analyzeEl);
+  detailEl.append(conversationEl, analyzeEl);
 }
 
 function activityDetail(a) {

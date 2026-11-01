@@ -15,6 +15,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
+from tests.fixtures.conversation import write_demo_conversation
 from tests.fixtures.demo import (
     LONG_TOP_ANSWER,
     RUN_ANSWERS,
@@ -170,6 +171,30 @@ def _check_analyze_command(page: Page, pane: Locator, folder: Path) -> None:
     assert page.evaluate("getSelection().toString() || document.activeElement.value.substring(document.activeElement.selectionStart, document.activeElement.selectionEnd)") == expected
 
 
+def _check_conversation(page: Page, pane: Locator, folder: Path) -> None:
+    """No card without the copilot; with its logs (synthetic), the transcript and the hints under their item."""
+    card = pane.locator(".conversation-card")
+    expect(card).to_have_attribute("data-state", "empty")
+    expect(card).to_be_hidden()
+    write_demo_conversation(folder)
+    page.reload()
+    expect(card).to_have_attribute("data-state", "ready")
+    expect(card.locator(".collapse-count")).to_have_text("5 lines · 2 hints · 1 stale · 1 failed")
+    card.locator("summary").click()
+    weather = card.locator('.convo-item[data-item="act-weather"]')
+    expect(weather.locator(".convo-item-title")).to_contain_text("inner weather")
+    expect(weather.locator(".convo-speaker")).to_have_count(5)
+    expect(weather.locator(".convo-line").first).to_contain_text("Me")
+    expect(weather.locator(".convo-line").nth(1)).to_contain_text("Them")
+    expect(weather.locator(".convo-hint--shown")).to_contain_text("Ask who picked rain and why")
+    expect(weather.locator(".convo-hint--stale .chip.warn")).to_have_text("Dropped · stale")
+    kryptonite = card.locator('.convo-item[data-item="act-kryptonite"]')
+    expect(kryptonite.locator(".convo-hint--failed .chip.bad")).to_have_text("No hint · timed out")
+    expect(kryptonite.locator(".convo-hint--shown")).to_contain_text("Personal readme runs 5 min late")
+    card.scroll_into_view_if_needed()
+    surface(page, "results.conversation")
+
+
 def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, saved: Path, chat: list) -> None:
     """A saved chat with a message from before the reader started turns the banner amber and lists it."""
     # a file with a message from before the reader started: the banner turns amber and lists it
@@ -265,6 +290,7 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     pane = _open_results(page, base, sid, shots)
     _check_exports(page, pane, folder)
     _check_analyze_command(page, pane, folder)
+    _check_conversation(page, pane, folder)
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
     _check_merge_names(page, pane, folder)
     _check_rebuild(page, base, sid, pane, folder)

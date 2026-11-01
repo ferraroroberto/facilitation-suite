@@ -1,4 +1,4 @@
-"""Results: per-activity answers, the session PDF, the Excel report, the Zoom check.
+"""Results: per-activity answers, the session PDF, the Excel report, the Zoom check, the copilot's conversation.
 
 Everything reads the session folder (``src/results``), so a finished session
 works without being live. Exports land in the folder's ``exports/`` (epic
@@ -32,6 +32,7 @@ from src.no_window import NO_WINDOW
 from src.results.aliases import Excluded, read_aliases, seen_names, suggest, write_aliases
 from src.results.analysis import analysis_facts
 from src.results.collect import load_results, participation
+from src.results.conversation import load_conversation
 from src.results.excel import build_report
 from src.results.pdf import activities_html, activities_pages, session_html, share_html, share_pages
 from src.results.reconcile import reconcile_file
@@ -105,6 +106,13 @@ def results(request: Request, sid: str) -> dict[str, Any]:
     data["people"] = _people(folder, session, data)
     data["rebuild_backup"] = (backups(folder) or [None])[-1]
     return data
+
+
+@router.get("/results/conversation")
+def conversation(request: Request, sid: str) -> dict[str, Any]:
+    """The live copilot's transcript with its hints, under the items they belong to (no segments without the copilot)."""
+    folder, session = _load(request, sid)
+    return load_conversation(folder, session)
 
 
 @router.get("/analysis")
