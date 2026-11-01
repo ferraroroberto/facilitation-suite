@@ -63,7 +63,7 @@ export function drawCopilot(card, live, cur) {
     c.channels.filter((ch) => ch.state !== 'recording').forEach((ch) =>
       status.push([CHANNEL_STATE[ch.state] || 'bad', ch.state === 'starting' ? `${ch.label} · starting` : `${ch.label} · not recording`, ch.detail]));
     if (c.behind_s >= c.behind_warn_s) status.push(['warn', `Transcript ${c.behind_s} s behind`, 'Chunks are waiting for the hub to transcribe them']);
-    c.problems.forEach((p) => status.push(['bad', p.message.split(' — ')[0], p.message]));
+    c.problems.forEach((p) => status.push([p.level || 'bad', p.message.split(' — ')[0], p.message]));
   }
   const html = status.map(([k, t, title]) => `<span class="chip ${k}" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</span>`).join('');
   const box = card.querySelector('[data-cop-status]');
@@ -84,7 +84,8 @@ export function drawCopilot(card, live, cur) {
 export function copilotChip(s) {
   const c = s.copilot;
   if (!c || !c.on) return null;
-  if (c.problems.length) return ['bad', `Copilot · ${c.problems[0].message.split(' — ')[0].toLowerCase()}`, null, c.problems[0].message];
+  const p = c.problems.find((x) => x.level !== 'warn') || c.problems[0]; // a failure outranks a cap held on purpose
+  if (p) return [p.level || 'bad', `Copilot · ${p.message.split(' — ')[0].toLowerCase()}`, null, p.message];
   if (c.channels.some((ch) => ch.state === 'error')) return ['bad', 'Copilot · a channel is not recording'];
   if (c.behind_s >= c.behind_warn_s) return ['warn', `Copilot · ${c.behind_s} s behind`];
   return ['accent', `Copilot · ${c.channels.length ? 'recording' : 'on'}`, null, c.local_only ? 'Hints from the local model only' : ''];

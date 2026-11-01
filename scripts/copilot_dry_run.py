@@ -12,7 +12,8 @@
    moves to the next item every ``--item-every`` seconds while the audio plays in real time.
 4. It reads ``transcript.jsonl`` and ``hints.jsonl`` and prints the chunk-to-transcript latency
    (audio chunk ended → its line written) and the transcript-to-hint latency (the line or item
-   change that asked → the hints back), with the models that answered and every failure.
+   change that asked → the hints back), with the models that answered, every failure, the model
+   calls per kind (hints, summary refreshes), the computed drift hints and the requests a cap held back.
 
 It never touches the live app on 8449 or a real session folder.
 """
@@ -159,8 +160,11 @@ def percentiles(values: list[int]) -> dict[str, Any]:
 
 def report(folder: Path) -> dict[str, Any]:
     transcript = read_jsonl(folder / "transcript.jsonl")
-    hints = read_jsonl(folder / "hints.jsonl")
+    records = read_jsonl(folder / "hints.jsonl")
+    hints = [h for h in records if h["reason"] not in ("summary", "drift")]
+    summaries = [h for h in records if h["reason"] == "summary"]
     answered = [h for h in hints if not h.get("failure")]
+    summary = json.loads((folder / "summary.json").read_text(encoding="utf-8")) if (folder / "summary.json").is_file() else {}
     return {
         "lines": {"me": sum(1 for t in transcript if t["speaker"] == "me"), "them": sum(1 for t in transcript if t["speaker"] == "them")},
         "chunk_to_transcript": percentiles([t["lag_ms"] for t in transcript if "lag_ms" in t]),
@@ -172,6 +176,11 @@ def report(folder: Path) -> dict[str, Any]:
         "models": {m: sum(1 for h in answered if h["model"] == m) for m in sorted({h["model"] for h in answered})},
         "failures": [{"reason": h["reason"], "failure": h["failure"], "detail": h.get("detail", "")[:160]} for h in hints if h.get("failure")],
         "sample_hints": [h["hints"] for h in answered if h["hints"]][:6],
+        "model_calls": {"hints": len(hints), "summaries": len(summaries)},
+        "summary_refresh": percentiles([h["lag_ms"] for h in summaries if not h.get("failure")]),
+        "summary_failures": [h.get("detail", "")[:160] for h in summaries if h.get("failure")],
+        "summary_words": summary.get("words", 0),
+        "drift_hints": [h["hints"][0]["text"] for h in records if h["reason"] == "drift"],
     }
 
 
@@ -206,7 +215,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 [p["code"] for p in state["problems"]] or "none")
             call(inst.base_url, "POST", "/api/actions/copilot_toggle")
             time.sleep(3)
-            out = {"audio_s": round(seconds), "item_every_s": args.item_every, **report(folder / "live" / "copilot")}
+            out = {"audio_s": round(seconds), "item_every_s": args.item_every, **report(folder / "live" / "copilot"),
+                   "capped": state["stats"].get("capped", 0)}
             log = root / "instance" / "data" / "logs" / "overlay.log"
             out["overlay_log"] = log.read_text(encoding="utf-8").splitlines()[-12:] if log.is_file() else []
             return out

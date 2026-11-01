@@ -1,7 +1,8 @@
 """A stand-in for the local LLM hub: the two OpenAI-shaped endpoints the copilot calls.
 
 ``POST /v1/audio/transcriptions`` answers ``verbose_json`` with the next scripted text (or a fixed
-sentence); ``POST /v1/chat/completions`` answers each model with its scripted hints JSON. A model in
+sentence); ``POST /v1/chat/completions`` answers each model with its scripted hints JSON, and a
+rolling-summary request with ``summary``. A model in
 ``failing`` gets an HTTP 500, ``delay_s`` holds every answer back (a slow hub). Every call is
 recorded with the form fields or JSON body it carried. Synthetic data only.
 """
@@ -33,6 +34,7 @@ class FakeHub:
         self.answers: dict[str, Any] = {}  # model → the hints object (or raw text) it answers
         self.failing: set[str] = set()
         self.delay_s = 0.0
+        self.summary = "They agreed on a change freeze one week before each release."
         hub = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -55,8 +57,11 @@ class FakeHub:
                     if req["model"] in hub.failing:
                         self._json(500, {"error": {"message": "backend down"}})
                         return
-                    answer = hub.answers.get(req["model"], DEFAULT_HINTS)
-                    content = answer if isinstance(answer, str) else json.dumps(answer)
+                    if hub.is_summary(hub.calls[-1]):
+                        content = hub.summary
+                    else:
+                        answer = hub.answers.get(req["model"], DEFAULT_HINTS)
+                        content = answer if isinstance(answer, str) else json.dumps(answer)
                     self._json(200, {"choices": [{"message": {"role": "assistant", "content": content}}]})
                 else:
                     self._json(404, {"error": {"message": "not found"}})
@@ -76,6 +81,17 @@ class FakeHub:
 
     def calls_to(self, path: str) -> list[dict[str, Any]]:
         return [c for c in self.calls if c["path"] == path]
+
+    @staticmethod
+    def is_summary(call: dict[str, Any]) -> bool:
+        """A rolling-summary request (its system message), not a hints one."""
+        return "running summary" in call["messages"][0]["content"]
+
+    def hint_calls(self) -> list[dict[str, Any]]:
+        return [c for c in self.calls_to("/v1/chat/completions") if not self.is_summary(c)]
+
+    def summary_calls(self) -> list[dict[str, Any]]:
+        return [c for c in self.calls_to("/v1/chat/completions") if self.is_summary(c)]
 
     def close(self) -> None:
         self._server.shutdown()

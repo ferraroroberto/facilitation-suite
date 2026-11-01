@@ -144,6 +144,10 @@ class CopilotConfig:
     hint_interval_s: int = 45
     hint_ttl_s: int = 120
     context_minutes: int = 4
+    summary_interval_s: int = 300  # how often the rolling summary folds in the new lines
+    drift_hint_minutes: int = 5  # behind the plan by this much: a computed drift hint (0 = never)
+    hint_calls_per_hour: int = 60  # the hint requests in any sliding hour (0 = no cap)
+    summary_calls_per_hour: int = 15  # the summary refreshes in any sliding hour (0 = no cap)
     silence_dbfs: int = -50
     min_chunk_s: int = 20
     max_chunk_s: int = 45

@@ -3,6 +3,7 @@ transcript.jsonl with speaker labels → hints; stale hints dropped; failures to
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import replace
@@ -15,7 +16,7 @@ from src.copilot.audio import read_pcm, write_wav
 from src.copilot.service import CopilotError, CopilotService
 from src.jsonl import read_jsonl
 from src.live.actions import ACTIONS, Action, run_action
-from src.live.hub import LiveHub
+from src.live.hub import LiveHub, now_ms
 from src.sessions.store import SessionStore
 from tests.copilot.synth import speech
 from tests.fixtures.demo import build_demo_session
@@ -155,3 +156,56 @@ def test_a_plan_saved_from_an_older_copy_keeps_the_presenters_local_only(live: L
     copilot.set_local_only(True)
     live.store.save_plan(live.session_id, older)
     assert live.store.load(live.session_id).copilot_local_only is True
+
+
+def test_the_rolling_summary_waits_its_interval_then_rides_in_the_hint_prompt(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", summary_interval_s=300, **FAST)
+    copilot.start()
+    copilot.inject([("them", "Releases slip because changes come late")])
+    wait_for(lambda: hub_fake.hint_calls())
+    assert hub_fake.summary_calls() == []  # less than five minutes of transcript: nothing to fold yet
+    copilot._summary_due -= 300  # five minutes later
+    copilot.inject([("them", "So a change freeze one week before")])
+    wait_for(lambda: (live.folder / "live" / "copilot" / "summary.json").is_file())
+    folded = hub_fake.summary_calls()[0]["messages"][1]["content"]
+    assert "changes come late" in folded and "change freeze one week" in folded  # every line since the start
+    saved = json.loads((live.folder / "live" / "copilot" / "summary.json").read_text(encoding="utf-8"))
+    assert saved["text"] == hub_fake.summary and saved["model"] == "claude_haiku"
+    calls = len(hub_fake.hint_calls())
+    copilot.inject([("them", "Who tells product?")])
+    wait_for(lambda: len(hub_fake.hint_calls()) > calls)
+    assert f"summarised: {hub_fake.summary}" in hub_fake.hint_calls()[-1]["messages"][1]["content"]
+    assert copilot.snapshot()["stats"]["summaries"] == 1
+    copilot.stop()
+    copilot.start()  # switched off and on: the summary is still there for the next prompt
+    assert copilot.summary["text"] == hub_fake.summary
+
+
+def test_a_section_running_late_gets_one_computed_drift_hint_and_no_model_call(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", drift_hint_minutes=5, **FAST)
+    copilot.start()
+    section = live.current()["section_id"]
+    live.clock_started_at = now_ms() - 40 * 60_000  # 40 min into a 20-minute first section: 20 behind
+    live.section_entered = {section: live.clock_started_at}
+    copilot.check_drift()
+    copilot.check_drift()  # once per section
+    snap = copilot.snapshot()
+    assert snap["hints"] == [{"type": "drift", "text": "20 min behind the plan in Welcome"}] and snap["hints_model"] == "clock"
+    assert hub_fake.calls_to("/v1/chat/completions") == []
+    records = [r for r in read_jsonl(live.folder / "live" / "copilot" / "hints.jsonl") if r["reason"] == "drift"]
+    assert len(records) == 1 and records[0]["model"] == "clock" and records[0]["drift_min"] == 20
+
+
+def test_past_the_hourly_cap_no_hint_is_asked_and_the_cap_is_its_own_line(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", hint_calls_per_hour=2, **FAST)
+    copilot.start()
+    for n in (1, 2):
+        copilot.inject([("them", f"Point number {n}")])
+        wait_for(lambda n=n: len(read_jsonl(live.folder / "live" / "copilot" / "hints.jsonl")) == n)
+    copilot.inject([("them", "A third point, past the cap")])
+    time.sleep(0.3)
+    assert len(hub_fake.hint_calls()) == 2
+    problems = copilot.snapshot()["problems"]
+    assert [(p["code"], p["level"]) for p in problems] == [("hint_capped", "warn")]
+    assert problems[0]["message"].startswith("Hint cap reached — 2 hint calls in the last hour")
+    assert copilot.snapshot()["stats"]["capped"] == 1

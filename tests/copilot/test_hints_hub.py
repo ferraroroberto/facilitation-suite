@@ -8,15 +8,19 @@ from collections.abc import Iterator
 import pytest
 
 from src.copilot.hints import (
+    MODEL_HINT_TYPES,
     HintFormatError,
     Line,
     ask_chain,
     clock_state,
+    drift_hint,
+    drift_now,
     parse_hints,
     system_prompt,
     user_prompt,
 )
 from src.copilot.hub_client import HubDown, HubError, HubTimeout, complete, transcribe
+from src.copilot.summary import RateLimit, parse_summary
 from tests.copilot.synth import tone
 from tests.fixtures.fake_hub import FakeHub
 
@@ -123,3 +127,32 @@ def test_hub_failures_are_told_apart(hub: FakeHub) -> None:
     hub.delay_s = 1.5
     with pytest.raises(HubTimeout):
         complete(hub.url, "gemini_flash_lite", [], timeout=0.5)
+
+
+def test_drift_is_computed_never_taken_from_a_model() -> None:
+    answer = '{"hints": [{"type": "drift", "text": "You are late"}, {"type": "recap", "text": "Sum up"}]}'
+    assert [h.type for h in parse_hints(answer, MODEL_HINT_TYPES)] == ["recap"]
+    assert "drift" not in system_prompt("en")
+    run = {"sections": [{"id": "s1", "name": "Intro", "minutes": 10, "planned_start": 0}]}
+    start, minute = 1_000_000, 60_000
+    assert drift_now(run, {"section_id": "s1"}, start, {"s1": start}, 60, start + 17 * minute) == ("s1", "Intro", 7)
+    assert drift_now(run, {"section_id": "s1"}, start, {"s1": start}, 60, start + 9 * minute) is None
+    assert drift_now({}, {}, start, {}, 60, start + 66 * minute) == ("session", "", 6)  # outside sections: past the length
+    assert drift_now(run, {"section_id": "s1"}, None, {}, 60, start) is None
+    assert drift_hint("es", "Intro", 7).text == "7 min de retraso en Intro"
+    assert drift_hint("en", "", 6).text == "6 min behind the plan"
+
+
+def test_the_summary_is_trimmed_and_the_cap_slides_over_the_hour() -> None:
+    assert parse_summary("  They chose   the freeze. ") == "They chose the freeze."
+    assert parse_summary(" ".join(["word"] * 400)).endswith("word…") and len(parse_summary(" ".join(["w"] * 400)).split()) == 300
+    with pytest.raises(HintFormatError):
+        parse_summary("   ")
+    now = [0.0]
+    limit = RateLimit(clock=lambda: now[0])
+    assert limit.take(2) and limit.take(2) and not limit.take(2)
+    assert limit.retry_in() == 3600
+    limit.refund()
+    assert limit.take(2)
+    now[0] = 3600.5
+    assert not limit.full(2) and limit.take(0)  # the window slid; 0 = no cap

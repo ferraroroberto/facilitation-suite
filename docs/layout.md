@@ -47,7 +47,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `importer/` | PowerPoint import through COM and the re-import review |
 | `live/` | live state: the plan clock, capture, freeze, the hub, actions |
 | `chat/` | the chat reader (Zoom through MSAA, Teams and Meet through UI Automation) and answer parsing |
-| `copilot/` | the live copilot: audio capture, chunking, the hub client, hints and the service that runs them |
+| `copilot/` | the live copilot: audio capture, chunking, the hub client, hints, the rolling summary and call caps, and the service that runs them |
 | `activities/` | the activity registry and the answer handling the plug-ins share |
 | `groups/` | roster and shuffle |
 | `obs/` | obs-websocket scene switching |
