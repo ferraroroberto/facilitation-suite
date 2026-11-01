@@ -18,6 +18,7 @@
     "hub_url": "http://127.0.0.1:8000", "capture": "devices", "feed_dir": "", "mic_device": "", "call_device": "",
     "transcribe_model": "whisper", "hint_models": ["claude_haiku", "gemini_flash_lite"], "local_model": "agentic_light",
     "hint_timeout_s": 20, "hint_interval_s": 45, "hint_ttl_s": 120, "context_minutes": 4,
+    "summary_interval_s": 300, "drift_hint_minutes": 5, "hint_calls_per_hour": 60, "summary_calls_per_hour": 15,
     "silence_dbfs": -50, "min_chunk_s": 20, "max_chunk_s": 45, "silence_ms": 600,
     "overlay": { "enabled": true, "mode": "full", "screen": "", "position": "top-center", "margin": 24, "shape": "rounded",
                  "width": 760, "font": "Segoe UI", "font_size": 30, "text_color": "#ffffff", "background": "#111418",
