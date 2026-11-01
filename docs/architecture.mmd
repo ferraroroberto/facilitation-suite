@@ -160,3 +160,16 @@ flowchart LR
   pages --> cfg["src/config.py<br/>config.json · env overrides"]
   pages --> build["src/build_info.py"]
   pages --> assets["app/webapp/assets.py + src/static_versioning.py<br/>fleet hash ?v= on every .js/.css URL · immutable under it · pages no-cache"]
+  hub -->|item change · clocks · plan notes| copilot["src/copilot/service.py<br/>CopilotService · on/off by hand · own threads · state on every snapshot"]
+  acts -->|copilot_toggle| copilot
+  mic["your mic (WASAPI input)"] -->|me| capture2["src/copilot/capture.py<br/>miniaudio · 16 kHz mono · loopback of the call's output"]
+  callout["the call's sound (WASAPI loopback)"] -->|them| capture2
+  capture2 --> copilot
+  copilot --> vad["src/copilot/vad.py<br/>RMS dBFS chunks · 20 s min · 45 s cap · silent chunks dropped"]
+  copilot -->|"POST /v1/audio/transcriptions · /v1/chat/completions"| llmhub["local LLM hub (copilot.hub_url)<br/>whisper · claude_haiku → gemini_flash_lite → local model"]
+  copilot --> copfiles[("live/copilot/me-*.wav · them-*.wav · transcript.jsonl · hints.jsonl")]
+  appv --> copilotr["routers/copilot.py<br/>overlay settings · screens · sample · local only · injected transcript"]
+  copilotr --> copilot
+  copilot -.->|on / sample → starts · off → stops| overlayproc["app/tray/overlay/process.py<br/>OverlayProcess"]
+  overlayproc -.->|spawns| overlay["python -m app.tray.overlay<br/>layered click-through window · full hint or cue · own process"]
+  overlay <-->|"WS /ws?role=overlay · reads state.copilot"| liver

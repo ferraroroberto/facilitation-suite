@@ -25,6 +25,9 @@ playbook.md
 # the facilitator's own notes.md from a session, same rule
 notes.md
 !tests/fixtures/**/notes.md
+# the live copilot's recordings: only synthetic fixtures
+*.wav
+!tests/fixtures/**/*.wav
 
 # --- python / tooling ------------------------------------------------------
 __pycache__/

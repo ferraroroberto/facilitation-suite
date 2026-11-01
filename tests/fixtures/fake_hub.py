@@ -1,0 +1,82 @@
+"""A stand-in for the local LLM hub: the two OpenAI-shaped endpoints the copilot calls.
+
+``POST /v1/audio/transcriptions`` answers ``verbose_json`` with the next scripted text (or a fixed
+sentence); ``POST /v1/chat/completions`` answers each model with its scripted hints JSON. A model in
+``failing`` gets an HTTP 500, ``delay_s`` holds every answer back (a slow hub). Every call is
+recorded with the form fields or JSON body it carried. Synthetic data only.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+
+DEFAULT_HINTS = {"hints": [{"type": "next_q", "text": "Ask which idea they would test first"},
+                           {"type": "notice", "text": "Two people mentioned the budget twice"}]}
+
+
+class _QuietServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        pass  # a client that gave up (a timeout test) leaves a broken pipe: expected, not news
+
+
+class FakeHub:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self.transcripts: list[str] = []
+        self.answers: dict[str, Any] = {}  # model → the hints object (or raw text) it answers
+        self.failing: set[str] = set()
+        self.delay_s = 0.0
+        hub = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_: Any) -> None:
+                pass
+
+            def do_POST(self) -> None:  # noqa: N802 — http.server's name
+                body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                if hub.delay_s:
+                    time.sleep(hub.delay_s)
+                if self.path == "/v1/audio/transcriptions":
+                    fields = dict(re.findall(rb'name="(\w+)"\r\n\r\n([^\r]*)\r\n', body))
+                    hub.calls.append({"path": self.path, **{k.decode(): v.decode() for k, v in fields.items()},
+                                      "bytes": len(body)})
+                    text = hub.transcripts.pop(0) if hub.transcripts else "We could test the cheapest idea first."
+                    self._json(200, {"text": text, "language": "english", "segments": []})
+                elif self.path == "/v1/chat/completions":
+                    req = json.loads(body)
+                    hub.calls.append({"path": self.path, "model": req["model"], "messages": req["messages"]})
+                    if req["model"] in hub.failing:
+                        self._json(500, {"error": {"message": "backend down"}})
+                        return
+                    answer = hub.answers.get(req["model"], DEFAULT_HINTS)
+                    content = answer if isinstance(answer, str) else json.dumps(answer)
+                    self._json(200, {"choices": [{"message": {"role": "assistant", "content": content}}]})
+                else:
+                    self._json(404, {"error": {"message": "not found"}})
+
+            def _json(self, status: int, data: dict[str, Any]) -> None:
+                raw = json.dumps(data).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+        self._server = _QuietServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def calls_to(self, path: str) -> list[dict[str, Any]]:
+        return [c for c in self.calls if c["path"] == path]
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()

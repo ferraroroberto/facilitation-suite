@@ -226,6 +226,8 @@ class Session(_Open):
     # A capture stops when its activity is left or its timer ends with ``hide``. Off for a plan
     # that never set it (its behaviour is unchanged); new sessions are created with it on.
     stop_capture_on_leave: bool = False
+    # The live copilot's hints come from the local model only (a sensitive meeting): no cloud model.
+    copilot_local_only: bool = False
     font: Optional[StageFont] = None
     source: Optional[Source] = None
     # Manual readiness confirmations (e.g. zoom_autoupdate_off) the app cannot detect itself.

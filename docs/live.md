@@ -14,6 +14,8 @@
 
 The presenter shows what is on stage, the next item and the four after it **by title**, the speaker notes (and, for an activity, the prompt to paste in the chat with a Copy button), the item's timer controls, and the presenter-only clocks: the session clock against the planned duration (ahead / behind), the time left in the current section and when the next break is due. Click any thumbnail in the filmstrip to jump there. **Start the session over** (the ↺ next to ×) goes back to the first item with no clocks, timers, captures or chat — after a rehearsal, say; nothing is deleted: the run so far stays in the session folder as `live-<date>-<time>/`. On a wide screen (a 1920×1080 second monitor) the cockpit fits one screen with no page scroll, in four columns: what is on stage with its notes and the clocks · what comes next with the music · the item's own card (quiz, capture or timer) · the Zoom chat, full height. Notes, clocks and music take only the room their content needs (long notes scroll inside their card); below 1500 px wide the chat moves under the item card.
 
+Under the notes, the **Copilot** card switches the [live copilot](copilot.md) on and off and shows its hints.
+
 The live position, clocks, timers and music are mirrored to `live/state.json` and every item change, clock and timer event is appended to `live/events.jsonl`. Saving the plan while live reloads it in place.
 
 **Closing or reloading the stage** loses nothing: the position, timers, blackout and the running capture live on the server, so a reloaded or reopened stage window comes back on the same item and step (an end-to-end test keeps it so).

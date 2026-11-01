@@ -1,5 +1,5 @@
 """Story 5: go live — the stage and the presenter follow one state; keys, clicks, blackout, timer,
-clocks, and starting the session over."""
+clocks, the copilot's hints, and starting the session over."""
 
 from __future__ import annotations
 
@@ -271,6 +271,25 @@ def _check_hidden_item(page: Page) -> None:
     expect(page.locator(".p-sub")).to_contain_text("9 of 18")
 
 
+def _check_copilot(page: Page, webapp) -> None:
+    """Copilot on: an injected transcript turns into hints on the presenter's card and its chip; off again
+    (the instance is shared), the hints go with it."""
+    card = page.locator(".p-copilot")
+    expect(card.locator(".p-meta")).to_have_text("off")
+    card.locator("[data-cop-on]").click()
+    expect(card.locator("[data-cop-on]")).to_have_attribute("aria-checked", "true")
+    r = page.request.post(f"{webapp.base_url}/api/copilot/transcript",
+                          data={"lines": [{"speaker": "them", "text": "We could test the cheapest idea first"}]})
+    assert r.ok, r.text()
+    expect(card.locator(".p-hint").first).to_contain_text("Ask which idea they would test first")
+    expect(card.locator(".p-hint")).to_have_count(2)
+    expect(page.locator("[data-chips]")).to_contain_text("Copilot · on")
+    surface(page, "presenter.copilot-hints")
+    card.locator("[data-cop-on]").click()
+    expect(card.locator(".p-hint")).to_have_count(0)
+    expect(card.locator(".p-meta")).to_have_text("off")
+
+
 def _check_start_over(page: Page, folder) -> None:
     """Start over after the rehearsal: first item, no clock; the run so far is kept aside."""
     # start over after the rehearsal: first item, no clock; the run so far is kept aside
@@ -296,6 +315,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     _check_timer_and_reload(page, stage, stage_ctx, webapp)
     _check_clocks_and_navigation(page, stage, webapp, shots)
     _check_hidden_item(page)
+    _check_copilot(page, webapp)
     _check_start_over(page, folder)
     stage_ctx.close()
     assert errors == []

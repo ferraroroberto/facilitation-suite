@@ -36,6 +36,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `app/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*` |
 | `app/activities/<type>/` | one folder per activity plug-in (word cloud, scale, map, cards, feed, quiz screens): editor definition, parser, stage renderer |
 | `app/tray/` | the pystray tray that owns the server; `single_instance.py` and `watchdog.py` are vendored |
+| `app/tray/overlay/` | the live copilot's overlay window: its own process (`python -m app.tray.overlay`), the Win32 layered window, what it draws and when, and the server's handle on the process |
 
 ## `src/`
 
@@ -46,6 +47,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `importer/` | PowerPoint import through COM and the re-import review |
 | `live/` | live state: the plan clock, capture, freeze, the hub, actions |
 | `chat/` | the chat reader (Zoom through MSAA, Teams and Meet through UI Automation) and answer parsing |
+| `copilot/` | the live copilot: audio capture, chunking, the hub client, hints and the service that runs them |
 | `activities/` | the activity registry and the answer handling the plug-ins share |
 | `groups/` | roster and shuffle |
 | `obs/` | obs-websocket scene switching |

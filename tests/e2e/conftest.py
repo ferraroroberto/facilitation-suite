@@ -4,7 +4,8 @@
 temp copy of the sample config (OBS and the chat reader off),
 ``FS_LEDGER_PATH`` → a temp ledger, ``FS_DATA_DIR`` → a temp data dir and
 ``FS_ENV_PATH`` → an empty ``.env`` (no Spotify login), so a
-run never reads or writes the real config, ledger or session folders.
+run never reads or writes the real config, ledger or session folders. The copilot
+talks to a fake hub in this process (``tests/fixtures/fake_hub.py``), never the real one.
 The disposable instance always binds free ports (the app and the quiz player
 listener), so a running tray on :8449/:8451 never collides with it.
 The suite never targets the live app: its stories write (Settings, sessions, simulated
@@ -18,6 +19,7 @@ rewrites the committed gallery.
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -31,8 +33,9 @@ from pathlib import Path
 import pytest
 
 from src.no_window import NO_WINDOW
-from tests.conftest import write_test_config
+from tests.conftest import SAMPLE_CONFIG, write_test_config
 from tests.e2e._surface import pytest_collection_modifyitems  # noqa: F401
+from tests.fixtures.fake_hub import FakeHub
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
@@ -111,16 +114,26 @@ def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
     raise RuntimeError(f"e2e webapp did not answer /healthz within 30 s; see {root / 'server.log'}")
 
 
+def fake_hub_copilot(hub: FakeHub) -> dict[str, object]:
+    """The sample's copilot block aimed at a fake hub: no audio device, no overlay window, no real hub."""
+    copilot = json.loads(SAMPLE_CONFIG.read_text(encoding="utf-8"))["copilot"]
+    copilot.update(hub_url=hub.url, capture="off")
+    copilot["overlay"]["enabled"] = False
+    return copilot
+
+
 @pytest.fixture(scope="session")
 def webapp() -> Iterator[Instance]:
     if os.environ.get(LIVE_ENV):
         pytest.exit(f"{LIVE_ENV} is set: the e2e stories write, so they only run on a disposable instance", returncode=2)
+    hub = FakeHub()
     with tempfile.TemporaryDirectory(prefix="fs-e2e-", ignore_cleanup_errors=True) as tmp:
-        proc, inst = boot_instance(Path(tmp))
+        proc, inst = boot_instance(Path(tmp), copilot=fake_hub_copilot(hub))
         try:
             yield inst
         finally:
             stop_instance(proc)
+            hub.close()
 
 
 @pytest.fixture

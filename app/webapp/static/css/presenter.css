@@ -43,6 +43,7 @@
 .p-music { order: 4; }
 .p-chat { order: 5; }
 .p-notes { order: 6; }
+.p-copilot { order: 6; }
 .p-timing { order: 7; }
 .p-card { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
 .p-head {
@@ -237,6 +238,7 @@
   .p-col-chat { grid-column: 3; grid-row: 2; }
   .p-now, .p-next, .p-chat { flex: 1 1 0; }
   .p-notes { flex: 0 1 auto; max-height: 26%; }
+  .p-copilot { flex: none; max-height: 38%; }
   .p-timing, .p-music { flex: none; }
   .p-item { flex: 0 1 auto; min-height: 160px; }
   .p-now .p-body, .p-next .p-body { flex: 1; }
@@ -280,3 +282,18 @@
 .p-quiz-players li.muted { border-bottom: 0; }
 .p-quiz-players .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p-quiz-players .chip { display: inline-flex; min-height: 22px; padding: 0 8px; font-size: var(--font-caption); }
+
+/* The Copilot card: the switches and the recording dot on one row, then each failure, then the hints. */
+.p-cop-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); }
+/* Recording is a mode the facilitator chose, not an alarm: accent, like any selected mode. */
+.p-rec { display: inline-flex; align-items: center; gap: 6px; font-size: var(--font-body-sm); font-weight: 700; color: var(--accent-text); }
+.p-rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.p-cop-status { display: flex; flex-wrap: wrap; gap: 6px; }
+.p-cop-status:empty, .p-hints:empty, .p-cop-idle:empty { display: none; }
+.p-cop-status .chip { display: inline-flex; min-height: 26px; padding: 0 10px; font-size: var(--font-body-sm); }
+.p-cop-idle { margin: 0; }
+/* One row per hint, its type beside the words, so three fit without the card scrolling. */
+.p-hints { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.p-hint { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); align-items: baseline; gap: var(--space-sm); padding: 6px var(--space-md); border-radius: var(--radius-md); background: var(--neutral-soft); }
+.p-hint-type { font-size: var(--font-body-sm); font-weight: 700; color: var(--accent-text); }
+.p-hint-text { font-size: 1.1rem; font-weight: 600; line-height: 1.3; }

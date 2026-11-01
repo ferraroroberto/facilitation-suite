@@ -96,6 +96,61 @@ class LiveConfig:
     resume_on_start: bool = True
 
 
+OVERLAY_MODES = ("full", "cue")
+OVERLAY_POSITIONS = ("top-left", "top-center", "top-right", "center", "bottom-left", "bottom-center", "bottom-right")
+OVERLAY_SHAPES = ("rounded", "pill", "square")
+COPILOT_CAPTURE = ("devices", "files", "off")
+
+
+@dataclass(frozen=True)
+class OverlayConfig:
+    """The copilot's overlay window (``app/tray/overlay/``): always on top, click-through, invisible until
+    a hint arrives. ``mode`` ``full`` shows the hints in it; ``cue`` shows only a small flashing icon
+    and leaves the words to the presenter's notes. ``screen`` is a monitor's device name
+    (``\\\\.\\DISPLAY2``); empty or unknown means the primary monitor."""
+
+    enabled: bool = True
+    mode: str = "full"
+    screen: str = ""
+    position: str = "top-center"
+    margin: int = 24
+    shape: str = "rounded"
+    width: int = 760
+    font: str = "Segoe UI"
+    font_size: int = 30
+    text_color: str = "#ffffff"
+    background: str = "#111418"
+    opacity: int = 88  # percent
+    show_seconds: int = 12
+
+
+@dataclass(frozen=True)
+class CopilotConfig:
+    """The live copilot (``src/copilot/``): two channels recorded and transcribed through the hub,
+    hints from an LLM through the hub. ``capture`` is ``devices`` (the mic and the loopback of the
+    call's output), ``files`` (``feed_dir``'s ``me.wav`` and ``them.wav`` played in at real-time pace,
+    for a dry run) or ``off`` (only an injected transcript, as in the tests). An empty ``hub_url``
+    asks nothing of any hub. ``local_model`` answers alone in a session switched to local only."""
+
+    hub_url: str = "http://127.0.0.1:8000"
+    capture: str = "devices"
+    feed_dir: str = ""
+    mic_device: str = ""  # a name fragment; empty = Windows' default input
+    call_device: str = ""  # the output whose sound is looped back; empty = the default output
+    transcribe_model: str = "whisper"
+    hint_models: list[str] = field(default_factory=lambda: ["claude_haiku", "gemini_flash_lite"])
+    local_model: str = "agentic_light"
+    hint_timeout_s: int = 20
+    hint_interval_s: int = 45
+    hint_ttl_s: int = 120
+    context_minutes: int = 4
+    silence_dbfs: int = -50
+    min_chunk_s: int = 20
+    max_chunk_s: int = 45
+    silence_ms: int = 600
+    overlay: OverlayConfig = field(default_factory=OverlayConfig)
+
+
 @dataclass(frozen=True)
 class StageClickConfig:
     """What a click on the stage window does (#191): ``advance`` goes on to the next item, as in a
@@ -140,6 +195,7 @@ class AppConfig:
     quiz: QuizConfig = field(default_factory=QuizConfig)
     live: LiveConfig = field(default_factory=LiveConfig)
     stage_click: StageClickConfig = field(default_factory=StageClickConfig)
+    copilot: CopilotConfig = field(default_factory=CopilotConfig)
     profiles: dict[str, Any] = field(default_factory=dict)
     # What every new session starts from — the stage theme and lettering, the music
     # fades; parsed and checked by src/defaults.py.
