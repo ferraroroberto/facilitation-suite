@@ -94,7 +94,7 @@ flowchart LR
   settingsr --> obs
   deck["Stream Deck · fleet plugin (fleet-config#1006)"] -->|POST /api/actions/id| actionsr["routers/actions.py<br/>home-automation's action contract"]
   actionsr --> acts
-  appv --> resultsr["routers/results.py<br/>results · session PDF · Excel · Zoom check"]
+  appv --> resultsr["routers/results.py<br/>results · session PDF · Excel · Zoom check · conversation"]
   appv --> rebuildr["routers/rebuild.py<br/>preview · apply · undo"]
   rebuildr --> rebuild["src/activities/rebuild.py<br/>replay of frozen captures · backup in live/rebuild-backup-*"]
   rebuild --> replay
@@ -171,6 +171,8 @@ flowchart LR
   copilot --> copsummary["src/copilot/summary.py<br/>rolling summary every 5 min · hourly call caps"]
   appv --> copilotr["routers/copilot.py<br/>overlay settings · screens · sample · local only · injected transcript"]
   copilotr --> copilot
+  resultsr --> convo["src/results/conversation.py<br/>transcript + hints read back under their items"]
+  convo --> copfiles
   copilot -.->|on / sample → starts · off → stops| overlayproc["app/tray/overlay/process.py<br/>OverlayProcess"]
   overlayproc -.->|spawns| overlay["python -m app.tray.overlay<br/>layered click-through window · full hint or cue · own process"]
   overlay <-->|"WS /ws?role=overlay · reads state.copilot"| liver

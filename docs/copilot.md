@@ -41,6 +41,8 @@ The Copilot card shows the switches, what is being recorded, the hints (each wit
 
 None of them blocks the session: capture, transcription and hints run on their own threads, and the stage, the keys and the timers never wait for them.
 
+After the session, the Results tab's **Conversation** card reads the transcript back with the hints under their items (see [results.md](results.md)).
+
 ## The overlay
 
 A native window on top of every app, on whichever screen you pick (a prompter monitor in front of the camera, say). It is transparent, lets every click through and shows nothing until there is a hint; then it pops up, holds and fades. Two modes:
