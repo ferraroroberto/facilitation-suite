@@ -49,14 +49,22 @@ export async function mount(el, context) {
   list.append(head, checkEl, peopleEl, listEl, rebuildEl);
 
   ctx.onSession(() => { selected = null; rebuildSid = null; load(); });
-  await load();
+  // No read here: both ways in (the nav and showView) call show() once this resolves.
 }
 
 export function show() { load(); }
 
 const base = () => `/api/sessions/${ctx.sessionId}`;
 
-async function load() {
+// Opening the tab asks from the nav and from showView in the same moment; one read serves both, so a
+// card opened right after the first render is never swapped for a closed copy by a second one.
+let loading = null;
+function load() {
+  loading ??= read().finally(() => { loading = null; });
+  return loading;
+}
+
+async function read() {
   if (!ctx.sessionId) {
     data = null;
     setStatus(head, '');
