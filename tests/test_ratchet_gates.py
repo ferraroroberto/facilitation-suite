@@ -61,8 +61,8 @@ STAGES = [
 
 stages = pytest.mark.parametrize("stage", STAGES, ids=lambda s: s.key)
 repo_stages = pytest.mark.parametrize("stage", [s for s in STAGES if s.file], ids=lambda s: s.key)
-# Every vendored ratchet the gate runs: the wrapped stages plus the one called directly.
-RATCHETS = [*(s.key for s in STAGES), "conventions_ratchet"]
+# Every vendored ratchet the gate runs: the wrapped stages plus the ones called directly.
+RATCHETS = [*(s.key for s in STAGES), "conventions_ratchet", "runtime_write_ratchet"]
 
 
 def _fake_script(tmp_path: Path, body: str) -> Path:

@@ -47,6 +47,8 @@ instruction_ratchet = { src = "scripts/instruction_ratchet.py", sha = "9d0fd2777
 doc_refs_ratchet = { src = "scripts/doc_refs_ratchet.py", sha = "baac1ed97388a3545bd1e52544821ec20f1dc77a", dest = "scripts/doc_refs_ratchet.py" }
 dead_code_ratchet = { src = "scripts/dead_code_ratchet.py", sha = "baac1ed97388a3545bd1e52544821ec20f1dc77a", dest = "scripts/dead_code_ratchet.py" }
 conventions_ratchet = { src = "scripts/conventions_ratchet.py", sha = "9d0fd2777fbae78aaffa7a0e53f62a201db5af79", dest = "scripts/conventions_ratchet.py" }
+runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "5505185c5f4b10eea5ab268e7b6676c6c54340c4", dest = "scripts/runtime_write_ratchet.py" }
+runtime_write_resolve = { src = "scripts/runtime_write_resolve.py", sha = "5505185c5f4b10eea5ab268e7b6676c6c54340c4", dest = "scripts/runtime_write_resolve.py" }
 no_window       = { src = "src/no_window.py", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "c9e54e917fd3cbc96011d6c09f9d363af460b205", dest = "src/build_info.py" }
 geometry        = { src = "tests/e2e/_geometry.py", sha = "aa820f1215151087588433f290cd2ba55b34658d", dest = "tests/e2e/_geometry.py" }
@@ -255,10 +257,24 @@ tier = "none"
 path = ".conventions-ratchet-baseline.json"
 [[e2e.rule]]
 tier = "none"
+path = ".runtime-write-ratchet-baseline.json"
+[[e2e.rule]]
+tier = "none"
 path = "LICENSE"
 [[e2e.rule]]
 tier = "none"
 path = "launcher.py"
+
+# [runtime_write_ratchet] -- scripts/runtime_write_ratchet.py fails when a tracked
+# Python file gains a write target (open for writing, Path.write_*, mkdir, a log
+# FileHandler, sqlite3.connect, a copy destination) whose path resolves under a code
+# folder, beyond .runtime-write-ratchet-baseline.json; a new target it cannot resolve
+# is "not confirmed" (exit 3), never clean. The same script brackets the test stages
+# (--snapshot before, --probe after) and fails on any untracked or ignored file the
+# run left under a code folder. Mechanism: project-scaffolding docs/runtime-write-ratchet.md.
+[runtime_write_ratchet]
+enabled  = true
+baseline = ".runtime-write-ratchet-baseline.json"
 
 # The scaffold's verify skill (project-scaffolding#412) boots the suite's own disposable instance and
 # must never set the live opt-in (the suite exits if it is set). /healthz is the default ready path and fits; the data-dir default

@@ -57,7 +57,15 @@
                                .conventions-ratchet-baseline.json. Whole tree,
                                never routed; exit 3 (git unusable, a file that
                                does not parse) is NOT CONFIRMED and fails.
-     12. pytest (unit)       - hermetic suite, tests/e2e excluded
+     11b. runtime write ratchet - no file's count of write targets resolving under
+                               a code folder rises beyond
+                               .runtime-write-ratchet-baseline.json. Whole tree,
+                               never routed; exit 3 (a new target it cannot
+                               resolve) is NOT CONFIRMED and fails.
+     12. pytest (unit)       - hermetic suite, tests/e2e excluded; stages 12-13 run
+                               inside the runtime write probe (--snapshot before,
+                               --probe after), which fails on any untracked or
+                               ignored file they leave under a code folder
      13. pytest (e2e)       - diff-proportionate: routed by scripts/classify_e2e.py
                                against .fleet.toml [e2e] (skip / static / full),
                                fail-safe to full. Boots its own disposable webapp;
@@ -139,6 +147,12 @@ Invoke-Stage "doc-refs ratchet"        { & $py "scripts/doc_refs_ratchet.py" }
 Invoke-Stage "dead-code ratchet"       { & $py "scripts/dead_code_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "conventions ratchet"     { & $py "scripts/conventions_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "runtime write ratchet"   { & $py "scripts/runtime_write_ratchet.py" }
+# Runtime write probe, first half: what already sits untracked or ignored under
+# the code folders, so the probe after the tests names only what they wrote.
+$runtimeSnapshot = Join-Path ([IO.Path]::GetTempPath()) "runtime-write-snapshot-$PID.json"
+Invoke-Stage "runtime write probe (snapshot)" { & $py "scripts/runtime_write_ratchet.py" --snapshot $runtimeSnapshot }
 Invoke-Stage "pytest (unit, non-e2e)"  { & $py -m pytest --ignore=tests/e2e }
 
 # ---------------------------------------------------------------- e2e routing
@@ -175,6 +189,9 @@ if ($tier -eq "skip") {
     $e2eArgs += @("--junitxml", "data/e2e-junit.xml")
     Invoke-Stage "pytest e2e (${tier}: $e2eTarget)" { & $py -m pytest @e2eArgs }
 }
+
+# Runtime write probe, second half: any file the unit and e2e runs left under a code folder.
+Invoke-Stage "runtime write probe" { & $py "scripts/runtime_write_ratchet.py" --probe $runtimeSnapshot }
 
 Write-Host ""
 Write-Host "[PASS] all checks green - safe to ship." -ForegroundColor Green
