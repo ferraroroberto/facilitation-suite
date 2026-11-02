@@ -48,7 +48,7 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 
 Appearance (light, dark or system), HTTPS for the phone remote and the log files: [docs/operations.md](docs/operations.md).
 
-**Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. The `.js`/`.css` under `app/webapp/static/`, `themes/` and `app/activities/` are stamped with one hash taken at startup and cached for good under it (the pages stay `no-cache`), so an edit to them shows up after the restart, not on a reload.
+**Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. The `.js`/`.css` under `app/webapp/static/`, `themes/` and `src/activities/` are stamped with one hash taken at startup and cached for good under it (the pages stay `no-cache`), so an edit to them shows up after the restart, not on a reload.
 
 ## Features
 

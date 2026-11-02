@@ -8,7 +8,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 
 | Folder | What lives there |
 |---|---|
-| `app/` | everything that serves or shows UI: the webapp, the public quiz player, the activity plug-ins, the tray |
+| `app/` | everything that serves or shows UI: the webapp (the public quiz player included) and the tray |
 | `src/` | logic with no UI imports: config, sessions, import, live state, chat, quiz, results |
 | `tests/` | hermetic unit tests, plus `tests/e2e/` (Playwright against a disposable instance) |
 | `docs/` | durable reference, one page per feature |
@@ -33,8 +33,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `app/webapp/` | the FastAPI server (`server.py`), `routers/`, and `static/` (the Sessions/Plan/Groups/Results page, `/presenter`, `/stage`, `/remote`) |
 | `app/webapp/static/js/` | ES modules, no bundler; `views/` holds one module per tab |
 | `app/webapp/static/_vendored/` | fleet UI components copied byte-for-byte from project-scaffolding; never edited here (see `.fleet.toml [vendored]`) |
-| `app/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*` |
-| `app/activities/<type>/` | one folder per activity plug-in (word cloud, scale, map, cards, feed, quiz screens): editor definition, parser, stage renderer |
+| `app/webapp/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*`; it mounts nothing from the main app, so what is public stays this folder; the shape lists no home for a second listener, so `.structure-ratchet-baseline.json` records the folder as a placement deviation that may only shrink |
 | `app/tray/` | the pystray tray that owns the server; `single_instance.py` and `watchdog.py` are vendored |
 | `app/tray/overlay/` | the live copilot's overlay window: its own process (`python -m app.tray.overlay`), the Win32 layered window, what it draws and when, and the server's handle on the process |
 
@@ -49,6 +48,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `chat/` | the chat reader (Zoom through MSAA, Teams and Meet through UI Automation) and answer parsing |
 | `copilot/` | the live copilot: audio capture, chunking, the hub client, hints, the rolling summary and call caps, and the service that runs them |
 | `activities/` | the activity registry and the answer handling the plug-ins share |
+| `activities/<type>/` | one folder per activity plug-in (word cloud, scale, map, cards, feed, quiz screens): editor definition, parser, stage renderer, served to the stage at `/activities/<type>/` |
 | `groups/` | roster and shuffle |
 | `obs/` | obs-websocket scene switching |
 | `music/` | files and Spotify per item |

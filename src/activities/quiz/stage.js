@@ -35,7 +35,7 @@
 import { esc } from '/static/js/ui.js';
 
 const KEYS = ['A', 'B', 'C', 'D'];
-// Answer n's shape — the same four as the phones (app/player/play.html): triangle, diamond, circle, square.
+// Answer n's shape — the same four as the phones (app/webapp/player/play.html): triangle, diamond, circle, square.
 const SHAPES = {
   1: '<path d="M12 3 22.5 21h-21z"/>',
   2: '<path d="M12 1.5 22.5 12 12 22.5 1.5 12z"/>',
@@ -51,7 +51,7 @@ const MIN_FIT = 0.6; // fitTiles steps the answers down to 60 % of their size, n
 
 // Every word the audience reads on the stage, in the session's language (ctx.lang). The
 // presenter's controls stay in English. tests/quiz/test_quiz_language.py checks both languages have
-// every key this file uses (and the phone's table in app/player/static/play.js likewise).
+// every key this file uses (and the phone's table in app/webapp/player/static/play.js likewise).
 const WORDS = {
   en: {
     question: (i, n) => `Question ${i} of ${n}`,

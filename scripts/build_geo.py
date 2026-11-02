@@ -1,4 +1,4 @@
-"""Build the map's offline data into ``app/activities/map/`` (committed output).
+"""Build the map's offline data into ``src/activities/map/`` (committed output).
 
     .venv/Scripts/python.exe -m scripts.build_geo
 
@@ -36,7 +36,7 @@ from babel import Locale
 from src.text import fold
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "app" / "activities" / "map"
+OUT = ROOT / "src" / "activities" / "map"
 CITIES_URL = "https://download.geonames.org/export/dump/cities15000.zip"
 COUNTRIES_URL = "https://download.geonames.org/export/dump/countryInfo.txt"
 WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json"

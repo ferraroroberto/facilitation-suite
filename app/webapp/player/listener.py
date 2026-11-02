@@ -40,7 +40,7 @@ import uvicorn
 from fastapi import FastAPI
 from uvicorn.protocols.http.auto import AutoHTTPProtocol
 
-from app.player.app import PREFIX, create_player_app
+from app.webapp.player.app import PREFIX, create_player_app
 from src.quiz.service import QuizService
 
 logger = logging.getLogger(__name__)

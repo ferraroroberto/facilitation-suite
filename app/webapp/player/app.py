@@ -1,19 +1,19 @@
 """The quiz player app — the only thing the public internet can reach (#34, #49, #52).
 
 Served on ``127.0.0.1:<quiz.public_port>`` (default 8451) by
-``app/player/listener.py`` and published by a Cloudflare named tunnel
+``app/webapp/player/listener.py`` and published by a Cloudflare named tunnel
 (``quiz.<domain>``, ``src/tunnel.py``; Tailscale Funnel is the fallback). It
 mounts **nothing** from the main :8449 app: no ``RemoteAuth`` bypass, no
 ``/api/*``, no ``/ws``, no presenter or stage, not the main ``/static`` (its
 own page chrome — the fleet tokens and a few vendored stylesheets — is copied
-into ``app/player/static/``), and no OpenAPI docs. Every route lives under
+into ``app/webapp/player/static/``), and no OpenAPI docs. Every route lives under
 ``/play``; anything else is a 404.
 
 It talks to the **same** ``QuizService`` as the main app (passed in by the
 listener, which runs on the main app's loop), so every route is ``async``:
 
     GET  /play                → the phone page (``?pin=`` fills the PIN in)
-    GET  /play/static/…       → its CSS and JS (``app/player/static/``)
+    GET  /play/static/…       → its CSS and JS (``app/webapp/player/static/``)
     GET  /play/api/ping       → {"ok": true, "time": <server epoch seconds>, "lang":
                               the live session's language, so the join screen
                               speaks it before the phone has a view (#91)}
@@ -58,9 +58,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
-from app.player import ratelimit
-from app.player.push import Conn, PlayerPush
 from app.webapp.errors import error_response
+from app.webapp.player import ratelimit
+from app.webapp.player.push import Conn, PlayerPush
 from src.errors import DomainError
 from src.live.hub import now_ms
 from src.quiz.engine import JOINED, RESUMED

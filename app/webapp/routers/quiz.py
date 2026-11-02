@@ -1,7 +1,7 @@
 """The quiz on the main app: the join QR code for the stage and the presenter (#52) and the public-link check (#56).
 
 Behind ``RemoteAuth`` like every other ``/api/*`` route — the public player
-app (``app/player/``) never serves it.
+app (``app/webapp/player/``) never serves it.
 
     GET /api/quiz/qr.svg[?pin=]  → the QR of ``quiz.public_url`` + ``/play?pin=…``
                                    for the game on stage (or the game with ``pin``)

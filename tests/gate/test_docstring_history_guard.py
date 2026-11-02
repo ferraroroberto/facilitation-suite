@@ -35,10 +35,10 @@ _REF = re.compile(r"(?<![&#])#(\d{1,5})\b")
 # requirement for a *recurring* audit bucket). Shrink an entry as a file is cleaned up;
 # never raise one -- add a genuinely new exception by fixing the docstring instead.
 BASELINE: dict[str, int] = {
-    "app/player/__init__.py": 1,
-    "app/player/app.py": 4,
-    "app/player/listener.py": 1,
-    "app/player/push.py": 1,
+    "app/webapp/player/__init__.py": 1,
+    "app/webapp/player/app.py": 4,
+    "app/webapp/player/listener.py": 1,
+    "app/webapp/player/push.py": 1,
     "app/tray/tray.py": 1,
     "app/webapp/assets.py": 1,
     "app/webapp/event_loop.py": 2,

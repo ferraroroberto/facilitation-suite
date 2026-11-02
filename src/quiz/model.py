@@ -1,6 +1,6 @@
 """The quiz item format — the contract every later quiz step builds on (#50).
 
-Three activity types, one plug-in folder each under ``app/activities/``:
+Three activity types, one plug-in folder each under ``src/activities/``:
 
 - ``quiz_lobby`` (no capture) starts a game. Options: ``title`` (the quiz's
   name), ``accept_chat`` (answers typed in the Zoom chat count too, Step 6)
@@ -13,7 +13,7 @@ Three activity types, one plug-in folder each under ``app/activities/``:
   ``TIME_LIMITS``) and ``points`` (one of ``POINTS``).
 - ``quiz_podium`` (no capture) ends the game.
 
-``app/activities/quiz/editor.json`` offers the same choices; a unit test keeps
+``src/activities/quiz/editor.json`` offers the same choices; a unit test keeps
 the two in step.
 """
 

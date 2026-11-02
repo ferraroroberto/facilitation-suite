@@ -1,7 +1,7 @@
 """Offline geocoding for the magic map (epic §10) — no network, ever.
 
 Data (built by ``scripts/build_geo.py``, committed under
-``app/activities/map/``): GeoNames ``cities15000`` (CC BY 4.0), country names
+``src/activities/map/``): GeoNames ``cities15000`` (CC BY 4.0), country names
 in English and Spanish, and ``aliases.yaml`` (``CDMX``, ``NYC``, ``EEUU``…).
 
 ``resolve(text)`` understands what people type in a chat:
@@ -34,7 +34,7 @@ from src.text import fold as fold_accents
 
 logger = logging.getLogger(__name__)
 
-DATA = Path(__file__).resolve().parent.parent.parent / "app" / "activities" / "map"
+DATA = Path(__file__).resolve().parent.parent / "activities" / "map"
 PREFIX = re.compile(r"^(?:(?:hola|hi|hello)[\s,!.]+)?(?:(?:yo\s+)?(?:estoy|vivo|soy|desde|de|en|conect\w*|from|in|i'?m|i am|im|live in|here in|aqu[ií])\s+)+", re.I)
 # An alternate-name match counts for 1/10 of its population against a city's own name:
 # "zaragoza" must not land on Tijuana, yet "pekin" must still reach Beijing (Pekin, US is tiny).
