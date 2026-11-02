@@ -46,7 +46,7 @@ The phone remote shows the same essentials on a quiz item — the phase, players
 
 ## On the stage
 
-The stage draws a quiz with `app/activities/quiz/stage.js`, one renderer for the three types, in the session theme and fonts — never the fleet design:
+The stage draws a quiz with `src/activities/quiz/stage.js`, one renderer for the three types, in the session theme and fonts — never the fleet design:
 
 - **Lobby:** the join QR code, the public link and the PIN (`123 456`), the player count and the names popping in as they join — as many as fit in full rows, then a *+N more* chip. While phones cannot join, it says so instead of showing a QR that leads nowhere: *Joining by phone is not set up* (`quiz.public_url` empty) or *not available right now* (the player listener is down).
 - **Question:** *Question n of N*, the answers on tiles in the phones' colours **and** shapes with their letters A–D (so chat players know what to type), a countdown ring and seconds from the server's deadline (corrected for this screen's clock, within a tenth of a second; its font steps down for a 3-digit limit, Kahoot allows up to 240 s), and *x / y answered*. An answer too long for its tile (Kahoot allows 75 characters) steps the answers' size down until every line shows, inside the tile's padding and without splitting a word; if they still do not fit at their smallest (a long question beside a camera strip), the question steps down too. Nothing on the stage marks the correct answer before the reveal: the renderer reads it only from the game's snapshot, which carries it only once the question has closed — never from the item's options.

@@ -20,11 +20,11 @@ from fastapi.testclient import TestClient
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 from websockets.sync.client import connect
 
-from app.player import app as player_app
-from app.player import listener as player_listener
-from app.player import ratelimit
-from app.player.app import STATIC_DIR as PLAYER_STATIC
-from app.player.app import create_player_app
+from app.webapp.player import app as player_app
+from app.webapp.player import listener as player_listener
+from app.webapp.player import ratelimit
+from app.webapp.player.app import STATIC_DIR as PLAYER_STATIC
+from app.webapp.player.app import create_player_app
 from src.config import load_config
 from src.jsonl import read_jsonl
 from src.live.hub import LiveHub
@@ -511,11 +511,11 @@ def test_the_player_copies_of_the_fleet_css_match_the_app() -> None:
              "button.css": main_static / "_vendored" / "button" / "button.css"}
     for name, source in pairs.items():
         assert (PLAYER_STATIC / "fleet" / name).read_bytes() == source.read_bytes(), (
-            f"app/player/static/fleet/{name} drifted — copy {source.relative_to(REPO_ROOT)} over it")
+            f"app/webapp/player/static/fleet/{name} drifted — copy {source.relative_to(REPO_ROOT)} over it")
 
 
 def test_the_player_code_never_calls_the_trusted_answer() -> None:
-    for path in (REPO_ROOT / "app" / "player").rglob("*.py"):
+    for path in (REPO_ROOT / "app" / "webapp" / "player").rglob("*.py"):
         code = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#"))
         assert "answer_trusted(" not in code, path
 
@@ -534,7 +534,7 @@ def test_player_requests_stay_out_of_the_access_log(game) -> None:
     lines are dropped, while the shared access logger keeps working for the main app."""
     import logging
 
-    from app.player.listener import QuietPlayerRequests
+    from app.webapp.player.listener import QuietPlayerRequests
 
     lg = logging.getLogger("uvicorn.access")
     assert any(isinstance(f, QuietPlayerRequests) for f in lg.filters)

@@ -18,11 +18,11 @@ from starlette.routing import Mount
 from websockets.exceptions import InvalidStatus
 from websockets.sync.client import connect
 
-from app.player.app import STATIC_DIR as PLAYER_STATIC
-from app.player.app import create_player_app
+from app.webapp.player.app import STATIC_DIR as PLAYER_STATIC
+from app.webapp.player.app import create_player_app
 from tests.conftest import write_test_config
 
-LISTENER_LOG = "app.player.listener"
+LISTENER_LOG = "app.webapp.player.listener"
 
 
 def _free_port() -> int:
@@ -63,7 +63,7 @@ def test_player_app_routes_are_play_only(client) -> None:
     # One mount: its own static folder (never the main app's /static or anything shared with :8449).
     mounts = [r for r in app.routes if isinstance(r, Mount)]
     assert [(m.path, Path(m.app.directory).resolve()) for m in mounts] == [("/play/static", PLAYER_STATIC.resolve())]
-    assert PLAYER_STATIC.resolve().is_relative_to(Path(__file__).resolve().parents[1] / "app" / "player")
+    assert PLAYER_STATIC.resolve().is_relative_to(Path(__file__).resolve().parents[1] / "app" / "webapp" / "player")
     assert app.openapi_url is None and app.docs_url is None and app.redoc_url is None
     app.state.detach()
 

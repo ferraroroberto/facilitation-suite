@@ -53,7 +53,7 @@ class Instance:
     def __init__(self, base_url: str, root: Path, player_url: str = "") -> None:
         self.base_url = base_url
         self.root = root
-        self.player_url = player_url  # the quiz player listener (app/player/)
+        self.player_url = player_url  # the quiz player listener (app/webapp/player/)
 
 
 def stop_instance(proc: subprocess.Popen) -> None:

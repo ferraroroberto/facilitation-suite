@@ -1,4 +1,4 @@
-"""The activity types the Plan editor can offer (one per ``app/activities/<type>/``)."""
+"""The activity types the Plan editor can offer (one per ``src/activities/<type>/``)."""
 
 from __future__ import annotations
 

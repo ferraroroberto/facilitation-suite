@@ -110,7 +110,7 @@ Invoke-Stage "personal-data guard" {
     $bad = $tracked | Where-Object {
         ($_ -match '\.(xlsx|pptx|docx|wav)$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)session\.yaml$' -and $_ -notmatch '^tests/fixtures/') -or
-        ($_ -match '(^|/)aliases\.yaml$' -and $_ -notmatch '^(tests/fixtures/|app/activities/map/aliases\.yaml$)') -or
+        ($_ -match '(^|/)aliases\.yaml$' -and $_ -notmatch '^(tests/fixtures/|src/activities/map/aliases\.yaml$)') -or
         ($_ -match '(^|/)playbook\.md$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)notes\.md$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)(chat|events|quiz|transcript|hints)\.jsonl$' -and $_ -notmatch '^tests/fixtures/') -or

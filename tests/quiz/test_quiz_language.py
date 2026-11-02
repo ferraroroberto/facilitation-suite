@@ -1,6 +1,6 @@
-"""The quiz's audience-facing words (#91): the stage (``app/activities/quiz/stage.js`` →
-``WORDS``) and the phone (``app/player/static/play.js`` → ``TEXT``, plus the ``data-t*``
-keys of ``app/player/play.html``) each keep one table per session language. Both languages
+"""The quiz's audience-facing words (#91): the stage (``src/activities/quiz/stage.js`` →
+``WORDS``) and the phone (``app/webapp/player/static/play.js`` → ``TEXT``, plus the ``data-t*``
+keys of ``app/webapp/player/play.html``) each keep one table per session language. Both languages
 must have the same keys (a function the same parameters), and every key the code or the page
 asks for must be in the table — a missing one would show ``undefined`` to the audience."""
 
@@ -13,9 +13,9 @@ import pytest
 
 from tests.conftest import REPO_ROOT
 
-STAGE = REPO_ROOT / "app" / "activities" / "quiz" / "stage.js"
-PHONE = REPO_ROOT / "app" / "player" / "static" / "play.js"
-PAGE = REPO_ROOT / "app" / "player" / "play.html"
+STAGE = REPO_ROOT / "src" / "activities" / "quiz" / "stage.js"
+PHONE = REPO_ROOT / "app" / "webapp" / "player" / "static" / "play.js"
+PAGE = REPO_ROOT / "app" / "webapp" / "player" / "play.html"
 LANGS = ("en", "es")
 
 # A table entry, one per line at 4 spaces: ``key: 'text',`` or ``key: (a, b) => …``.

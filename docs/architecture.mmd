@@ -12,13 +12,13 @@ flowchart LR
   phones["players' phones (public internet, not the tailnet)"] -->|HTTPS · WS| cfedge["Cloudflare edge<br/>quiz.robertoferraro.net · no Access policy"]
   cfedge -->|tunnel| cloudflared
   cloudflared -->|"http://127.0.0.1:8451"| playerapp
-  subgraph player[Quiz player listener 127.0.0.1:8451 — app/player/ · same process + loop]
-    playerapp["app/player/app.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
-    playerpush["app/player/push.py<br/>PlayerPush — each phone's own view on every change"]
+  subgraph player[Quiz player listener 127.0.0.1:8451 — app/webapp/player/ · same process + loop]
+    playerapp["app/webapp/player/app.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
+    playerpush["app/webapp/player/push.py<br/>PlayerPush — each phone's own view on every change"]
   end
   playerapp -->|same QuizService, async routes| quizsvc
   playerpush -->|player_view only| quizsvc
-  server -.->|lifespan starts / stops| listener["app/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
+  server -.->|lifespan starts / stops| listener["app/webapp/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
   listener --> playerapp
   server -.->|lifespan starts / stops| locallistener["app/webapp/local_listener.py<br/>LocalListener · plain HTTP on 127.0.0.1:8456 · loopback only · busy port = ❌ log, tray opens the HTTPS URL"]
   locallistener -->|"serves this same app (second uvicorn.Server, same loop)"| server
@@ -56,7 +56,7 @@ flowchart LR
   chathub -->|new messages| capture["src/live/capture.py<br/>CaptureService · windows · hide · freeze"]
   capture --> hub
   capture --> reg
-  reg --> parsers[("app/activities/&lt;type&gt;/parse.py · stage.js")]
+  reg --> parsers[("src/activities/&lt;type&gt;/parse.py · stage.js")]
   capture --> capfiles[("live/captures.json · captures/&lt;item&gt;.json + .png")]
   capture -.->|spawns| freeze["src/live/freeze.py<br/>headless /stage?freeze="]
   replay["src/activities/replay.py (CLI, offline)<br/>recorded live/ → result · compare · --render"] --> chatfile
@@ -64,7 +64,7 @@ flowchart LR
   replay --> reg
   replay -.->|--render: disposable server| freeze
   parsers -->|map| geo["src/geo/gazetteer.py<br/>offline GeoNames · aliases · suggest"]
-  geo --> geodata[("app/activities/map/cities.tsv.gz · countries.json · world.svg")]
+  geo --> geodata[("src/activities/map/cities.tsv.gz · countries.json · world.svg")]
   buildgeo["scripts/build_geo.py (network, once)"] -.-> geodata
   appv --> groupsr["routers/groups.py<br/>roster · presence · shuffle · Zoom CSV · reveal"]
   groupsr --> roster["src/groups/roster.py<br/>roster.xlsx · groups.yaml · Zoom text/CSV"]
@@ -115,7 +115,7 @@ flowchart LR
   stage --> themes
   actr --> reg["src/activities/registry.py"]
   model --> reg
-  reg --> plug[("app/activities/&lt;type&gt;/editor.json")]
+  reg --> plug[("src/activities/&lt;type&gt;/editor.json")]
   slidesr --> importer["src/importer/service.py<br/>ImportJob · plan build · re-import"]
   importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
   importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]

@@ -63,7 +63,7 @@ a 404. (Fallback ingress: a temporary Funnel path, e.g. ``tailscale funnel --bg
 The live player — ``quiz.public_url``'s host and every host of
 ``webapp/cloudflared.yml`` at its root — is refused as a ``--player-base``. All
 bots share this PC's public IP, which is the corporate-NAT case the player
-API's per-IP rate limits (``app/player/ratelimit.py``) are sized for.
+API's per-IP rate limits (``app/webapp/player/ratelimit.py``) are sized for.
 
 Usage (from the repo root)::
 

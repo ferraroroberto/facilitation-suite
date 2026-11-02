@@ -1,4 +1,4 @@
-"""Activity plug-ins (epic §8): one folder per type under ``app/activities/<type>/``.
+"""Activity plug-ins (epic §8): one folder per type under ``src/activities/<type>/``.
 
 A plug-in folder holds ``editor.json`` (label, icon, the options the Plan
 editor shows, their defaults; ``"needs_question": false`` for a type that
@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-ACTIVITIES_DIR = Path(__file__).resolve().parent.parent.parent / "app" / "activities"
+ACTIVITIES_DIR = Path(__file__).resolve().parent
 
 
 @lru_cache(maxsize=1)

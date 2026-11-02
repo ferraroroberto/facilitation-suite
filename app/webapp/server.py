@@ -19,7 +19,7 @@ At startup the lifespan takes the session that was live when the server
 stopped live again (``LiveHub.resume_last``, #95; off with ``live.resume_on_start``).
 
 The lifespan also runs the **quiz player listener** — a second, separate app on
-``127.0.0.1:<quiz.public_port>`` (``app/player/``), the only surface the
+``127.0.0.1:<quiz.public_port>`` (``app/webapp/player/``), the only surface the
 Cloudflare tunnel publishes (``src/tunnel.py``, run by the tray). It shares this
 loop and the one ``QuizService``, never this app's routes. A second listener serves *this*
 app in plain HTTP on ``127.0.0.1:<local_port>`` (``app/webapp/local_listener.py``): what the
@@ -54,12 +54,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app.player.listener import PlayerListener
 from app.tray.overlay.process import OverlayProcess
 from app.webapp.assets import CachingStaticFiles
 from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import error_response
 from app.webapp.local_listener import LocalListener
+from app.webapp.player.listener import PlayerListener
 from app.webapp.routers import (
     actions,
     activities,
@@ -357,7 +357,7 @@ def create_app() -> FastAPI:
     app.include_router(quiz.router)
     # Records which views and controls the owner uses: the vendored usage log, in the gitignored
     # data/ (FS_DATA_DIR in tests). Behind RemoteAuth like every route; the quiz player app
-    # (app/player/) never mounts it.
+    # (app/webapp/player/) never mounts it.
     app.include_router(usage_router(data_dir() / USAGE_DB_FILE))
     return app
 

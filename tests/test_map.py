@@ -163,7 +163,7 @@ def test_the_world_outline_never_jumps_across_the_map() -> None:
     # across drew a filled band over the North Atlantic.
     import re
 
-    svg = (Path(__file__).resolve().parents[1] / "app" / "activities" / "map" / "world.svg").read_text(encoding="utf-8")
+    svg = (Path(__file__).resolve().parents[1] / "src" / "activities" / "map" / "world.svg").read_text(encoding="utf-8")
     width = int(re.search(r'viewBox="\S+ \S+ (\d+)', svg).group(1))
     for ring in re.findall(r"M([^Z]+)Z", svg):
         xs = [int(p.split()[0]) for p in ring.split("L")]

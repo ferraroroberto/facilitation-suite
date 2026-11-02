@@ -6,7 +6,7 @@ and the stage. Browsers treat ``http://127.0.0.1`` as a secure context, so this
 listener needs no certificate and no tailnet hop. Other devices keep the HTTPS URL.
 
 Same lifecycle as the quiz player listener: both subclass ``EmbeddedListener``
-(``app/player/listener.py``), which owns the bind, start and stop, and this one
+(``app/webapp/player/listener.py``), which owns the bind, start and stop, and this one
 supplies its own server config:
 
 - **Loopback only, always.** Whatever ``config.host`` says, it binds ``127.0.0.1``;
@@ -25,7 +25,7 @@ import logging
 import uvicorn
 from fastapi import FastAPI
 
-from app.player.listener import EmbeddedListener
+from app.webapp.player.listener import EmbeddedListener
 
 logger = logging.getLogger(__name__)
 

@@ -109,7 +109,7 @@ def test_another_device_needs_the_phone_token(isolated_env: Path) -> None:
 
 def test_the_quiz_player_app_has_no_usage_route(client: TestClient) -> None:
     """The public app (the only surface the tunnel publishes) mounts nothing of the usage log."""
-    from app.player.app import create_player_app
+    from app.webapp.player.app import create_player_app
 
     player = create_player_app(client.app.state.quiz)
     with TestClient(player) as public:
@@ -125,8 +125,8 @@ def test_the_stage_the_remote_and_the_player_never_load_the_logger() -> None:
         STATIC / "js" / "stage.js", STATIC / "js" / "remote.js",
         STATIC / "js" / "stage-render.js", STATIC / "js" / "stage-words.js", STATIC / "js" / "live.js",
         STATIC / "js" / "ui.js", STATIC / "js" / "lettering.js",
-        *sorted((REPO_ROOT / "app" / "player").rglob("*.html")),
-        *sorted((REPO_ROOT / "app" / "player" / "static").rglob("*.js")),
+        *sorted((REPO_ROOT / "app" / "webapp" / "player").rglob("*.html")),
+        *sorted((REPO_ROOT / "app" / "webapp" / "player" / "static").rglob("*.js")),
     ]
     assert len(silent) > 8
     for path in silent:
