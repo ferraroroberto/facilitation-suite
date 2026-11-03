@@ -2,9 +2,5 @@
   "version": 1,
   "band": {"files": 1, "functions": 6},
   "root_extras": ["themes"],
-  "entries": [
-    {"key": "place:app/webapp/player", "files": 6},
-    {"key": "place:app/webapp/player/static", "files": 2},
-    {"key": "place:app/webapp/player/static/fleet", "files": 4}
-  ]
+  "entries": []
 }
