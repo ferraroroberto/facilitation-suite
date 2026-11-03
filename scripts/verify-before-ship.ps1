@@ -62,6 +62,12 @@
                                .runtime-write-ratchet-baseline.json. Whole tree,
                                never routed; exit 3 (a new target it cannot
                                resolve) is NOT CONFIRMED and fails.
+     11c. usage track ratchet - no file's count of untracked controls, untracked
+                               sheets or built ids rises beyond
+                               .usage-track-ratchet-baseline.json, and the usage log
+                               is wired. Whole tree, never routed; exit 3 (a file
+                               that cannot be read or closed) is NOT CONFIRMED and
+                               fails.
      12. pytest (unit)       - hermetic suite, tests/e2e excluded; stages 12-13 run
                                inside the runtime write probe (--snapshot before,
                                --probe after), which fails on any untracked or
@@ -149,6 +155,8 @@ Invoke-Stage "dead-code ratchet"       { & $py "scripts/dead_code_ratchet.py" }
 Invoke-Stage "conventions ratchet"     { & $py "scripts/conventions_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "runtime write ratchet"   { & $py "scripts/runtime_write_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "usage track ratchet"     { & $py "scripts/usage_track_ratchet.py" }
 # Runtime write probe, first half: what already sits untracked or ignored under
 # the code folders, so the probe after the tests names only what they wrote.
 $runtimeSnapshot = Join-Path ([IO.Path]::GetTempPath()) "runtime-write-snapshot-$PID.json"

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {"key": "app/webapp/static/js/app.js", "counts": {"dynamic-id": 1}},
+    {"key": "app/webapp/static/js/dialogs.js", "counts": {"untracked-control": 6, "untracked-sheet": 2}},
+    {"key": "app/webapp/static/js/font-editor.js", "counts": {"untracked-control": 6}},
+    {"key": "app/webapp/static/js/importer.js", "counts": {"untracked-control": 3, "untracked-sheet": 1}},
+    {"key": "app/webapp/static/js/presenter-quiz.js", "counts": {"untracked-control": 2}},
+    {"key": "app/webapp/static/js/presenter.js", "counts": {"untracked-control": 4}},
+    {"key": "app/webapp/static/js/reimport.js", "counts": {"untracked-control": 4}},
+    {"key": "app/webapp/static/js/remote.js", "counts": {"untracked-control": 14}},
+    {"key": "app/webapp/static/js/views/conversation-card.js", "counts": {"untracked-control": 1}},
+    {"key": "app/webapp/static/js/views/overlay-card.js", "counts": {"untracked-control": 3}},
+    {"key": "app/webapp/static/js/views/plan-fields.js", "counts": {"untracked-control": 4}},
+    {"key": "app/webapp/static/js/views/plan.js", "counts": {"untracked-control": 9}},
+    {"key": "app/webapp/static/js/views/rebuild-card.js", "counts": {"untracked-control": 1}},
+    {"key": "app/webapp/static/js/views/results.js", "counts": {"untracked-control": 5}},
+    {"key": "app/webapp/static/js/views/sessions.js", "counts": {"untracked-control": 2}},
+    {"key": "app/webapp/static/js/views/settings.js", "counts": {"untracked-control": 14}}
+  ]
+}
