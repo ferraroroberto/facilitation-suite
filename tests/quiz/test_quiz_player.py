@@ -20,11 +20,11 @@ from fastapi.testclient import TestClient
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 from websockets.sync.client import connect
 
-from app.webapp.player import app as player_app
 from app.webapp.player import listener as player_listener
 from app.webapp.player import ratelimit
-from app.webapp.player.app import STATIC_DIR as PLAYER_STATIC
-from app.webapp.player.app import create_player_app
+from app.webapp.player import server as player_app
+from app.webapp.player.server import STATIC_DIR as PLAYER_STATIC
+from app.webapp.player.server import create_player_app
 from src.config import load_config
 from src.jsonl import read_jsonl
 from src.live.hub import LiveHub

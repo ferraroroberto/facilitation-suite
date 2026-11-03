@@ -13,7 +13,7 @@ flowchart LR
   cfedge -->|tunnel| cloudflared
   cloudflared -->|"http://127.0.0.1:8451"| playerapp
   subgraph player[Quiz player listener 127.0.0.1:8451 — app/webapp/player/ · same process + loop]
-    playerapp["app/webapp/player/app.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
+    playerapp["app/webapp/player/server.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
     playerpush["app/webapp/player/push.py<br/>PlayerPush — each phone's own view on every change"]
   end
   playerapp -->|same QuizService, async routes| quizsvc

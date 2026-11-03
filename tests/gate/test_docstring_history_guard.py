@@ -36,7 +36,7 @@ _REF = re.compile(r"(?<![&#])#(\d{1,5})\b")
 # never raise one -- add a genuinely new exception by fixing the docstring instead.
 BASELINE: dict[str, int] = {
     "app/webapp/player/__init__.py": 1,
-    "app/webapp/player/app.py": 4,
+    "app/webapp/player/server.py": 4,
     "app/webapp/player/listener.py": 1,
     "app/webapp/player/push.py": 1,
     "app/tray/tray.py": 1,

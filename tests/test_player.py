@@ -18,8 +18,8 @@ from starlette.routing import Mount
 from websockets.exceptions import InvalidStatus
 from websockets.sync.client import connect
 
-from app.webapp.player.app import STATIC_DIR as PLAYER_STATIC
-from app.webapp.player.app import create_player_app
+from app.webapp.player.server import STATIC_DIR as PLAYER_STATIC
+from app.webapp.player.server import create_player_app
 from tests.conftest import write_test_config
 
 LISTENER_LOG = "app.webapp.player.listener"

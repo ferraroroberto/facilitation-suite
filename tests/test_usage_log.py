@@ -109,7 +109,7 @@ def test_another_device_needs_the_phone_token(isolated_env: Path) -> None:
 
 def test_the_quiz_player_app_has_no_usage_route(client: TestClient) -> None:
     """The public app (the only surface the tunnel publishes) mounts nothing of the usage log."""
-    from app.webapp.player.app import create_player_app
+    from app.webapp.player.server import create_player_app
 
     player = create_player_app(client.app.state.quiz)
     with TestClient(player) as public:

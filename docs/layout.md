@@ -33,7 +33,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `app/webapp/` | the FastAPI server (`server.py`), `routers/`, and `static/` (the Sessions/Plan/Groups/Results page, `/presenter`, `/stage`, `/remote`) |
 | `app/webapp/static/js/` | ES modules, no bundler; `views/` holds one module per tab |
 | `app/webapp/static/_vendored/` | fleet UI components copied byte-for-byte from project-scaffolding; never edited here (see `.fleet.toml [vendored]`) |
-| `app/webapp/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*`; it mounts nothing from the main app, so what is public stays this folder; the shape lists no home for a second listener, so `.structure-ratchet-baseline.json` records the folder as a placement deviation that may only shrink |
+| `app/webapp/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*`; it mounts nothing from the main app, so what is public stays this folder; its `server.py` makes it a surface package, which the `webapp-tray` shape accepts as a home |
 | `app/tray/` | the pystray tray that owns the server; `single_instance.py` and `watchdog.py` are vendored |
 | `app/tray/overlay/` | the live copilot's overlay window: its own process (`python -m app.tray.overlay`), the Win32 layered window, what it draws and when, and the server's handle on the process |
 
