@@ -82,6 +82,7 @@ const items = () => (plan && plan.run ? plan.run.items : []);
 function headHtml() {
   return `<div class="card home-head remote-head"><span class="home-title">${icon('presentation')}` +
     '<span class="remote-titles"><span class="home-title-text">Live</span><span class="remote-sub" data-r-sub></span></span></span>' +
+    // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
     `<button type="button" class="icon-button home-toggle" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">${icon(currentTheme() === 'dark' ? 'sun' : 'moon')}</button></div>`;
 }
 
@@ -104,23 +105,34 @@ function buildShell() {
       '<div class="r-caption"><b data-r-title></b><span class="r-count" data-r-count></span><span class="r-timer" data-r-timer></span></div></div>' +
     '<div class="card r-next"><div class="grow"><div class="r-label" data-r-nextlabel></div><div class="r-next-title" data-r-next></div></div>' +
       '<div class="r-clock"><b data-r-elapsed></b><span data-r-drift></span></div></div>' +
+    // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
     `<button type="button" class="button-primary r-capture" data-r-capture hidden></button>` +
     '<div class="card r-quiz" data-r-quiz hidden><div class="r-quiz-top"><b data-r-qphase></b><span class="r-quiz-left" data-r-qleft></span></div>' +
       '<div class="small muted" data-r-qcounts></div>' +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-primary r-capture" data-r-qlock>${icon('square')} Lock answers</button></div>` +
     '<div class="r-nav">' +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-tint" data-r-prev>${icon('chevron-left')} Previous</button>` +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-tint" data-r-nextbtn>Next ${icon('chevron-right')}</button></div>` +
     '<div class="r-more">' +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-surface" data-r-ttoggle hidden></button>` +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-surface" data-r-tplus hidden>${icon('plus')} 1 min</button>` +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-surface" data-r-blackout>${icon('eye-off')} Blackout</button></div>` +
     '<div class="card r-music" data-r-music hidden>' +
       '<div class="r-music-now"><span data-r-mnow></span></div>' +
       '<div class="r-more">' +
+        // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
         `<button type="button" class="button-surface" data-r-mtoggle></button>` +
+        // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
         `<button type="button" class="icon-button" data-r-mprev aria-label="Previous track">${icon('skip-back')}</button>` +
+        // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
         `<button type="button" class="icon-button" data-r-mnext aria-label="Next track">${icon('skip-forward')}</button>` +
+        // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
         `<button type="button" class="button-surface" data-r-mstop>${icon('square')} Stop music</button></div>` +
       `<label class="r-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-r-mvol aria-label="Music volume"></label></div>` +
     '<p class="small muted r-foot">The presenter on the PC does the same; this is for when you stand up or walk away from the keyboard.</p>');
@@ -271,6 +283,7 @@ function drawChat() {
     card.appendChild(emptyStateEl('message-square', 'No messages yet.'));
   } else {
     card.innerHTML = '<p class="small muted r-chat-hint">Tap a message to hide it from the activity; tap again to count it back.</p>' +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       shown.map((m) => `<button type="button" class="r-msg${hidden.has(m.id) ? ' hidden-msg' : ''}" data-id="${m.id}">` +
         `<span class="r-msg-head"><b>${esc(m.sender)}</b><span class="muted small">${esc(m.time)}</span></span>` +
         `<span class="r-msg-text">${esc(m.text)}</span></button>`).join('');
@@ -301,6 +314,7 @@ async function loadGroups() {
   tabs.setAttribute('role', 'group');
   tabs.setAttribute('aria-label', 'Round');
   tabs.innerHTML = ['pairs', 'g4a', 'g4b'].map((k) =>
+    // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
     `<button type="button" class="segmented-item" aria-pressed="${k === groupsRound}" data-round="${k}">${esc(data.labels[k])}</button>`).join('');
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-round]');

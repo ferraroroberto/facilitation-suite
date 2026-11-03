@@ -86,7 +86,7 @@ async function renderPicker() {
       row.innerHTML = `<div class="grow"><div class="row-title">${esc(s.title || s.name)}</div><div class="row-meta">${esc(s.workshop || '')}</div></div>`;
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'button-tint';
+      b.className = 'button-tint'; b.dataset.track = 'live.go-live';
       b.innerHTML = `${icon('play')} Go live`;
       b.addEventListener('click', () => api('/api/live/activate', { method: 'POST', body: { session: s.id } }).catch((e) => toast(e.message, 'error')));
       row.appendChild(b);
@@ -555,9 +555,9 @@ function buildMusic() {
     // What is playing and its volume share the first row.
     `<div class="p-music-now"><span class="p-cap-dot" data-mdot></span><span class="p-music-title" data-mnow></span>` +
     `<label class="p-music-vol">${icon('volume-2')}<input type="range" min="0" max="100" step="5" data-mvol aria-label="Music volume"><output class="small" data-mvolout></output></label></div>` +
-    `<select class="select-native" data-mpick aria-label="Track to play"></select>` +
+    `<select class="select-native" data-mpick data-track="live.music-pick" aria-label="Track to play"></select>` +
     `<div class="p-music-link" data-mlinkrow hidden><input class="input" data-mlink placeholder="Paste a Spotify link" aria-label="Spotify link">` +
-    `<button type="button" class="button-surface" data-mlinkplay>${icon('play')} Play link</button></div>` +
+    `<button type="button" class="button-surface" data-mlinkplay data-track="live.music-link-play">${icon('play')} Play link</button></div>` +
     `<div class="p-timer-actions">` +
     `<button type="button" class="button-primary" data-mtoggle data-track="live.music-toggle"></button>` +
     `<button type="button" class="icon-button" data-mprev data-track="live.music-prev" title="Previous track (Spotify)" aria-label="Previous track">${icon('skip-back')}</button>` +
@@ -714,7 +714,7 @@ async function loadSuggestions(id, text, box, fresh) {
   if (!row) return;
   const places = suggestions.get(key).slice(0, 3);
   row.innerHTML = places.length
-    ? places.map((p) => `<button type="button" class="button-surface" data-msg="${id}" data-place="${esc(p.geonameid)}">${esc(p.name)}, ${esc(p.country)}</button>`).join('')
+    ? places.map((p) => `<button type="button" class="button-surface" data-msg="${id}" data-track="live.place-suggestion" data-place="${esc(p.geonameid)}">${esc(p.name)}, ${esc(p.country)}</button>`).join('')
     : '<span class="small muted">No close match — type the place below.</span>';
 }
 

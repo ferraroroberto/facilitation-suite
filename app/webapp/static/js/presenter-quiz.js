@@ -104,7 +104,7 @@ function quizJoinHtml(q) {
     `<span class="small muted">Set quiz.public_url in the config.</span>`;
   return `<span class="p-quiz-pin">PIN <b>${esc(pin)}</b></span>` +
     `<span class="p-quiz-url" title="${esc(url)}">${esc(url)}</span>` +
-    `<button type="button" class="button-surface" data-qcopy="${esc(url)}">${icon('copy')} Copy link</button>` +
+    `<button type="button" class="button-surface" data-qcopy="${esc(url)}" data-track="live.quiz-copy-link">${icon('copy')} Copy link</button>` +
     quizReachHtml(q.reach);
 }
 
@@ -158,7 +158,7 @@ export function drawQuiz(body, q, live) {
     list.dataset.sig = sig;
     list.innerHTML = players.length ? players.map((p) =>
       `<li><span class="grow">${esc(p.name)}</span>${p.source === 'chat' ? '<span class="chip">chat</span>' : ''}` +
-      `<button type="button" class="icon-button danger" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="Remove ${esc(p.name)}" title="Remove from the game">${icon('x')}</button></li>`).join('')
+      `<button type="button" class="icon-button danger" data-kick="${esc(p.id)}" data-track="live.quiz-kick" data-name="${esc(p.name)}" aria-label="Remove ${esc(p.name)}" title="Remove from the game">${icon('x')}</button></li>`).join('')
       : `<li class="muted small">${phase === 'lobby' ? 'Nobody has joined yet.' : 'No players.'}</li>`;
   }
   tickQuiz(body, q, live);

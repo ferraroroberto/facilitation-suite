@@ -144,11 +144,11 @@ function remoteCard() {
   row.className = 'row-actions remote-actions';
   if (r.enabled && r.link) {
     card.insertAdjacentHTML('beforeend', `<div class="list-row deck-row"><span class="deck-label">Pairing link</span><code class="grow" data-link>${esc(r.link.replace(/token=.*/, 'token=•••'))}</code></div>`);
-    row.innerHTML = `<button type="button" class="button-tint" data-copy>${icon('copy')} Copy the link</button>` +
-      `<button type="button" class="button-surface" data-new>${icon('refresh-cw')} New link (unpairs phones)</button>` +
-      `<button type="button" class="button-surface" data-off>${icon('x')} Turn off</button>`;
+    row.innerHTML = `<button type="button" class="button-tint" data-copy data-track="settings.remote-copy">${icon('copy')} Copy the link</button>` +
+      `<button type="button" class="button-surface" data-new data-track="settings.remote-new">${icon('refresh-cw')} New link (unpairs phones)</button>` +
+      `<button type="button" class="button-surface" data-off data-track="settings.remote-off">${icon('x')} Turn off</button>`;
   } else {
-    row.innerHTML = `<button type="button" class="button-tint" data-new>${icon('smartphone')} Make the phone link</button>`;
+    row.innerHTML = `<button type="button" class="button-tint" data-new data-track="settings.remote-make">${icon('smartphone')} Make the phone link</button>`;
   }
   card.appendChild(row);
   const on = (sel, fn) => { const b = row.querySelector(sel); if (b) b.addEventListener('click', fn); };
@@ -188,7 +188,7 @@ function streamDeckCard() {
     const box = card.querySelector('[data-deck]');
     box.innerHTML = rows.map(([label, path]) =>
       `<div class="list-row deck-row"><span class="deck-label">${esc(label)}</span><code class="grow">${esc(path)}</code>` +
-      `<button type="button" class="button-surface" data-copy="${esc(base + path)}">${icon('copy')} Copy</button></div>`).join('');
+      `<button type="button" class="button-surface" data-copy="${esc(base + path)}" data-track="settings.remote-copy-url">${icon('copy')} Copy</button></div>`).join('');
     box.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-copy]');
       if (!b) return;
@@ -208,16 +208,17 @@ function obsCard() {
     `<span class="chip ${kind}" title="${esc(st.detail)}"><span class="dot"></span>${esc(label)}</span></div>` +
     `<div class="list" data-profiles></div>` +
     `<p class="small muted settings-note">Each item in the plan has a profile; the app switches OBS to that profile's scene when the item goes on stage, and the stage keeps the profile's camera zone empty so your camera never covers content.</p>` +
-    `<div class="list"><button type="button" class="list-row settings-row" data-conn>` +
+    `<div class="list"><button type="button" class="list-row settings-row" data-conn data-track="settings.obs-connection">` +
     `<span class="settings-ico">${icon('radio')}</span><span class="grow"><span class="row-title">Connection</span>` +
     `<span class="row-meta">${esc(connectionText())}</span></span>${icon('chevron-right')}</button></div>` +
     (st.state !== 'connected' && data.obs.enabled ? `<p class="small muted settings-note">${esc(st.detail)}</p>` : '') +
-    `<div class="row-actions"><button type="button" class="button-surface" data-test>${icon('refresh-cw')} Test connection</button></div>`;
+    `<div class="row-actions"><button type="button" class="button-surface" data-test data-track="settings.obs-test">${icon('refresh-cw')} Test connection</button></div>`;
   const list = card.querySelector('[data-profiles]');
   Object.entries(data.profiles).forEach(([key, p]) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'list-row settings-row';
+    b.dataset.track = 'settings.obs-profile';
     b.dataset.profile = key;
     const scene = p.scene ? `OBS scene “${p.scene}”` : 'no OBS scene set — OBS stays as it is';
     const where = p.zone ? 'camera zone kept empty' : 'no camera';
@@ -382,7 +383,7 @@ function themeCard() {
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('presentation')} Stage theme</h3></div>` +
     `<div class="font-rows"><label class="font-row"><span class="small">New sessions</span>` +
-    `<select class="select-native" aria-label="Default stage theme" data-default-theme>${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
+    `<select class="select-native" aria-label="Default stage theme" data-default-theme data-track="settings.default-theme">${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
     '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (on the Sessions tab, in Session settings under Stage look, where “Reset to default” takes the current one).</p>';
   card.querySelector('[data-default-theme]').addEventListener('change', async (e) => {
     if (await saveDefaults({ stage: { theme: e.target.value } })) render();
@@ -446,8 +447,8 @@ function libraryCard() {
     (rows.length ? `<div class="list">${rows.join('')}</div>`
       : '<p class="small muted settings-note">Nothing here yet. Add a font file or a stage theme to offer it to every session.</p>') +
     `<p class="small muted settings-note">Your own files, kept next to your sessions and never in the app’s folder: <code class="library-path">${esc(lib.path)}</code></p>` +
-    `<div class="row-actions settings-actions"><button type="button" class="button-surface" data-add="font">${icon('plus')} Add font…</button>` +
-    `<button type="button" class="button-surface" data-add="theme">${icon('plus')} Add stage theme…</button></div>`;
+    `<div class="row-actions settings-actions"><button type="button" class="button-surface" data-add="font" data-track="settings.add-font">${icon('plus')} Add font…</button>` +
+    `<button type="button" class="button-surface" data-add="theme" data-track="settings.add-theme">${icon('plus')} Add stage theme…</button></div>`;
   card.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', async () => {
     const kind = b.dataset.add;
     try {
@@ -516,8 +517,8 @@ function spotifyCard() {
     (sp && sp.login.state === 'failed' ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
     (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (see Spotify setup in the README).</p>' : '') +
     '<p class="small muted settings-note">Music plays on the Spotify desktop app of this PC only, never a web player (a Premium account): open the app before the session. Connecting opens Spotify’s login in the browser; the login is saved on this PC only.</p>' +
-    `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-connect${!sp || !sp.client_id_set || waiting ? ' disabled' : ''}>${icon('link')} ${sp && sp.logged_in ? 'Reconnect Spotify' : 'Connect Spotify'}</button>` +
-    `<button type="button" class="button-surface" data-check${sp ? '' : ' disabled'}>${icon('refresh-cw')} Check now</button></div>`;
+    `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-connect data-track="settings.spotify-connect"${!sp || !sp.client_id_set || waiting ? ' disabled' : ''}>${icon('link')} ${sp && sp.logged_in ? 'Reconnect Spotify' : 'Connect Spotify'}</button>` +
+    `<button type="button" class="button-surface" data-check data-track="settings.spotify-check"${sp ? '' : ' disabled'}>${icon('refresh-cw')} Check now</button></div>`;
   card.querySelector('[data-connect]').addEventListener('click', async (e) => {
     e.currentTarget.disabled = true;
     try {
@@ -540,7 +541,7 @@ function musicDefaultsCard() {
   card.className = 'card settings-card';
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('volume-2')} New music items</h3></div>` +
-    `<div class="list"><button type="button" class="list-row settings-row" data-fades>` +
+    `<div class="list"><button type="button" class="list-row settings-row" data-fades data-track="settings.music-fades">` +
     `<span class="settings-ico">${icon('sliders-horizontal')}</span><span class="grow"><span class="row-title">Fades</span>` +
     `<span class="row-meta">In ${m.fade_in_s} s · out ${m.fade_out_s} s</span></span>${icon('chevron-right')}</button></div>` +
     '<p class="small muted settings-note">What an item’s music starts with when you switch it on in the Plan tab; each item can change its own.</p>';

@@ -373,7 +373,7 @@ function settingsHtml(s, look) {
     `<label class="font-row"><span class="small">Title</span><input class="input" data-meta="title" value="${esc(s.title)}" required aria-label="Title"></label>` +
     `<label class="font-row"><span class="small">Date and time</span><input class="input" type="datetime-local" data-meta="date" value="${esc(localValue(s.date))}" aria-label="Date and time"></label>` +
     `<label class="font-row"><span class="small">Duration</span><span class="inline-controls"><input class="input dur-min" type="number" min="1" step="5" data-meta="duration_minutes" value="${esc(s.duration_minutes)}" aria-label="Duration in minutes"><span class="small muted">min</span></span></label>` +
-    `<label class="font-row"><span class="small">Stage language</span><span class="meta-control"><select class="select-native" data-meta="language" aria-label="Language on the stage">` +
+    `<label class="font-row"><span class="small">Stage language</span><span class="meta-control"><select class="select-native" data-meta="language" data-track="sessions.language" aria-label="Language on the stage">` +
     LANGUAGES.map(([v, l]) => `<option value="${esc(v)}"${v === (s.language || 'en') ? ' selected' : ''}>${esc(l)}</option>`).join('') +
     `</select><span class="small muted">The words the stage says by itself: the chat hint, default titles, breakout rooms, the quiz.</span></span></label>` +
     `<label class="font-row"><span class="small">Stage hint</span><span class="meta-control"><input class="input" data-meta="chat_hint" value="${esc(s.chat_hint || '')}" placeholder="${esc(words(s.language).chat_hint)}" aria-label="Stage hint under activities">` +
@@ -385,7 +385,7 @@ function settingsHtml(s, look) {
     (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset data-track="sessions.look-reset">${icon('rotate-ccw')} Reset all to defaults</button>`) +
     `<span class="card-head-meta" data-lettering>${esc(letteringLabel(s.font))}</span></div>` +
     `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. The timer’s colours are at the end. New sessions start from Settings → Stage defaults.</p>` +
-    `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select>` +
+    `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select data-track="sessions.theme">` +
     themeOptions(look.themes, s.theme) +
     `</select></label></div>` +
     fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts, defaults: look.defaults }));

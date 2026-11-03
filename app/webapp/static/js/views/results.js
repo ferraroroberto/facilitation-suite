@@ -133,7 +133,7 @@ function renderPeople() {
   const det = document.createElement('details');
   det.className = 'card card--collapsible';
   det.open = p.suggestions.length > 0;
-  det.innerHTML = `<summary class="collapse-summary"><span class="collapse-main">${icon('users')}` +
+  det.innerHTML = `<summary class="collapse-summary" data-track="results.names-toggle"><span class="collapse-main">${icon('users')}` +
     `<h3 class="collapse-title">People under several names</h3><span class="collapse-count">${esc(count)}</span></span>` +
     `<span class="collapse-chevron" aria-hidden="true">›</span></summary><div class="collapse-body"></div>`;
   const body = det.querySelector('.collapse-body');
@@ -148,9 +148,9 @@ function renderPeople() {
   body.innerHTML = `<div class="list">${rows.join('')}</div>` +
     (p.names.length > 1
       ? `<div class="merge-manual"><span class="small muted">Merge by hand</span>` +
-        `<select class="select-native" data-from aria-label="Name to merge">${p.names.map((n) => `<option>${esc(n)}</option>`).join('')}</select>` +
+        `<select class="select-native" data-from data-track="results.merge-from" aria-label="Name to merge">${p.names.map((n) => `<option>${esc(n)}</option>`).join('')}</select>` +
         `<span class="small muted">into</span>` +
-        `<select class="select-native" data-into aria-label="Name to merge into">${p.names.map((n, i) => `<option${i === 1 ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` +
+        `<select class="select-native" data-into data-track="results.merge-into" aria-label="Name to merge into">${p.names.map((n, i) => `<option${i === 1 ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` +
         `<button type="button" class="button-tint" data-manual data-track="results.merge-names">Merge</button></div>`
       : '');
   body.addEventListener('click', (e) => {
@@ -220,7 +220,7 @@ function renderCheck() {
   ];
   const det = document.createElement('details');
   det.className = 'card card--collapsible';
-  det.innerHTML = `<summary class="collapse-summary"><span class="collapse-main">${icon('message-square')}` +
+  det.innerHTML = `<summary class="collapse-summary" data-track="results.messages-toggle"><span class="collapse-main">${icon('message-square')}` +
     `<h3 class="collapse-title">Messages that differ</h3><span class="collapse-count">${esc(notes.length ? notes.join(' · ') : `${rows.length}`)}</span></span>` +
     `<span class="collapse-chevron" aria-hidden="true">›</span></summary>` +
     `<div class="collapse-body"><div class="list">${rows.map((m) =>
@@ -275,6 +275,7 @@ function renderList() {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'result-row' + (key === selected ? ' selected' : '');
+    row.dataset.track = 'results.open-result';
     row.dataset.item = key;
     row.innerHTML = `<span class="result-num">${a ? a.number : icon('crown')}</span>` +
       `<span class="grow"><span class="row-title">${esc(a ? a.title : q.label)}</span><span class="row-meta">${esc(a ? a.summary : q.summary)}</span></span>` +

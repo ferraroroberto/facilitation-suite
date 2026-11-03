@@ -84,7 +84,7 @@ export function rebuildCard(sid, latest, onChange) {
       `<div class="list">${list}</div>` +
       `<p class="small muted">A backup of the current results is kept in the session folder › live/. Re-export the PDF and the Excel afterwards.</p>` +
       `<div class="row-actions"><button type="button" class="button-primary" data-confirm data-track="results.rebuild-apply" ${none ? 'disabled' : ''}>${icon('check')} Rebuild ${p.changed} ${p.changed === 1 ? 'activity' : 'activities'}</button>` +
-      `<button type="button" class="button-surface" data-cancel>Cancel</button></div>`, 'preview');
+      `<button type="button" class="button-surface" data-cancel data-track="results.rebuild-cancel">Cancel</button></div>`, 'preview');
     card.querySelector('[data-confirm]').addEventListener('click', apply);
     card.querySelector('[data-cancel]').addEventListener('click', () => idle());
   }

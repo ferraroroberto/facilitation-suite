@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import tomllib
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -17,6 +18,8 @@ from tests.conftest import REPO_ROOT, paired_remote
 
 STATIC = REPO_ROOT / "app" / "webapp" / "static"
 STORED_COLUMNS = {"id", "ts", "session_id", "kind", "view_id", "control_id", "device_class", "os_class"}
+BUILDER_FILES = {entry.split(":")[0] for entry in tomllib.loads(
+    (REPO_ROOT / ".fleet.toml").read_text(encoding="utf-8"))["usage_track_ratchet"]["builders"]}
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 SID = "11111111-2222-3333-4444-555555555555"
 SECRETS = ("Ada Lovelace", "ada@example.com", "pass-the-salt", "10.1.2.3", "Mozilla/5.0", "/api/sessions?q=ada")
@@ -143,6 +146,13 @@ def test_control_ids_are_constants_within_the_bounded_pattern() -> None:
     seen: set[str] = set()
     for path in [*(STATIC / "js").rglob("*.js"), *STATIC.glob("*.html")]:
         text = path.read_text(encoding="utf-8")
+        if path.relative_to(REPO_ROOT).as_posix() in BUILDER_FILES:
+            # A declared builder forwards its caller's id; the usage track ratchet fails a caller whose
+            # `track:` is not a literal, and the literals are checked below.
+            text = text.replace('data-track="${track}"', "").replace("dataset.track = track;", "")
+            for match in re.finditer(r"""track: '([^']*)'""", text):
+                assert ID_PATTERN.fullmatch(match.group(1)), match.group(1)
+                seen.add(match.group(1))
         for match in re.finditer(r"""data-track=(?:"([^"]*)"|'([^']*)')""", text):
             value = match.group(1) if match.group(1) is not None else match.group(2)
             assert "${" not in value, f"{path.name}: data-track built at run time: {value}"

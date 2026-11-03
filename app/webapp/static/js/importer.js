@@ -9,20 +9,21 @@ export function importDialog(sid, { lastPath = '', reimport = false, slides = nu
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog';
+    dlg.dataset.trackView = 'import.deck';
     dlg.innerHTML =
       `<div class="detail-card">` +
       `<div class="detail-header"><h2>${slides && slides.length ? 'Re-import selected slides' : reimport ? 'Re-import PowerPoint' : 'Import PowerPoint'}</h2>` +
-      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
+      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close data-track="import.close">${icon('x')}</button></div>` +
       `<label class="row"><span>Deck</span><span class="pick-row">` +
       `<input class="input-native" name="pptx" type="text" placeholder="C:\\…\\deck.pptx" value="${esc(lastPath)}">` +
-      `<button type="button" class="button-surface" data-browse>${icon('folder-open')} Browse</button></span></label>` +
+      `<button type="button" class="button-surface" data-browse data-track="import.browse">${icon('folder-open')} Browse</button></span></label>` +
       `<p class="dialog-hint">${slides && slides.length
         ? `Only ${slides.length === 1 ? 'the selected slide is' : `the ${slides.length} selected slides are`} exported. Nothing changes until you review ${slides.length === 1 ? 'it' : 'them'}.`
         : reimport
         ? 'Nothing changes until you review it: the next screen shows every new, removed, moved or edited slide, and you apply the changes you want.'
         : 'Every slide becomes an image with its title and notes, and gets a camera layout from where the grey camera box sits. Slides titled "activity – question" become activities.'}</p>` +
       `<div class="import-progress" hidden><div class="bar"><span></span></div><p class="small muted" data-msg></p></div>` +
-      `<div class="detail-actions"><button type="button" class="button-primary detail-save-btn" data-go>${reimport ? 'Re-import' : 'Import'}</button></div>` +
+      `<div class="detail-actions"><button type="button" class="button-primary detail-save-btn" data-go data-track="import.go">${reimport ? 'Re-import' : 'Import'}</button></div>` +
       `</div>`;
     document.body.appendChild(dlg);
     const input = dlg.querySelector('[name=pptx]');

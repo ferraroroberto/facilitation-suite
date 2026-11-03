@@ -61,7 +61,7 @@ function globalDiff(font, defaults, prop) {
   if (r.source !== 'presentation') return '';
   return `<div class="font-row global-diff" data-global-diff="${prop}"><span class="small"></span><span class="inline-controls">` +
     `<span class="chip">Differs from global (${esc(fontValueText(prop, r.global))})</span>` +
-    `<button type="button" class="button-ghost" data-reset-global="${prop}">${icon('rotate-ccw')} Reset to global</button></span></div>`;
+    `<button type="button" class="button-ghost" data-reset-global="${prop}" data-track="font.reset-global">${icon('rotate-ccw')} Reset to global</button></span></div>`;
 }
 
 /** The stage themes as <option>s (a theme no longer on this PC stays, marked). */
@@ -70,10 +70,11 @@ export function themeOptions(themes, now) {
   return all.map((t) => `<option value="${esc(t.value)}"${t.value === now ? ' selected' : ''}>${esc(t.source === 'library' ? 'Library · ' + t.label : t.label)}</option>`).join('');
 }
 
-/** Two buttons (or more) as a vendored segmented control; `value` is the pressed one. */
-function tabs(label, attr, options, value) {
-  return `<div class="segmented ed-tabs" role="group" aria-label="${esc(label)}">${options.map(([v, l]) =>
-    `<button type="button" class="segmented-item" aria-pressed="${v === value}" ${attr}="${esc(String(v))}">${esc(l)}</button>`).join('')}</div>`;
+/** Two buttons (or more) as a vendored segmented control; `value` is the pressed one, `track` the usage id. */
+function tabs({ track, label, attr, options, value }) {
+  // dynamic-id-exempt: `track` is the constant id every caller of this declared builder passes
+  const item = ([v, l]) => `<button type="button" class="segmented-item" aria-pressed="${v === value}" data-track="${track}" ${attr}="${esc(String(v))}">${esc(l)}</button>`;
+  return `<div class="segmented ed-tabs" role="group" aria-label="${esc(label)}">${options.map(item).join('')}</div>`;
 }
 
 /**
@@ -99,19 +100,19 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [], def
     `<div class="font-sample-row font-sample-timers">${TIMER_STATES.map(([key, label]) =>
       `<span class="st-pill ${key}">${icon('timer')}${esc(label)}</span>`).join('')}</div></div></div>` +
     `<h4 class="font-group">Title font</h4><div class="font-rows">` +
-    `<label class="font-row"><span class="small">Font</span><span class="inline-controls"><select class="select-native" aria-label="Title font" data-title-family>` +
+    `<label class="font-row"><span class="small">Font</span><span class="inline-controls"><select class="select-native" aria-label="Title font" data-title-family data-track="font.title-family">` +
     STAGE_FONTS.map(([v, l]) => `<option value="${esc(v)}"${!file && v === f.family ? ' selected' : ''}>${esc(l)}</option>`).join('') +
     library.map((l) => `<option value="${esc('file:' + l.path)}"${l.path === file ? ' selected' : ''}>Library · ${esc(l.name)}</option>`).join('') +
     (file && !inLibrary ? `<option value="__file" selected>File · ${esc(fileName(file))}</option>` : '') +
-    `</select><button type="button" class="button-surface" data-font-pick>${icon('folder-open')} ${file ? 'Change file…' : 'Font file…'}</button></span></label>` +
+    `</select><button type="button" class="button-surface" data-font-pick data-track="font.pick-file">${icon('folder-open')} ${file ? 'Change file…' : 'Font file…'}</button></span></label>` +
     globalDiff(font, defaults, 'family') +
-    `<div class="font-row"><span class="small">Weight</span>${tabs('Title weight', 'data-weight', [[400, 'Regular'], [700, 'Bold']], f.weight)}</div>` +
+    `<div class="font-row"><span class="small">Weight</span>${tabs({ track: 'font.title-weight', label: 'Title weight', attr: 'data-weight', options: [[400, 'Regular'], [700, 'Bold']], value: f.weight })}</div>` +
     `<label class="font-row font-stroke"><span class="small">Line thickness</span>` +
     `<input type="range" min="0" max="6" step="0.25" value="${stroke}" aria-label="Line thickness in stage px">` +
     `<output class="mono small">${stroke} px</output></label>` +
     `<div class="font-row"><span class="small">Colour</span><span class="inline-controls">` +
     `<input type="color" class="font-color" aria-label="Title colour" data-title-color value="${esc(color || '#1f1f1f')}">` +
-    `<button type="button" class="button-surface" data-title-color-reset${color ? '' : ' disabled'}>Theme colour</button>` +
+    `<button type="button" class="button-surface" data-title-color-reset data-track="font.color-reset"${color ? '' : ' disabled'}>Theme colour</button>` +
     `<span class="small muted" data-contrast></span></span></div>` +
     `<label class="font-row"><span class="small">Size</span><span class="inline-controls">` +
     `<input type="number" class="input font-size-input" min="24" max="240" step="2" placeholder="72" value="${size || ''}" aria-label="Title size in stage px" data-title-size>` +
@@ -119,17 +120,17 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [], def
     `<p class="small muted font-note">Colour and size letter activity titles and questions. Imported slides keep their PowerPoint size and colour.</p>` +
     (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '') +
     `<h4 class="font-group">Text font</h4><div class="font-rows">` +
-    `<label class="font-row"><span class="small">Font</span><select class="select-native" aria-label="Text font" data-text-family>` +
+    `<label class="font-row"><span class="small">Font</span><select class="select-native" aria-label="Text font" data-text-family data-track="font.text-family">` +
     TEXT_FONTS.map(([v, l]) => `<option value="${esc(v)}"${v === f.text_family ? ' selected' : ''}>${esc(l)}</option>`).join('') +
     (f.text_family && !TEXT_FONTS.some(([v]) => v === f.text_family) ? `<option value="${esc(f.text_family)}" selected>${esc(f.text_family)}</option>` : '') +
     `</select></label>` +
-    `<div class="font-row"><span class="small">Weight</span>${tabs('Text weight', 'data-text-weight', [[400, 'Regular'], [700, 'Bold']], f.text_weight)}</div></div>` +
+    `<div class="font-row"><span class="small">Weight</span>${tabs({ track: 'font.text-weight', label: 'Text weight', attr: 'data-text-weight', options: [[400, 'Regular'], [700, 'Bold']], value: f.text_weight })}</div></div>` +
     `<h4 class="font-group">Each kind of text</h4><div class="font-rows role-rows">` +
     ROLES.map((r) => {
       const now = sessionRole(f, r.key);
       return `<div class="role-row" data-role="${r.key}"><span class="small">${esc(r.label)}</span>` +
-        tabs(`${r.label}: font`, 'data-role-font', [['title', 'Title font'], ['text', 'Text font']], now.font === 'title' ? 'title' : 'text') +
-        tabs(`${r.label}: capitals`, 'data-role-caps', [['true', 'ALL CAPS'], ['false', 'As typed']], String(now.caps)) + '</div>' +
+        tabs({ track: 'font.role-font', label: `${r.label}: font`, attr: 'data-role-font', options: [['title', 'Title font'], ['text', 'Text font']], value: now.font === 'title' ? 'title' : 'text' }) +
+        tabs({ track: 'font.role-caps', label: `${r.label}: capitals`, attr: 'data-role-caps', options: [['true', 'ALL CAPS'], ['false', 'As typed']], value: String(now.caps) }) + '</div>' +
         (r.key === 'title' ? globalDiff(font, defaults, 'caps') : '');  // a title's capitals are font.caps
     }).join('') + `</div>` +
     `<h4 class="font-group">Timer colours</h4><div class="font-rows">` +
