@@ -64,7 +64,7 @@ export function field(label, control, extraClass = '') {
   return row;
 }
 
-export function segmentedChoice(options, value, onPick, label) {
+export function segmentedChoice(options, value, onPick, label, { track }) {
   const group = document.createElement('div');
   group.className = 'segmented ed-tabs';
   group.setAttribute('role', 'group');
@@ -73,6 +73,7 @@ export function segmentedChoice(options, value, onPick, label) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'segmented-item';
+    b.dataset.track = track;
     b.textContent = text;
     if (trailing) b.insertAdjacentHTML('beforeend', icon(trailing));
     b.setAttribute('aria-pressed', String(v === value));
@@ -96,9 +97,10 @@ export function input(value, onChange, attrs = {}) {
  *  the option matching `value` marked selected (compared as strings, so a numeric choice still
  *  matches); `onChange` gets the matching option's own `value` back, not the raw string, so a
  *  numeric choice keeps its type. */
-export function selectField(label, options, value, onChange) {
+export function selectField(label, options, value, onChange, { track }) {
   const sel = document.createElement('select');
   sel.className = 'select-native';
+  sel.dataset.track = track;
   sel.setAttribute('aria-label', label);
   options.forEach(([v, l]) => {
     const o = document.createElement('option');
@@ -123,10 +125,11 @@ export const fontSeed = () => ({ family: 'theme' });
 // (an edit happened), the redraws `updatePreview`, `renderList` and `renderEditor`, and
 // `slideOf` (an item's imported slide).
 
-function resetButton(text, onClick) {
+function resetButton(text, onClick, { track }) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'button-ghost';
+  b.dataset.track = track;
   b.innerHTML = `${icon('rotate-ccw')} ${esc(text)}`;
   b.addEventListener('click', onClick);
   return b;
@@ -167,8 +170,8 @@ function fontField({ st, markDirty, updatePreview, renderList, renderEditor }, i
       chip.className = `chip src-chip${own ? ' accent' : ''}`;
       chip.textContent = sourceLabel(key, r);
       actions.replaceChildren();
-      if (own) actions.appendChild(resetButton('Reset to presentation', () => reset(() => followPresentation(it, key))));
-      if (r.value !== r.global && itemCanHold(key, r.global)) actions.appendChild(resetButton('Reset to global', () => reset(() => holdGlobal(it, key, r))));
+      if (own) actions.appendChild(resetButton('Reset to presentation', () => reset(() => followPresentation(it, key)), { track: 'plan.font-reset-presentation' }));
+      if (r.value !== r.global && itemCanHold(key, r.global)) actions.appendChild(resetButton('Reset to global', () => reset(() => holdGlobal(it, key, r)), { track: 'plan.font-reset-global' }));
     };
     paints.push(paint);
     box.appendChild(row);
@@ -177,7 +180,7 @@ function fontField({ st, markDirty, updatePreview, renderList, renderEditor }, i
   const famValue = font.family === 'Patrick Hand' ? 'theme' : font.family;
   const families = [['theme', `As the presentation (${presentation('family')})`], ...FONTS];
   if (!families.some(([v]) => v === famValue)) families.push([famValue, famValue]);
-  prop('family', 'Font', selectField(label, families, famValue, (v) => set({ family: v })));
+  prop('family', 'Font', selectField(label, families, famValue, (v) => set({ family: v }), { track: 'plan.font-family' }));
   if (sized) {
     const r = resolveFont(st.session, defaults, it, 'size');
     const size = input(r.value, (v) => { const n = parseInt(v, 10); if (n >= 12 && n <= 240) set({ size_px: n }); }, { type: 'number', min: '12', max: '240', 'aria-label': 'Font size in stage px (1920 wide)' });
@@ -194,7 +197,7 @@ function fontField({ st, markDirty, updatePreview, renderList, renderEditor }, i
   prop('caps', 'Capitals', selectField('Capitals',
     [['', `As the presentation (${presentation('caps')})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
     capsValue,
-    (v) => set({ caps: v === 'caps' ? true : v === 'typed' ? false : null })));
+    (v) => set({ caps: v === 'caps' ? true : v === 'typed' ? false : null }), { track: 'plan.font-caps' }));
   paints.forEach((paint) => paint());
   return field(label, box);
 }
@@ -239,11 +242,11 @@ function rolesField({ st, markDirty, updatePreview, renderList }, it, keys) {
     const fonts = [['', `As the session (${fontName(session.font)})`], ['title', 'Title font'], ['text', 'Text font'],
       ...TEXT_FONTS.filter(([v]) => v)];
     if (mine.font && !fonts.some(([v]) => v === mine.font)) fonts.push([mine.font, mine.font]);
-    row.appendChild(selectField(`${role.label}: font`, fonts, mine.font || '', (v) => setRole(key, { font: v })));
+    row.appendChild(selectField(`${role.label}: font`, fonts, mine.font || '', (v) => setRole(key, { font: v }), { track: 'plan.role-font' }));
     row.appendChild(selectField(`${role.label}: capitals`,
       [['', `As the session (${session.caps ? 'ALL CAPS' : 'as typed'})`], ['caps', 'ALL CAPS'], ['typed', 'As typed']],
       mine.caps === true ? 'caps' : mine.caps === false ? 'typed' : '',
-      (v) => setRole(key, { caps: v === 'caps' ? true : v === 'typed' ? false : null })));
+      (v) => setRole(key, { caps: v === 'caps' ? true : v === 'typed' ? false : null }), { track: 'plan.role-caps' }));
     wrap.appendChild(row);
   });
   return field('Other text', wrap);
@@ -291,7 +294,7 @@ function timerField({ markDirty, renderList, renderEditor }, it) {
     grid.className = 'timer-grid';
     const sel = (label, map, value, onPick, skip = []) => {
       const options = Object.entries(map).filter(([k]) => !skip.includes(k));
-      const s = selectField(label, options, value, (v) => { onPick(v); markDirty(); });
+      const s = selectField(label, options, value, (v) => { onPick(v); markDirty(); }, { track: 'plan.timer-select' });
       const line = document.createElement('label');
       line.className = 'opt-line';
       line.append(Object.assign(document.createElement('span'), { className: 'small', textContent: label }), s);
@@ -328,7 +331,7 @@ function musicFileRow({ st, markDirty, renderList, renderEditor }, m) {
   src.className = 'music-src';
   src.hidden = m.source === 'spotify';
   src.innerHTML = `<span class="music-file${m.path ? '' : ' muted'}">${icon('music')}<span>${esc(m.path || 'No file yet')}</span></span>` +
-    `<button type="button" class="button-surface" data-pick>${icon('folder-open')} Choose file…</button>`;
+    `<button type="button" class="button-surface" data-pick data-track="plan.music-pick-file">${icon('folder-open')} Choose file…</button>`;
   src.querySelector('[data-pick]').addEventListener('click', async () => {
     try {
       const picked = await api('/api/pick', { method: 'POST', body: { kind: 'audio' } });
@@ -378,7 +381,7 @@ function musicOptions({ markDirty, renderEditor }, it, m, timed) {
   grid.appendChild(secs('fade_in_s', 'Fade in (s)'));
   grid.appendChild(secs('fade_out_s', 'Fade out (s)'));
   const sel = (label, map, key, rerender) => {
-    const s = selectField(label, Object.entries(map), m[key], (v) => { m[key] = v; markDirty(); if (rerender) renderEditor(); });
+    const s = selectField(label, Object.entries(map), m[key], (v) => { m[key] = v; markDirty(); if (rerender) renderEditor(); }, { track: 'plan.music-select' });
     return optLine(label, s);
   };
   grid.appendChild(sel('Starts', MUSIC_START, 'start', true));
@@ -412,7 +415,7 @@ function musicField(ctx, it) {
     markDirty();
     renderList();
     renderEditor();
-  }, 'Music source'));
+  }, 'Music source', { track: 'plan.music-source' }));
   if (m.source === 'spotify') wrap.appendChild(spotifyLink(m, markDirty));
   wrap.appendChild(musicFileRow(ctx, m));
   if (m.source !== 'spotify') {
@@ -450,7 +453,7 @@ function answersField({ markDirty, renderList }, it, spec) {
       box.appendChild(switchRow(!!cur, o.label, setOpt));
     } else if (o.kind === 'select') {
       // A choice keeps its type: a number stays a number in session.yaml (a quiz's time limit).
-      box.appendChild(optLine(o.label, selectField(o.label, o.choices, cur, (v) => { setOpt(v); renderList(); }))); // the round shows as a chip
+      box.appendChild(optLine(o.label, selectField(o.label, o.choices, cur, (v) => { setOpt(v); renderList(); }, { track: 'plan.activity-option' }))); // the round shows as a chip
     } else {
       const el = input(cur, (v) => setOpt(o.kind === 'number' ? (v === '' ? o.default : Number(v)) : v), { type: o.kind === 'number' ? 'number' : 'text', placeholder: o.placeholder || '', 'aria-label': o.label });
       box.appendChild(optLine(o.label, el));

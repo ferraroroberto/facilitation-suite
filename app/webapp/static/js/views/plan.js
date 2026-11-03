@@ -333,7 +333,7 @@ function renderList() {
     h.innerHTML =
       `<span class="grip" aria-hidden="true">${icon('grip-vertical')}</span>` +
       `<button type="button" class="icon-button sec-toggle" data-track="plan.section-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
-      `<button type="button" class="sec-name" title="Rename">${esc(sec.name)}</button>` +
+      `<button type="button" class="sec-name" data-track="plan.section-rename" title="Rename">${esc(sec.name)}</button>` +
       `<span class="sec-meta">${sec.items.length} item${sec.items.length === 1 ? '' : 's'}${collapsed ? ' · collapsed' : ''}</span>` +
       `<label class="sec-min"><input type="number" min="0" max="1440" value="${sec.minutes}" aria-label="Planned minutes for ${esc(sec.name)}"><span>min</span></label>` +
       `<button type="button" class="icon-button kebab" aria-label="Section actions" data-track="plan.section-menu">${icon('ellipsis-vertical')}</button>`;
@@ -366,7 +366,7 @@ function renderList() {
       if (collapsed) return;
       const row = document.createElement('div');
       row.className = 'item-row' + (st.picked.has(it.id) ? ' selected' : '') + (it.id === st.selected && st.picked.size > 1 ? ' focused' : '') + (it.include === false ? ' hidden-item' : '');
-      row.dataset.item = it.id;
+      row.dataset.item = it.id; row.dataset.track = 'plan.item-select';
       row.tabIndex = 0;
       row.draggable = true;
       row.setAttribute('role', 'option');
@@ -399,7 +399,7 @@ function renderList() {
     if (!collapsed) {
       const add = document.createElement('button');
       add.type = 'button';
-      add.className = 'add-row';
+      add.className = 'add-row'; add.dataset.track = 'plan.add-item';
       add.innerHTML = `${icon('plus')} Add slide or activity`;
       add.addEventListener('click', (e) => {
         rowMenu(e.currentTarget, [
@@ -789,7 +789,7 @@ function activityFields(form, it, rerenderRow) {
     markDirty();
     renderList();
     renderEditor();
-  })));
+  }, { track: 'plan.activity-type' })));
   const spec = st.types[it.type] || {};
   form.appendChild(field('Title', input(it.title, (v) => { it.title = v; markDirty(); rerenderRow(); }, { placeholder: spec.capture !== false ? oneLine(it.question) || spec.label : (it.options || {}).title || spec.label }), 'with-hint'));
   form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', spec.capture !== false
@@ -823,14 +823,14 @@ function otherItemFields(form, it, rerenderRow) {
       markDirty();
       renderList();
       renderEditor();
-    }, 'Breakout round'), 'with-hint'));
+    }, 'Breakout round', { track: 'plan.breakout-round' }), 'with-hint'));
     form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">Under the title the stage says which round is in the rooms, and how many (Groups tab).</p>');
   }
   if (it.kind === 'slide') slideTextFields(form, it);
 }
 
 function cameraLayoutField(it) {
-  const row = field('Camera layout', segmentedChoice(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout'));
+  const row = field('Camera layout', segmentedChoice(PROFILES, it.profile, (v) => { it.profile = v; markDirty(); renderList(); renderEditor(); }, 'Camera layout', { track: 'plan.camera-layout' }));
   if (it.kind === 'slide' && it.profile == null) {
     row.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint warn">Detection was unsure for this slide — pick one.</p>');
   } else if (it.kind === 'slide') {
@@ -848,8 +848,8 @@ function editorTools(it) {
   tools.innerHTML =
     `<button type="button" class="button-surface" data-up data-track="plan.item-up">${icon('chevron-up')} Move up</button>` +
     `<button type="button" class="button-surface" data-down data-track="plan.item-down">${icon('chevron-down')} Move down</button>` +
-    `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate</button>` +
-    `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete</button>`;
+    `<button type="button" class="button-surface" data-dup data-track="plan.item-duplicate" title="Ctrl+D">${icon('copy-plus')} Duplicate</button>` +
+    `<button type="button" class="button-tint danger" data-delete data-track="plan.item-delete">${icon('trash-2')} Delete</button>`;
   tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems([it.id]));
   tools.querySelector('[data-up]').addEventListener('click', () => moveItem(it.id, -1));
   tools.querySelector('[data-down]').addEventListener('click', () => moveItem(it.id, 1));
@@ -860,7 +860,7 @@ function editorTools(it) {
 function saveButton() {
   const save = document.createElement('button');
   save.type = 'button';
-  save.className = 'button-primary ed-save';
+  save.className = 'button-primary ed-save'; save.dataset.track = 'plan.save-item';
   save.textContent = st.dirty ? 'Save to session.yaml' : 'Saved';
   save.disabled = !st.dirty;
   save.addEventListener('click', saveSession);
@@ -892,7 +892,7 @@ function renderBulk() {
     markDirty();
     renderList();
     renderEditor();
-  }, 'Camera layout for the selected items')));
+  }, 'Camera layout for the selected items', { track: 'plan.multi-camera-layout' })));
   if (profiles.size > 1) form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', '<p class="ed-hint">They differ now — a pick sets all of them.</p>');
 
   const allIn = items.every((it) => it.include !== false);
@@ -906,9 +906,9 @@ function renderBulk() {
   const tools = document.createElement('div');
   tools.className = 'ed-tools';
   tools.innerHTML =
-    `<button type="button" class="button-surface" data-clear>${icon('x')} Keep one selected</button>` +
-    `<button type="button" class="button-surface" data-dup title="Ctrl+D">${icon('copy-plus')} Duplicate ${items.length} items</button>` +
-    `<button type="button" class="button-tint danger" data-delete>${icon('trash-2')} Delete ${items.length} items</button>`;
+    `<button type="button" class="button-surface" data-clear data-track="plan.multi-clear">${icon('x')} Keep one selected</button>` +
+    `<button type="button" class="button-surface" data-dup data-track="plan.multi-duplicate" title="Ctrl+D">${icon('copy-plus')} Duplicate ${items.length} items</button>` +
+    `<button type="button" class="button-tint danger" data-delete data-track="plan.multi-delete">${icon('trash-2')} Delete ${items.length} items</button>`;
   tools.querySelector('[data-clear]').addEventListener('click', () => select(st.selected));
   tools.querySelector('[data-dup]').addEventListener('click', () => duplicateItems(items.map((it) => it.id)));
   tools.querySelector('[data-delete]').addEventListener('click', () => deleteItems(items.map((it) => it.id)));
@@ -931,7 +931,7 @@ function slideTextFields(form, it) {
     it.live_text = v === 'image' ? false : null;
     markDirty();
     renderEditor();
-  }, 'Slide text'), 'with-hint'));
+  }, 'Slide text', { track: 'plan.slide-text' }), 'with-hint'));
   form.lastChild.querySelector('.ed-control').insertAdjacentHTML('beforeend', `<p class="ed-hint">${live
     ? `${s.boxes.length} text box${s.boxes.length === 1 ? '' : 'es'} drawn in the session's lettering, where PowerPoint had them.`
     : 'The slide exactly as PowerPoint drew it.'}</p>`);

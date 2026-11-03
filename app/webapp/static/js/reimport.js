@@ -28,7 +28,7 @@ function reviewHead(data, onClose) {
   const when = data.imported_at ? new Date(data.imported_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   const head = document.createElement('div');
   head.className = 'card review-head';
-  head.innerHTML = `<button type="button" class="icon-button home-toggle hit-target" data-back aria-label="Back to the plan" title="Back to the plan — the review keeps waiting">${icon('chevron-left')}</button>` +
+  head.innerHTML = `<button type="button" class="icon-button home-toggle hit-target" data-back data-track="reimport.back" aria-label="Back to the plan" title="Back to the plan — the review keeps waiting">${icon('chevron-left')}</button>` +
     `<div class="grow"><div class="row-title">Re-import PowerPoint</div><div class="row-meta">${esc(deckName)}${when ? ` · exported ${esc(when)}` : ''}</div></div>`;
   head.querySelector('[data-back]').addEventListener('click', () => onClose(false));
   return head;
@@ -80,7 +80,7 @@ function changeList(data, sid, accepted, syncApply) {
 function identicalCard(identical) {
   const det = document.createElement('details');
   det.className = 'card card--collapsible';
-  det.innerHTML = `<summary class="collapse-summary"><span class="collapse-main"><h3 class="collapse-title">${identical.length} identical slide${identical.length === 1 ? '' : 's'}</h3>` +
+  det.innerHTML = `<summary class="collapse-summary" data-track="reimport.identical-toggle"><span class="collapse-main"><h3 class="collapse-title">${identical.length} identical slide${identical.length === 1 ? '' : 's'}</h3>` +
     '<span class="collapse-count">nothing to do</span></span><span class="collapse-chevron" aria-hidden="true">›</span></summary>' +
     `<div class="collapse-body"><div class="list">${identical.map((s) =>
       `<div class="list-row"><span class="grow"><span class="row-title">${s.index} · ${esc(s.title)}</span>` +
@@ -100,7 +100,7 @@ function profileCard(prof) {
 function reviewActions(data, sid, accepted, onClose) {
   const actions = document.createElement('div');
   actions.className = 'row-actions review-actions';
-  actions.innerHTML = '<button type="button" class="button-primary" data-apply></button><button type="button" class="button-surface" data-cancel>Cancel</button>';
+  actions.innerHTML = '<button type="button" class="button-primary" data-apply data-track="reimport.apply"></button><button type="button" class="button-surface" data-cancel data-track="reimport.cancel">Cancel</button>';
   const applyBtn = actions.querySelector('[data-apply]');
   const syncApply = () => {
     const n = accepted.size;

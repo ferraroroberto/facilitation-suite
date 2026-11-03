@@ -66,9 +66,9 @@ export function overlayCard() {
     const body = document.createElement('div');
     body.innerHTML =
       '<div class="font-rows">' +
-      `<label class="font-row"><span class="small">Screen</span><select class="select-native" aria-label="Overlay screen" data-ov="screen">${screenOptions(d)}</select></label>` +
-      `<label class="font-row"><span class="small">Position</span><select class="select-native" aria-label="Overlay position" data-ov="position">${options(d.positions.map((p) => [p, POSITION_LABEL[p] || p]), o.position)}</select></label>` +
-      `<label class="font-row"><span class="small">Shows</span><select class="select-native" aria-label="What the overlay shows" data-ov="mode">${options(d.modes.map((m) => [m, MODE_LABEL[m] || m]), o.mode)}</select></label>` +
+      `<label class="font-row"><span class="small">Screen</span><select class="select-native" aria-label="Overlay screen" data-ov="screen" data-track="settings.overlay-screen">${screenOptions(d)}</select></label>` +
+      `<label class="font-row"><span class="small">Position</span><select class="select-native" aria-label="Overlay position" data-ov="position" data-track="settings.overlay-position">${options(d.positions.map((p) => [p, POSITION_LABEL[p] || p]), o.position)}</select></label>` +
+      `<label class="font-row"><span class="small">Shows</span><select class="select-native" aria-label="What the overlay shows" data-ov="mode" data-track="settings.overlay-mode">${options(d.modes.map((m) => [m, MODE_LABEL[m] || m]), o.mode)}</select></label>` +
       '</div>' +
       `<div class="list"><button type="button" class="list-row settings-row" data-ov-look data-track="settings.overlay-look">` +
       `<span class="settings-ico">${icon('palette')}</span><span class="grow"><span class="row-title">Look</span>` +

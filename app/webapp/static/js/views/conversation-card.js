@@ -56,7 +56,7 @@ export function conversationCard(sid) {
   const card = document.createElement('details');
   card.className = 'card card--collapsible conversation-card';
   card.hidden = true; // until the copilot is known to have left something
-  const summary = (meta) => `<summary class="collapse-summary"><span class="collapse-main">${icon('message-square')}` +
+  const summary = (meta) => `<summary class="collapse-summary" data-track="sessions.conversation-toggle"><span class="collapse-main">${icon('message-square')}` +
     `<h3 class="collapse-title">Conversation</h3><span class="collapse-count">${esc(meta)}</span></span>` +
     '<span class="collapse-chevron" aria-hidden="true">›</span></summary>';
 

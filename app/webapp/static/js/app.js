@@ -62,6 +62,7 @@ const usage = initUsageLog();
 // The nav reports its restored tab, then showView() sets it again: one view event per real change.
 let lastView = null;
 function trackView(id) {
+  // dynamic-id-exempt: forwards a nav tab's constant data-tab value, never content
   if (id !== lastView) usage.trackView(id);
   lastView = id;
 }

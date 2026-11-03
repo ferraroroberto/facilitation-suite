@@ -12,11 +12,12 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog' + (wide ? ' dialog-wide' : '');
+    dlg.dataset.trackView = 'dialog.form';
     const rows = fields.map((f) => {
       const id = 'f-' + f.name;
       let control;
       if (f.type === 'select') {
-        control = `<select class="select-native" id="${id}" name="${f.name}">` +
+        control = `<select class="select-native" id="${id}" data-track="dialog.field-select" name="${f.name}">` +
           f.options.map((o) => `<option value="${esc(o.value)}"${String(o.value) === String(f.value) ? ' selected' : ''}>${esc(o.label)}</option>`).join('') +
           '</select>';
       } else if (f.type === 'textarea') {
@@ -30,9 +31,9 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
     dlg.innerHTML =
       `<form class="detail-card" method="dialog">` +
       `<div class="detail-header"><h2>${esc(title)}</h2>` +
-      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
+      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close data-track="dialog.form-close">${icon('x')}</button></div>` +
       rows +
-      `<div class="detail-actions"><button type="submit" class="button-primary detail-save-btn">${esc(saveLabel)}</button></div>` +
+      `<div class="detail-actions"><button type="submit" class="button-primary detail-save-btn" data-track="dialog.form-save">${esc(saveLabel)}</button></div>` +
       `</form>`;
     document.body.appendChild(dlg);
     const form = dlg.querySelector('form');
@@ -61,12 +62,13 @@ export function confirmDialog({ title, message, actionLabel = 'Confirm', danger 
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog';
+    dlg.dataset.trackView = 'dialog.confirm';
     dlg.innerHTML =
       `<div class="detail-card">` +
       `<div class="detail-header"><h2>${esc(title)}</h2>` +
-      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close>${icon('x')}</button></div>` +
+      `<button type="button" class="icon-button detail-close" aria-label="Close" data-close data-track="dialog.confirm-close">${icon('x')}</button></div>` +
       `<p class="dialog-message">${esc(message)}</p>` +
-      `<div class="detail-actions"><button type="button" class="${danger ? 'button-tint danger' : 'button-primary detail-save-btn'} dialog-confirm" data-ok>${esc(actionLabel)}</button></div>` +
+      `<div class="detail-actions"><button type="button" class="${danger ? 'button-tint danger' : 'button-primary detail-save-btn'} dialog-confirm" data-ok data-track="dialog.confirm-ok">${esc(actionLabel)}</button></div>` +
       `</div>`;
     document.body.appendChild(dlg);
     let ok = false;
@@ -104,6 +106,7 @@ export function rowMenu(anchor, items) {
     const b = document.createElement('button');
     b.type = 'button';
     b.setAttribute('role', 'menuitem');
+    b.dataset.track = 'row-menu.item';
     b.className = 'row-menu-item' + (it.danger ? ' danger' : '');
     b.innerHTML = (it.icon ? icon(it.icon) : '') + `<span>${esc(it.label)}</span>`;
     b.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); it.onClick(); });
