@@ -43,6 +43,17 @@ def _short_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:HASH_LEN]
 
 
+def fleet_hash_of(per_file: Mapping[str, str]) -> str:
+    """One hash over every asset's own digest, keyed by URL path; ``""`` when there are no assets.
+
+    Any edit to any asset moves it, so a cached importer can never keep an old import URL. The name is
+    what ``/perf-review`` reads to recognise the strategy.
+    """
+    if not per_file:
+        return ""
+    return _short_hash("\n".join(f"{url}:{per_file[url]}" for url in sorted(per_file)).encode("utf-8"))
+
+
 class AssetVersions:
     """The fleet hash over a set of served directories, and the rewriters that stamp it.
 
@@ -52,7 +63,7 @@ class AssetVersions:
     def __init__(self, roots: Mapping[str, Path]) -> None:
         self.roots = {prefix.rstrip("/"): Path(directory) for prefix, directory in roots.items()}
         per_file = {url: _short_hash(path.read_bytes()) for url, path in self._files()}
-        self.fleet_hash = _short_hash("\n".join(f"{url}:{per_file[url]}" for url in sorted(per_file)).encode("utf-8")) if per_file else ""
+        self.fleet_hash = fleet_hash_of(per_file)
         self.hashes = dict.fromkeys(per_file, self.fleet_hash)
         if not per_file:
             logger.warning("⚠️ static versioning: no .js/.css found under %s — URLs go out unstamped", list(self.roots.values()))
