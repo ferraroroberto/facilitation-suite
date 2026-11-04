@@ -28,6 +28,9 @@ notes.md
 # the live copilot's recordings: only synthetic fixtures
 *.wav
 !tests/fixtures/**/*.wav
+# the summary of a call transcribed from the recorder's tracks, same rule
+recorder-summary.json
+!tests/fixtures/**/recorder-summary.json
 
 # --- python / tooling ------------------------------------------------------
 __pycache__/

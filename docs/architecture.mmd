@@ -173,8 +173,15 @@ flowchart LR
   copilot --> copsummary["src/copilot/summary.py<br/>rolling summary every 5 min · hourly call caps"]
   appv --> copilotr["routers/copilot.py<br/>overlay settings · recording retention · screens · sample · local only · mode (workshop · interview) · consent · injected transcript"]
   copilotr --> copilot
-  resultsr --> convo["src/results/conversation.py<br/>transcript + hints read back under their items"]
+  resultsr --> convo["src/results/conversation.py<br/>transcript + hints read back under their items · recorded first, live on request"]
   convo --> copfiles
+  appv --> recordedr["routers/recorded.py<br/>recorder folder · transcribe · summarise again · run state"]
+  recordedr --> aftercall["src/copilot/after_call.py<br/>after-call pass on its own thread · one run per session"]
+  aftercall --> rtracks["src/copilot/recorder_tracks.py<br/>main takes in video editing/ · start from the file name · ffmpeg → 16 kHz mono"]
+  rtracks -->|reads| recorderfiles[("podcast recorder episode folder<br/>recorder - host / guest - date time.mp4 + .json")]
+  aftercall -->|"POST /v1/audio/transcriptions · /v1/chat/completions"| llmhub
+  aftercall --> recfiles[("live/copilot/recorder-transcript.jsonl · recorder-summary.json")]
+  convo --> recfiles
   copilot -.->|on / sample → starts · off → stops| overlayproc["app/tray/overlay/process.py<br/>OverlayProcess"]
   overlayproc -.->|spawns| overlay["python -m app.tray.overlay<br/>layered click-through window · full hint or cue · own process"]
   overlay <-->|"WS /ws?role=overlay · reads state.copilot"| liver

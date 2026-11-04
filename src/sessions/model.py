@@ -30,6 +30,8 @@ CopilotMode = Literal["workshop", "interview"]
 COPILOT_MODES: tuple[str, ...] = get_args(CopilotMode)
 # A name, not a note: long enough for any real one, short enough to sit on a transcript line.
 INTERVIEWEE_CHARS = 80
+# A Windows path with room for a deep OneDrive folder; past this it is not a folder name someone typed.
+RECORDER_FOLDER_CHARS = 400
 # An item id — the one rule for every route that takes one. It names the item's
 # files (``live/captures/<id>.json``/``.png``), so no dots, slashes or spaces.
 # Every id the app generates fits (``slide-<SlideID>``, ``act-``/``brk-``/``bko-``
@@ -237,6 +239,8 @@ class Session(_Open):
     # A remote one-to-one interview shapes the copilot's prompts around the interviewee, named here.
     copilot_mode: CopilotMode = "workshop"
     copilot_interviewee: str = Field("", max_length=INTERVIEWEE_CHARS)
+    # The podcast recorder's episode folder, whose per-side takes the after-call transcript is made from.
+    copilot_recorder_folder: str = Field("", max_length=RECORDER_FOLDER_CHARS)
     font: Optional[StageFont] = None
     source: Optional[Source] = None
     # Manual readiness confirmations (zoom_autoupdate_off, copilot_consent) the app cannot detect itself.
