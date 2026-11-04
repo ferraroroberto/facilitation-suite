@@ -10,7 +10,7 @@ One local app for running a live online workshop: a **stage** (full-screen on th
 
 **Project specifics:**
 
-- **Stack is fixed:** Python 3.14 (`py -m venv .venv`; invoke `& .\.venv\Scripts\python.exe`, never activate), FastAPI + uvicorn (selector loop), Pydantic v2, PyYAML, vanilla JS ES modules (no bundler), pystray. Windows-first: PowerPoint COM import and the MSAA chat reader need Windows + PowerPoint + Zoom desktop.
+- **Stack is fixed:** Python 3.14 (`py -m venv .venv`; invoke `& .\.venv\Scripts\python.exe`, never activate), FastAPI served by the vendored `app/webapp/serve.py` (hypercorn, HTTP/2 over the cert; `"server": "uvicorn"` in `config.json` is the HTTP/1.1 fallback; selector loop), Pydantic v2, PyYAML, vanilla JS ES modules (no bundler), pystray. Windows-first: PowerPoint COM import and the MSAA chat reader need Windows + PowerPoint + Zoom desktop.
 - **Public repo, personal project.** No client, cohort, participant or employer names anywhere — code, docs, issues, commits, screenshots, fixtures. Synthetic data only (`tests/fixtures/`).
 - **Personal data never gets committed.** Sessions live in their own folders **outside** the repo (default under OneDrive, `config.session_root`). The ledger `sessions.local.yaml`, `config/config.json`, `data/`, `.env`, any `.xlsx`/`.pptx`/`.docx`, `session.yaml`, a session's `aliases.yaml`, `playbook.md` and `notes.md`, `chat.jsonl`/`events.jsonl`/`quiz.jsonl`/`transcript.jsonl`/`hints.jsonl` and the copilot's `*.wav` outside `tests/fixtures/` are gitignored and refused by the gate's personal-data guard. Run `git status` before every commit.
 - **No database inside OneDrive.** Session data is plain files: `session.yaml` + append-only JSONL. Anything cache-like goes under the repo's gitignored `data/`.

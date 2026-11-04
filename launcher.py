@@ -35,19 +35,20 @@ def main(argv: list[str]) -> int:
         return run_tray(config)
 
     if command == "webapp":
-        import uvicorn
-
-        from app.webapp.event_loop import LOOP_FACTORY
+        from app.webapp.event_loop import selector_loop_factory
+        from app.webapp.serve import run
         from src.certs import ensure_cert_fresh, uvicorn_ssl_kwargs
 
         ensure_cert_fresh()  # renew a Tailscale leaf expiring soon, before the bind
-        uvicorn.run(
-            "app.webapp.server:app",
-            host=config.host,
-            port=config.port,
+        ssl = uvicorn_ssl_kwargs()  # {} + a loud log line when no cert pair
+        run(
+            config.host,
+            config.port,
+            certfile=ssl.get("ssl_certfile"),
+            keyfile=ssl.get("ssl_keyfile"),
             log_level="info",
-            loop=LOOP_FACTORY,
-            **uvicorn_ssl_kwargs(),  # {} + a loud log line when no cert pair
+            server=config.server,
+            loop_factory=selector_loop_factory,
         )
         return 0
 

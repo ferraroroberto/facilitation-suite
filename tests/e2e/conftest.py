@@ -94,7 +94,7 @@ def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
         env.pop(key, None)
     log = open(root / "server.log", "wb")  # noqa: SIM115 — closed with the process
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.webapp.server:app", "--host", "127.0.0.1",
+        [sys.executable, "-m", "app.webapp.serve", "--host", "127.0.0.1",
          "--port", str(port), "--loop", LOOP_FACTORY, "--log-level", "warning"],
         cwd=REPO_ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW,
     )

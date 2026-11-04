@@ -127,19 +127,42 @@ def test_loopback_bind_opens_the_loopback_url(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_launcher_webapp_binds_what_the_config_says(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import uvicorn
-
     import launcher
+    from app.webapp import serve
     from src import certs
 
     _loopback_config(tmp_path, monkeypatch)
     seen: dict = {}
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: seen.update(kwargs))
+    monkeypatch.setattr(serve, "run", lambda host, port, **kwargs: seen.update(kwargs, host=host, port=port))
     monkeypatch.setattr(certs, "ensure_cert_fresh", lambda *args, **kwargs: None)
     monkeypatch.setattr(certs, "uvicorn_ssl_kwargs", lambda: {})
     monkeypatch.setattr(logger_mod, "configure_logging", lambda *args, **kwargs: None)
     assert launcher.main(["launcher.py", "webapp"]) == 0
     assert (seen["host"], seen["port"]) == ("127.0.0.1", 8601)
+    assert seen["server"] == "hypercorn"
+
+
+def test_manager_command_launches_the_serve_module_with_the_configured_server() -> None:
+    from app.webapp import manager as manager_mod
+
+    cmd = manager_mod.WebappManager(manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601))._build_command()
+    assert cmd[cmd.index("-m") + 1] == "app.webapp.serve"
+    assert cmd[cmd.index("--server") + 1] == "hypercorn"
+    fallback = manager_mod.WebappManager(
+        manager_mod.WebappManagerConfig(host="0.0.0.0", port=8601, server="uvicorn"))._build_command()
+    assert fallback[fallback.index("--server") + 1] == "uvicorn"
+
+
+def test_config_server_defaults_to_hypercorn_and_rejects_unknown_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def load(body: dict) -> str:
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps(body), encoding="utf-8")
+        monkeypatch.setenv("FS_CONFIG_PATH", str(path))
+        return config_mod.load_config().server
+
+    assert load({}) == "hypercorn"
+    assert load({"server": "uvicorn"}) == "uvicorn"
+    assert load({"server": "gunicorn"}) == "hypercorn"
 
 
 def test_log_follows_fs_data_dir(tmp_path: Path) -> None:
@@ -185,9 +208,9 @@ if role == "tray":
     import launcher
     sys.exit(launcher.main(["launcher.py", "tray"]))
 elif role == "webapp":
-    import uvicorn
+    import app.webapp.serve as serve
     import src.certs as certs
-    uvicorn.run = fill
+    serve.run = fill
     certs.ensure_cert_fresh = lambda *args, **kwargs: None
     import launcher
     sys.exit(launcher.main(["launcher.py", "webapp"]))
