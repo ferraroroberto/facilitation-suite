@@ -133,6 +133,19 @@ def test_a_changed_asset_gets_a_new_url(tmp_path: Path) -> None:
     assert after.stamp_js(after.read("/static/js/b.js"), "/static/js/b.js") != old_b
 
 
+def test_fleet_hash_of_moves_on_any_one_asset_and_ignores_order() -> None:
+    from src.static_versioning import fleet_hash_of
+
+    base = {"/static/js/a.js": "aaaaaaaa", "/static/js/b.js": "bbbbbbbb"}
+    assert fleet_hash_of({}) == ""
+    assert fleet_hash_of(base) == fleet_hash_of(dict(reversed(base.items())))
+    assert re.fullmatch(r"[0-9a-f]{8}", fleet_hash_of(base))
+    # Each single-asset change, an added asset and a renamed one all move the one hash.
+    assert fleet_hash_of({**base, "/static/js/a.js": "cccccccc"}) != fleet_hash_of(base)
+    assert fleet_hash_of({**base, "/static/js/c.js": "aaaaaaaa"}) != fleet_hash_of(base)
+    assert fleet_hash_of({"/static/js/a.js": "aaaaaaaa", "/static/js/z.js": "bbbbbbbb"}) != fleet_hash_of(base)
+
+
 def test_stamping_is_idempotent_and_leaves_unknown_files_alone(tmp_path: Path) -> None:
     from src.static_versioning import AssetVersions
 
