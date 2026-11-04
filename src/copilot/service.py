@@ -56,12 +56,13 @@ from src.copilot.hints import (
     user_prompt,
 )
 from src.copilot.hub_client import HubDown, HubFailure, complete, transcribe
+from src.copilot.retention import purge_recordings
 from src.copilot.summary import SUMMARY_FILE, SUMMARY_MAX_TOKENS, RateLimit, parse_summary, summary_messages
 from src.copilot.vad import Chunk, Chunker
 from src.errors import DomainError
 from src.jsonl import JsonlAppender
 from src.live.hub import LiveHub, now_ms
-from src.sessions.model import Session
+from src.sessions.model import COPILOT_CONSENT, Session
 from src.sessions.store import SessionError, atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,32 @@ class CopilotService:
 
     # --------------------------------------------------------------- lifecycle
 
+    def consented(self) -> bool:
+        """The facilitator confirmed, for the live session, that participants were informed and consented."""
+        return bool(self.live.checklist.get(COPILOT_CONSENT))
+
+    def confirm_consent(self) -> None:
+        """Record the confirmation in ``session.yaml`` (the file first: a failed save changes nothing) and in
+        ``live/events.jsonl``. Asked once per session: a session already confirmed is left as it is."""
+        sid = self.live.session_id
+        if sid is None:
+            raise CopilotError(409, "not_live", "No session is live")
+        if self.consented():
+            return
+
+        def change(session: Session) -> None:
+            session.checklist[COPILOT_CONSENT] = True
+
+        try:
+            self.live.store.edit(sid, change)
+        except (SessionError, OSError) as exc:
+            logger.error("❌ copilot: consent could not be saved (%s)", exc)
+            raise CopilotError(500, "consent_not_saved", "The confirmation could not be saved to session.yaml") from exc
+        self.live.checklist[COPILOT_CONSENT] = True
+        self.live.event("copilot_consent")
+        logger.info("ℹ️ copilot: consent confirmed for session %s", sid)
+        self.live.push_state()
+
     def toggle(self) -> None:
         if self.on:
             self.stop()
@@ -216,6 +243,9 @@ class CopilotService:
             return
         if self.live.session_id is None:
             raise CopilotError(409, "not_live", "No session is live — Copilot runs during a live session")
+        if not self.consented():
+            raise CopilotError(409, "consent_required",
+                               "Confirm that the participants were informed and consented before switching Copilot on")
         cfg = self.config()
         if cfg.capture not in COPILOT_CAPTURE:
             logger.warning("⚠️ copilot: capture %r is not one of %s — recording nothing", cfg.capture, ", ".join(COPILOT_CAPTURE))
@@ -286,6 +316,8 @@ class CopilotService:
         self._forget_summary()
         session = self._load_session() if sid else None
         self.local_only = bool(session and session.copilot_local_only)
+        if self.live.folder is not None:
+            purge_recordings(self.live.folder, self.config().recording_retention_days)
 
     def _reset(self) -> None:
         """The presenter started the session over: the transcript so far went with the old ``live/``."""
@@ -720,6 +752,7 @@ class CopilotService:
         fresh = self.hints_at is not None and now_ms() - self.hints_at < cfg.hint_ttl_s * 1000
         return {
             "on": self.on,
+            "consent": self.consented(),
             "started_at": self.started_at if self.on else None,
             "local_only": self.local_only,
             "capture": cfg.capture,

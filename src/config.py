@@ -148,6 +148,7 @@ class CopilotConfig:
     drift_hint_minutes: int = 5  # behind the plan by this much: a computed drift hint (0 = never)
     hint_calls_per_hour: int = 60  # the hint requests in any sliding hour (0 = no cap)
     summary_calls_per_hour: int = 15  # the summary refreshes in any sliding hour (0 = no cap)
+    recording_retention_days: int = 0  # recordings (live/copilot/*.wav) older than this are removed on open (0 = keep)
     silence_dbfs: int = -50
     min_chunk_s: int = 20
     max_chunk_s: int = 45

@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from src.activities.registry import editors
 from src.importer.review import read_meta
-from src.sessions.model import Session
+from src.sessions.model import COPILOT_CONSENT, Session
 from src.sessions.offline import OfflineReport
 
 
@@ -55,6 +55,20 @@ def quiz_reach_check(reach: Optional[dict[str, Any]]) -> dict[str, Any]:
     row = _check("quiz_reach", "Quiz public URL reachable", REACH_ROW[state], detail, "check_quiz_reach")
     row["reach"] = state
     return row
+
+
+def manual_checks(session: Session) -> list[dict[str, Any]]:
+    """The confirmations the app cannot detect itself: the facilitator marks them in ``Session.checklist``."""
+    if session.checklist.get("zoom_autoupdate_off"):
+        zoom = _check("zoom_update", "Zoom auto-update", "ok", "Turned off")
+    else:
+        zoom = _check("zoom_update", "Zoom auto-update", "warn", "Turn it off the week before", "confirm_zoom_update")
+    if session.checklist.get(COPILOT_CONSENT):
+        consent = _check(COPILOT_CONSENT, "Copilot consent", "ok", "Participants informed and consent recorded")
+    else:
+        consent = _check(COPILOT_CONSENT, "Copilot consent", "todo",
+                         "Participants informed and consent recorded — Copilot asks once on the presenter before it records")
+    return [zoom, consent]
 
 
 def build(folder: Path, session: Session, offline: OfflineReport, live: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
@@ -149,8 +163,5 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
     else:
         checks.append(_check("obs", "OBS", "unknown", (obs or {}).get("detail") or "Not connected"))
 
-    if session.checklist.get("zoom_autoupdate_off"):
-        checks.append(_check("zoom_update", "Zoom auto-update", "ok", "Turned off"))
-    else:
-        checks.append(_check("zoom_update", "Zoom auto-update", "warn", "Turn it off the week before", "confirm_zoom_update"))
+    checks.extend(manual_checks(session))
     return checks

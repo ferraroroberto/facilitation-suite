@@ -40,6 +40,24 @@ def _set_timer_default(page: Page, webapp, defaults: str) -> None:
     surface(page, "settings.stage-defaults")
 
 
+def _check_recording_retention(page: Page, webapp) -> None:
+    """Settings → Live tools → Copilot recordings: the default keeps everything; a number of days is saved."""
+    settings = webapp.base_url + "/api/copilot/settings"
+    page.goto(webapp.base_url + "/#settings/live")
+    days = page.locator("[data-rec-days]")
+    expect(days).to_have_value("0")
+    expect(days.locator("option:checked")).to_have_text("Keep recordings")
+    days.select_option("30")
+    for _ in range(50):
+        if page.request.get(settings).json()["recording_retention_days"] == 30:
+            break
+        page.wait_for_timeout(100)
+    assert page.request.get(settings).json()["recording_retention_days"] == 30
+    expect(days.locator("option:checked")).to_have_text("Remove after 30 days")
+    surface(page, "settings.recording-retention")
+    assert page.request.put(settings, data={"recording_retention_days": 0}).ok  # the instance is shared
+
+
 def _create_session(page: Page, webapp, shots) -> tuple[str, Path]:
     """The New session dialog creates the folder; the session opens full screen with its readiness list."""
     page.set_viewport_size({"width": 1440, "height": 900})
@@ -63,14 +81,14 @@ def _create_session(page: Page, webapp, shots) -> tuple[str, Path]:
     expect(page.locator("#tabSessions")).to_be_visible()
     expect(page).to_have_url(re.compile(r"/#sessions/[0-9a-f]+$"))
     deep_link = page.url
-    expect(page.locator(".ready-row")).to_have_count(8)
+    expect(page.locator(".ready-row")).to_have_count(9)
     # #249: each row's status tick lines up on the left with the heading's tick, at the same rendered size
     ticks = page.evaluate("""() => {
         const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.width, r.height]; };
         return { head: box(document.querySelector('.ready-card .card-title .icon')),
                  rows: [...document.querySelectorAll('.ready-row .ready-icon .icon')].map(box) };
     }""")
-    assert len(ticks["rows"]) == 8
+    assert len(ticks["rows"]) == 9
     for left, width, height in ticks["rows"]:
         assert abs(left - ticks["head"][0]) <= 1 and abs(width - ticks["head"][1]) <= 0.5 and abs(height - ticks["head"][2]) <= 0.5, ticks
     expect(page.locator(".status-line.ok")).to_contain_text("files on this PC")
@@ -115,7 +133,7 @@ def _check_open_and_close(page: Page, webapp, deep_link: str) -> None:
     expect(page.locator(".session-row.selected .row-title")).to_have_text("Workshop · cohort A")
     expect(page).to_have_url(webapp.base_url + "/")
     page.locator(".session-row.selected").click()
-    expect(page.locator(".ready-row")).to_have_count(8)
+    expect(page.locator(".ready-row")).to_have_count(9)
     page.keyboard.press("Escape")
     expect(page.locator(".sessions-list")).to_be_visible()
     page.locator(".session-row.selected").click()
@@ -204,6 +222,7 @@ def _check_playbook(page: Page, session_yaml: Path) -> None:
 def test_create_a_session_and_see_it_ready_list(page: Page, webapp, shots) -> None:
     defaults = webapp.base_url + "/api/settings/defaults"
     _set_timer_default(page, webapp, defaults)
+    _check_recording_retention(page, webapp)
     deep_link, session_yaml = _create_session(page, webapp, shots)
     _check_playbook(page, session_yaml)
     _check_session_lettering(page, session_yaml, defaults)

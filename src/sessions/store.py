@@ -34,7 +34,7 @@ import yaml
 
 from src.config import AppConfig, ledger_path, session_root
 from src.errors import DomainError
-from src.sessions.model import Session, StageFont, dump_session, parse_session
+from src.sessions.model import COPILOT_CONSENT, Session, StageFont, dump_session, parse_session
 
 logger = logging.getLogger(__name__)
 
@@ -265,13 +265,16 @@ class SessionStore:
             return self.save(sid, session)
 
     def save_plan(self, sid: str, session: Session) -> Session:
-        """The Plan tab's save. The excluded senders and the copilot's local-only switch belong to the
-        presenter, so a plan sent from a copy loaded before either changed keeps them as the file has them now."""
+        """The Plan tab's save. The excluded senders, the copilot's local-only switch and its recorded consent
+        belong to the presenter, so a plan sent from a copy loaded before any of them changed keeps them as the
+        file has them now."""
         with self._lock:
             try:
                 kept = self.load(sid)
                 session.excluded_senders = kept.excluded_senders
                 session.copilot_local_only = kept.copilot_local_only
+                if kept.checklist.get(COPILOT_CONSENT):
+                    session.checklist[COPILOT_CONSENT] = True
             except SessionError:
                 pass  # no readable file to keep it from: the plan as sent is saved
             return self.save(sid, session)

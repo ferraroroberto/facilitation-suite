@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import re
+from pathlib import Path
 
 from PIL import Image
 from playwright.sync_api import Browser, BrowserContext, Page, expect
@@ -271,13 +272,23 @@ def _check_hidden_item(page: Page) -> None:
     expect(page.locator(".p-sub")).to_contain_text("9 of 18")
 
 
-def _check_copilot(page: Page, webapp) -> None:
+def _check_copilot(page: Page, webapp, session_yaml: Path) -> None:
     """Copilot on: an injected transcript turns into hints on the presenter's card and its chip; off again
     (the instance is shared), the hints go with it."""
     card = page.locator(".p-copilot")
     expect(card.locator(".p-meta")).to_have_text("off")
+    # No consent is recorded for this session yet: switching on asks first, and "no" records nothing.
     card.locator("[data-cop-on]").click()
-    expect(card.locator("[data-cop-on]")).to_have_attribute("aria-checked", "true")
+    expect(page.locator(".dialog-confirm")).to_be_visible()
+    surface(page, "presenter.confirm-copilot-consent")
+    page.locator("dialog[open] [data-close]").click()
+    expect(card.locator("[data-cop-on]")).to_have_attribute("aria-checked", "false")
+    assert "copilot_consent" not in session_yaml.read_text(encoding="utf-8")
+    card.locator("[data-cop-on]").click()
+    page.locator(".dialog-confirm").click()
+    expect(page.locator("[data-chips]")).to_contain_text("Copilot · on")  # the toggle follows the saved confirmation
+    assert "copilot_consent: true" in session_yaml.read_text(encoding="utf-8")
+    assert '"event": "copilot_consent"' in (session_yaml.parent / "live" / "events.jsonl").read_text(encoding="utf-8")
     r = page.request.post(f"{webapp.base_url}/api/copilot/transcript",
                           data={"lines": [{"speaker": "them", "text": "We could test the cheapest idea first"}]})
     assert r.ok, r.text()
@@ -285,8 +296,13 @@ def _check_copilot(page: Page, webapp) -> None:
     expect(card.locator(".p-hint")).to_have_count(2)
     expect(page.locator("[data-chips]")).to_contain_text("Copilot · on")
     surface(page, "presenter.copilot-hints")
-    card.locator("[data-cop-on]").click()
+    card.locator("[data-cop-on]").click()  # off, then on again: the question is asked once per session
     expect(card.locator(".p-hint")).to_have_count(0)
+    expect(card.locator(".p-meta")).to_have_text("off")
+    card.locator("[data-cop-on]").click()
+    expect(card.locator("[data-cop-on]")).to_have_attribute("aria-checked", "true")
+    expect(page.locator("dialog[open]")).to_have_count(0)
+    card.locator("[data-cop-on]").click()
     expect(card.locator(".p-meta")).to_have_text("off")
 
 
@@ -315,7 +331,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     _check_timer_and_reload(page, stage, stage_ctx, webapp)
     _check_clocks_and_navigation(page, stage, webapp, shots)
     _check_hidden_item(page)
-    _check_copilot(page, webapp)
+    _check_copilot(page, webapp, folder / "session.yaml")
     _check_start_over(page, folder)
     stage_ctx.close()
     assert errors == []

@@ -50,9 +50,12 @@ def live(isolated_env: Path) -> LiveHub:
     return hub
 
 
-def make(live: LiveHub, **cfg: object) -> tuple[CopilotService, list[CopilotConfig]]:
+def make(live: LiveHub, consent: bool = True, **cfg: object) -> tuple[CopilotService, list[CopilotConfig]]:
     box = [replace(CopilotConfig(), **cfg)]
-    return CopilotService(live, lambda: box[0]), box
+    service = CopilotService(live, lambda: box[0])
+    if consent:
+        service.confirm_consent()
+    return service, box
 
 
 def test_two_channels_become_a_labelled_transcript_and_hints(live: LiveHub, hub_fake: FakeHub, tmp_path: Path) -> None:

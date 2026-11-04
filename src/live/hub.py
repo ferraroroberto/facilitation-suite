@@ -135,6 +135,7 @@ class LiveHub:
         # From session.yaml: the senders no capture counts, and whether leaving an activity stops its capture.
         self.excluded_senders: list[str] = []
         self.stop_capture_on_leave = False
+        self.checklist: dict[str, bool] = {}
         self.run: dict[str, Any] = {"items": [], "sections": [], "planned_minutes": 0}
         self.plan_rev = 0
         self.index = 0
@@ -335,6 +336,7 @@ class LiveHub:
         self.session_title, self.duration_minutes = session.title, session.duration_minutes
         self.excluded_senders = list(session.excluded_senders)
         self.stop_capture_on_leave = session.stop_capture_on_leave
+        self.checklist = dict(session.checklist)
 
     def set_excluded_senders(self, names: list[str]) -> None:
         """Save the excluded senders in ``session.yaml`` (the file first: a failed save changes nothing)."""
