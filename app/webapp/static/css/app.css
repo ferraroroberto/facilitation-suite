@@ -680,7 +680,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .convo-item-title { margin: 0; font-size: var(--font-body-sm); font-weight: 600; color: var(--muted); overflow-wrap: anywhere; }
 .convo-line, .convo-hint { align-items: flex-start; min-height: var(--row-sm); padding: 8px 0; gap: var(--space-md); }
 .convo-line .grow { overflow-wrap: anywhere; }
-.convo-speaker { width: 3.5em; flex: none; display: inline-flex; color: var(--ink); }
+/* An interviewee's long name wraps inside the speaker column rather than running into the line. */
+.convo-speaker { width: 3.5em; flex: none; display: inline-flex; color: var(--ink); overflow-wrap: anywhere; }
 .convo-hint .convo-speaker { color: var(--accent-text); }
 .convo-time { flex: none; color: var(--muted); font-size: var(--font-caption); font-variant-numeric: tabular-nums; padding-top: 3px; }
 .convo-hint { padding: 8px 10px; border-radius: var(--radius-md); background: var(--neutral-soft); }

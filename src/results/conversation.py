@@ -88,7 +88,8 @@ def _hint(rec: dict[str, Any]) -> Optional[dict[str, Any]]:
 def load_conversation(folder: Path, session: Session) -> dict[str, Any]:
     """The transcript and the hints in the order they happened, in runs under the item they belong to.
 
-    ``segments`` is empty when the copilot never ran in this session (or left nothing readable).
+    ``segments`` is empty when the copilot never ran in this session (or left nothing readable). ``mode``
+    and ``interviewee`` are the session's, so an interview names the other side.
     """
     copilot = folder / "live" / "copilot"
     moves = _on_stage(read_jsonl(folder / "live" / "events.jsonl"))
@@ -113,4 +114,5 @@ def load_conversation(folder: Path, session: Session) -> dict[str, Any]:
         segments[-1]["entries"].append(entry)
     return {"lines": len(lines), "hints": sum(len(h["hints"]) for h in hints if h["status"] == "shown"),
             "stale": sum(1 for h in hints if h["status"] == "stale"),
-            "failed": sum(1 for h in hints if h["status"] == "failed"), "segments": segments}
+            "failed": sum(1 for h in hints if h["status"] == "failed"), "segments": segments,
+            "mode": session.copilot_mode, "interviewee": session.copilot_interviewee}

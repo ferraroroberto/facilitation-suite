@@ -292,6 +292,9 @@
 .p-cop-status:empty, .p-hints:empty, .p-cop-idle:empty { display: none; }
 .p-cop-status .chip { display: inline-flex; min-height: 26px; padding: 0 10px; font-size: var(--font-body-sm); }
 .p-cop-idle { margin: 0; }
+/* The interviewee's name sits on the switches' row while Interview is on. */
+.p-cop-name { width: 14em; max-width: 100%; }
+.p-cop-name[hidden] { display: none; }
 /* One row per hint, its type beside the words, so three fit without the card scrolling. */
 .p-hints { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .p-hint { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); align-items: baseline; gap: var(--space-sm); padding: 6px var(--space-md); border-radius: var(--radius-md); background: var(--neutral-soft); }

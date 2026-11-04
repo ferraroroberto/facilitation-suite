@@ -15,7 +15,7 @@ import re
 import secrets
 import unicodedata
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 1
 # The checklist key under which the facilitator's consent confirmation for the live copilot is kept.
 COPILOT_CONSENT = "copilot_consent"
+CopilotMode = Literal["workshop", "interview"]
+COPILOT_MODES: tuple[str, ...] = get_args(CopilotMode)
+# A name, not a note: long enough for any real one, short enough to sit on a transcript line.
+INTERVIEWEE_CHARS = 80
 # An item id — the one rule for every route that takes one. It names the item's
 # files (``live/captures/<id>.json``/``.png``), so no dots, slashes or spaces.
 # Every id the app generates fits (``slide-<SlideID>``, ``act-``/``brk-``/``bko-``
@@ -230,6 +234,9 @@ class Session(_Open):
     stop_capture_on_leave: bool = False
     # The live copilot's hints come from the local model only (a sensitive meeting): no cloud model.
     copilot_local_only: bool = False
+    # A remote one-to-one interview shapes the copilot's prompts around the interviewee, named here.
+    copilot_mode: CopilotMode = "workshop"
+    copilot_interviewee: str = Field("", max_length=INTERVIEWEE_CHARS)
     font: Optional[StageFont] = None
     source: Optional[Source] = None
     # Manual readiness confirmations (zoom_autoupdate_off, copilot_consent) the app cannot detect itself.

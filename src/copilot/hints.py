@@ -129,8 +129,31 @@ def _item_block(label: str, item: Optional[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def system_prompt(language: str) -> str:
+def speaker_labels(mode: str, interviewee: str) -> dict[str, str]:
+    """How each channel is named to the model: in an interview ``them`` is the interviewee, by name when known."""
+    return {"me": "me", "them": interviewee or "interviewee"} if mode == "interview" else {"me": "me", "them": "them"}
+
+
+def interviewee_clause(interviewee: str) -> str:
+    """Who ``them`` is in an interview's transcript, in the words the prompts use."""
+    return f"'{interviewee}' is the interviewee" if interviewee else "'interviewee' is the person being interviewed"
+
+
+def system_prompt(language: str, mode: str = "workshop", interviewee: str = "") -> str:
     lang = LANGUAGE_NAMES.get(language, "English")
+    if mode == "interview":
+        return (
+            "You are a discreet copilot for an interviewer running a remote one-to-one interview. You read the "
+            "interview plan and the latest transcript and suggest at most three very short hints the interviewer "
+            f"can glance at while listening. In the transcript, 'me' is the interviewer and {interviewee_clause(interviewee)}.\n"
+            'Answer with JSON only, no other text: {"hints": [{"type": "next_q", "text": "..."}]}.\n'
+            "Types: next_q = a follow-up question to ask next, built on what the interviewee just said; "
+            "notice = a question the interviewee has not answered yet, or something they said worth digging into; "
+            "recap = a point worth summing up now, rarely needed in an interview. Favour next_q and notice. "
+            "The app warns about time itself, so give no time warnings. "
+            f"Each text has at most {MAX_WORDS} words and is written in {lang}.\n"
+            'Prefer no hint to a weak one: {"hints": []}.'
+        )
     return (
         "You are a discreet copilot for a facilitator running a live session (a workshop, an interview or a "
         "meeting). You read the session plan and the latest transcript and suggest at most three very short "
@@ -144,20 +167,23 @@ def system_prompt(language: str) -> str:
     )
 
 
-def transcript_text(lines: Sequence[Line], now: float) -> str:
-    """The lines, oldest first, each stamped with how long before ``now`` its audio ended."""
+def transcript_text(lines: Sequence[Line], now: float, labels: Optional[dict[str, str]] = None) -> str:
+    """The lines, oldest first, each stamped with how long before ``now`` its audio ended and named by
+    ``labels`` (a speaker missing from it keeps its channel name)."""
+    names = labels or {}
+
     def stamp(line: Line) -> str:
         ago = max(0, int(now - line.ended_at))
         return f"[-{ago // 60:02d}:{ago % 60:02d}]"
 
-    return "\n".join(f"{stamp(ln)} {ln.speaker}: {ln.text}" for ln in lines) or "(nothing said yet)"
+    return "\n".join(f"{stamp(ln)} {names.get(ln.speaker, ln.speaker)}: {ln.text}" for ln in lines) or "(nothing said yet)"
 
 
 def user_prompt(title: str, cur: Optional[dict[str, Any]], nxt: Optional[dict[str, Any]], clock: str,
-                lines: Sequence[Line], now: float, summary: str = "") -> str:
+                lines: Sequence[Line], now: float, summary: str = "", labels: Optional[dict[str, str]] = None) -> str:
     so_far = f"The conversation so far, summarised: {summary}\n" if summary else ""
     return (f"Session: {title}\n{so_far}{_item_block('On stage now', cur)}\n{_item_block('Next', nxt)}\n"
-            f"Clock: {clock}\n\nTranscript, oldest first (time before now):\n{transcript_text(lines, now)}")
+            f"Clock: {clock}\n\nTranscript, oldest first (time before now):\n{transcript_text(lines, now, labels)}")
 
 
 def parse_hints(text: str, types: Sequence[str] = HINT_TYPES) -> list[Hint]:

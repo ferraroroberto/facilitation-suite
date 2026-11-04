@@ -171,7 +171,7 @@ flowchart LR
   copilot -->|"consent gate: copilot_consent in session.yaml + events.jsonl"| folder
   appv -->|"open a session: recordings past recording_retention_days removed"| copfiles
   copilot --> copsummary["src/copilot/summary.py<br/>rolling summary every 5 min · hourly call caps"]
-  appv --> copilotr["routers/copilot.py<br/>overlay settings · recording retention · screens · sample · local only · consent · injected transcript"]
+  appv --> copilotr["routers/copilot.py<br/>overlay settings · recording retention · screens · sample · local only · mode (workshop · interview) · consent · injected transcript"]
   copilotr --> copilot
   resultsr --> convo["src/results/conversation.py<br/>transcript + hints read back under their items"]
   convo --> copfiles

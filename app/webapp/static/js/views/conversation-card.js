@@ -6,9 +6,8 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc } from '/static/js/ui.js';
 
-const SPEAKER = { me: 'Me', them: 'Them' };
 const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
-const REASON = { item: 'On item change', them: 'After a line from them', inject: 'After injected lines', drift: 'Clock' };
+const REASON = { item: 'On item change', them: 'After a line from them', inject: 'After injected lines', drift: 'Clock', mode: 'On mode change' };
 const FAILURE = { hub_down: 'hub down', timeout: 'timed out' };
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -26,8 +25,13 @@ function segmentTitle(s) {
   return s.title || 'Untitled item';
 }
 
-function lineRow(e) {
-  return `<div class="list-row convo-line"><b class="convo-speaker">${esc(SPEAKER[e.speaker] || e.speaker)}</b>` +
+/** The channel names as the card shows them: an interview names the interviewee instead of "Them". */
+function speakers(c) {
+  return { me: 'Me', them: c.mode === 'interview' ? (c.interviewee || 'Interviewee') : 'Them' };
+}
+
+function lineRow(e, names) {
+  return `<div class="list-row convo-line"><b class="convo-speaker">${esc(names[e.speaker] || e.speaker)}</b>` +
     `<span class="grow">${esc(e.text)}${e.injected ? ' <span class="chip">injected</span>' : ''}</span>${time(e.at_ms)}</div>`;
 }
 
@@ -46,9 +50,10 @@ function hintRow(e) {
 }
 
 function body(c) {
+  const names = speakers(c);
   return c.segments.map((s) => `<section class="convo-item" data-item="${esc(s.item_id || '')}">` +
     `<h4 class="convo-item-title">${esc(segmentTitle(s))}</h4>` +
-    `<div class="list">${s.entries.map((e) => (e.kind === 'line' ? lineRow(e) : hintRow(e))).join('')}</div></section>`).join('');
+    `<div class="list">${s.entries.map((e) => (e.kind === 'line' ? lineRow(e, names) : hintRow(e))).join('')}</div></section>`).join('');
 }
 
 /** @param {string} sid  the session id */
