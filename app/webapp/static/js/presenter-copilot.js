@@ -5,6 +5,7 @@
 
 import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { api, esc, toast, switchRow } from '/static/js/ui.js';
+import { confirmDialog } from '/static/js/dialogs.js';
 
 const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
 const CHANNEL_STATE = { starting: 'accent', error: 'bad' };
@@ -16,12 +17,39 @@ function liveHints(c, itemId, now) {
   return c.hints;
 }
 
+/** Copilot on or off. Switching on for a session whose consent is not recorded asks once first; the server
+ *  refuses to record without it, so a Stream Deck press cannot skip the question. */
+async function switchCopilot(live, next, btn) {
+  const c = live.state && live.state.copilot;
+  if (next && c && !c.consent) {
+    const ok = await confirmDialog({
+      title: 'Participants informed?',
+      message: 'Copilot records your mic and the call. Confirm that the participants were told and agreed to be recorded. ' +
+        'Staying in the call is not consent. The app records your confirmation in this session; it does not judge whether the consent was valid.',
+      actionLabel: 'Confirm and switch on',
+    });
+    if (ok) {
+      try {
+        await api('/api/copilot/consent', { method: 'POST' });
+      } catch (e) {
+        toast(e.message, 'error');
+        setSwitch(btn, false);
+        return;
+      }
+    } else {
+      setSwitch(btn, false);
+      return;
+    }
+  }
+  live.send('copilot_toggle');
+}
+
 /** Wire the card's two switches; `live` is the cockpit's connection. */
 function buildCopilot(body, live) {
   body.innerHTML = '<div class="p-cop-row" data-cop-switches></div><div class="p-cop-status" data-cop-status></div>' +
     '<ol class="p-hints" data-cop-hints></ol><p class="small muted p-cop-idle" data-cop-idle></p>';
   const row = body.querySelector('[data-cop-switches]');
-  const on = switchRow(false, 'Copilot', () => live.send('copilot_toggle'), 'Copilot on or off');
+  const on = switchRow(false, 'Copilot', (next, btn) => switchCopilot(live, next, btn), 'Copilot on or off');
   on.querySelector('[role=switch]').dataset.copOn = '';
   on.querySelector('[role=switch]').dataset.track = 'live.copilot-toggle';
   const rec = document.createElement('span');

@@ -4,6 +4,8 @@ During a live online session (a workshop, an interview, an important call), Copi
 
 **Consent.** Recording people needs their informed consent and a visible notice; in Spain and the EU, staying in the call is not consent. Tell the participants before you switch Copilot on. The presenter's Copilot card shows a **Recording** mark the whole time it runs. (Not legal advice.)
 
+Copilot will not record until you have confirmed it for the session. The first time you switch it on, the presenter asks whether the participants were informed and agreed; **Confirm and switch on** records that as `copilot_consent: true` in the session's `session.yaml` checklist and as a `copilot_consent` event in `live/events.jsonl`, and the question is not asked again for that session. The server enforces it, so a Stream Deck button or the phone remote that flips `copilot_toggle` before the confirmation is refused with `consent_required` (the REST call gets a 409, the presenter and the remote show the message) and nothing records. The Sessions readiness checklist has a **Copilot consent** row that shows whether the confirmation is recorded. The app keeps your confirmation; it does not judge whether the consent was valid.
+
 ## Switching it on
 
 The presenter's **Copilot** card, under the notes, has the switch (also the live action `copilot_toggle`, so a Stream Deck button or the phone remote can flip it). It works only while a session is live and is off whenever a session goes live, closes or is replaced: a restart never starts recording by itself.
@@ -67,6 +69,7 @@ The overlay is its own process (`python -m app.tray.overlay`), a thin client of 
 | `hint_timeout_s`, `hint_interval_s`, `hint_ttl_s`, `context_minutes` | the hint budget, how often a **them** line may ask, how long a hint lives, how much transcript the model reads |
 | `summary_interval_s`, `drift_hint_minutes` | how often the rolling summary is refreshed; how far behind the plan a section runs before the drift hint (0: never) |
 | `hint_calls_per_hour`, `summary_calls_per_hour` | the caps per sliding hour (0: no cap) |
+| `recording_retention_days` | how long `live/copilot/*.wav` are kept: 0 keeps them for good (the default), a number removes the ones last written longer ago than that when the session is opened (in the Sessions tab or on going live), each removal logged. Set in **Settings → Live tools → Copilot recordings**. The transcript, hints and summary are never removed |
 | `silence_dbfs`, `min_chunk_s`, `max_chunk_s`, `silence_ms` | the chunker: the level under which a 20 ms frame is silence, and the cut rules |
 | `overlay` | the overlay's settings, as Settings writes them |
 

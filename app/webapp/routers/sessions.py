@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.webapp.errors import AppError, require_local
 from src import defaults
 from src import library as stage_library
+from src.copilot.retention import purge_recordings
 from src.importer.review import read_meta
 from src.music import library
 from src.quiz.importer import import_kahoot
@@ -146,7 +147,10 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
 
 @router.get("/{sid}")
 def get_session(request: Request, sid: str) -> dict[str, Any]:
-    return session_payload(request, sid)
+    """Open a session. Copilot recordings past the retention setting are removed as it opens."""
+    payload = session_payload(request, sid)
+    purge_recordings(Path(payload["folder"]["path"]), request.app.state.config.copilot.recording_retention_days)
+    return payload
 
 
 @router.put("/{sid}")

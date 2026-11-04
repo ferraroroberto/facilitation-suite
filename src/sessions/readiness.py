@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from src.activities.registry import editors
 from src.importer.review import read_meta
-from src.sessions.model import Session
+from src.sessions.model import COPILOT_CONSENT, Session
 from src.sessions.offline import OfflineReport
 
 
@@ -153,4 +153,10 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
         checks.append(_check("zoom_update", "Zoom auto-update", "ok", "Turned off"))
     else:
         checks.append(_check("zoom_update", "Zoom auto-update", "warn", "Turn it off the week before", "confirm_zoom_update"))
+
+    if session.checklist.get(COPILOT_CONSENT):
+        checks.append(_check(COPILOT_CONSENT, "Copilot consent", "ok", "Participants informed and consent recorded"))
+    else:
+        checks.append(_check(COPILOT_CONSENT, "Copilot consent", "todo",
+                             "Participants informed and consent recorded — Copilot asks once on the presenter before it records"))
     return checks

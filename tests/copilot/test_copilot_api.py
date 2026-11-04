@@ -36,13 +36,18 @@ def app(isolated_env: Path, fake: FakeHub):
     return application
 
 
+def go_live_with_consent(pc: TestClient, app) -> None:
+    assert pc.post("/api/live/activate", json={"session": app.state.demo_sid}).status_code == 200
+    assert pc.post("/api/copilot/consent").status_code == 200
+
+
 def live_copilot(pc: TestClient) -> dict:
     return pc.get("/api/live").json()["state"]["copilot"]
 
 
 def test_injected_transcript_reaches_presenter_and_overlay(app, fake: FakeHub) -> None:
     with TestClient(app, client=("127.0.0.1", 50000)) as pc:
-        assert pc.post("/api/live/activate", json={"session": app.state.demo_sid}).status_code == 200
+        go_live_with_consent(pc, app)
         r = pc.post("/api/copilot/transcript", json={"lines": [{"speaker": "them", "text": "Hi"}]})
         assert r.status_code == 409 and r.json()["error"]["code"] == "copilot_off"
         assert pc.post("/api/actions/copilot_toggle").status_code == 200
@@ -83,7 +88,7 @@ def test_overlay_settings_are_checked_and_kept(app, isolated_env: Path) -> None:
 
 def test_local_only_is_the_sessions_and_phones_cannot_inject(app, isolated_env: Path) -> None:
     with TestClient(app, client=("127.0.0.1", 50000)) as pc:
-        pc.post("/api/live/activate", json={"session": app.state.demo_sid})
+        go_live_with_consent(pc, app)
         assert pc.put("/api/copilot/local-only", json={"local_only": True}).json()["local_only"] is True
         yaml_text = (isolated_env / "sessions" / "demo" / "live" / "session.yaml").read_text(encoding="utf-8")
         assert "copilot_local_only: true" in yaml_text

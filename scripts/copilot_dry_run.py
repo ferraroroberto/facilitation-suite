@@ -200,6 +200,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                              root / "instance" / "sessions.local.yaml")
             call(inst.base_url, "POST", "/api/live/activate", {"session": sid})
             call(inst.base_url, "POST", "/api/actions/clock_start")
+            call(inst.base_url, "POST", "/api/copilot/consent")  # the synthetic voices are the only participants
             call(inst.base_url, "POST", "/api/actions/copilot_toggle")
             began = time.monotonic()
             next_item = began + args.item_every

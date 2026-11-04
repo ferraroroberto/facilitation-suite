@@ -1,6 +1,6 @@
-"""The live copilot: its overlay's settings and screens, the session's local-only switch, a sample on
-the overlay and an injected transcript (a test or a rehearsal). Copilot on/off is the live action
-``copilot_toggle`` (``src/live/actions.py``), so the presenter, the remote and a Stream Deck share it."""
+"""The live copilot: its overlay's settings and screens, the recordings' retention, the session's local-only
+switch, the facilitator's consent confirmation, a sample on the overlay and an injected transcript (a test or a
+rehearsal). Copilot on/off is the live action ``copilot_toggle`` (``src/live/actions.py``), so the presenter, the remote and a Stream Deck share it."""
 
 from __future__ import annotations
 
@@ -47,7 +47,8 @@ class OverlayPatch(BaseModel):
 
 
 class SettingsBody(BaseModel):
-    overlay: OverlayPatch
+    overlay: Optional[OverlayPatch] = None
+    recording_retention_days: Optional[int] = Field(None, ge=0, le=3650)  # 0 = keep
 
 
 class LocalOnly(BaseModel):
@@ -67,6 +68,7 @@ def settings_payload(request: Request) -> dict[str, Any]:
     cfg = request.app.state.config.copilot
     return {
         "overlay": asdict(cfg.overlay),
+        "recording_retention_days": cfg.recording_retention_days,
         "running": request.app.state.overlay.running(),
         "screens": [s.as_dict() for s in list_screens()],
         "fonts": list(FONT_FILES),
@@ -82,11 +84,17 @@ def get_settings(request: Request) -> dict[str, Any]:
 
 @router.put("/settings")
 async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
-    """Change the overlay's look or place; an open overlay follows at once and shows a sample there."""
+    """Change the overlay's look or place (an open overlay follows at once and shows a sample there) or how
+    long the recordings are kept."""
     require_local(request, "The overlay can only be set up on this PC")
-    patch = body.overlay.model_dump(exclude_none=True)
+    patch = body.overlay.model_dump(exclude_none=True) if body.overlay else {}
     if "font" in patch and patch["font"] not in FONT_FILES:
         patch.pop("font")
+    if body.recording_retention_days is not None:
+        request.app.state.config = await asyncio.to_thread(
+            settings_file.update, {"copilot": {"recording_retention_days": body.recording_retention_days}})
+        logger.info("ℹ️ copilot: recordings are %s", f"removed after {body.recording_retention_days} days"
+                    if body.recording_retention_days else "kept")
     if patch:
         request.app.state.config = await asyncio.to_thread(settings_file.update, {"copilot": {"overlay": patch}})
         if request.app.state.config.copilot.overlay.enabled:
@@ -110,6 +118,15 @@ async def put_local_only(request: Request, body: LocalOnly) -> dict[str, Any]:
     """The live session's switch: hints from the local model only (saved in its ``session.yaml``)."""
     copilot = _copilot(request)
     copilot.set_local_only(body.local_only)
+    return copilot.snapshot()
+
+
+@router.post("/consent")
+async def post_consent(request: Request) -> dict[str, Any]:
+    """The facilitator confirms the participants were informed and consented to the recording: saved
+    in the live session's ``session.yaml`` and ``live/events.jsonl``, asked once per session."""
+    copilot = _copilot(request)
+    copilot.confirm_consent()
     return copilot.snapshot()
 
 

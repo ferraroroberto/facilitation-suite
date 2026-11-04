@@ -24,6 +24,8 @@ from src.activities.registry import editors
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
+# The checklist key under which the facilitator's consent confirmation for the live copilot is kept.
+COPILOT_CONSENT = "copilot_consent"
 # An item id — the one rule for every route that takes one. It names the item's
 # files (``live/captures/<id>.json``/``.png``), so no dots, slashes or spaces.
 # Every id the app generates fits (``slide-<SlideID>``, ``act-``/``brk-``/``bko-``
@@ -230,7 +232,7 @@ class Session(_Open):
     copilot_local_only: bool = False
     font: Optional[StageFont] = None
     source: Optional[Source] = None
-    # Manual readiness confirmations (e.g. zoom_autoupdate_off) the app cannot detect itself.
+    # Manual readiness confirmations (zoom_autoupdate_off, copilot_consent) the app cannot detect itself.
     checklist: dict[str, bool] = Field(default_factory=dict)
     sections: list[Section] = Field(default_factory=list)
 
