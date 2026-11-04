@@ -16,7 +16,14 @@ import time
 from collections import deque
 from collections.abc import Callable, Sequence
 
-from src.copilot.hints import LANGUAGE_NAMES, HintFormatError, Line, transcript_text
+from src.copilot.hints import (
+    LANGUAGE_NAMES,
+    HintFormatError,
+    Line,
+    interviewee_clause,
+    speaker_labels,
+    transcript_text,
+)
 
 SUMMARY_FILE = "summary.json"
 SUMMARY_WORDS = 300
@@ -25,18 +32,29 @@ SUMMARY_MAX_TOKENS = 900
 HOUR_S = 3600.0
 
 
-def summary_messages(language: str, previous: str, lines: Sequence[Line], now: float) -> list[dict[str, str]]:
+def summary_messages(language: str, previous: str, lines: Sequence[Line], now: float,
+                     mode: str = "workshop", interviewee: str = "") -> list[dict[str, str]]:
     """The chat messages that fold ``lines`` into ``previous``."""
     lang = LANGUAGE_NAMES.get(language, "English")
-    system = (
-        "You keep the running summary of a live session (a workshop, an interview or a meeting) for its "
-        "facilitator. In the transcript, 'me' is the facilitator and 'them' is everyone else on the call. "
-        "Rewrite the summary so far to include the new transcript: the topics covered, what was decided, "
-        "open questions and points people raised more than once. Drop small talk. "
-        f"Answer with the summary only, plain text, at most {SUMMARY_WORDS} words, in {lang}."
-    )
+    labels = speaker_labels(mode, interviewee)
+    if mode == "interview":
+        system = (
+            "You keep the running summary of a remote one-to-one interview for the interviewer. In the transcript, "
+            f"'me' is the interviewer and {interviewee_clause(interviewee)}. Rewrite the summary so far to "
+            "include the new transcript: the topics covered, what the interviewee said about each, the questions "
+            "they have not answered yet and points they came back to. Drop small talk. "
+            f"Answer with the summary only, plain text, at most {SUMMARY_WORDS} words, in {lang}."
+        )
+    else:
+        system = (
+            "You keep the running summary of a live session (a workshop, an interview or a meeting) for its "
+            "facilitator. In the transcript, 'me' is the facilitator and 'them' is everyone else on the call. "
+            "Rewrite the summary so far to include the new transcript: the topics covered, what was decided, "
+            "open questions and points people raised more than once. Drop small talk. "
+            f"Answer with the summary only, plain text, at most {SUMMARY_WORDS} words, in {lang}."
+        )
     user = (f"Summary so far:\n{previous or '(none yet: this is the start of the session)'}\n\n"
-            f"New transcript since then, oldest first (time before now):\n{transcript_text(lines, now)}")
+            f"New transcript since then, oldest first (time before now):\n{transcript_text(lines, now, labels)}")
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 

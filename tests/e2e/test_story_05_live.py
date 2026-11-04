@@ -304,6 +304,27 @@ def _check_copilot(page: Page, webapp, session_yaml: Path) -> None:
     expect(page.locator("dialog[open]")).to_have_count(0)
     card.locator("[data-cop-on]").click()
     expect(card.locator(".p-meta")).to_have_text("off")
+    _check_interview(card, session_yaml)
+
+
+def _check_interview(card, session_yaml: Path) -> None:
+    """Interview on: the name field shows, a name saved with Enter lands in session.yaml; off again hides it."""
+    name = card.locator("[data-cop-name]")
+    expect(name).to_be_hidden()
+    card.locator("[data-cop-interview]").click()
+    expect(card.locator("[data-cop-interview]")).to_have_attribute("aria-checked", "true")
+    expect(name).to_be_focused()  # a new interview starts with the name
+    name.fill("Alex Doe")
+    name.press("Enter")
+    expect(name).not_to_be_focused()
+    expect(name).to_have_attribute("data-saved", "Alex Doe")  # set from the snapshot: the server has it
+    expect(name).to_have_value("Alex Doe")
+    surface(card.page, "presenter.copilot-interview")
+    text = session_yaml.read_text(encoding="utf-8")
+    assert "copilot_mode: interview" in text and "copilot_interviewee: Alex Doe" in text
+    card.locator("[data-cop-interview]").click()
+    expect(name).to_be_hidden()
+    expect(card.locator("[data-cop-interview]")).to_have_attribute("aria-checked", "false")
 
 
 def _check_start_over(page: Page, folder) -> None:

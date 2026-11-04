@@ -86,6 +86,22 @@ def test_overlay_settings_are_checked_and_kept(app, isolated_env: Path) -> None:
         assert pc.post("/api/copilot/sample").status_code == 200 and live_copilot(pc)["sample_at"]
 
 
+def test_mode_is_the_live_sessions_and_checked(app, isolated_env: Path) -> None:
+    with TestClient(app, client=("127.0.0.1", 50000)) as pc:
+        r = pc.put("/api/copilot/mode", json={"mode": "interview", "interviewee": "Alex Doe"})
+        assert r.status_code == 409 and r.json()["error"]["code"] == "not_live"
+        go_live_with_consent(pc, app)
+        r = pc.put("/api/copilot/mode", json={"mode": "panel"})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "validation_error"
+        body = pc.put("/api/copilot/mode", json={"mode": "interview", "interviewee": "Alex Doe"}).json()
+        assert (body["mode"], body["interviewee"]) == ("interview", "Alex Doe")
+        yaml_text = (isolated_env / "sessions" / "demo" / "live" / "session.yaml").read_text(encoding="utf-8")
+        assert "copilot_mode: interview" in yaml_text and "copilot_interviewee: Alex Doe" in yaml_text
+        assert live_copilot(pc)["interviewee"] == "Alex Doe"
+        conversation = pc.get(f"/api/sessions/{app.state.demo_sid}/results/conversation").json()
+        assert (conversation["mode"], conversation["interviewee"]) == ("interview", "Alex Doe")  # the Results card names them
+
+
 def test_local_only_is_the_sessions_and_phones_cannot_inject(app, isolated_env: Path) -> None:
     with TestClient(app, client=("127.0.0.1", 50000)) as pc:
         go_live_with_consent(pc, app)

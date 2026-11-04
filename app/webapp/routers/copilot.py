@@ -1,5 +1,5 @@
 """The live copilot: its overlay's settings and screens, the recordings' retention, the session's local-only
-switch, the facilitator's consent confirmation, a sample on the overlay and an injected transcript (a test or a
+switch and mode (workshop or interview), the facilitator's consent confirmation, a sample on the overlay and an injected transcript (a test or a
 rehearsal). Copilot on/off is the live action ``copilot_toggle`` (``src/live/actions.py``), so the presenter, the remote and a Stream Deck share it."""
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from app.webapp.errors import require_local
 from src import settings as settings_file
 from src.config import OVERLAY_MODES, OVERLAY_POSITIONS, OVERLAY_SHAPES
 from src.copilot.service import CopilotService
+from src.sessions.model import INTERVIEWEE_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,11 @@ class SettingsBody(BaseModel):
 
 class LocalOnly(BaseModel):
     local_only: bool
+
+
+class Mode(BaseModel):
+    mode: Literal["workshop", "interview"]  # src.sessions.model.COPILOT_MODES
+    interviewee: Optional[str] = Field(None, max_length=INTERVIEWEE_CHARS)  # None keeps the saved name
 
 
 class Spoken(BaseModel):
@@ -118,6 +124,15 @@ async def put_local_only(request: Request, body: LocalOnly) -> dict[str, Any]:
     """The live session's switch: hints from the local model only (saved in its ``session.yaml``)."""
     copilot = _copilot(request)
     copilot.set_local_only(body.local_only)
+    return copilot.snapshot()
+
+
+@router.put("/mode")
+async def put_mode(request: Request, body: Mode) -> dict[str, Any]:
+    """The live session's mode and its interviewee's name (saved in its ``session.yaml``); while Copilot is on
+    the next hint is asked in the new shape."""
+    copilot = _copilot(request)
+    copilot.set_mode(body.mode, body.interviewee)
     return copilot.snapshot()
 
 

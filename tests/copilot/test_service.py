@@ -111,6 +111,31 @@ def test_local_only_asks_the_local_model_alone(live: LiveHub, hub_fake: FakeHub)
     assert [c["model"] for c in hub_fake.calls_to("/v1/chat/completions")] == ["agentic_light"]
 
 
+def test_interview_mode_changes_the_prompt_and_the_speaker_label(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", **FAST)
+    copilot.set_mode("interview", "  Alex   Doe ")
+    saved = live.store.load(live.session_id)
+    assert (saved.copilot_mode, saved.copilot_interviewee) == ("interview", "Alex Doe")  # saved in session.yaml
+    copilot.start()
+    assert (copilot.snapshot()["mode"], copilot.snapshot()["interviewee"]) == ("interview", "Alex Doe")
+    copilot.inject([("me", "What slowed the last release?"), ("them", "Late changes, mostly")])
+    wait_for(lambda: copilot.snapshot()["hints"])
+    system, user = (m["content"] for m in hub_fake.calls_to("/v1/chat/completions")[0]["messages"])
+    assert "'Alex Doe' is the interviewee" in system
+    assert "me: What slowed the last release?" in user and "Alex Doe: Late changes, mostly" in user
+    lines = read_jsonl(live.folder / "live" / "copilot" / "transcript.jsonl")
+    assert [line["speaker"] for line in lines] == ["me", "them"]  # the file keeps the channel names
+    copilot.set_mode("workshop")  # switched while on: the next hint is asked at once, in the workshop shape
+    wait_for(lambda: len(hub_fake.calls_to("/v1/chat/completions")) == 2)
+    system, user = (m["content"] for m in hub_fake.calls_to("/v1/chat/completions")[1]["messages"])
+    assert "'them' is everyone else on the call" in system and "them: Late changes, mostly" in user
+    assert live.store.load(live.session_id).copilot_interviewee == "Alex Doe"  # the name is kept for later
+    with pytest.raises(CopilotError) as err:
+        copilot.set_mode("panel")
+    assert err.value.status == 422 and live.store.load(live.session_id).copilot_mode == "workshop"
+    copilot.stop()
+
+
 def test_failures_are_kept_apart_and_clear(live: LiveHub, hub_fake: FakeHub) -> None:
     copilot, box = make(live, hub_url="http://127.0.0.1:9", capture="off", **FAST)
     copilot.start()
@@ -153,12 +178,15 @@ def test_toggle_is_a_live_action_and_closing_the_session_stops_it(live: LiveHub,
     assert {"copilot_on", "copilot_off"} <= {e["event"] for e in read_jsonl(folder / "live" / "events.jsonl")}
 
 
-def test_a_plan_saved_from_an_older_copy_keeps_the_presenters_local_only(live: LiveHub) -> None:
+def test_a_plan_saved_from_an_older_copy_keeps_the_presenters_local_only_and_mode(live: LiveHub) -> None:
     copilot, _ = make(live, capture="off", hub_url="")
     older = live.store.load(live.session_id)  # the Plan tab loaded it before the switch was flipped
     copilot.set_local_only(True)
+    copilot.set_mode("interview", "Alex Doe")
     live.store.save_plan(live.session_id, older)
-    assert live.store.load(live.session_id).copilot_local_only is True
+    kept = live.store.load(live.session_id)
+    assert kept.copilot_local_only is True
+    assert (kept.copilot_mode, kept.copilot_interviewee) == ("interview", "Alex Doe")
 
 
 def test_the_rolling_summary_waits_its_interval_then_rides_in_the_hint_prompt(live: LiveHub, hub_fake: FakeHub) -> None:

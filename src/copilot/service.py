@@ -16,6 +16,10 @@ session is live; it is off whenever a session goes live, closes or is replaced. 
   computed from the clocks with no model call;
 - hint and summary calls are capped per sliding hour; a cap reached is its own line on the card.
 
+The session's mode shapes the prompts: ``workshop`` (``them`` is everyone else on the call) or ``interview``
+(``them`` is the interviewee, by name, and hints lean to follow-up questions); ``transcript.jsonl`` keeps the
+channel names either way.
+
 Its state rides on every live snapshot as ``copilot`` (the presenter's card and the overlay read
 it). Hints belong to the item they were asked for and live ``hint_ttl_s``: an item change clears
 them and an answer for an item no longer on stage is dropped, so a stale hint is never shown.
@@ -52,6 +56,7 @@ from src.copilot.hints import (
     drift_hint,
     drift_now,
     parse_hints,
+    speaker_labels,
     system_prompt,
     user_prompt,
 )
@@ -62,7 +67,7 @@ from src.copilot.vad import Chunk, Chunker
 from src.errors import DomainError
 from src.jsonl import JsonlAppender
 from src.live.hub import LiveHub, now_ms
-from src.sessions.model import COPILOT_CONSENT, Session
+from src.sessions.model import COPILOT_CONSENT, COPILOT_MODES, INTERVIEWEE_CHARS, Session
 from src.sessions.store import SessionError, atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -146,6 +151,8 @@ class CopilotService:
         self.config = config
         self.on = False
         self.local_only = False
+        self.mode = "workshop"
+        self.interviewee = ""
         self.started_at: Optional[int] = None
         self.channels: dict[str, dict[str, str]] = {}
         self.problems: dict[str, str] = {}
@@ -201,7 +208,7 @@ class CopilotService:
         try:
             return self.live.store.load(self.live.session_id)
         except SessionError as exc:
-            logger.warning("⚠️ copilot: session %s unreadable (%s) — local only stays as it was", self.live.session_id, exc)
+            logger.warning("⚠️ copilot: session %s unreadable (%s) — its switches stay as they were", self.live.session_id, exc)
             return None
 
     # --------------------------------------------------------------- lifecycle
@@ -251,7 +258,7 @@ class CopilotService:
             logger.warning("⚠️ copilot: capture %r is not one of %s — recording nothing", cfg.capture, ", ".join(COPILOT_CAPTURE))
         session = self._load_session()
         if session is not None:
-            self.local_only = session.copilot_local_only
+            self._from_session(session)
         run = _Run(self.live.session_id, str(self.live.run.get("language") or "en"), self.local_only)
         stamp = datetime.now().strftime("%H%M%S")
         folder = self._dir()
@@ -315,9 +322,16 @@ class CopilotService:
         self._hints_log.forget()
         self._forget_summary()
         session = self._load_session() if sid else None
-        self.local_only = bool(session and session.copilot_local_only)
+        self.local_only, self.mode, self.interviewee = False, "workshop", ""
+        if session is not None:
+            self._from_session(session)
         if self.live.folder is not None:
             purge_recordings(self.live.folder, self.config().recording_retention_days)
+
+    def _from_session(self, session: Session) -> None:
+        """The presenter's switches as the live session's ``session.yaml`` has them."""
+        self.local_only = session.copilot_local_only
+        self.mode, self.interviewee = session.copilot_mode, session.copilot_interviewee
 
     def _reset(self) -> None:
         """The presenter started the session over: the transcript so far went with the old ``live/``."""
@@ -359,6 +373,30 @@ class CopilotService:
         if self._run is not None:
             self._run.local_only = value
         logger.info("ℹ️ copilot: hints from %s", "the local model only" if value else "the configured models")
+        self.live.push_state()
+
+    def set_mode(self, mode: str, interviewee: Optional[str] = None) -> None:
+        """Save the session's mode (and the interviewee's name; None keeps it) in ``session.yaml``, the file
+        first: a failed save changes nothing. While Copilot is on, a fresh hint is asked in the new shape."""
+        if self.live.session_id is None:
+            raise CopilotError(409, "not_live", "No session is live")
+        if mode not in COPILOT_MODES:
+            raise CopilotError(422, "unknown_mode", f"Mode must be one of {', '.join(COPILOT_MODES)}")
+        name = self.interviewee if interviewee is None else " ".join(interviewee.split())[:INTERVIEWEE_CHARS]
+
+        def change(session: Session) -> None:
+            session.copilot_mode, session.copilot_interviewee = mode, name
+
+        try:
+            self.live.store.edit(self.live.session_id, change)
+        except (SessionError, OSError) as exc:
+            logger.error("❌ copilot: mode could not be saved (%s)", exc)
+            raise CopilotError(500, "mode_not_saved", "The mode could not be saved to session.yaml") from exc
+        changed = (mode, name) != (self.mode, self.interviewee)
+        self.mode, self.interviewee = mode, name
+        logger.info("ℹ️ copilot: %s mode%s", mode, " (interviewee named)" if mode == "interview" and name else "")
+        if changed and self.on:
+            self._request_hint("mode")
         self.live.push_state()
 
     # ----------------------------------------------------------------- capture
@@ -547,9 +585,10 @@ class CopilotService:
         tail = [ln for ln in self.lines if now - ln.ended_at <= cfg.context_minutes * 60]
         clock = clock_state(self.live.run, cur, self.live.clock_started_at, self.live.section_entered,
                             self.live.duration_minutes, now_ms())
-        messages = [{"role": "system", "content": system_prompt(run.language)},
+        messages = [{"role": "system", "content": system_prompt(run.language, self.mode, self.interviewee)},
                     {"role": "user", "content": user_prompt(self.live.session_title, cur, nxt, clock, tail, now,
-                                                            self.summary["text"] if self.summary else "")}]
+                                                            self.summary["text"] if self.summary else "",
+                                                            speaker_labels(self.mode, self.interviewee))}]
         request = _HintRequest(self._hint_seq, cur["id"] if cur else None, reason, messages, now)
         try:
             run.hints.get_nowait()  # an older request still waiting is superseded by this one
@@ -687,7 +726,8 @@ class CopilotService:
             return
         lines, self._unsummarised = self._unsummarised, []
         now = time.time()
-        messages = summary_messages(run.language, self.summary["text"] if self.summary else "", lines, now)
+        messages = summary_messages(run.language, self.summary["text"] if self.summary else "", lines, now,
+                                    self.mode, self.interviewee)
         self._summary_in_flight, self._summary_due = True, time.monotonic() + cfg.summary_interval_s
         run.summaries.put(_SummaryRequest(self._summary_gen, lines, messages, now))
 
@@ -755,6 +795,8 @@ class CopilotService:
             "consent": self.consented(),
             "started_at": self.started_at if self.on else None,
             "local_only": self.local_only,
+            "mode": self.mode,
+            "interviewee": self.interviewee,
             "capture": cfg.capture,
             "channels": [{"speaker": s, **c} for s, c in self.channels.items()],
             "behind_s": round(behind),

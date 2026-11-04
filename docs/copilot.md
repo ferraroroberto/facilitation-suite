@@ -12,6 +12,12 @@ The presenter's **Copilot** card, under the notes, has the switch (also the live
 
 The card's **Local only** switch belongs to the session (saved as `copilot_local_only` in its `session.yaml`): hints then come from the local model alone (`copilot.local_model`), for a meeting whose content must not reach a cloud model. Transcription always goes to the hub's whisper.
 
+## Interview mode
+
+The card's **Interview** switch is for a remote one-to-one interview. It belongs to the session too (saved as `copilot_mode: interview` in its `session.yaml`, `workshop` otherwise) and shows a field for the interviewee's name, saved as `copilot_interviewee` on Enter or when the field loses focus (Escape puts the saved name back). Both are the presenter's: a Plan-tab save keeps them as the file has them, like local only. The route is `PUT /api/copilot/mode` (`{mode, interviewee}`; an `interviewee` left out keeps the saved name): 409 when no session is live, 422 for a mode that is neither `workshop` nor `interview`.
+
+In interview mode the hint and summary prompts change shape: `me` is the interviewer and `them` is the interviewee, named in the transcript the model reads (`interviewee` when no name is saved). The hints favour `next_q` follow-ups built on what the interviewee just said and `notice` hints about questions they have not answered yet; `recap` is rare. The summary tracks what the interviewee said on each topic and what is still unanswered. `transcript.jsonl` keeps the channel names `me` and `them` either way; the Results tab's **Conversation** card shows the interviewee's name instead of *Them*. Switching while Copilot is on applies to the next hint and asks for one at once (logged as `reason: mode`). The workshop prompts are unchanged, and the mode changes nothing about consent or the **Recording** mark.
+
 ## What happens while it is on
 
 | Step | What |

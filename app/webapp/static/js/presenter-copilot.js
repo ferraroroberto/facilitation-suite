@@ -44,7 +44,41 @@ async function switchCopilot(live, next, btn) {
   live.send('copilot_toggle');
 }
 
-/** Wire the card's two switches; `live` is the cockpit's connection. */
+/** Save the session's mode (and the interviewee's name when given); the snapshot that follows redraws the card. */
+async function saveMode(body) {
+  try {
+    await api('/api/copilot/mode', { method: 'PUT', body });
+    return true;
+  } catch (e) {
+    toast(e.message, 'error');
+    return false;
+  }
+}
+
+/** The interviewee's name, shown while Interview is on: saved on blur or Enter, put back on Escape. */
+function nameField() {
+  const input = document.createElement('input');
+  input.className = 'input p-cop-name';
+  input.type = 'text';
+  input.maxLength = 80; // src.sessions.model.INTERVIEWEE_CHARS
+  input.placeholder = "Interviewee's name";
+  input.setAttribute('aria-label', "Interviewee's name");
+  input.dataset.copName = '';
+  input.dataset.track = 'live.copilot-interviewee';
+  input.hidden = true;
+  const save = () => {
+    const name = input.value.trim().replace(/\s+/g, ' ');
+    if (name !== (input.dataset.saved || '')) saveMode({ mode: 'interview', interviewee: name });
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = input.dataset.saved || ''; input.blur(); }
+  });
+  return input;
+}
+
+/** Wire the card's switches and the interviewee's name; `live` is the cockpit's connection. */
 function buildCopilot(body, live) {
   body.innerHTML = '<div class="p-cop-row" data-cop-switches></div><div class="p-cop-status" data-cop-status></div>' +
     '<ol class="p-hints" data-cop-hints></ol><p class="small muted p-cop-idle" data-cop-idle></p>';
@@ -67,7 +101,18 @@ function buildCopilot(body, live) {
   }, 'Hints from the local model only');
   local.querySelector('[role=switch]').dataset.copLocal = '';
   local.querySelector('[role=switch]').dataset.track = 'live.copilot-local-only';
-  row.append(on, rec, local);
+  const name = nameField();
+  const interview = switchRow(false, 'Interview', async (next, btn) => {
+    if (!(await saveMode({ mode: next ? 'interview' : 'workshop' }))) {
+      setSwitch(btn, !next);
+    } else if (next && !name.dataset.saved) {
+      name.hidden = false;
+      name.focus(); // a new interview starts with the name
+    }
+  }, 'Interview mode: hints about the interviewee');
+  interview.querySelector('[role=switch]').dataset.copInterview = '';
+  interview.querySelector('[role=switch]').dataset.track = 'live.copilot-interview';
+  row.append(on, rec, local, interview, name);
 }
 
 /** The card for this snapshot: switches, what is recorded, each failure on its own line, the hints. */
@@ -80,6 +125,12 @@ export function drawCopilot(card, live, cur) {
   const now = live.now();
   setSwitch(card.querySelector('[data-cop-on]'), !!c.on);
   setSwitch(card.querySelector('[data-cop-local]'), !!c.local_only);
+  const interview = c.mode === 'interview';
+  setSwitch(card.querySelector('[data-cop-interview]'), interview);
+  const name = card.querySelector('[data-cop-name]');
+  name.hidden = !interview;
+  name.dataset.saved = c.interviewee || '';
+  if (document.activeElement !== name) name.value = c.interviewee || ''; // never under the facilitator's typing
   const recording = c.on && c.channels.some((ch) => ch.state === 'recording');
   const rec = card.querySelector('[data-cop-rec]');
   rec.hidden = !recording;

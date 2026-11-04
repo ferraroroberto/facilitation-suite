@@ -16,11 +16,12 @@ from src.copilot.hints import (
     drift_hint,
     drift_now,
     parse_hints,
+    speaker_labels,
     system_prompt,
     user_prompt,
 )
 from src.copilot.hub_client import HubDown, HubError, HubTimeout, complete, transcribe
-from src.copilot.summary import RateLimit, parse_summary
+from src.copilot.summary import RateLimit, parse_summary, summary_messages
 from tests.copilot.synth import tone
 from tests.fixtures.fake_hub import FakeHub
 
@@ -68,6 +69,23 @@ def test_prompt_carries_the_plan_and_the_recent_lines_only_as_given() -> None:
     assert "Next: nothing (the end of the session)." in text
     assert "[-01:30] them: I like the cheap one\n[-01:00] me: Why that one?" in text
     assert "Spanish" in system_prompt("es") and "12 words" in system_prompt("en")
+
+
+def test_interview_mode_names_the_interviewee_and_leans_to_follow_ups() -> None:
+    lines = [Line("me", "What slowed the last release?", 1000.0), Line("them", "Late changes, mostly", 1030.0)]
+    labels = speaker_labels("interview", "Alex Doe")
+    system, text = system_prompt("en", "interview", "Alex Doe"), user_prompt("Synthetic call", None, None, "On time.", lines, 1090.0, labels=labels)
+    assert "one-to-one interview" in system and "'Alex Doe' is the interviewee" in system and "Favour next_q and notice" in system
+    assert "[-01:30] me: What slowed the last release?\n[-01:00] Alex Doe: Late changes, mostly" in text
+    assert "'interviewee' is the person being interviewed" in system_prompt("en", "interview", "")  # no name yet
+    assert speaker_labels("interview", "")["them"] == "interviewee" and "drift" not in system
+    summary = summary_messages("en", "", lines, 1090.0, "interview", "Alex Doe")
+    assert "'Alex Doe' is the interviewee" in summary[0]["content"] and "Alex Doe: Late changes" in summary[1]["content"]
+    # the workshop prompts are as they were, whatever name is saved
+    assert system_prompt("en", "workshop", "Alex Doe") == system_prompt("en")
+    assert "'them' is everyone else on the call" in system_prompt("en")
+    assert summary_messages("en", "", lines, 1090.0, "workshop", "Alex Doe") == summary_messages("en", "", lines, 1090.0)
+    assert "them: Late changes" in summary_messages("en", "", lines, 1090.0)[1]["content"]
 
 
 def test_chain_falls_back_then_stops_on_a_dead_hub() -> None:
