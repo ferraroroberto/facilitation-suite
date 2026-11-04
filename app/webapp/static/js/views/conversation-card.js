@@ -1,14 +1,18 @@
-// The Conversation card (Results tab): the live copilot's transcript read back with its hints, under
-// the item each belongs to. Read-only; GET /api/sessions/<id>/results/conversation does the ordering
-// and grouping. A session the copilot never ran in shows no card.
+// The Conversation card (Results tab): the copilot's transcript read back with its hints, under the
+// item each belongs to. GET /api/sessions/<id>/results/conversation does the ordering and grouping. Two
+// transcripts can exist: the one recorded from the podcast recorder's tracks after the call, shown
+// first, and the live one; a switch picks between them. A session the copilot never ran in, and whose
+// consent was never confirmed, shows no card.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc } from '/static/js/ui.js';
+import { recorderSection, summaryHtml } from '/static/js/views/conversation-recorder.js';
 
 const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
 const REASON = { item: 'On item change', them: 'After a line from them', inject: 'After injected lines', drift: 'Clock', mode: 'On mode change' };
 const FAILURE = { hub_down: 'hub down', timeout: 'timed out' };
+const SOURCE_LABEL = { recorded: 'Recorded', live: 'Live' };
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -49,9 +53,16 @@ function hintRow(e) {
     `<div class="grow">${hints}<div class="convo-hint-meta"><span class="row-meta">${esc(meta)}</span>${chip}</div></div>${time(e.at_ms)}</div>`;
 }
 
+/** Recorded · Live, when both transcripts have lines. */
+function sourceSwitch(c) {
+  if (c.sources.length < 2) return '';
+  return `<div class="segmented convo-source" role="group" aria-label="Transcript" data-track="results.conversation-source">${c.sources.map((s) =>
+    `<button type="button" class="segmented-item" aria-pressed="${s === c.source}" data-source="${s}">${SOURCE_LABEL[s] || s}</button>`).join('')}</div>`;
+}
+
 function body(c) {
   const names = speakers(c);
-  return c.segments.map((s) => `<section class="convo-item" data-item="${esc(s.item_id || '')}">` +
+  return sourceSwitch(c) + (c.source === 'recorded' ? summaryHtml(c.summary) : '') + c.segments.map((s) => `<section class="convo-item" data-item="${esc(s.item_id || '')}">` +
     `<h4 class="convo-item-title">${esc(segmentTitle(s))}</h4>` +
     `<div class="list">${s.entries.map((e) => (e.kind === 'line' ? lineRow(e, names) : hintRow(e))).join('')}</div></section>`).join('');
 }
@@ -65,21 +76,32 @@ export function conversationCard(sid) {
     `<h3 class="collapse-title">Conversation</h3><span class="collapse-count">${esc(meta)}</span></span>` +
     '<span class="collapse-chevron" aria-hidden="true">›</span></summary>';
 
-  async function load() {
+  async function load(source) {
     let c;
+    let st;
     try {
-      c = await api(`/api/sessions/${sid}/results/conversation`);
+      [c, st] = await Promise.all([
+        api(`/api/sessions/${sid}/results/conversation${source ? `?source=${source}` : ''}`),
+        // The recorder section is extra: the conversation still shows when its state cannot be read.
+        api(`/api/sessions/${sid}/results/recorded`).catch(() => null),
+      ]);
     } catch (e) {
       card.dataset.state = 'error';
       card.hidden = false;
       card.open = true;
       card.innerHTML = `${summary('could not be read')}<div class="collapse-body"></div>`;
-      card.querySelector('.collapse-body').appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
+      card.querySelector('.collapse-body').appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: () => load(source) }));
       return;
     }
     card.dataset.state = c.segments.length ? 'ready' : 'empty';
-    card.hidden = !c.segments.length;
-    card.innerHTML = `${summary(count(c))}<div class="collapse-body convo-body">${body(c)}</div>`;
+    card.dataset.source = c.source;
+    card.hidden = !c.segments.length && !(st && (st.consent || st.transcript));
+    card.innerHTML = `${summary(c.segments.length ? count(c) : 'no transcript yet')}<div class="collapse-body convo-body">${body(c)}</div>`;
+    card.querySelector('.convo-source')?.addEventListener('click', (e) => {
+      const seg = e.target.closest('.segmented-item');
+      if (seg && seg.getAttribute('aria-pressed') !== 'true') load(seg.dataset.source);
+    });
+    if (st) card.querySelector('.collapse-body').appendChild(recorderSection(sid, st, () => load()));
   }
 
   load();

@@ -70,6 +70,7 @@ from app.webapp.routers import (
     pages,
     quiz,
     rebuild,
+    recorded,
     results,
     sessions,
     settings,
@@ -82,6 +83,7 @@ from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
 from src.compression import StreamSafeGZipMiddleware
 from src.config import data_dir, load_config, profiles
+from src.copilot.after_call import AfterCall
 from src.copilot.service import CopilotService
 from src.errors import DomainError
 from src.importer.service import Importer
@@ -327,6 +329,7 @@ def create_app() -> FastAPI:
     app.state.live.extra_state.append(lambda: {"stage_click": settings.stage_click_state(app.state.config)})
     _install_chat(app)
     _install_copilot(app)
+    app.state.after_call = AfterCall(lambda: app.state.config.copilot)
     _install_obs(app)
     _install_music(app)
     _install_quiz(app)
@@ -351,6 +354,7 @@ def create_app() -> FastAPI:
     app.include_router(copilot.router)
     app.include_router(groups.router)
     app.include_router(results.router)
+    app.include_router(recorded.router)
     app.include_router(rebuild.router)
     app.include_router(settings.router)
     app.include_router(actions.router)

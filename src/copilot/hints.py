@@ -28,6 +28,8 @@ MAX_WORDS = 12
 NOTES_CHARS = 1500  # one item's notes in the prompt: enough for real speaker notes, never a whole script
 LANGUAGE_NAMES = {"en": "English", "es": "Spanish"}
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
+# Whisper's own words for "nothing here" ("[BLANK_AUDIO]", "(music)") are not speech.
+NOT_SPEECH = re.compile(r"^[\[(][^\])]*[\])]$|^[\s.…,!?-]*$")
 
 
 class HintFormatError(Exception):
@@ -216,6 +218,12 @@ def parse_hints(text: str, types: Sequence[str] = HINT_TYPES) -> list[Hint]:
 
 
 Complete = Callable[[str, list[dict[str, str]], float], str]
+
+
+def model_chain(hint_models: Sequence[str], local_model: str, local_only: bool) -> list[str]:
+    """The models asked, in order: the hint models then the local one, or the local one alone for a local-only session."""
+    chain = [local_model] if local_only else [*hint_models, local_model]
+    return list(dict.fromkeys(str(m).strip() for m in chain if str(m).strip()))
 
 
 def ask_chain(complete: Complete, models: Sequence[str], messages: list[dict[str, str]], budget_s: float,

@@ -63,7 +63,8 @@ def test_a_line_sits_where_it_was_said_not_where_it_was_transcribed(isolated_env
 def test_a_session_without_the_copilot_has_no_conversation(client, isolated_env: Path) -> None:
     sid, _ = _session(isolated_env)
     data = client.get(f"/api/sessions/{sid}/results/conversation").json()
-    assert data == {"lines": 0, "hints": 0, "stale": 0, "failed": 0, "segments": [], "mode": "workshop", "interviewee": ""}
+    assert data == {"lines": 0, "hints": 0, "stale": 0, "failed": 0, "segments": [], "mode": "workshop", "interviewee": "",
+                    "source": "live", "sources": [], "summary": None}
 
 
 def test_damaged_records_and_summaries_are_left_out_and_an_item_gone_from_the_plan_keeps_its_hints(isolated_env: Path) -> None:

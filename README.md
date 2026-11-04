@@ -68,7 +68,7 @@ Each feature has its own reference in `docs/`:
 - **OBS** — camera layouts over obs-websocket: [docs/obs.md](docs/obs.md)
 - **Stream Deck** — every live control as one URL: [docs/stream-deck.md](docs/stream-deck.md)
 - **The chat reader (Zoom, Teams or Meet)** — how answers are read locally: [docs/chat-reader.md](docs/chat-reader.md)
-- **Live copilot** — your mic and the call recorded and transcribed through the local hub, discreet hints on the presenter and an always-on-top overlay, a workshop or a one-to-one interview mode: [docs/copilot.md](docs/copilot.md)
+- **Live copilot** — your mic and the call recorded and transcribed through the local hub, discreet hints on the presenter and an always-on-top overlay, a workshop or a one-to-one interview mode, and an after-call transcript and summary from the podcast recorder's per-side tracks: [docs/copilot.md](docs/copilot.md)
 - **Settings** and **Configuration** — [docs/settings.md](docs/settings.md), [docs/configuration.md](docs/configuration.md)
 - **Sessions** — the session folder: [docs/sessions.md](docs/sessions.md)
 - **Running and operating** — appearance, HTTPS, logs: [docs/operations.md](docs/operations.md)

@@ -33,7 +33,6 @@ from __future__ import annotations
 import json
 import logging
 import queue
-import re
 import threading
 import time
 from collections import deque
@@ -49,12 +48,14 @@ from src.copilot.capture import CaptureError, DeviceSource, FileSource
 from src.copilot.hints import (
     MAX_HINTS,
     MODEL_HINT_TYPES,
+    NOT_SPEECH,
     Answer,
     Line,
     ask_chain,
     clock_state,
     drift_hint,
     drift_now,
+    model_chain,
     parse_hints,
     speaker_labels,
     system_prompt,
@@ -83,8 +84,6 @@ TRANSCRIBE_TIMEOUT_S = 90
 SUMMARY_TIMEOUT_S = 60
 # How often the clocks are checked for drift and a reached cap for room again, while Copilot is on.
 TICK_S = 15
-# Whisper's own words for "nothing here" ("[BLANK_AUDIO]", "(music)") are not speech.
-_NOT_SPEECH = re.compile(r"^[\[(][^\])]*[\])]$|^[\s.…,!?-]*$")
 PROBLEM_TEXT = {
     "no_hub": "No hub configured (copilot.hub_url)",
     "hub_down": "Hub down",
@@ -511,7 +510,7 @@ class CopilotService:
             self.live.push_state()
             return
         self._clear_problems("transcribe_error", "hub_down")
-        if not text or _NOT_SPEECH.match(text) or run.session_id != self.live.session_id:
+        if not text or NOT_SPEECH.match(text) or run.session_id != self.live.session_id:
             self.live.push_state()
             return
         lag_ms = int((done_at - chunk.ended_at) * 1000)
@@ -599,8 +598,7 @@ class CopilotService:
 
     def _models(self, run: _Run) -> list[str]:
         cfg = self.config()
-        chain = [cfg.local_model] if run.local_only else [*cfg.hint_models, cfg.local_model]
-        return list(dict.fromkeys(str(m).strip() for m in chain if str(m).strip()))
+        return model_chain(cfg.hint_models, cfg.local_model, run.local_only)
 
     def _hint_worker(self, run: _Run) -> None:
         while True:

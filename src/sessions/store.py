@@ -265,9 +265,9 @@ class SessionStore:
             return self.save(sid, session)
 
     def save_plan(self, sid: str, session: Session) -> Session:
-        """The Plan tab's save. The excluded senders, the copilot's local-only switch, its mode and interviewee
-        and its recorded consent belong to the presenter, so a plan sent from a copy loaded before any of them
-        changed keeps them as the file has them now."""
+        """The Plan tab's save. The excluded senders, the copilot's local-only switch, its mode and interviewee,
+        the recorder folder (the Results tab's) and its recorded consent belong elsewhere, so a plan sent from a
+        copy loaded before any of them changed keeps them as the file has them now."""
         with self._lock:
             try:
                 kept = self.load(sid)
@@ -275,6 +275,7 @@ class SessionStore:
                 session.copilot_local_only = kept.copilot_local_only
                 session.copilot_mode = kept.copilot_mode
                 session.copilot_interviewee = kept.copilot_interviewee
+                session.copilot_recorder_folder = kept.copilot_recorder_folder
                 if kept.checklist.get(COPILOT_CONSENT):
                     session.checklist[COPILOT_CONSENT] = True
             except SessionError:

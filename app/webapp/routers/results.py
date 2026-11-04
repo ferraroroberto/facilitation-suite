@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
@@ -109,10 +109,11 @@ def results(request: Request, sid: str) -> dict[str, Any]:
 
 
 @router.get("/results/conversation")
-def conversation(request: Request, sid: str) -> dict[str, Any]:
-    """The live copilot's transcript with its hints, under the items they belong to (no segments without the copilot)."""
+def conversation(request: Request, sid: str, source: Optional[Literal["recorded", "live"]] = None) -> dict[str, Any]:
+    """The copilot's transcript with its hints, under the items they belong to (no segments without the copilot):
+    the recorded one when there is one, unless ``source`` asks for the other."""
     folder, session = _load(request, sid)
-    return load_conversation(folder, session)
+    return load_conversation(folder, session, source)
 
 
 @router.get("/analysis")

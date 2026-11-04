@@ -694,6 +694,15 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .convo-hint-meta .row-meta { white-space: normal; }
 .convo-hint--stale .convo-hints, .convo-hint--empty .convo-hints { color: var(--muted); }
 .convo-hint-none { margin: 0; }
+/* The recorded transcript's switch and its summary of the call sit above the items; the recorder's folder below them. */
+.convo-source { justify-self: start; }
+.convo-summary { display: grid; gap: 4px; }
+.convo-summary p { margin: 0; overflow-wrap: anywhere; }
+.convo-recorder { display: grid; gap: var(--space-sm); padding-top: var(--space-md); border-top: 1px solid var(--line-muted); }
+.convo-recorder-form { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.convo-recorder-form .input { flex: 1 1 16em; min-width: 0; }
+.convo-recorder-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.convo-recorder-state p { margin: 0; overflow-wrap: anywhere; }
 
 /* The Rebuild results card: the preview's rows say per activity what moves. */
 .rebuild-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); margin-top: var(--space-md); }

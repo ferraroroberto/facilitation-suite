@@ -1,7 +1,7 @@
 """A stand-in for the local LLM hub: the two OpenAI-shaped endpoints the copilot calls.
 
-``POST /v1/audio/transcriptions`` answers ``verbose_json`` with the next scripted text (or a fixed
-sentence); ``POST /v1/chat/completions`` answers each model with its scripted hints JSON, and a
+``POST /v1/audio/transcriptions`` answers ``verbose_json`` with the next scripted text, whole answer
+or error status (or a fixed sentence); ``POST /v1/chat/completions`` answers each model with its scripted hints JSON, and a
 rolling-summary request with ``summary``. A model in
 ``failing`` gets an HTTP 500, ``delay_s`` holds every answer back (a slow hub). Every call is
 recorded with the form fields or JSON body it carried. Synthetic data only.
@@ -30,7 +30,7 @@ class _QuietServer(ThreadingHTTPServer):
 class FakeHub:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
-        self.transcripts: list[str] = []
+        self.transcripts: list[str | dict[str, Any] | int] = []
         self.answers: dict[str, Any] = {}  # model → the hints object (or raw text) it answers
         self.failing: set[str] = set()
         self.delay_s = 0.0
@@ -49,8 +49,13 @@ class FakeHub:
                     fields = dict(re.findall(rb'name="(\w+)"\r\n\r\n([^\r]*)\r\n', body))
                     hub.calls.append({"path": self.path, **{k.decode(): v.decode() for k, v in fields.items()},
                                       "bytes": len(body)})
-                    text = hub.transcripts.pop(0) if hub.transcripts else "We could test the cheapest idea first."
-                    self._json(200, {"text": text, "language": "english", "segments": []})
+                    script = hub.transcripts.pop(0) if hub.transcripts else "We could test the cheapest idea first."
+                    if isinstance(script, int):  # a scripted error status
+                        self._json(script, {"error": {"message": "whisper failed"}})
+                    elif isinstance(script, dict):  # a whole verbose_json answer, segments and all
+                        self._json(200, script)
+                    else:
+                        self._json(200, {"text": script, "language": "english", "segments": []})
                 elif self.path == "/v1/chat/completions":
                     req = json.loads(body)
                     hub.calls.append({"path": self.path, "model": req["model"], "messages": req["messages"]})

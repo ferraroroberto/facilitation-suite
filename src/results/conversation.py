@@ -9,6 +9,11 @@ The copilot (``src/copilot/service.py``) leaves two logs in ``live/copilot/``:
   for, the ``reason``, the ``model``, the ``hints``, and ``failure`` or ``dropped: "stale"`` when
   none of it reached the presenter. A rolling-summary refresh is logged there too and left out here.
 
+After the call the recorder's takes may add ``recorder-transcript.jsonl`` (``src/copilot/after_call.py``):
+the same conversation transcribed from each side's own track, each line at ``t0``, when it was said.
+Either transcript can be read back with the hints (``source``); the recorded one comes first when both
+exist, since it is the better text, and brings its one summary of the call.
+
 A line is placed when it was said (``at`` less its lag) and a hint when it came back; each is then
 grouped under an item — a line under the item on stage then (``live/events.jsonl``), a hint under
 the item it was asked for, so a stale answer that came back after the item changed still sits
@@ -22,6 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.copilot.after_call import read_recorded, read_recorded_summary
 from src.copilot.service import HINTS_FILE, TRANSCRIPT_FILE
 from src.importer.review import read_meta
 from src.jsonl import read_jsonl
@@ -33,6 +39,8 @@ logger = logging.getLogger(__name__)
 # The events that put an item on stage: the session going live on its current item, and every move.
 _ON_STAGE_EVENTS = ("session_live", "item")
 SUMMARY_REASON = "summary"
+# The transcripts a conversation can be read from, the preferred one first.
+SOURCES = ("recorded", "live")
 
 
 def _epoch_ms(value: Any) -> Optional[int]:
@@ -66,6 +74,14 @@ def _line(rec: dict[str, Any], moves: list[tuple[int, Optional[str]]]) -> Option
             "text": str(rec["text"]).strip(), "injected": bool(rec.get("injected"))}
 
 
+def _recorded_line(rec: dict[str, Any], moves: list[tuple[int, Optional[str]]]) -> Optional[dict[str, Any]]:
+    at = rec.get("t0")
+    if not isinstance(at, int) or not str(rec.get("text") or "").strip():
+        return None
+    return {"kind": "line", "at_ms": at, "item_id": _item_at(moves, at), "speaker": str(rec.get("speaker") or ""),
+            "text": str(rec["text"]).strip(), "injected": False}
+
+
 def _status(rec: dict[str, Any]) -> str:
     if rec.get("failure"):
         return "failed"
@@ -85,18 +101,24 @@ def _hint(rec: dict[str, Any]) -> Optional[dict[str, Any]]:
             "status": _status({**rec, "hints": hints}), "failure": str(rec.get("failure") or "")}
 
 
-def load_conversation(folder: Path, session: Session) -> dict[str, Any]:
-    """The transcript and the hints in the order they happened, in runs under the item they belong to.
+def load_conversation(folder: Path, session: Session, source: Optional[str] = None) -> dict[str, Any]:
+    """A transcript and the hints in the order they happened, in runs under the item they belong to.
 
-    ``segments`` is empty when the copilot never ran in this session (or left nothing readable). ``mode``
-    and ``interviewee`` are the session's, so an interview names the other side.
+    ``source`` picks the transcript (``recorded`` or ``live``); left out, the first of ``SOURCES`` that has
+    lines. ``sources`` lists the ones that have lines. ``segments`` is empty when the copilot never ran in this
+    session (or left nothing readable). ``mode`` and ``interviewee`` are the session's, so an interview names
+    the other side; ``summary`` is the recorded transcript's summary, read with that transcript only.
     """
     copilot = folder / "live" / "copilot"
     moves = _on_stage(read_jsonl(folder / "live" / "events.jsonl"))
-    raw_lines = read_jsonl(copilot / TRANSCRIPT_FILE)
+    raw = {"recorded": read_recorded(folder), "live": read_jsonl(copilot / TRANSCRIPT_FILE)}
+    read = {"recorded": _recorded_line, "live": _line}
+    parsed = {name: [ln for ln in (read[name](r, moves) for r in raw[name]) if ln is not None] for name in SOURCES}
+    sources = [name for name in SOURCES if parsed[name]]
+    chosen = source if source in SOURCES else (sources[0] if sources else "live")
+    raw_lines, lines = raw[chosen], parsed[chosen]
     # A rolling-summary refresh is logged beside the hints (``reason: summary``) but is no hint and has no item.
     raw_hints = [r for r in read_jsonl(copilot / HINTS_FILE) if r.get("reason") != SUMMARY_REASON]
-    lines = [ln for ln in (_line(r, moves) for r in raw_lines) if ln is not None]
     hints = [h for h in (_hint(r) for r in raw_hints) if h is not None]
     skipped = len(raw_lines) + len(raw_hints) - len(lines) - len(hints)
     if skipped:
@@ -115,4 +137,5 @@ def load_conversation(folder: Path, session: Session) -> dict[str, Any]:
     return {"lines": len(lines), "hints": sum(len(h["hints"]) for h in hints if h["status"] == "shown"),
             "stale": sum(1 for h in hints if h["status"] == "stale"),
             "failed": sum(1 for h in hints if h["status"] == "failed"), "segments": segments,
-            "mode": session.copilot_mode, "interviewee": session.copilot_interviewee}
+            "mode": session.copilot_mode, "interviewee": session.copilot_interviewee, "source": chosen,
+            "sources": sources, "summary": read_recorded_summary(folder) if chosen == "recorded" else None}
