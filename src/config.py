@@ -36,6 +36,7 @@ DEFAULT_LOCAL_PORT = 8456
 # phone remote, never the stage or /play (they follow the session theme): one
 # value for every open page on every device.
 APPEARANCES = ("system", "light", "dark")
+SERVERS = ("hypercorn", "uvicorn")
 
 
 @dataclass(frozen=True)
@@ -194,6 +195,8 @@ class AppConfig:
     # Default parent folder for new sessions: <session_root>/<workshop>/<session>.
     session_root: str = ""
     appearance: str = "system"  # one of APPEARANCES
+    # hypercorn serves HTTP/2 over the certificate; uvicorn is the HTTP/1.1 fallback.
+    server: str = "hypercorn"
     obs: ObsConfig = field(default_factory=ObsConfig)
     reader: ReaderConfig = field(default_factory=ReaderConfig)
     remote: RemoteConfig = field(default_factory=RemoteConfig)
@@ -298,6 +301,10 @@ def load_config() -> AppConfig:
         if appearance not in APPEARANCES:
             logger.warning("⚠️ config: appearance %r is not one of %s — using system", appearance, ", ".join(APPEARANCES))
             appearance = "system"
-        return AppConfig(**{**cfg.__dict__, "appearance": appearance, "source": str(candidate)})
+        server = cfg.server
+        if server not in SERVERS:
+            logger.warning("⚠️ config: server %r is not one of %s — using hypercorn", server, ", ".join(SERVERS))
+            server = SERVERS[0]
+        return AppConfig(**{**cfg.__dict__, "appearance": appearance, "server": server, "source": str(candidate)})
     logger.warning("⚠️ config: no config file found — running on code defaults")
     return AppConfig()

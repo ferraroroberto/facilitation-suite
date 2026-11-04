@@ -32,10 +32,10 @@ moves every URL and a stale asset cannot be served (#209).
 Errors are one JSON envelope everywhere — ``{"error": {"code", "message",
 "detail"?}}``.
 
-Run under uvicorn with the pinned selector loop (Windows proactor wedges on an
-aborted client — app-launcher#388):
+Run through the vendored launch module with the pinned selector loop (Windows proactor
+wedges on an aborted client — app-launcher#388):
 
-    python -m uvicorn app.webapp.server:app --host 0.0.0.0 --port 8449 \
+    python -m app.webapp.serve --host 0.0.0.0 --port 8449 \
         --loop app.webapp.event_loop:selector_loop_factory
 """
 

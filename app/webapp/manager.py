@@ -1,4 +1,4 @@
-"""Webapp process manager — race-safe adopt-or-spawn for the uvicorn child.
+"""Webapp process manager — race-safe adopt-or-spawn for the HTTP/2 webapp child.
 
 Same shape as the sister trays (photo-ocr / voice-transcriber / app-launcher):
 
@@ -7,7 +7,7 @@ Same shape as the sister trays (photo-ocr / voice-transcriber / app-launcher):
   own, never folded into "running".
 - ``start()``  — adopts an already-listening *and reachable* webapp (no second
   spawn), refuses to adopt a wedged one, or spawns
-  ``python -m uvicorn app.webapp.server:app`` from this venv, under the
+  ``python -m app.webapp.serve`` from this venv, under the
   vendored ``cross_process_lock`` so two trays starting at once can't both
   spawn. Before the spawn it runs the cert
   auto-renew (``src.certs.ensure_cert_fresh``) and passes ``--ssl-*`` when
@@ -59,13 +59,15 @@ class WebappManagerConfig:
     host: str
     port: int
     local_port: int = 0
+    # hypercorn serves HTTP/2 over the certificate; uvicorn is the HTTP/1.1 fallback.
+    server: str = "hypercorn"
     startup_timeout_seconds: float = 20.0
     request_timeout_seconds: float = 1.5
     poll_interval_seconds: float = 0.4
 
     @classmethod
     def from_app_config(cls, config: AppConfig) -> WebappManagerConfig:
-        return cls(host=config.host, port=config.port, local_port=config.local_port)
+        return cls(host=config.host, port=config.port, local_port=config.local_port, server=config.server)
 
 
 @dataclass
@@ -279,11 +281,12 @@ class WebappManager:
 
     def _build_command(self) -> list[str]:
         cmd: list[str] = [
-            sys.executable, "-m", "uvicorn", "app.webapp.server:app",
+            sys.executable, "-m", "app.webapp.serve",
             "--host", self.config.host,
             "--port", str(self.config.port),
             "--log-level", "warning",
             "--loop", LOOP_FACTORY,
+            "--server", self.config.server,
         ]
         cmd.extend(uvicorn_ssl_args())  # [] + a loud log line when no cert pair
         return cmd
