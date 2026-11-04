@@ -286,7 +286,7 @@ def _check_copilot(page: Page, webapp, session_yaml: Path) -> None:
     assert "copilot_consent" not in session_yaml.read_text(encoding="utf-8")
     card.locator("[data-cop-on]").click()
     page.locator(".dialog-confirm").click()
-    expect(card.locator("[data-cop-on]")).to_have_attribute("aria-checked", "true")
+    expect(page.locator("[data-chips]")).to_contain_text("Copilot · on")  # the toggle follows the saved confirmation
     assert "copilot_consent: true" in session_yaml.read_text(encoding="utf-8")
     assert '"event": "copilot_consent"' in (session_yaml.parent / "live" / "events.jsonl").read_text(encoding="utf-8")
     r = page.request.post(f"{webapp.base_url}/api/copilot/transcript",
