@@ -56,8 +56,8 @@ function hintRow(e) {
 /** Recorded · Live, when both transcripts have lines. */
 function sourceSwitch(c) {
   if (c.sources.length < 2) return '';
-  return `<div class="segmented convo-source" role="group" aria-label="Transcript" data-track="results.conversation-source">${c.sources.map((s) =>
-    `<button type="button" class="segmented-item" aria-pressed="${s === c.source}" data-source="${s}">${SOURCE_LABEL[s] || s}</button>`).join('')}</div>`;
+  return `<div class="segmented convo-source" role="group" aria-label="Transcript">${c.sources.map((s) =>
+    `<button type="button" class="segmented-item" data-track="results.conversation-source" aria-pressed="${s === c.source}" data-source="${s}">${SOURCE_LABEL[s] || s}</button>`).join('')}</div>`;
 }
 
 function body(c) {
