@@ -2,5 +2,20 @@
   "version": 1,
   "band": {"files": 1, "functions": 6},
   "root_extras": ["themes"],
+  "shape_contract": {
+    "root_files": ["sessions.example.yaml"],
+    "redundant": ["webapp/"],
+    "folder_types": {
+      "src/activities/cards": 2,
+      "src/activities/feed": 2,
+      "src/activities/groups_reveal": 2,
+      "src/activities/map": 6,
+      "src/activities/quiz": 2,
+      "src/activities/quiz_lobby": 2,
+      "src/activities/quiz_podium": 2,
+      "src/activities/scale": 2,
+      "src/activities/word_cloud": 4
+    }
+  },
   "entries": []
 }
