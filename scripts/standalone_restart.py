@@ -152,13 +152,17 @@ def _targets_now() -> list[int]:
 
 def _end_tree(pid: int) -> None:
     # A PID that already exited returns nonzero; the poll in stop() is what decides success.
-    subprocess.run(
-        ["taskkill", "/PID", str(pid), "/T", "/F"],
-        capture_output=True,
-        stdin=subprocess.DEVNULL,
-        check=False,
-        creationflags=NO_WINDOW,
-    )
+    try:
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            check=False,
+            creationflags=NO_WINDOW,
+            timeout=STOP_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"⚠️ taskkill for PID {pid} did not finish within {STOP_TIMEOUT_S:.0f}s; the poll decides")
 
 
 def stop() -> int:

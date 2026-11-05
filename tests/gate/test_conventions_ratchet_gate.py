@@ -53,6 +53,9 @@ def _convention_repo(tmp_path: Path, source: str) -> Path:
     (repo / "scripts").mkdir(parents=True)
     (repo / "src").mkdir()
     (repo / "scripts" / "conventions_ratchet.py").write_bytes(SCRIPT.read_bytes())
+    # the ratchet loads its sibling reader module from beside itself
+    readers = SCRIPT.with_name("conventions_readers.py")
+    (repo / "scripts" / readers.name).write_bytes(readers.read_bytes())
     (repo / ".fleet.toml").write_text(_FLEET, encoding="utf-8")
     (repo / "src" / "sample.py").write_text(source, encoding="utf-8")
     for argv in (["init", "-q"], ["add", "-A"]):
