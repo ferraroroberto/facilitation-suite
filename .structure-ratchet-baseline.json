@@ -3,7 +3,7 @@
   "band": {"files": 1, "functions": 6},
   "root_extras": ["themes"],
   "shape_contract": {
-    "root_files": ["sessions.example.yaml"],
+    "root_files": [],
     "redundant": ["webapp/"],
     "folder_types": {
       "src/activities/cards": 2,
