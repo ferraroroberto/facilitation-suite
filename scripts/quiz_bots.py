@@ -117,6 +117,8 @@ from tests.fixtures.quiz_plan import add_quiz_section  # noqa: E402
 
 logger = logging.getLogger("quiz_bots")
 
+# `taskkill /T` on one process tree answers in well under a second; 15 s means it is wedged.
+TASKKILL_TIMEOUT_S = 15
 LIVE_PORTS = (8449, 8451)  # the live app and its player listener: never a bot target
 TIME_LIMIT = 30  # seconds per question (the restart question gets RESTART_TIME_LIMIT)
 RESTART_TIME_LIMIT = 90
@@ -448,8 +450,11 @@ class Disposable:
         ``.venv/Scripts/python.exe`` is a launcher with the real interpreter as its child, so
         the tree is killed and the ports waited on until that child is gone too.
         """
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)], capture_output=True,
-                       creationflags=NO_WINDOW, check=False)
+        try:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)], capture_output=True,
+                           creationflags=NO_WINDOW, check=False, timeout=TASKKILL_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"taskkill did not end the server tree within {TASKKILL_TIMEOUT_S}s") from None
         self.proc.wait(timeout=10)
         self.proc.fs_log.close()
         deadline = time.monotonic() + 15

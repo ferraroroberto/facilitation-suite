@@ -44,6 +44,8 @@ METRICS_HOST = "127.0.0.1"
 METRICS_PORT = 8452  # next to the player listener's 8451; 8450 is parking-manager's
 READY_TIMEOUT_S = 2.0
 RESPAWN_FIRST_S = 30.0
+# `taskkill /T` on one orphaned tree answers in well under a second; 15 s means it is wedged.
+TASKKILL_TIMEOUT_S = 15
 RESPAWN_MAX_S = 300.0
 LOG_ROTATE_BYTES = 5_000_000
 # The orphan scan is a PowerShell CIM query before every (re)start. 20 s is a stated guess, not a
@@ -149,8 +151,12 @@ class Tunnel:
                 return False
             for pid in _own_orphans(self.path):
                 logger.warning("⚠️ tunnel: ending an orphaned cloudflared on this config (pid %d)", pid)
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True,
-                               creationflags=NO_WINDOW, check=False)
+                try:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True,
+                                   creationflags=NO_WINDOW, check=False, timeout=TASKKILL_TIMEOUT_S)
+                except subprocess.TimeoutExpired:
+                    logger.warning("⚠️ tunnel: taskkill on the orphaned cloudflared (pid %d) did not finish "
+                                   "within %.0f s", pid, TASKKILL_TIMEOUT_S)
             self._rotate_log()
             self.proc = subprocess.Popen(self.command(binary), cwd=str(PROJECT_ROOT), stdin=subprocess.DEVNULL,
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
