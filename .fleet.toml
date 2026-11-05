@@ -15,23 +15,23 @@ extra_roots = ["themes", "webapp"]
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.
 [vendored]
-base            = { src = "app/webapp/static/_vendored/base", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/base" }
+base            = { src = "app/webapp/static/_vendored/base", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/base" }
 nav             = { src = "app/webapp/static/_vendored/nav", sha = "3b708fd3c54ab7b93b08d489406c405762c83c41", dest = "app/webapp/static/_vendored/nav" }
 icons           = { src = "app/webapp/static/_vendored/icons", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/icons" }
 card            = { src = "app/webapp/static/_vendored/card", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/card" }
-button          = { src = "app/webapp/static/_vendored/button", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/button" }
+button          = { src = "app/webapp/static/_vendored/button", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/button" }
 modal           = { src = "app/webapp/static/_vendored/modal", sha = "713b1d1e36989440679ec4e415ff149b14d96c81", dest = "app/webapp/static/_vendored/modal" }
 disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/disclosure" }
 empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/empty-state" }
 switch          = { src = "app/webapp/static/_vendored/switch", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/switch" }
 toast           = { src = "app/webapp/static/_vendored/toast", sha = "3b708fd3c54ab7b93b08d489406c405762c83c41", dest = "app/webapp/static/_vendored/toast" }
-select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/select-native" }
-home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/home-head" }
+select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/select-native" }
+home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/home-head" }
 icon-button     = { src = "app/webapp/static/_vendored/icon-button", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/icon-button" }
 segmented       = { src = "app/webapp/static/_vendored/segmented", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/segmented" }
 text-size       = { src = "app/webapp/static/_vendored/text-size", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/text-size" }
 page-foot       = { src = "app/webapp/static/_vendored/page-foot", sha = "35c1f11348e100fa6b5da487411424c6d6ced43c", dest = "app/webapp/static/_vendored/page-foot" }
-usage-log       = { src = "app/webapp/static/_vendored/usage-log", sha = "ea11037a42f9f99ea8e728f574c6bb89480f3aa2", dest = "app/webapp/static/_vendored/usage-log" }
+usage-log       = { src = "app/webapp/static/_vendored/usage-log", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/usage-log" }
 usage_log       = { src = "src/usage_log.py", sha = "98cdb1b7727d12a5c233580478e6fae40d98e6f3", dest = "src/usage_log.py" }
 usage_track_ratchet = { src = "scripts/usage_track_ratchet.py", sha = "ea11037a42f9f99ea8e728f574c6bb89480f3aa2", dest = "scripts/usage_track_ratchet.py" }
 usage_track_scan = { src = "scripts/usage_track_scan.py", sha = "ea11037a42f9f99ea8e728f574c6bb89480f3aa2", dest = "scripts/usage_track_scan.py" }

@@ -87,7 +87,7 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     page.goto(webapp.player_url + "/play?pin=123456")
     expect(page.locator("#joinForm")).to_be_visible()
     expect(page.locator("#pin")).to_have_value("123456")
-    expect(page.locator("#conn")).to_have_attribute("data-state", "online")  # the ping answered
+    expect(page.locator("#conn")).to_have_attribute("data-conn", "online")  # the ping answered
     surface(page, "player.join")
     assert errors == []
 

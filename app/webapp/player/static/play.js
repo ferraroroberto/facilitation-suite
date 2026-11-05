@@ -206,7 +206,7 @@ function setConn() {
   const polling = pollTimer !== null;
   let state = online === false ? 'offline' : polling ? 'polling' : wsOpen ? 'online' : 'checking';
   if (!me && online) state = 'online'; // not joined yet: the ping answered, that is all there is
-  el.dataset.state = state;
+  el.dataset.conn = state;
   el.textContent = {
     offline: me ? T.conn_reconnecting : T.conn_offline, polling: T.conn_connected,
     online: me ? T.conn_live : T.conn_online, checking: T.conn_checking,
