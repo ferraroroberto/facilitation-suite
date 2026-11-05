@@ -48,9 +48,9 @@ body {
   font-size: var(--font-caption); white-space: nowrap;
 }
 .play-conn::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.play-conn[data-state="online"]::before { background: var(--success); }
-.play-conn[data-state="polling"]::before { background: var(--attention); }
-.play-conn[data-state="offline"]::before { background: var(--danger); }
+.play-conn[data-conn="online"]::before { background: var(--success); }
+.play-conn[data-conn="polling"]::before { background: var(--attention); }
+.play-conn[data-conn="offline"]::before { background: var(--danger); }
 .play-icon-btn { display: inline-grid; place-items: center; width: var(--control-h); padding: 0; }
 .play-icon-btn .icon { width: var(--icon-title); height: var(--icon-title); }
 [data-theme="light"] .i-sun, [data-theme="dark"] .i-moon { display: none; }
