@@ -34,6 +34,7 @@ from src.live.freeze import render
 from src.no_window import NO_WINDOW
 from src.sessions.model import parse_session
 from src.sessions.store import SESSION_FILE
+from src.write_target import outside_code
 
 logger = logging.getLogger("replay")
 
@@ -57,7 +58,7 @@ def _call(base: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
 
 def _stage_copy(folder: Path, out: Path, item_ids: list[str], root: Path) -> Path:
     """The session's minimum plus the replayed records, as a session folder of its own."""
-    copy = root / "session"
+    copy = outside_code(root) / "session"
     (copy / "live" / "captures").mkdir(parents=True)
     for name in COPIED:
         if (folder / name).is_file():
@@ -68,7 +69,7 @@ def _stage_copy(folder: Path, out: Path, item_ids: list[str], root: Path) -> Pat
     theme = parse_session(yaml.safe_load((folder / SESSION_FILE).read_text(encoding="utf-8"))).theme
     css = library_theme_css(load_config(), theme)
     if css:
-        themes = themes_dir(AppConfig(session_root=str(root / "sessions")))
+        themes = outside_code(themes_dir(AppConfig(session_root=str(root / "sessions"))))
         themes.mkdir(parents=True, exist_ok=True)
         (themes / f"{theme[len(THEME_PREFIX):]}.css").write_text(css, encoding="utf-8")
     windows = {}
@@ -86,10 +87,10 @@ def _boot(root: Path) -> tuple[subprocess.Popen, str]:
     cfg.update(port=port, session_root=str(root / "sessions"))
     cfg["obs"]["enabled"] = cfg["reader"]["enabled"] = False
     cfg["quiz"]["public_port"] = 0
-    (root / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    outside_code(root / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
     env = dict(os.environ, FS_CONFIG_PATH=str(root / "config.json"), FS_LEDGER_PATH=str(root / "sessions.local.yaml"),
                FS_DATA_DIR=str(root / "data"), FS_ENV_PATH=str(root / ".env"), PYTHONUTF8="1")
-    log = open(root / "server.log", "wb")  # noqa: SIM115 — the child keeps its own handle
+    log = open(outside_code(root / "server.log"), "wb")  # noqa: SIM115 — the child keeps its own handle
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.webapp.server:app", "--host", "127.0.0.1", "--port", str(port),
          "--loop", "app.webapp.event_loop:selector_loop_factory", "--log-level", "warning"],
@@ -119,7 +120,7 @@ def render_all(folder: Path, out: Path, item_ids: list[str]) -> list[str]:
     item_ids = [i for i in item_ids if draws(i)]
     if not item_ids:
         return []
-    out.mkdir(parents=True, exist_ok=True)
+    outside_code(out).mkdir(parents=True, exist_ok=True)
     root = Path(tempfile.mkdtemp(prefix="render-", dir=out))
     failed: list[str] = []
     proc = None

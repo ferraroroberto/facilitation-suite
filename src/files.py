@@ -14,6 +14,8 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
+from src.write_target import outside_code
+
 
 def copy_into(folder: Path, source: Path, stem: str, suffix: Optional[str] = None) -> tuple[Path, bool]:
     """Copy ``source`` into ``folder`` as ``<stem><suffix>``.
@@ -28,7 +30,7 @@ def copy_into(folder: Path, source: Path, stem: str, suffix: Optional[str] = Non
     existing identical file was reused.
     """
     suffix = source.suffix if suffix is None else suffix
-    folder.mkdir(parents=True, exist_ok=True)
+    outside_code(folder).mkdir(parents=True, exist_ok=True)
     dest = folder / f"{stem}{suffix}"
     n = 1
     while dest.exists() and not filecmp.cmp(source, dest, shallow=False):
@@ -36,7 +38,7 @@ def copy_into(folder: Path, source: Path, stem: str, suffix: Optional[str] = Non
         dest = folder / f"{stem}-{n}{suffix}"
     if dest.exists():
         return dest, False
-    tmp = dest.with_name(dest.name + ".tmp")
+    tmp = outside_code(dest.with_name(dest.name + ".tmp"))
     shutil.copyfile(source, tmp)
     tmp.replace(dest)
     return dest, True

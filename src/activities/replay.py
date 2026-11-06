@@ -32,6 +32,7 @@ from typing import Any, Optional
 import yaml
 
 from src.activities.registry import counted_for, defaults, result_for
+from src.atomic_write import atomic_write_text
 from src.chat.hub import minute_of_day
 from src.config import data_dir
 from src.importer.review import read_meta
@@ -212,8 +213,7 @@ def compare(frozen: Optional[dict[str, Any]], replayed: dict[str, Any]) -> dict[
 
 
 def _write(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    atomic_write_text(path, json.dumps(data, ensure_ascii=False, indent=1))
 
 
 def replay_records(folder: Path, *, items: Optional[list[str]] = None, sets: Optional[dict[str, Any]] = None,

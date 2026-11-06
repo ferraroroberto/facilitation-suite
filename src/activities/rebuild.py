@@ -36,6 +36,7 @@ from src.config import data_dir
 from src.errors import DomainError
 from src.live.capture import CAPTURES_FILE
 from src.live.plan import one_line
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def _record(replayed: dict[str, Any]) -> str:
 
 
 def _copy_backup(folder: Path, name: str) -> Path:
-    live = _live(folder)
+    live = outside_code(_live(folder))
     dest = live / name
     shutil.copytree(live / "captures", dest / "captures")
     if (live / CAPTURES_FILE).is_file():
@@ -107,7 +108,7 @@ def _copy_backup(folder: Path, name: str) -> Path:
 
 def _restore(folder: Path, backup: Path) -> None:
     """``live/captures/`` and ``captures.json`` exactly as ``backup`` holds them."""
-    live = _live(folder)
+    live = outside_code(_live(folder))
     kept = {p.name for p in (backup / "captures").iterdir()}
     for path in (live / "captures").iterdir():
         if path.is_file() and path.name not in kept:
@@ -119,7 +120,7 @@ def _restore(folder: Path, backup: Path) -> None:
 
 
 def _swap_in(folder: Path, staged: Path, pairs: list[tuple[dict[str, Any], dict[str, Any]]]) -> None:
-    live = _live(folder)
+    live = outside_code(_live(folder))
     state_path = live / CAPTURES_FILE
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else None
     for replayed, cmp in pairs:
@@ -152,7 +153,7 @@ def apply(folder: Path) -> dict[str, Any]:
         scratch.mkdir(parents=True, exist_ok=True)
         staged = Path(tempfile.mkdtemp(prefix="rebuild-", dir=scratch))
         for replayed, cmp in pairs:
-            (staged / f"{cmp['item_id']}.json").write_text(_record(replayed), encoding="utf-8")
+            atomic_write_text(staged / f"{cmp['item_id']}.json", _record(replayed))
         failed = render_all(folder, staged, [c["item_id"] for _, c in pairs])
         if failed:
             raise RebuildError(502, "render_failed", f"{len(failed)} stage picture(s) could not be drawn, so nothing was changed — see the log",

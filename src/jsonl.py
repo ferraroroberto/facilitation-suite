@@ -10,6 +10,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from src.write_target import outside_code
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,8 +54,9 @@ class JsonlAppender:
         """Write what is pending, then ``records``; False when the write failed (all of it kept)."""
         self.pending.extend(records)
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a", encoding="utf-8", newline="\n") as fh:
+            target = outside_code(path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "a", encoding="utf-8", newline="\n") as fh:
                 fh.write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in self.pending))
         except OSError as exc:
             self.failed(self.name, exc)

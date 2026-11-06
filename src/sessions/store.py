@@ -32,6 +32,7 @@ from src.atomic_write import atomic_write_text
 from src.config import AppConfig, ledger_path, session_root
 from src.errors import DomainError
 from src.sessions.model import COPILOT_CONSENT, Session, StageFont, dump_session, parse_session
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,7 @@ class SessionStore:
                theme: str = "default", font: Optional[StageFont] = None) -> LedgerEntry:
         """A new session folder; ``theme`` and ``font`` are its starting look (the global defaults)."""
         base = Path(root) if root else self.default_root()
-        folder = base / _slug_folder(workshop or "workshop") / _slug_folder(folder_name or title)
+        folder = outside_code(base / _slug_folder(workshop or "workshop") / _slug_folder(folder_name or title))
         if (folder / SESSION_FILE).exists():
             raise SessionError(409, "session_exists", "That folder already holds a session — add it instead")
         for sub in SUBDIRS:
@@ -177,7 +178,7 @@ class SessionStore:
 
     def duplicate(self, sid: str, title: str, folder_name: str, workshop: Optional[str] = None) -> LedgerEntry:
         src = self.folder(sid)
-        dest = (src.parent.parent / _slug_folder(workshop) if workshop else src.parent) / _slug_folder(folder_name or title)
+        dest = outside_code((src.parent.parent / _slug_folder(workshop) if workshop else src.parent) / _slug_folder(folder_name or title))
         if dest.exists() and any(dest.iterdir()):
             raise SessionError(409, "folder_exists", "The destination folder already exists and is not empty")
         dest.mkdir(parents=True, exist_ok=True)

@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from src.logger import configure_logging
+from src.write_target import outside_code
 
 logger = logging.getLogger("freeze")
 
@@ -21,7 +22,7 @@ logger = logging.getLogger("freeze")
 def render(url: str, out: Path, timeout_ms: int = 20000) -> bool:
     from playwright.sync_api import Error, sync_playwright
 
-    out.parent.mkdir(parents=True, exist_ok=True)
+    outside_code(out).parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".png.tmp")
     try:
         with sync_playwright() as p:

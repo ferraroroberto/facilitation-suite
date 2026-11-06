@@ -66,6 +66,7 @@ from src.jsonl import JsonlAppender
 from src.live.plan import build_run
 from src.sessions.model import Session
 from src.sessions.store import SessionError, SessionStore
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -716,7 +717,7 @@ class LiveHub:
             if sid is None:
                 self.last_live.unlink(missing_ok=True)
             else:
-                self.last_live.parent.mkdir(parents=True, exist_ok=True)
+                outside_code(self.last_live).parent.mkdir(parents=True, exist_ok=True)
                 atomic_write_text(self.last_live, json.dumps(
                     {"session_id": sid, "since": datetime.now(UTC).isoformat(timespec="seconds")}))
         except OSError as exc:

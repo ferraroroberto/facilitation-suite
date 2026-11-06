@@ -36,6 +36,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from src.config import data_dir
+from src.write_target import outside_code
 
 _FMT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
 _DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -188,7 +189,7 @@ def configure_logging(level: int = logging.INFO, log_file: Path | None = None, *
 
     if not to_file:
         return
-    target = log_file or default_log_file()
+    target = outside_code(log_file or default_log_file())
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         file_handler = ResilientRotatingFileHandler(

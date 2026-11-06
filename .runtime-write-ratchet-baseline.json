@@ -1,29 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    {"key": "app/webapp/routers/results.py", "counts": {"unresolved": 1}},
-    {"key": "scripts/build_geo.py", "counts": {"code-folder": 4}},
-    {"key": "scripts/build_sprite.py", "counts": {"code-folder": 1}},
-    {"key": "scripts/copilot_dry_run.py", "counts": {"unresolved": 2}},
-    {"key": "src/activities/rebuild.py", "counts": {"unresolved": 7}},
-    {"key": "src/activities/replay.py", "counts": {"unresolved": 2}},
-    {"key": "src/activities/replay_render.py", "counts": {"unresolved": 10}},
-    {"key": "src/chat/process.py", "counts": {"unresolved": 2}},
-    {"key": "src/copilot/audio.py", "counts": {"unresolved": 3}},
-    {"key": "src/files.py", "counts": {"unresolved": 2}},
-    {"key": "src/groups/roster.py", "counts": {"unresolved": 1}},
-    {"key": "src/importer/pptx_com.py", "counts": {"unresolved": 2}},
-    {"key": "src/importer/review.py", "counts": {"unresolved": 1}},
-    {"key": "src/importer/service.py", "counts": {"unresolved": 3}},
-    {"key": "src/jsonl.py", "counts": {"unresolved": 2}},
-    {"key": "src/live/freeze.py", "counts": {"unresolved": 1}},
-    {"key": "src/live/hub.py", "counts": {"unresolved": 1}},
-    {"key": "src/logger.py", "counts": {"unresolved": 1}},
-    {"key": "src/music/spotify.py", "counts": {"unresolved": 2}},
-    {"key": "src/results/excel.py", "counts": {"unresolved": 1}},
-    {"key": "src/results/pdf.py", "counts": {"unresolved": 1}},
-    {"key": "src/sessions/playbook.py", "counts": {"unresolved": 1}},
-    {"key": "src/sessions/store.py", "counts": {"unresolved": 5}},
-    {"key": "src/tunnel.py", "counts": {"unresolved": 1}}
-  ]
+  "entries": []
 }

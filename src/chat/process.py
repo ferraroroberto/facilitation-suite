@@ -24,6 +24,7 @@ from typing import Optional
 from src.chat.reader import SOURCES
 from src.config import data_dir
 from src.no_window import NO_WINDOW
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class ReaderProcess:
             return
         if self.proc.poll() is None:
             # Ask first (a clean exit restores the screen-reader flag), then force.
-            stop = self.stop_file()
+            stop = outside_code(self.stop_file())
             try:
                 stop.parent.mkdir(parents=True, exist_ok=True)
                 stop.write_text(str(self.proc.pid), encoding="utf-8")
