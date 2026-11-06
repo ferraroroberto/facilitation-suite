@@ -39,6 +39,7 @@ def replace_held(tmp: str | Path, path: Path) -> None:
 
 def atomic_write_text(path: Path, text: str) -> None:
     """Replace ``path`` with ``text`` as UTF-8 with LF line ends, creating the parent folder."""
+    # runtime-write-exempt: the helper writes wherever its caller points it; callers own the target
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     try:
