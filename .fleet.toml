@@ -15,7 +15,7 @@ extra_roots = ["themes", "webapp"]
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.
 [vendored]
-base            = { src = "app/webapp/static/_vendored/base", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/base" }
+base            = { src = "app/webapp/static/_vendored/base", sha = "dedb86e0f212d66f247f4aacb6c15d13b1154651", dest = "app/webapp/static/_vendored/base" }
 nav             = { src = "app/webapp/static/_vendored/nav", sha = "ea993a7aa7a8814749236621a5eac939e862bf4d", dest = "app/webapp/static/_vendored/nav" }
 icons           = { src = "app/webapp/static/_vendored/icons", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/icons" }
 card            = { src = "app/webapp/static/_vendored/card", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/card" }
