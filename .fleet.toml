@@ -164,6 +164,13 @@ enabled  = true
 baseline = ".conventions-ratchet-baseline.json"
 rules    = ["no-window", "logging-not-print", "no-drive-path", "subprocess-timeout"]
 
+# A raw replace skips the unique temp name, the cleanup on a failed write and the
+# retry while OneDrive holds the target open.
+[[conventions_ratchet.must_use]]
+call   = "os.replace"
+helper = ["src/atomic_write.py"]
+why    = "src/atomic_write.py is the one atomic file writer (unique temp, cleanup on failure, retry while held open)"
+
 # Diff-proportionate e2e routing (project-scaffolding#180): first match wins; an
 # unmatched path, a mixed diff, or an empty diff fails safe to the full suite.
 [e2e]

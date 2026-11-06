@@ -15,11 +15,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError, require_local
+from src.atomic_write import atomic_write_text
 from src.importer import review as rv
 from src.importer.service import INCOMING, Importer, deck_status
 from src.music.library import AUDIO_TYPES
 from src.sessions.model import Session, Source, ensure_ids
-from src.sessions.store import SessionStore, atomic_write_text
+from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

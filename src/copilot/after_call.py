@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.atomic_write import atomic_write_text
 from src.config import CopilotConfig
 from src.copilot.audio import wav_bytes
 from src.copilot.hints import NOT_SPEECH, Answer, Line, ask_chain, model_chain
@@ -42,7 +43,6 @@ from src.copilot.vad import SAMPLE_BYTES, SAMPLE_RATE, Chunk, Chunker
 from src.errors import DomainError
 from src.jsonl import read_jsonl
 from src.sessions.model import COPILOT_CONSENT, Session
-from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
 

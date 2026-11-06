@@ -42,6 +42,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.atomic_write import atomic_write_text
 from src.config import COPILOT_CAPTURE, CopilotConfig
 from src.copilot.audio import WavRecorder, wav_bytes
 from src.copilot.capture import CaptureError, DeviceSource, FileSource
@@ -69,7 +70,7 @@ from src.errors import DomainError
 from src.jsonl import JsonlAppender
 from src.live.hub import LiveHub, now_ms
 from src.sessions.model import COPILOT_CONSENT, COPILOT_MODES, INTERVIEWEE_CHARS, Session
-from src.sessions.store import SessionError, atomic_write_text
+from src.sessions.store import SessionError
 
 logger = logging.getLogger(__name__)
 

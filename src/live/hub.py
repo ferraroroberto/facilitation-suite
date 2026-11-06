@@ -58,13 +58,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.atomic_write import atomic_write_text
 from src.errors import DomainError
 from src.groups.roster import RosterError, load_groups
 from src.importer.review import read_meta
 from src.jsonl import JsonlAppender
 from src.live.plan import build_run
 from src.sessions.model import Session
-from src.sessions.store import SessionError, SessionStore, atomic_write_text
+from src.sessions.store import SessionError, SessionStore
 
 logger = logging.getLogger(__name__)
 

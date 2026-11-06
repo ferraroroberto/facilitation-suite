@@ -103,6 +103,7 @@ class ResilientRotatingFileHandler(RotatingFileHandler):
             self.stream = None
         staged = self.baseFilename + ".rotating-tmp"
         try:
+            # must-use-exempt: a log rotation renames the live log aside and writes nothing; a refusal is handled below
             os.replace(self.baseFilename, staged)
         except PermissionError as exc:
             # Settle every bit of state — including reopening the stream — *before* logging

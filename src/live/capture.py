@@ -44,13 +44,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.activities.registry import options_with_defaults, parser, result_for
+from src.atomic_write import atomic_write_text
 from src.chat.hub import ChatHub
 from src.live.actions import Action, register
 from src.live.hub import LiveError, LiveHub, now_ms
 from src.logger import relay
 from src.no_window import NO_WINDOW
 from src.results.aliases import ALIASES_FILE, Excluded, ident, read_aliases
-from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
