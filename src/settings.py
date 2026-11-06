@@ -12,9 +12,9 @@ import logging
 import os
 from typing import Any
 
+from src.atomic_write import atomic_write_text
 from src.config import CONFIG_SAMPLE_PATH, AppConfig, config_path, load_config
 from src.errors import DomainError
-from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
 

@@ -18,8 +18,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from src.atomic_write import atomic_write_text
 from src.config import env_path
-from src.sessions.store import replace_held
 
 # The mirror image of ``replace_held``'s write retry: a read can land in the instant a save's
 # ``os.replace`` is itself in flight (Windows briefly refuses either side of that race, not just
@@ -113,11 +113,8 @@ def set_value(key: str, value: str, path: Optional[Path] = None) -> Path:
         out.append(line)
     if not done:
         out.append(f"{key}={value}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
     text = "\n".join(out) + "\n"
-    tmp.write_text(text, encoding="utf-8")
-    replace_held(tmp, path)  # a reader (the app's own status check) may hold it open for a moment
+    atomic_write_text(path, text)  # a reader (the app's own status check) may hold it open for a moment
     with _cache_lock:  # a read right after this save must see it, not the old cache
         _generation += 1
         _cache[path] = (time.monotonic(), _parse_all(text))

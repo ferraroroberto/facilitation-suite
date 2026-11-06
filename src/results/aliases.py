@@ -21,8 +21,8 @@ from typing import Any, Optional
 
 import yaml
 
+from src.atomic_write import atomic_write_text
 from src.errors import DomainError
-from src.sessions.store import atomic_write_text
 from src.text import fold
 
 logger = logging.getLogger(__name__)

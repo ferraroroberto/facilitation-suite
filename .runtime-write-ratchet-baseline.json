@@ -8,9 +8,9 @@
     {"key": "src/activities/rebuild.py", "counts": {"unresolved": 7}},
     {"key": "src/activities/replay.py", "counts": {"unresolved": 2}},
     {"key": "src/activities/replay_render.py", "counts": {"unresolved": 10}},
+    {"key": "src/atomic_write.py", "counts": {"unresolved": 1}},
     {"key": "src/chat/process.py", "counts": {"unresolved": 2}},
     {"key": "src/copilot/audio.py", "counts": {"unresolved": 3}},
-    {"key": "src/env_file.py", "counts": {"unresolved": 2}},
     {"key": "src/files.py", "counts": {"unresolved": 2}},
     {"key": "src/groups/roster.py", "counts": {"unresolved": 1}},
     {"key": "src/importer/pptx_com.py", "counts": {"unresolved": 2}},
@@ -24,7 +24,7 @@
     {"key": "src/results/excel.py", "counts": {"unresolved": 1}},
     {"key": "src/results/pdf.py", "counts": {"unresolved": 1}},
     {"key": "src/sessions/playbook.py", "counts": {"unresolved": 1}},
-    {"key": "src/sessions/store.py", "counts": {"unresolved": 6}},
+    {"key": "src/sessions/store.py", "counts": {"unresolved": 5}},
     {"key": "src/tunnel.py", "counts": {"unresolved": 1}}
   ]
 }

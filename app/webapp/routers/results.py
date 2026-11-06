@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
 from src.activities.rebuild import backups
+from src.atomic_write import atomic_write_text
 from src.config import data_dir
 from src.errors import DomainError
 from src.groups.roster import roster_state
@@ -37,7 +38,7 @@ from src.results.excel import build_report
 from src.results.pdf import activities_html, activities_pages, session_html, share_html, share_pages
 from src.results.reconcile import reconcile_file
 from src.sessions.model import ITEM_ID, Session
-from src.sessions.store import SessionStore, atomic_write_text
+from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")

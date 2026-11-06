@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import shutil
 import tempfile
 import threading
@@ -32,11 +31,11 @@ from typing import Any, Optional
 
 from src.activities.replay import replay_records
 from src.activities.replay_render import render_all
+from src.atomic_write import atomic_write_text, replace_held
 from src.config import data_dir
 from src.errors import DomainError
 from src.live.capture import CAPTURES_FILE
 from src.live.plan import one_line
-from src.sessions.store import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +129,7 @@ def _swap_in(folder: Path, staged: Path, pairs: list[tuple[dict[str, Any], dict[
         if png.is_file():
             tmp = live / "captures" / f"{item_id}.png.tmp"
             shutil.copy2(png, tmp)
-            os.replace(tmp, live / "captures" / f"{item_id}.png")
+            replace_held(tmp, live / "captures" / f"{item_id}.png")
         if state is not None and item_id in (state.get("windows") or {}):
             state["windows"][item_id] = replayed["windows"]
     if state is not None:

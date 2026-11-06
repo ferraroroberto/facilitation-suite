@@ -56,7 +56,7 @@ Both are listed in `extra_roots` in `.fleet.toml`.
 | `results/` | collection, reconciliation, PDF and Excel exports, the copilot's conversation read back |
 | `geo/` | the offline gazetteer behind the map |
 | `no_window.py`, `build_info.py`, `usage_log.py` | vendored from project-scaffolding |
-| the other top-level modules | small shared helpers: errors, files, JSONL, text folding, logging, env file, certificates, the tunnel |
+| the other top-level modules | small shared helpers: errors, atomic writes (`atomic_write.py`, the one `os.replace`), files, JSONL, text folding, logging, env file, certificates, the tunnel |
 
 ## Where new code goes
 

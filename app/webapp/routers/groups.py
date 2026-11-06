@@ -15,8 +15,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
+from src.atomic_write import atomic_write_text
 from src.groups import roster as rs
-from src.sessions.store import SessionStore, atomic_write_text
+from src.sessions.store import SessionStore
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions/{sid}")
