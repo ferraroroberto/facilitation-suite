@@ -77,7 +77,7 @@ Each feature has its own reference in `docs/`:
 
 ## Layout
 
-Where each folder's code goes, and why `themes/` and `webapp/` sit at the root: [docs/layout.md](docs/layout.md).
+Where each folder's code goes, and why `themes/` sits at the root: [docs/layout.md](docs/layout.md).
 
 ```
 app/

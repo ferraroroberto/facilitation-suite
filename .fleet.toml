@@ -9,8 +9,8 @@ description = "<b>facilitation-suite</b> — live workshop app: stage, cockpit, 
 chips       = ["public: cloudflared quiz.robertoferraro.net → :8451 /play", "this PC: http://127.0.0.1:8456 (loopback)"]
 depends_on  = ["local-llm-hub"]
 shape       = "webapp-tray"
-# Root folders the webapp-tray preset does not list; docs/layout.md says why each stays.
-extra_roots = ["themes", "webapp"]
+# themes/: the stage themes are stylesheets picked by name from a session, served at /themes/ beside the app and not inside app/webapp/static/ (the fleet-design pages); docs/layout.md has the full reason.
+extra_roots = ["themes"]
 
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.
