@@ -31,6 +31,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
+from src.write_target import outside_code
+
 
 def _text(shape: Any) -> str:
     try:
@@ -232,7 +234,7 @@ def export(deck: Path, out_dir: Path, only: Optional[set[int]] = None) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"ERROR the deck could not be opened: {exc}", flush=True)
             return 3
-        out_dir.mkdir(parents=True, exist_ok=True)
+        outside_code(out_dir).mkdir(parents=True, exist_ok=True)
         wanted = _select(int(pres.Slides.Count), only)
         if wanted is None:
             return 5
@@ -251,7 +253,7 @@ def export(deck: Path, out_dir: Path, only: Optional[set[int]] = None) -> int:
             "slide_width": float(pres.PageSetup.SlideWidth), "slide_height": float(pres.PageSetup.SlideHeight),
             "sections": _sections(pres), "slides": slides,
         }
-        (out_dir / "export.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+        outside_code(out_dir / "export.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
         return 0
     finally:
         if pres is not None:

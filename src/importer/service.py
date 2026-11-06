@@ -45,6 +45,7 @@ from src.errors import DomainError
 from src.importer.analyze import detect_profile, dhash, text_hash
 from src.no_window import NO_WINDOW
 from src.sessions.model import Item, Section, Session, Source, ensure_ids
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +366,7 @@ class Importer:
             slides_dir = folder / "slides"
             staged = slides_dir / INCOMING
             shutil.rmtree(staged, ignore_errors=True)  # a newer export replaces one waiting for review
-            target = slides_dir if first else staged
+            target = outside_code(slides_dir if first else staged)
             with tempfile.TemporaryDirectory(prefix="fs-export-") as tmp:
                 out = Path(tmp)
 

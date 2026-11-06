@@ -44,6 +44,7 @@ from src.errors import DomainError
 from src.importer.analyze import hamming
 from src.importer.service import INCOMING, files_of, placeholder_item, slide_item
 from src.sessions.model import Item, Section, Session
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -361,7 +362,7 @@ def apply(folder: Path, session: Session, accepted: set[str]) -> dict[str, Any]:
         if o["slide_id"] not in pairs.values() and not ok(f"rem-{o['slide_id']}"):
             final.append({**o, "in_deck": False})
     for name in copy_in:
-        shutil.copy2(inc / name, slides_dir / name)
+        shutil.copy2(inc / name, outside_code(slides_dir / name))
     keep = {f for s in final for f in files_of(s)}
     for png in slides_dir.glob("slide-*.png"):
         if png.name not in keep:

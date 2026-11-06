@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from src.errors import DomainError
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def create_playbook(folder: Path) -> dict[str, Any]:
     path = folder / PLAYBOOK_FILE
     try:
         # "x" fails when the file exists, so a playbook written meanwhile (OneDrive, the editor) is never overwritten.
-        with open(path, "x", encoding="utf-8", newline="\n") as fh:
+        with open(outside_code(path), "x", encoding="utf-8", newline="\n") as fh:
             fh.write(TEMPLATE)
     except FileExistsError as exc:
         raise PlaybookError(409, "playbook_exists", "This session already has a playbook") from exc

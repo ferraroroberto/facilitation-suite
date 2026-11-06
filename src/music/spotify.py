@@ -65,6 +65,7 @@ from typing import Any, Optional
 from src.env_file import generation as env_generation
 from src.env_file import get_value, set_value
 from src.music.backend import EventSink, MusicError, Track
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -380,8 +381,9 @@ class SpotifyBackend:
         if self._names_file is None:
             return
         try:
-            self._names_file.parent.mkdir(parents=True, exist_ok=True)
-            self._names_file.write_text(json.dumps(self._names, ensure_ascii=False, indent=1), encoding="utf-8")
+            names_file = outside_code(self._names_file)
+            names_file.parent.mkdir(parents=True, exist_ok=True)
+            names_file.write_text(json.dumps(self._names, ensure_ascii=False, indent=1), encoding="utf-8")
         except OSError as exc:
             logger.warning("⚠️ spotify: names not cached (%s)", exc)
 

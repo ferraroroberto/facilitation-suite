@@ -35,6 +35,7 @@ from typing import Any, Optional
 import yaml
 
 from src.no_window import NO_WINDOW
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,7 @@ class Tunnel:
         if log is None:
             return
         try:
-            log.parent.mkdir(parents=True, exist_ok=True)
+            outside_code(log).parent.mkdir(parents=True, exist_ok=True)
             if log.exists() and log.stat().st_size > LOG_ROTATE_BYTES:
                 log.replace(log.with_suffix(".log.1"))
         except OSError as exc:

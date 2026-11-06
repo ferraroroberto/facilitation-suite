@@ -10,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from src.copilot.vad import SAMPLE_BYTES, SAMPLE_RATE
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def read_pcm(path: Path) -> bytes:
 
 
 def write_wav(path: Path, pcm: bytes) -> None:
-    path.write_bytes(wav_bytes(pcm))
+    outside_code(path).write_bytes(wav_bytes(pcm))
 
 
 class WavRecorder:
@@ -67,9 +68,10 @@ class WavRecorder:
         if not self._pending:
             return True
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            fresh = not self.path.exists()
-            with open(self.path, "w+b" if fresh else "r+b") as fh:
+            target = outside_code(self.path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            fresh = not target.exists()
+            with open(target, "w+b" if fresh else "r+b") as fh:
                 if fresh:
                     fh.write(wav_header(0))
                 fh.seek(0, io.SEEK_END)

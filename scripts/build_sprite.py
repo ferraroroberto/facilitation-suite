@@ -74,6 +74,7 @@ def main() -> int:
             print(f"fetched {name}")
         parts.append(f'  <symbol id="i-{name}" viewBox="0 0 24 24" fill="none">\n{body}  </symbol>\n')
     parts.append("</svg>\n")
+    # runtime-write-exempt: regenerates the committed sprite under app/webapp/static, on purpose
     OUT.write_text("".join(parts), encoding="utf-8", newline="\n")
     print(f"wrote {OUT} ({len(GLYPHS)} glyphs)")
     return 0

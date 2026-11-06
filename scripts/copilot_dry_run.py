@@ -38,6 +38,7 @@ sys.path.insert(0, str(ROOT))
 from src.copilot.audio import read_pcm, write_wav  # noqa: E402 — needs the sys.path line above
 from src.copilot.vad import SAMPLE_BYTES, SAMPLE_RATE  # noqa: E402
 from src.jsonl import read_jsonl  # noqa: E402
+from src.write_target import outside_code  # noqa: E402
 from tests.conftest import SAMPLE_CONFIG  # noqa: E402
 from tests.e2e.conftest import boot_instance, stop_instance  # noqa: E402
 from tests.fixtures.demo import build_demo_session  # noqa: E402
@@ -187,7 +188,7 @@ def report(folder: Path) -> dict[str, Any]:
 def run(args: argparse.Namespace) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="fs-copilot-dry-", ignore_cleanup_errors=True) as tmp:
         root = Path(tmp)
-        feed = root / "feed"
+        feed = outside_code(root / "feed")
         feed.mkdir()
         seconds = build_feed(feed, args.minutes)
         logger.info("✅ synthetic feed ready: %.0f s per channel in %s", seconds, feed)
@@ -239,7 +240,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     result = run(args)
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.out:
-        args.out.write_text(text, encoding="utf-8")
+        outside_code(args.out).write_text(text, encoding="utf-8")
     logger.info("report:\n%s", text)
     return 0 if result["chunk_to_transcript"].get("n") else 1
 

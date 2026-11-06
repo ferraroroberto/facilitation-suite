@@ -32,6 +32,7 @@ from src.atomic_write import atomic_write_text
 from src.errors import DomainError
 from src.groups.shuffle import _assign_ids, build_groups
 from src.text import fold
+from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ def import_roster(folder: Path, source: Path) -> list[Person]:
         raise RosterError(422, "roster_empty", "No names found in the first sheet")
     target = folder / ROSTER_FILE
     if source.resolve() != target.resolve():
-        tmp = target.with_suffix(".xlsx.tmp")
+        tmp = outside_code(target.with_suffix(".xlsx.tmp"))
         shutil.copyfile(source, tmp)
         tmp.replace(target)
     # A new roster starts from its own present column: forget earlier switches.

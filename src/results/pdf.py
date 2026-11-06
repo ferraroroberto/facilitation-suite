@@ -30,6 +30,7 @@ from typing import Any, Optional
 
 from src.logger import configure_logging
 from src.results.collect import participation_table
+from src.write_target import outside_code
 
 logger = logging.getLogger("session_pdf")
 
@@ -257,7 +258,7 @@ def print_pdf(html: Path, out: Path, timeout_ms: int = 120000) -> int:
     """Print ``html`` to ``out``; returns the page count (0: it could not be counted)."""
     from playwright.sync_api import sync_playwright
 
-    out.parent.mkdir(parents=True, exist_ok=True)
+    outside_code(out).parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".pdf.tmp")
     with sync_playwright() as p:
         browser = p.chromium.launch()

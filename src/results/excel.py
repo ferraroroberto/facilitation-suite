@@ -27,6 +27,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
 from src.results.collect import participation_table
+from src.write_target import outside_code
 
 BAD_SHEET_CHARS = re.compile(r"[\[\]:*?/\\]")
 BOLD = Font(bold=True)
@@ -110,7 +111,7 @@ def build_report(results: dict[str, Any], people: list[dict[str, Any]], out: Pat
            [26, 10, *[14 for _ in table["activities"]], 14, 14, 14])
     ps.freeze_panes = "B2"
 
-    out.parent.mkdir(parents=True, exist_ok=True)
+    outside_code(out).parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".xlsx.tmp")
     wb.save(tmp)
     tmp.replace(out)

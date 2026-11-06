@@ -290,6 +290,8 @@ path = "launcher.py"
 [runtime_write_ratchet]
 enabled  = true
 baseline = ".runtime-write-ratchet-baseline.json"
+# `data_dir` is the declared data root; `outside_code` (src/write_target.py) refuses a target under a code folder at run time.
+safe_calls = ["data_dir", "outside_code"]
 
 # [usage_track_ratchet] -- scripts/usage_track_ratchet.py (with its reader
 # scripts/usage_track_scan.py) fails when the web app's HTML or JS gains a control with no
