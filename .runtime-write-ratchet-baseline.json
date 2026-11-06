@@ -8,7 +8,6 @@
     {"key": "src/activities/rebuild.py", "counts": {"unresolved": 7}},
     {"key": "src/activities/replay.py", "counts": {"unresolved": 2}},
     {"key": "src/activities/replay_render.py", "counts": {"unresolved": 10}},
-    {"key": "src/atomic_write.py", "counts": {"unresolved": 1}},
     {"key": "src/chat/process.py", "counts": {"unresolved": 2}},
     {"key": "src/copilot/audio.py", "counts": {"unresolved": 3}},
     {"key": "src/files.py", "counts": {"unresolved": 2}},
