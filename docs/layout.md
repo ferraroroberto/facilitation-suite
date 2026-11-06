@@ -17,14 +17,13 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `config/` | `config.sample.json`, the committed template; the live `config.json` next to it is gitignored |
 | `brand/` | the Lucide `presentation` master the icons are generated from |
 | `themes/` | declared exception, see below |
-| `webapp/` | declared exception, see below |
+| `webapp/` | machine-local runtime folder: the HTTPS certificates and `cloudflared.yml`; only the template `cloudflared.sample.yml` is tracked, and the path is part of the tray's and the tunnel's config contract |
 
 ## Declared exceptions
 
-Both are listed in `extra_roots` in `.fleet.toml`.
+One root is listed in `extra_roots` in `.fleet.toml`.
 
 - **`themes/`** holds the stage themes (`default.css` and any added next to it). The stage follows the session theme, not the fleet design, and the server stamps these files with the same content hash as the webapp's static files. A theme is a stylesheet picked by name from the session, so it sits beside the app rather than inside `app/webapp/static/`, which holds the fleet-design pages.
-- **`webapp/`** is the machine-local folder the server and the tunnel read at runtime: the HTTPS certificates and `cloudflared.yml`. Only `cloudflared.sample.yml`, the template, is tracked; the rest is gitignored. The path is part of the tray's and the tunnel's config contract, so it stays a root folder.
 
 ## `app/`
 

@@ -4,7 +4,7 @@
   "root_extras": ["themes"],
   "shape_contract": {
     "root_files": [],
-    "redundant": ["webapp/"],
+    "redundant": [],
     "folder_types": {
       "src/activities/cards": 2,
       "src/activities/feed": 2,
