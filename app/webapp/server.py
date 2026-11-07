@@ -110,8 +110,17 @@ BUILD = build_identity()
 ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
 # An overlay started only for Settings' sample stops this long after it, unless Copilot is on by then.
 OVERLAY_SAMPLE_KEEP_S = 60
+OVERLAY_WATCH_S = 15  # how often a dead overlay is noticed while Copilot is on and wants it
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
 USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only)
+
+
+async def _keep_overlay_up(app: FastAPI) -> None:
+    """While Copilot is on with the overlay enabled, start the overlay again if it is gone (a crash, a kill)."""
+    while True:
+        await asyncio.sleep(OVERLAY_WATCH_S)
+        if app.state.copilot.on and app.state.config.copilot.overlay.enabled and not app.state.overlay.running():
+            await asyncio.to_thread(app.state.overlay.start)
 
 
 @asynccontextmanager
@@ -127,6 +136,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.local_listener = local
     await local.start()  # optional too: the tray falls back to the HTTPS URL
     reach = asyncio.create_task(app.state.quiz_reach.run_periodic(), name="quiz-reach")
+    overlay_watch = asyncio.create_task(_keep_overlay_up(app), name="overlay-watch")
     # After every service is wired and the loop bound (timers, the quiz, the music): the session
     # that was live when the server stopped comes back by itself.
     if cfg.live.resume_on_start:
@@ -136,6 +146,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("✅ facilitation-suite up — build %s · port %d · config %s", BUILD["git_sha"], cfg.port, cfg.source)
     yield
     reach.cancel()
+    overlay_watch.cancel()
     await local.stop()
     await player.stop()
     monitor.cancel()
@@ -242,7 +253,7 @@ def _install_copilot(app: FastAPI) -> None:
             in_background(overlay.stop)
 
     def sample() -> None:
-        in_background(overlay.start)
+        # The route starts the overlay itself (it reports whether it came up); this only schedules the idle stop.
         if live.loop is not None:
             live.loop.call_later(OVERLAY_SAMPLE_KEEP_S, idle_after_sample, copilot.sample_at)
 
