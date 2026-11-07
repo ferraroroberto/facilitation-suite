@@ -47,7 +47,7 @@ The Copilot card shows the switches, what is being recorded, the hints (each wit
 | Summary failed | no model gave the summary; the lines wait for the next refresh |
 | Hint cap reached / Summary cap reached | a warning, not a failure: the hourly cap holds calls back, and the line says when the next one is allowed |
 
-Under the switches the card carries a one-line **status strip**: a live level for each channel (your mic, the call) and how the latest hint check ended (*hint shown*, *checked: nothing worth a hint*, *dropped, the item changed*, or *waiting for the other side to speak* before the first). **Details** opens a popover beside the card (inline on a narrow or touch screen) so the cockpit never grows or scrolls:
+Under the switches the card carries a one-line **status strip**: a live level for each channel (your mic, the call) and how the latest hint check ended (*hint shown*, *checked: nothing worth a hint*, *dropped, the item changed*, or *waiting for the other side to speak* before the first). **Details** opens a popover laid exactly over the Next and Music cards (inline on a narrow or touch screen) so the cockpit never grows or scrolls:
 
 - **Status** — per channel, when its last chunk was transcribed.
 - **What it reads** — the item's notes (with an **Edit** link to the session) and the session's playbook (**Open** edits `playbook.md` in the default editor; without one, a line says so).

@@ -225,10 +225,8 @@
    scroll); the item card is content-sized and its player list scrolls when long. */
 @media (min-width: 1100px) and (pointer: fine) {
   .presenter { height: 100vh; min-height: 0; }
-  /* Up to 1499px: three columns, the chat under the item card with a floor of its own. --p-stage-fr repeats the stage
-     column's fr (an fr cannot come out of calc()) so the Details popover can be as wide as Next, which is 1fr. */
+  /* Up to 1499px: three columns, the chat under the item card with a floor of its own. */
   .p-grid {
-    --p-stage-fr: 1.55;
     grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: minmax(0, auto) minmax(240px, 1fr);
     min-height: 0;
@@ -241,12 +239,14 @@
   .p-now, .p-next, .p-chat { flex: 1 1 0; }
   .p-notes { flex: 0 1 auto; max-height: 26%; }
   .p-copilot { flex: none; max-height: 38%; }
-  /* Details open as a popover laid over the Next column, at its left edge and width: nothing in the grid moves or
-     shrinks, so the page never scrolls. The card is as wide as the stage column, so its width over --p-stage-fr is
-     Next's. Narrower or on touch the same block opens in the card, where the page already scrolls. */
-  .p-copilot { position: relative; overflow: visible; }
-  .p-cop-detail { position: absolute; left: calc(100% + var(--gap)); bottom: 0; z-index: 20; width: calc(100% / var(--p-stage-fr)); box-sizing: border-box;
-    max-height: calc(100vh - 2 * var(--gap)); overflow: auto; padding: var(--space-md); border: 1px solid var(--line);
+  /* Details open as a popover laid exactly over the Next column (the Next card and the music card under it): nothing in
+     the grid moves or shrinks, so the page never scrolls. The grid is the popover's containing block and its placement is
+     the Next column's grid area, so it takes that area's four edges, border included, and scrolls inside them. Narrower
+     or on touch the same block opens in the card, where the page already scrolls. */
+  .p-grid { position: relative; }
+  .p-copilot { overflow: visible; }
+  .p-cop-detail { position: absolute; z-index: 20; box-sizing: border-box; inset: 0; grid-column: 2 / 3; grid-row: 1 / -1;
+    overflow: auto; padding: var(--space-md); border: 1px solid var(--line);
     border-radius: var(--radius); background: var(--card); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18); }
   .p-timing, .p-music { flex: none; }
   .p-item { flex: 0 1 auto; min-height: 160px; }
@@ -265,7 +265,6 @@
 /* 1500px and wider (a 1920×1080 second monitor): four columns, the Zoom chat on its own, full height. */
 @media (min-width: 1500px) and (pointer: fine) {
   .p-grid {
-    --p-stage-fr: 1.5;
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
     grid-template-rows: minmax(0, 1fr);
   }
