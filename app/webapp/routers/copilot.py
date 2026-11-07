@@ -119,6 +119,20 @@ async def show_sample(request: Request) -> dict[str, Any]:
     return settings_payload(request)
 
 
+@router.get("/state")
+def get_state(request: Request) -> dict[str, Any]:
+    """The copilot block of the live snapshot, on its own: the presenter polls it for the channels' live level."""
+    return _copilot(request).snapshot()
+
+
+@router.post("/test")
+async def post_test(request: Request) -> dict[str, Any]:
+    """One hint check now on what the facilitator's own mic said, its hints labelled a test (a solo dry run)."""
+    copilot = _copilot(request)
+    copilot.test_hint()
+    return copilot.snapshot()
+
+
 @router.put("/local-only")
 async def put_local_only(request: Request, body: LocalOnly) -> dict[str, Any]:
     """The live session's switch: hints from the local model only (saved in its ``session.yaml``)."""

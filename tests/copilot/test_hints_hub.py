@@ -174,3 +174,15 @@ def test_the_summary_is_trimmed_and_the_cap_slides_over_the_hour() -> None:
     assert limit.take(2)
     now[0] = 3600.5
     assert not limit.full(2) and limit.take(0)  # the window slid; 0 = no cap
+
+
+def test_playbook_rides_in_the_prompt_prefix_and_is_bounded() -> None:
+    from src.copilot.hints import PLAYBOOK_CHARS, playbook_block
+
+    lines = [Line("them", "I like the cheap one", 1000.0)]
+    head = "Always ask for a concrete example.\n"
+    playbook = head + "Z" * (PLAYBOOK_CHARS + 500)
+    text = user_prompt("Synthetic workshop", None, None, "On time.", lines, now=1090.0, playbook=playbook)
+    assert text.index("Always ask for a concrete example.") < text.index("On stage now:")  # the stable prefix, before the plan
+    assert text.count("Z") == PLAYBOOK_CHARS - len(head) and "…\n" in text  # cut like the notes, and says so
+    assert playbook_block("   \n") == "" and "Playbook" not in user_prompt("Synthetic workshop", None, None, "On time.", lines, 1090.0)

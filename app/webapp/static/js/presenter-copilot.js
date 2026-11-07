@@ -1,11 +1,13 @@
 // /presenter — the Copilot card under the notes, and its header chip. presenter.js draws the card on
-// every snapshot; the first draw into a fresh shell builds it. Everything comes from the snapshot's `copilot`;
+// every snapshot; the first draw into a fresh shell builds it. Everything comes from the snapshot's `copilot`
+// (the panel under the switches, which says what feeds the hints and where they show, is presenter-copilot-panel.js);
 // the switch sends the `copilot_toggle` intent. The hints always show here in full: in the
 // overlay's cue mode this card is where the flashing icon sends the eye.
 
 import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { api, esc, toast, switchRow } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
+import { buildPanel, drawPanel } from '/static/js/presenter-copilot-panel.js';
 
 const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
 const CHANNEL_STATE = { starting: 'accent', error: 'bad' };
@@ -113,10 +115,11 @@ function buildCopilot(body, live) {
   interview.querySelector('[role=switch]').dataset.copInterview = '';
   interview.querySelector('[role=switch]').dataset.track = 'live.copilot-interview';
   row.append(on, rec, local, interview, name);
+  buildPanel(body, live);
 }
 
 /** The card for this snapshot: switches, what is recorded, each failure on its own line, the hints. */
-export function drawCopilot(card, live, cur) {
+export function drawCopilot(card, live, cur, sid) {
   const s = live.state;
   const c = s && s.copilot;
   if (!card || !c) return;
@@ -150,13 +153,14 @@ export function drawCopilot(card, live, cur) {
 
   const hints = liveHints(c, cur ? cur.id : null, now);
   const list = card.querySelector('[data-cop-hints]');
-  const items = hints.map((h) => `<li class="p-hint"><span class="p-hint-type">${esc(TYPE_LABEL[h.type] || h.type)}</span>` +
+  const items = hints.map((h) => `<li class="p-hint"><span class="p-hint-type">${h.test ? 'Test · ' : ''}${esc(TYPE_LABEL[h.type] || h.type)}</span>` +
     `<span class="p-hint-text">${esc(h.text)}</span></li>`).join('');
   if (list.dataset.html !== items) { list.dataset.html = items; list.innerHTML = items; }
   card.querySelector('[data-cop-idle]').textContent = !c.on
     ? 'Records your mic and the call, and shows short hints here and on the overlay. Tell the participants before you switch it on.'
     : hints.length ? '' : `Listening — ${c.stats.lines} line${c.stats.lines === 1 ? '' : 's'} so far.`;
   card.classList.toggle('has-hints', hints.length > 0);
+  drawPanel(card.querySelector('[data-cop-panel]'), c, { cur, sid, now });
 }
 
 /** The header chip while Copilot is on: a chosen mode in accent, a failure as what it is (null while off). */

@@ -73,6 +73,14 @@ def read_playbook(folder: Path) -> dict[str, Any]:
     return {"exists": True, "html": render_markdown(text), "modified_ms": int(stat.st_mtime * 1000)}
 
 
+def playbook_text(folder: Path) -> str:
+    """The folder's ``playbook.md`` as plain text (empty when there is none or it cannot be read)."""
+    try:
+        return (folder / PLAYBOOK_FILE).read_text(encoding="utf-8-sig", errors="replace").strip()
+    except OSError:
+        return ""
+
+
 def create_playbook(folder: Path) -> dict[str, Any]:
     """Write the template to ``playbook.md``; an existing playbook is never touched (409)."""
     path = folder / PLAYBOOK_FILE

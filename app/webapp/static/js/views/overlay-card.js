@@ -7,14 +7,14 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { api, esc, toast, switchRow } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
 
-const POSITION_LABEL = {
+export const POSITION_LABEL = {
   'top-left': 'Top left', 'top-center': 'Top centre', 'top-right': 'Top right', center: 'Centre',
   'bottom-left': 'Bottom left', 'bottom-center': 'Bottom centre', 'bottom-right': 'Bottom right',
 };
-const MODE_LABEL = { full: 'The hint itself', cue: 'Only a cue (the hint is on the presenter)' };
+export const MODE_LABEL = { full: 'The hint itself', cue: 'Only a cue (the hint is on the presenter)' };
 const SHAPE_LABEL = { rounded: 'Rounded', pill: 'Pill', square: 'Square' };
 
-const screenName = (s) => `${s.primary ? 'Primary' : s.id.replace(/^\\\\\.\\/, '')} · ${s.width}×${s.height}${s.primary ? '' : ` at ${s.x}, ${s.y}`}`;
+export const screenName = (s) => `${s.primary ? 'Primary' : s.id.replace(/^\\\\\.\\/, '')} · ${s.width}×${s.height}${s.primary ? '' : ` at ${s.x}, ${s.y}`}`;
 const options = (pairs, value) => pairs.map(([v, label]) => `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(label)}</option>`).join('');
 
 function screenOptions(d) {
