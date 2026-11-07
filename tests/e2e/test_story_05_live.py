@@ -332,8 +332,9 @@ def _check_copilot_panel(page: Page, webapp, card) -> None:
     panel.locator("[data-cop-more]").click()
     expect(detail).to_be_visible()
     next_col, pop = page.locator(".p-col-next").bounding_box(), detail.bounding_box()
-    # laid over Next: its left edge and width, within the card's 1px border that the popover's percentages skip
-    assert abs(pop["x"] - next_col["x"]) <= 2 and abs(pop["width"] - next_col["width"]) <= 2, (pop, next_col)
+    # laid exactly over the Next card and the music card under it: the column's four edges, no tolerance
+    assert pop == next_col, (pop, next_col)
+    _assert_fits_full_hd(page, "Copilot Details open")
     expect(panel.locator("[data-read-notes]")).to_contain_text("Notes")
     expect(panel.locator("[data-read-playbook]")).to_contain_text("none yet")
     expect(panel.locator("[data-cop-where]")).to_contain_text("overlay window is off")  # the e2e instance has no overlay
