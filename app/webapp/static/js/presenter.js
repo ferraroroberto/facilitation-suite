@@ -250,7 +250,7 @@ function draw() {
   drawItemCard(cur, s);
   drawMusic(cur, s);
   drawTiming(cur, s);
-  drawCopilot(root.querySelector('.p-copilot'), live, cur);
+  drawCopilot(root.querySelector('.p-copilot'), live, cur, plan.session.id);
   drawChips();
   markChat();
 }

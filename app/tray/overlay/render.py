@@ -30,6 +30,7 @@ FONT_FILES = {
 # One accent per hint type, readable on a dark or a light card.
 TYPE_ACCENT = {"next_q": "#4ea1ff", "notice": "#f5b942", "drift": "#ff6b6b", "recap": "#4cc38a"}
 TYPE_LABEL = {"next_q": "ASK", "notice": "NOTICE", "drift": "TIME", "recap": "RECAP"}
+TEST_LABEL = "TEST"  # the presenter's "Test copilot": its hints say so, so nobody mistakes one for the call
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 DEFAULTS = OverlayConfig()
 
@@ -104,18 +105,18 @@ def render_hints(hints: list[dict[str, str]], style: Style) -> Image.Image:
     gap = round(size * 0.5)
     font, label_font = _font(style.font, size), _font("Segoe UI Bold", max(10, round(size * 0.42)))
     inner = style.width - 2 * pad
-    rows = [(h.get("type", "notice"), _wrap(h.get("text", ""), font, inner)) for h in hints] or [("notice", [""])]
+    rows = [(h.get("type", "notice"), _wrap(h.get("text", ""), font, inner), bool(h.get("test"))) for h in hints] or [("notice", [""], False)]
     line_h, label_h = round(size * 1.25), round(size * 0.62)
     edge = round(size * 0.75)  # top and bottom: as much air as the sides of a rounded card
-    height = 2 * edge + sum(label_h + line_h * len(lines) for _, lines in rows) + gap * (len(rows) - 1)
+    height = 2 * edge + sum(label_h + line_h * len(lines) for _, lines, _ in rows) + gap * (len(rows) - 1)
     img = Image.new("RGBA", (style.width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle((0, 0, style.width - 1, height - 1), _radius(style.shape, height, size),
                            fill=(*style.background, round(style.opacity * 2.55)))
     y = edge
-    for kind, lines in rows:
+    for kind, lines, test in rows:
         accent = _colour(TYPE_ACCENT.get(kind), TYPE_ACCENT["notice"])
-        draw.text((pad, y), TYPE_LABEL.get(kind, kind.upper()), font=label_font, fill=(*accent, 255))
+        draw.text((pad, y), f"{TEST_LABEL} · " * test + TYPE_LABEL.get(kind, kind.upper()), font=label_font, fill=(*accent, 255))
         y += label_h
         for line in lines:
             draw.text((pad, y), line, font=font, fill=(*style.text, 255))

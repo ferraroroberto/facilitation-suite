@@ -101,3 +101,9 @@ def test_disabled_overlay_never_shows_and_style_changes_redraw() -> None:
 def test_socket_url_follows_the_scheme() -> None:
     assert socket_url("https://127.0.0.1:8449/") == "wss://127.0.0.1:8449/ws?role=overlay"
     assert socket_url("http://127.0.0.1:8456") == "ws://127.0.0.1:8456/ws?role=overlay"
+
+
+def test_a_test_hint_says_so_on_the_card() -> None:
+    plain = render_hints([{"type": "next_q", "text": "Ask which idea first"}], Style.from_settings(STYLE))
+    labelled = render_hints([{"type": "next_q", "text": "Ask which idea first", "test": True}], Style.from_settings(STYLE))
+    assert plain.size == labelled.size and plain.tobytes() != labelled.tobytes()  # the label row reads "TEST · ASK"

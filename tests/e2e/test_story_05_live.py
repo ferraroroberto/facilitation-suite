@@ -277,6 +277,7 @@ def _check_copilot(page: Page, webapp, session_yaml: Path) -> None:
     (the instance is shared), the hints go with it."""
     card = page.locator(".p-copilot")
     expect(card.locator(".p-meta")).to_have_text("off")
+    _assert_fits_full_hd(page, "Copilot off")
     # No consent is recorded for this session yet: switching on asks first, and "no" records nothing.
     card.locator("[data-cop-on]").click()
     expect(page.locator(".dialog-confirm")).to_be_visible()
@@ -296,6 +297,7 @@ def _check_copilot(page: Page, webapp, session_yaml: Path) -> None:
     expect(card.locator(".p-hint")).to_have_count(2)
     expect(page.locator("[data-chips]")).to_contain_text("Copilot · on")
     surface(page, "presenter.copilot-hints")
+    _check_copilot_panel(page, webapp, card)
     card.locator("[data-cop-on]").click()  # off, then on again: the question is asked once per session
     expect(card.locator(".p-hint")).to_have_count(0)
     expect(card.locator(".p-meta")).to_have_text("off")
@@ -305,6 +307,46 @@ def _check_copilot(page: Page, webapp, session_yaml: Path) -> None:
     card.locator("[data-cop-on]").click()
     expect(card.locator(".p-meta")).to_have_text("off")
     _check_interview(card, session_yaml)
+
+
+def _assert_fits_full_hd(page: Page, what: str) -> None:
+    """At 1920x1080 the whole cockpit is in view: the document scrolls neither sideways nor down."""
+    page.set_viewport_size({"width": 1920, "height": 1080})
+    _reflowed(page)
+    scroll_w, scroll_h, view_w, view_h = page.evaluate(
+        "() => { const e = document.documentElement; return [e.scrollWidth, e.scrollHeight, innerWidth, innerHeight]; }")
+    assert (view_w, view_h) == (1920, 1080)
+    assert scroll_w <= view_w and scroll_h <= view_h, f"{what}: the presenter scrolls at 1920x1080 ({scroll_w}x{scroll_h} in {view_w}x{view_h})"
+    page.set_viewport_size({"width": 1440, "height": 900})
+    _reflowed(page)
+
+
+def _check_copilot_panel(page: Page, webapp, card) -> None:
+    """The panel is one strip until Details opens it; it says what is read and where hints show; a solo
+    test (an injected line from the facilitator's own channel) gives a hint labelled Test."""
+    panel = card.locator("[data-cop-panel]")
+    detail = panel.locator("[data-cop-detail]")
+    expect(detail).to_be_hidden()
+    expect(panel.locator("[data-cop-check]")).to_contain_text("hint shown")
+    _assert_fits_full_hd(page, "Copilot on, panel collapsed")
+    panel.locator("[data-cop-more]").click()
+    expect(detail).to_be_visible()
+    expect(panel.locator("[data-read-notes]")).to_contain_text("Notes")
+    expect(panel.locator("[data-read-playbook]")).to_contain_text("none yet")
+    expect(panel.locator("[data-cop-where]")).to_contain_text("overlay window is off")  # the e2e instance has no overlay
+    expect(panel.locator("a[href='/#settings/live']")).to_be_visible()
+    surface(page, "presenter.copilot-panel")
+    r = page.request.post(f"{webapp.base_url}/api/copilot/transcript",
+                          data={"lines": [{"speaker": "me", "text": "I would start with the cheapest prototype"}]})
+    assert r.ok, r.text()
+    panel.locator("[data-cop-test]").click()
+    expect(card.locator(".p-hint-type").first).to_contain_text("Test ·")
+    expect(panel.locator("[data-cop-check]")).to_contain_text("Test: hint shown")
+    hints = page.request.get(f"{webapp.base_url}/api/copilot/state").json()["hints"]
+    assert hints and all(h.get("test") for h in hints)  # the overlay reads the same block, so it draws the label too
+    _assert_fits_full_hd(page, "Copilot on, panel open")
+    panel.locator("[data-cop-more]").click()
+    expect(detail).to_be_hidden()
 
 
 def _check_interview(card, session_yaml: Path) -> None:

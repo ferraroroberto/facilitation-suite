@@ -1,7 +1,8 @@
 """Hints: what the model reads, the strict JSON it must answer with, and the chain of models asked.
 
 The prompt is a stable prefix — the session's title, the item on stage and the next one with their
-notes, and the clock state computed from the live clocks (drift is measured, never guessed) — then
+notes, the session's playbook (bounded like the notes) and the clock state computed from the live clocks
+(drift is measured, never guessed) — then
 the last minutes of the transcript verbatim. The answer is JSON: at most three hints of at most
 twelve words, each typed ``next_q`` (a question to ask next), ``notice`` (something said worth
 following up) or ``recap`` (a point worth summing up). No hint is a fine answer. A ``drift`` hint
@@ -26,6 +27,7 @@ MODEL_HINT_TYPES = ("next_q", "notice", "recap")  # drift is measured from the c
 MAX_HINTS = 3
 MAX_WORDS = 12
 NOTES_CHARS = 1500  # one item's notes in the prompt: enough for real speaker notes, never a whole script
+PLAYBOOK_CHARS = 1500  # the playbook in the prompt, bounded like the notes: its opening instructions, never a whole file
 LANGUAGE_NAMES = {"en": "English", "es": "Spanish"}
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 # Whisper's own words for "nothing here" ("[BLANK_AUDIO]", "(music)") are not speech.
@@ -146,7 +148,7 @@ def system_prompt(language: str, mode: str = "workshop", interviewee: str = "") 
     if mode == "interview":
         return (
             "You are a discreet copilot for an interviewer running a remote one-to-one interview. You read the "
-            "interview plan and the latest transcript and suggest at most three very short hints the interviewer "
+            "interview plan (and the playbook, when there is one) and the latest transcript and suggest at most three very short hints the interviewer "
             f"can glance at while listening. In the transcript, 'me' is the interviewer and {interviewee_clause(interviewee)}.\n"
             'Answer with JSON only, no other text: {"hints": [{"type": "next_q", "text": "..."}]}.\n'
             "Types: next_q = a follow-up question to ask next, built on what the interviewee just said; "
@@ -158,7 +160,7 @@ def system_prompt(language: str, mode: str = "workshop", interviewee: str = "") 
         )
     return (
         "You are a discreet copilot for a facilitator running a live session (a workshop, an interview or a "
-        "meeting). You read the session plan and the latest transcript and suggest at most three very short "
+        "meeting). You read the session plan (and the playbook, when there is one) and the latest transcript and suggest at most three very short "
         "hints the facilitator can glance at while talking. In the transcript, 'me' is the facilitator and "
         "'them' is everyone else on the call.\n"
         'Answer with JSON only, no other text: {"hints": [{"type": "next_q", "text": "..."}]}.\n'
@@ -181,10 +183,21 @@ def transcript_text(lines: Sequence[Line], now: float, labels: Optional[dict[str
     return "\n".join(f"{stamp(ln)} {names.get(ln.speaker, ln.speaker)}: {ln.text}" for ln in lines) or "(nothing said yet)"
 
 
+def playbook_block(playbook: str) -> str:
+    """The session's playbook as the prompt carries it ('' when there is none): the facilitator's own
+    instructions for this session, cut to ``PLAYBOOK_CHARS``."""
+    text = playbook.strip()
+    if not text:
+        return ""
+    cut = "…" if len(text) > PLAYBOOK_CHARS else ""
+    return f"Playbook (the facilitator's instructions for this session):\n{text[:PLAYBOOK_CHARS]}{cut}\n"
+
+
 def user_prompt(title: str, cur: Optional[dict[str, Any]], nxt: Optional[dict[str, Any]], clock: str,
-                lines: Sequence[Line], now: float, summary: str = "", labels: Optional[dict[str, str]] = None) -> str:
+                lines: Sequence[Line], now: float, summary: str = "", labels: Optional[dict[str, str]] = None,
+                playbook: str = "") -> str:
     so_far = f"The conversation so far, summarised: {summary}\n" if summary else ""
-    return (f"Session: {title}\n{so_far}{_item_block('On stage now', cur)}\n{_item_block('Next', nxt)}\n"
+    return (f"Session: {title}\n{playbook_block(playbook)}{so_far}{_item_block('On stage now', cur)}\n{_item_block('Next', nxt)}\n"
             f"Clock: {clock}\n\nTranscript, oldest first (time before now):\n{transcript_text(lines, now, labels)}")
 
 

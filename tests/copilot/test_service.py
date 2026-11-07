@@ -240,3 +240,56 @@ def test_past_the_hourly_cap_no_hint_is_asked_and_the_cap_is_its_own_line(live: 
     assert [(p["code"], p["level"]) for p in problems] == [("hint_capped", "warn")]
     assert problems[0]["message"].startswith("Hint cap reached — 2 hint calls in the last hour")
     assert copilot.snapshot()["stats"]["capped"] == 1
+
+
+def test_the_playbook_feeds_the_hint_prompt_and_a_changed_file_is_read_again(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", **FAST)
+    assert copilot.snapshot()["playbook"] == {"exists": False, "chars": 0, "used_chars": 0}
+    (live.folder / "playbook.md").write_text("# Playbook\n\nAlways ask for a concrete example.\n", encoding="utf-8")
+    copilot.start()
+    copilot.inject([("them", "We could test the cheapest idea first")])
+    wait_for(lambda: hub_fake.calls_to("/v1/chat/completions"))
+    prompt = hub_fake.calls_to("/v1/chat/completions")[0]["messages"][1]["content"]
+    assert "Always ask for a concrete example." in prompt and prompt.index("Playbook") < prompt.index("On stage now:")
+    assert copilot.snapshot()["playbook"]["exists"] is True
+    (live.folder / "playbook.md").write_text("# Playbook\n\nKeep every question short and open.\n", encoding="utf-8")
+    copilot.inject([("them", "And then?")])
+    wait_for(lambda: len(hub_fake.calls_to("/v1/chat/completions")) >= 2)
+    assert "Keep every question short and open." in hub_fake.calls_to("/v1/chat/completions")[-1]["messages"][1]["content"]
+
+
+def test_a_solo_test_checks_the_facilitators_own_channel_and_labels_the_hint(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", **FAST)
+    with pytest.raises(CopilotError) as off:
+        copilot.test_hint()
+    assert off.value.code == "copilot_off"
+    copilot.start()
+    with pytest.raises(CopilotError) as quiet:
+        copilot.test_hint()
+    assert quiet.value.code == "nothing_heard"  # an empty transcript is not worth a model call
+    assert copilot.snapshot()["last_check"] is None
+    copilot._add_line("me", "I would start with the cheapest prototype", time.time(), {"injected": True})  # a solo dry run: only me
+    copilot.test_hint()
+    wait_for(lambda: copilot.snapshot()["hints"])
+    snap = copilot.snapshot()
+    assert snap["hints"] and all(h["test"] is True for h in snap["hints"])
+    assert snap["last_check"]["outcome"] == "shown" and snap["last_check"]["test"] is True and snap["last_check"]["reason"] == "test"
+    assert "me: I would start with the cheapest prototype" in hub_fake.calls_to("/v1/chat/completions")[0]["messages"][1]["content"]
+    assert read_jsonl(live.folder / "live" / "copilot" / "hints.jsonl")[0]["reason"] == "test"
+    copilot.inject([("them", "A real question from the call")])  # a real hint is never labelled
+    wait_for(lambda: copilot.snapshot()["last_check"]["reason"] == "inject")
+    assert not any(h.get("test") for h in copilot.snapshot()["hints"])
+
+
+def test_status_says_when_each_channel_was_last_transcribed_and_its_level(live: LiveHub, hub_fake: FakeHub, tmp_path: Path) -> None:
+    write_wav(tmp_path / "me.wav", speech([("voice", 1.2), ("pause", 0.4)]))
+    write_wav(tmp_path / "them.wav", speech([("pause", 0.2), ("voice", 1.2), ("pause", 0.4)]))
+    hub_fake.transcripts += ["So which idea first?", "The cheapest one, I think."]
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="files", feed_dir=str(tmp_path), **FAST)
+    assert copilot.snapshot()["last_chunk_at"] == {}
+    copilot.start()
+    wait_for(lambda: set(copilot.snapshot()["last_chunk_at"]) == {"me", "them"})
+    channels = {c["speaker"]: c for c in copilot.snapshot()["channels"]}
+    assert all(c["level"] is not None and c["level"]["db"] < 0 for c in channels.values())
+    copilot.stop()
+    assert copilot.snapshot()["channels"] == []

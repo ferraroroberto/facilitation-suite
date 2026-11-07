@@ -4,6 +4,7 @@ snapshot (presenter and overlay roles), the overlay settings and the session's l
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -113,3 +114,21 @@ def test_local_only_is_the_sessions_and_phones_cannot_inject(app, isolated_env: 
         r = phone.post("/api/copilot/transcript", json={"lines": [{"speaker": "them", "text": "x"}]})
         assert r.status_code == 403 and r.json()["error"]["code"] == "local_only"
         assert phone.put("/api/copilot/settings", json={"overlay": {"width": 500}}).status_code == 403
+
+
+def test_test_endpoint_runs_one_labelled_check_and_state_is_the_snapshot_block(app, fake: FakeHub) -> None:
+    with TestClient(app, client=("127.0.0.1", 50000)) as pc:
+        go_live_with_consent(pc, app)
+        assert pc.post("/api/copilot/test").json()["error"]["code"] == "copilot_off"
+        assert pc.post("/api/actions/copilot_toggle").status_code == 200
+        assert pc.post("/api/copilot/test").json()["error"]["code"] == "nothing_heard"
+        pc.post("/api/copilot/transcript", json={"lines": [{"speaker": "me", "text": "Let me try the cheapest idea"}]})
+        r = pc.post("/api/copilot/test")
+        assert r.status_code == 200
+        for _ in range(100):
+            state = pc.get("/api/copilot/state").json()
+            if state["hints"] and state["last_check"]["reason"] == "test":
+                break
+            time.sleep(0.05)
+        assert state["hints"] and all(h["test"] for h in state["hints"]) and state["last_check"]["outcome"] == "shown"
+        assert live_copilot(pc)["last_check"]["reason"] == "test"  # the live snapshot carries the same block

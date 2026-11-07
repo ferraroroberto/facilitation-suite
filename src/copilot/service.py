@@ -50,6 +50,7 @@ from src.copilot.hints import (
     MAX_HINTS,
     MODEL_HINT_TYPES,
     NOT_SPEECH,
+    PLAYBOOK_CHARS,
     Answer,
     Line,
     ask_chain,
@@ -65,11 +66,12 @@ from src.copilot.hints import (
 from src.copilot.hub_client import HubDown, HubFailure, complete, transcribe
 from src.copilot.retention import purge_recordings
 from src.copilot.summary import SUMMARY_FILE, SUMMARY_MAX_TOKENS, RateLimit, parse_summary, summary_messages
-from src.copilot.vad import Chunk, Chunker
+from src.copilot.vad import Chunk, Chunker, frame_dbfs
 from src.errors import DomainError
 from src.jsonl import JsonlAppender
 from src.live.hub import LiveHub, now_ms
 from src.sessions.model import COPILOT_CONSENT, COPILOT_MODES, INTERVIEWEE_CHARS, Session
+from src.sessions.playbook import PLAYBOOK_FILE, playbook_text
 from src.sessions.store import SessionError
 
 logger = logging.getLogger(__name__)
@@ -114,6 +116,7 @@ class _HintRequest:
     reason: str
     messages: list[dict[str, str]]
     trigger_at: float
+    test: bool = False  # asked by the presenter's "Test copilot": its hints carry the label
 
 
 @dataclass
@@ -143,6 +146,7 @@ class _Run:
     recorders: dict[str, WavRecorder] = field(default_factory=dict)
     seq: int = 0
     dropped: int = 0
+    levels: dict[str, tuple[float, float]] = field(default_factory=dict)  # speaker → (dBFS of the last block, when)
 
 
 class CopilotService:
@@ -163,6 +167,11 @@ class CopilotService:
         self.lines: deque[Line] = deque(maxlen=4000)
         self.last_lag_ms: Optional[int] = None
         self.last_hint_ms: Optional[int] = None
+        # What the presenter's status shows: when each channel last had a chunk transcribed, and how the latest
+        # hint check ended ({at, outcome, reason, test, model, detail}).
+        self.last_chunk_at: dict[str, int] = {}
+        self.last_check: Optional[dict[str, Any]] = None
+        self._playbook_seen: Optional[tuple[tuple[int, int], str]] = None  # ((mtime_ns, size), text) of playbook.md
         self.stats = _fresh_stats()
         # The rolling summary ({at, model, text, words}) and the lines heard since it was last refreshed.
         self.summary: Optional[dict[str, Any]] = None
@@ -270,6 +279,7 @@ class CopilotService:
         self._run, self.on, self.started_at = run, True, now_ms()
         self.problems = {"no_hub": PROBLEM_TEXT["no_hub"]} if not cfg.hub_url.strip() else {}
         self.hints, self.hints_at, self.hints_item_id, self._last_hint_request = [], None, None, float("-inf")
+        self.last_chunk_at, self.last_check = {}, None
         self.channels = self._planned_channels(cfg)
         if self.summary is None:
             self.summary = self._read_summary()
@@ -318,6 +328,7 @@ class CopilotService:
         self.lines.clear()
         self.stats = _fresh_stats()
         self.last_lag_ms = self.last_hint_ms = None
+        self.last_chunk_at, self.last_check, self._playbook_seen = {}, None, None
         self._transcript_log.forget()
         self._hints_log.forget()
         self._forget_summary()
@@ -337,6 +348,7 @@ class CopilotService:
         """The presenter started the session over: the transcript so far went with the old ``live/``."""
         self.lines.clear()
         self.hints, self.hints_at = [], None
+        self.last_chunk_at, self.last_check = {}, None
         self.stats = _fresh_stats()
         self._transcript_log.forget()
         self._hints_log.forget()
@@ -459,6 +471,7 @@ class CopilotService:
                 if run.stopped.is_set():
                     break
                 continue
+            run.levels[speaker] = (frame_dbfs(pcm), time.time())
             if speaker in run.recorders:
                 run.recorders[speaker].write(pcm)
             for chunk in run.chunkers[speaker].feed(pcm):
@@ -511,6 +524,8 @@ class CopilotService:
             self.live.push_state()
             return
         self._clear_problems("transcribe_error", "hub_down")
+        if run is self._run:
+            self.last_chunk_at[chunk.speaker] = now_ms()  # the pipeline answered, even when the chunk held no words
         if not text or NOT_SPEECH.match(text) or run.session_id != self.live.session_id:
             self.live.push_state()
             return
@@ -570,7 +585,35 @@ class CopilotService:
         self.live.push_state()
         return True
 
-    def _request_hint(self, reason: str) -> None:
+    def test_hint(self) -> None:
+        """One hint check now, labelled a test, on what the facilitator's own channel said: a solo dry run
+        shows a real hint end to end without anyone on the other side. Nothing said lately is refused, since
+        the model would only see an empty transcript."""
+        if not self.on:
+            raise CopilotError(409, "copilot_off", "Switch Copilot on first")
+        cutoff = time.time() - self.config().context_minutes * 60
+        if not any(ln.speaker == "me" and ln.ended_at >= cutoff for ln in self.lines):
+            raise CopilotError(409, "nothing_heard", "Say a few sentences into your mic first — the test reads what you said")
+        self._request_hint("test", test=True)
+        self.live.push_state()
+
+    def _playbook(self) -> tuple[str, int]:
+        """The session's playbook text and its full length (``("", 0)`` without one), re-read when the file changes."""
+        folder = self.live.folder
+        try:
+            stat = (folder / PLAYBOOK_FILE).stat() if folder is not None else None
+        except OSError:
+            stat = None
+        if stat is None:
+            self._playbook_seen = None
+            return "", 0
+        key = (stat.st_mtime_ns, stat.st_size)
+        if self._playbook_seen is None or self._playbook_seen[0] != key:
+            self._playbook_seen = (key, playbook_text(folder))
+        text = self._playbook_seen[1]
+        return text, len(text)
+
+    def _request_hint(self, reason: str, test: bool = False) -> None:
         run = self._run
         if run is None:
             return
@@ -588,8 +631,9 @@ class CopilotService:
         messages = [{"role": "system", "content": system_prompt(run.language, self.mode, self.interviewee)},
                     {"role": "user", "content": user_prompt(self.live.session_title, cur, nxt, clock, tail, now,
                                                             self.summary["text"] if self.summary else "",
-                                                            speaker_labels(self.mode, self.interviewee))}]
-        request = _HintRequest(self._hint_seq, cur["id"] if cur else None, reason, messages, now)
+                                                            speaker_labels(self.mode, self.interviewee),
+                                                            self._playbook()[0])}]
+        request = _HintRequest(self._hint_seq, cur["id"] if cur else None, reason, messages, now, test)
         try:
             run.hints.get_nowait()  # an older request still waiting is superseded by this one
             self._hint_limit.refund()  # and never reached the hub
@@ -629,6 +673,8 @@ class CopilotService:
         if run is not self._run:
             return
         self._clear_problems("hint_timeout", "hint_error", "hub_down")  # the latest answer says how the hub is
+        outcome = "failed" if answer.failure else "stale" if stale else "shown" if answer.hints else "none"
+        self.last_check = {"at": now_ms(), "outcome": outcome, "reason": request.reason, "test": request.test, "model": answer.model}
         if answer.failure:
             code = {"hub_down": "hub_down", "timeout": "hint_timeout"}.get(answer.failure, "hint_error")
             logger.warning("⚠️ copilot: no hint (%s: %s)", code, answer.detail)
@@ -636,10 +682,12 @@ class CopilotService:
             self.live.push_state()
             return
         self.last_hint_ms = lag_ms
-        if not stale and answer.hints:
+        logger.info("ℹ️ copilot: hint check (%s) → %s in %d ms", request.reason, outcome, lag_ms)
+        if outcome == "shown":
             self._shown_seq = request.seq
             drift = [h for h in self._fresh_hints(request.item_id) if h["type"] == "drift"]  # the clock's warning stays first
-            self._show([*drift, *(h.as_dict() for h in answer.hints)][:MAX_HINTS], request.item_id, answer.model)
+            label = {"test": True} if request.test else {}
+            self._show([*drift, *({**h.as_dict(), **label} for h in answer.hints)][:MAX_HINTS], request.item_id, answer.model)
             self.stats["hints"] += len(answer.hints)
         self.live.push_state()
 
@@ -789,6 +837,9 @@ class CopilotService:
                 oldest = min(run.pending.values(), default=None)
             behind = max(0.0, time.time() - oldest) if oldest is not None else 0.0
         fresh = self.hints_at is not None and now_ms() - self.hints_at < cfg.hint_ttl_s * 1000
+        levels = dict(run.levels) if run is not None else {}
+        now = time.time()
+        playbook_chars = self._playbook()[1]
         return {
             "on": self.on,
             "consent": self.consented(),
@@ -797,7 +848,11 @@ class CopilotService:
             "mode": self.mode,
             "interviewee": self.interviewee,
             "capture": cfg.capture,
-            "channels": [{"speaker": s, **c} for s, c in self.channels.items()],
+            "channels": [{"speaker": s, **c, "level": ({"db": round(levels[s][0], 1), "age_s": round(now - levels[s][1], 1)}
+                                                       if s in levels else None)} for s, c in self.channels.items()],
+            "last_chunk_at": dict(self.last_chunk_at),
+            "last_check": self.last_check,
+            "playbook": {"exists": playbook_chars > 0, "chars": playbook_chars, "used_chars": min(playbook_chars, PLAYBOOK_CHARS)},
             "behind_s": round(behind),
             "behind_warn_s": BEHIND_WARN_S,
             "problems": [{"code": k, "message": v, "level": "warn" if k in WARN_PROBLEMS else "bad"}
