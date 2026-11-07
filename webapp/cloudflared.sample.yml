@@ -1,4 +1,4 @@
-# Named Cloudflare tunnel for the quiz player (#82) -- committed template.
+# Named Cloudflare tunnel for the quiz player -- committed template.
 #
 # Copy to webapp/cloudflared.yml (gitignored: it holds the tunnel id) and fill
 # in the id and your hostname. When webapp/cloudflared.yml exists the tray runs

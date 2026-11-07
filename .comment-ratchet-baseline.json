@@ -1,6 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    {"key": "webapp/cloudflared.sample.yml", "count": 1}
-  ]
+  "entries": []
 }
