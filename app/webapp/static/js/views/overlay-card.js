@@ -31,8 +31,10 @@ export function overlayCard() {
 
   async function save(patch, message = 'Overlay saved — a sample shows where it sits') {
     try {
-      draw(await api('/api/copilot/settings', { method: 'PUT', body: { overlay: patch } }));
-      toast(message);
+      const d = await api('/api/copilot/settings', { method: 'PUT', body: { overlay: patch } });
+      draw(d);
+      if (d.delivered === false) toast('Overlay saved, but it is not running — see data/logs/facilitation-suite.log, then restart the app', 'error');
+      else toast(message);
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -80,8 +82,10 @@ export function overlayCard() {
     body.querySelector('[data-ov-look]').addEventListener('click', () => editLook(o, d));
     body.querySelector('[data-ov-sample]').addEventListener('click', async () => {
       try {
-        await api('/api/copilot/sample', { method: 'POST' });
-        toast(o.enabled ? 'A sample is on the overlay' : 'The overlay is off — switch it on first');
+        const d = await api('/api/copilot/sample', { method: 'POST' });
+        if (!o.enabled) toast('The overlay is off — switch it on first');
+        else if (d.delivered) toast('A sample is on the overlay');
+        else toast('The overlay is not running — see data/logs/facilitation-suite.log, then restart the app', 'error');
       } catch (e) {
         toast(e.message, 'error');
       }

@@ -95,7 +95,9 @@ export function buildPanel(body, live) {
   panel.querySelector('[data-cop-sample]').addEventListener('click', async () => {
     try {
       const d = await api('/api/copilot/sample', { method: 'POST' });
-      toast(d.overlay.enabled ? 'A sample is on the overlay' : 'The overlay is off — switch it on in Settings');
+      if (!d.overlay.enabled) toast('The overlay is off — switch it on in Settings');
+      else if (d.delivered) toast('A sample is on the overlay');
+      else toast('The overlay is not running — see data/logs/facilitation-suite.log, then restart the app', 'error');
     } catch (e) {
       toast(e.message, 'error');
     }

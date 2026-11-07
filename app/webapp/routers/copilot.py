@@ -104,19 +104,29 @@ async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
     if patch:
         request.app.state.config = await asyncio.to_thread(settings_file.update, {"copilot": {"overlay": patch}})
         if request.app.state.config.copilot.overlay.enabled:
-            _copilot(request).sample()
-        else:
-            await asyncio.to_thread(request.app.state.overlay.stop)
-            request.app.state.live.push_state()
+            return {**settings_payload(request), "delivered": await _show_sample(request)}
+        await asyncio.to_thread(request.app.state.overlay.stop)
+        request.app.state.live.push_state()
     return settings_payload(request)
+
+
+async def _show_sample(request: Request) -> bool:
+    """Ask for the sample and start the overlay for it; True only when an overlay process is up to draw it
+    (the UI must not claim a sample that no window can show)."""
+    _copilot(request).sample()
+    if not request.app.state.config.copilot.overlay.enabled:
+        return False
+    delivered = await asyncio.to_thread(request.app.state.overlay.start)
+    logger.info("ℹ️ copilot: sample %s", "sent to the overlay" if delivered else "not shown — the overlay is not running")
+    return delivered
 
 
 @router.post("/sample")
 async def show_sample(request: Request) -> dict[str, Any]:
-    """Put two sample hints on the overlay (starting it when it is not running) to check where it sits."""
+    """Put two sample hints on the overlay (starting it when it is not running) to check where it sits.
+    ``delivered`` says whether a live overlay process took it."""
     require_local(request, "The overlay can only be tried on this PC")
-    _copilot(request).sample()
-    return settings_payload(request)
+    return {**settings_payload(request), "delivered": await _show_sample(request)}
 
 
 @router.get("/state")
