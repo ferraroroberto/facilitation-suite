@@ -1,4 +1,4 @@
-"""The join QR code (#52): an SVG players scan to open ``/play?pin=…`` on the public URL.
+"""The join QR code: an SVG players scan to open ``/play?pin=…`` on the public URL.
 
 Drawn from ``qrcode``'s module matrix as one ``<path>`` on a white square, so
 it scales to any size on the stage (no millimetre size, no Pillow).

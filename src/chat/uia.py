@@ -1,4 +1,4 @@
-"""Read the open Teams or Google Meet chat through Windows UI Automation (#237).
+"""Read the open Teams or Google Meet chat through Windows UI Automation.
 
 Teams on the web and the new Teams desktop app are Chromium (WebView2), which
 exposes the page to UI Automation — MSAA reaches the same text but without the

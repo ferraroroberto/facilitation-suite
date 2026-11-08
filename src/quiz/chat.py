@@ -1,4 +1,4 @@
-"""The quiz's Zoom-chat fallback (#54): ``A``–``D`` typed in the chat answer the open question.
+"""The quiz's Zoom-chat fallback: ``A``–``D`` typed in the chat answer the open question.
 
 If the public player page fails mid-session, the facilitator says "type your
 answer in the chat" and the game goes on, scored by the same engine. The

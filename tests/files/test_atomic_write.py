@@ -71,3 +71,12 @@ def test_a_failed_write_keeps_the_old_content_and_no_temp(folder: Path) -> None:
         atomic_write_text(target, "\udcff")  # a lone surrogate cannot be encoded
     assert target.read_text(encoding="utf-8") == "old"
     assert [p.name for p in folder.iterdir()] == ["groups.yaml"]
+
+
+def test_a_path_under_a_code_folder_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.write_target import CODE_FOLDERS, PROJECT_ROOT
+
+    target = PROJECT_ROOT / CODE_FOLDERS[0] / "never_written.txt"
+    with pytest.raises(ValueError, match="code folder"):
+        atomic_write_text(target, "x")
+    assert not target.exists()

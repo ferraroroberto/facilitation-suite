@@ -1,4 +1,4 @@
-"""The quiz on the main app: the join QR code for the stage and the presenter (#52) and the public-link check (#56).
+"""The quiz on the main app: the join QR code for the stage and the presenter and the public-link check.
 
 Behind ``RemoteAuth`` like every other ``/api/*`` route — the public player
 app (``app/webapp/player/``) never serves it.

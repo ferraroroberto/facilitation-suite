@@ -4,10 +4,10 @@ Plain ``KEY=value`` lines (``#`` comments, blank lines and optional quotes);
 no dependency. A key set in the process environment wins over the file. The
 file is gitignored and never logged; ``set_value`` keeps every other line as
 it was and writes atomically. A read is cached for a fraction of a second
-(#141) — a save made through this module invalidates it at once, but an edit
+— a save made through this module invalidates it at once, but an edit
 made outside the app (by hand, or another process) can take that long to show.
 ``generation()`` counts this process's saves, so a cache built on ``.env``
-elsewhere can tell whether a save landed since it was computed (#146).
+elsewhere can tell whether a save landed since it was computed.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """The stage library: font files and stage themes the facilitator adds once and
-every session can use (#110).
+every session can use.
 
 User files, never the repo: they live in ``<session_root>/_library/fonts`` and
 ``<session_root>/_library/themes`` — next to the session folders (OneDrive by

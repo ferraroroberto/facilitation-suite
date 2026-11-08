@@ -54,7 +54,7 @@ class ObsConfig:
 class ReaderConfig:
     """The chat reader process (``python -m src.chat.reader``). ``source`` is
     ``"zoom"`` (the popped-out chat: ``window_class`` + ``window_title``),
-    ``"teams"`` (a window whose title carries ``teams_title``, #237) or ``"meet"``
+    ``"teams"`` (a window whose title carries ``teams_title``) or ``"meet"``
     (a window whose title names ``meet_title``, showing the chat panel named
     ``meet_panel`` — Meet's English labels; another UI language needs its own)."""
 
@@ -78,7 +78,7 @@ class RemoteConfig:
 
 @dataclass(frozen=True)
 class QuizConfig:
-    """The public quiz player listener (#34, #49): a separate app on
+    """The public quiz player listener: a separate app on
     ``127.0.0.1:public_port`` that only the Cloudflare tunnel (or, as the
     fallback, Tailscale Funnel) publishes. ``0`` turns it off (the tests do).
     ``public_url`` is the address players open, e.g. ``https://quiz.<domain>`` —
@@ -90,7 +90,7 @@ class QuizConfig:
 
 @dataclass(frozen=True)
 class LiveConfig:
-    """The live session across a server restart (#95): ``resume_on_start`` takes
+    """The live session across a server restart: ``resume_on_start`` takes
     the session that was live when the server stopped (a crash, ``tray.bat
     --restart``) live again at startup — never one the presenter closed."""
 
@@ -159,7 +159,7 @@ class CopilotConfig:
 
 @dataclass(frozen=True)
 class StageClickConfig:
-    """What a click on the stage window does (#191): ``advance`` goes on to the next item, as in a
+    """What a click on the stage window does: ``advance`` goes on to the next item, as in a
     slideshow. Off by default — a stray click must not move the presentation on; the arrow keys
     and a clicker still do. With ``advance`` off, ``restore_camera`` (on by default) makes a click
     re-apply the item's OBS profile — back to the slide's camera layout after the facilitator

@@ -1,6 +1,6 @@
-"""The quiz's sound cues (#53): a phase change on stage plays its cue through ``MusicService``.
+"""The quiz's sound cues: a phase change on stage plays its cue through ``MusicService``.
 
-Played on this PC (the server-side music, #65), never in the stage browser.
+Played on this PC (the server-side music), never in the stage browser.
 A cue is a file in the session folder's ``audio/`` — any of ``.mp3``,
 ``.ogg``, ``.wav``, ``.flac``; none there means silence, never an error:
 
@@ -40,7 +40,7 @@ CUES: dict[str, tuple[str, bool]] = {
 
 
 def cue_inventory(folder: Optional[Path]) -> dict[str, Any]:
-    """The presenter's Sounds chip (#102): which of the four cue files are in ``audio/``.
+    """The presenter's Sounds chip: which of the four cue files are in ``audio/``.
 
     ``missing`` names each absent cue by its short name (``lobby``, ``countdown``,
     ``reveal``, ``podium``), not its file name. No live session (``folder`` is

@@ -1,4 +1,4 @@
-"""Global defaults every new session starts from (#110): the stage theme and
+"""Global defaults every new session starts from: the stage theme and
 lettering, and the fades of new music items.
 
 They live in ``config/config.json`` under ``defaults``::

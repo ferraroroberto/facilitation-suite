@@ -16,7 +16,7 @@ Pages (``app/webapp/routers/pages.py``):
     GET /api/version → build identity (git_sha captured at import, schema version)
 
 At startup the lifespan takes the session that was live when the server
-stopped live again (``LiveHub.resume_last``, #95; off with ``live.resume_on_start``).
+stopped live again (``LiveHub.resume_last``; off with ``live.resume_on_start``).
 
 The lifespan also runs the **quiz player listener** — a second, separate app on
 ``127.0.0.1:<quiz.public_port>`` (``app/webapp/player/``), the only surface the
@@ -27,13 +27,13 @@ tray opens on this PC, with no certificate and no tailnet hop.
 
 Static assets carry one fleet hash (``?v=``, ``src/static_versioning.py``) and are cached for good
 under it (``app/webapp/assets.py``); the pages stay ``no-cache``, so a restart with changed assets
-moves every URL and a stale asset cannot be served (#209).
+moves every URL and a stale asset cannot be served.
 
 Errors are one JSON envelope everywhere — ``{"error": {"code", "message",
 "detail"?}}``.
 
 Run through the vendored launch module with the pinned selector loop (Windows proactor
-wedges on an aborted client — app-launcher#388):
+wedges on an aborted client):
 
     python -m app.webapp.serve --host 0.0.0.0 --port 8449 \
         --loop app.webapp.event_loop:selector_loop_factory

@@ -104,7 +104,7 @@ class ResilientRotatingFileHandler(RotatingFileHandler):
             self.stream = None
         staged = self.baseFilename + ".rotating-tmp"
         try:
-            # must-use-exempt: a log rotation renames the live log aside and writes nothing; a refusal is handled below
+            # must-use-exempt: renames the live log aside and writes nothing; the first refusal must reach the handler below at once, which replace_held's retry sleeps would stall inside a log call
             os.replace(self.baseFilename, staged)
         except PermissionError as exc:
             # Settle every bit of state — including reopening the stream — *before* logging

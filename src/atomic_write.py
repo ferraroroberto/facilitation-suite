@@ -17,6 +17,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from src.write_target import outside_code
+
 logger = logging.getLogger(__name__)
 
 # Waits between tries when the target is held open (≈0.4 s in all).
@@ -38,14 +40,17 @@ def replace_held(tmp: str | Path, path: Path) -> None:
 
 
 def atomic_write_text(path: Path, text: str) -> None:
-    """Replace ``path`` with ``text`` as UTF-8 with LF line ends, creating the parent folder."""
-    # runtime-write-exempt: the helper writes wherever its caller points it; callers own the target
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    """Replace ``path`` with ``text`` as UTF-8 with LF line ends, creating the parent folder.
+
+    Raises ``ValueError`` for a path under one of the app's code folders (``outside_code``).
+    """
+    target = outside_code(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
-        replace_held(tmp, path)
+        replace_held(tmp, target)
     except BaseException:
         try:
             os.unlink(tmp)

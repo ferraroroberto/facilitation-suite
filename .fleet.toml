@@ -102,6 +102,8 @@ baseline = ".comment-ratchet-baseline.json"
 # app files (tests/quiz/test_quiz_player.py holds them equal), so their upstream comments
 # cannot be reworded here.
 exclude  = ["app/webapp/player/static/fleet/**"]
+docstrings      = true
+history_phrases = true
 
 # [structure_ratchet] -- the scaffold's baseline-and-ratchet layout stage. The gate runs
 # scripts/structure_ratchet.py: a new file over 1,000 lines, a new function over 100 lines
@@ -126,6 +128,10 @@ baseline = ".structure-ratchet-baseline.json"
 [instruction_ratchet]
 enabled  = true
 baseline = ".instruction-ratchet-baseline.json"
+ci_expectations     = true
+agents_pointer      = true
+claude_md_max_lines = 120
+repeated_text_words = 12
 
 # [doc_refs_ratchet] -- the scaffold's baseline-and-ratchet check of what the docs name.
 # The gate runs scripts/doc_refs_ratchet.py: README.md, CLAUDE.md and docs/**/*.md may not
