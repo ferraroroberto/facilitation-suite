@@ -17,7 +17,10 @@ from fastapi.testclient import TestClient
 from tests.conftest import REPO_ROOT, paired_remote
 
 STATIC = REPO_ROOT / "app" / "webapp" / "static"
-STORED_COLUMNS = {"id", "ts", "session_id", "kind", "view_id", "control_id", "device_class", "os_class"}
+STORED_COLUMNS = {"id", "ts", "session_id", "kind", "view_id", "control_id", "device_class", "os_class",
+                  "country", "visitor", "ip"}
+# The vendored table carries the public-site columns; a fleet app never fills them.
+PUBLIC_SITE_COLUMNS = ("country", "visitor", "ip")
 BUILDER_FILES = {entry.split(":")[0] for entry in tomllib.loads(
     (REPO_ROOT / ".fleet.toml").read_text(encoding="utf-8"))["usage_track_ratchet"]["builders"]}
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
@@ -73,6 +76,7 @@ def test_the_stored_event_fields_are_only_the_contract(client: TestClient, isola
         ("view", "plan", None),
         ("tap", "plan", "sessions.new"),
     ]
+    assert all(x[col] is None for x in rows for col in PUBLIC_SITE_COLUMNS)
     assert {x["session_id"] for x in rows} == {SID}
     assert {(x["device_class"], x["os_class"]) for x in rows} == {("desktop", "windows")}
     assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*Z?", x["ts"]) for x in rows)
