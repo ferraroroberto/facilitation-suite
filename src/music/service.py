@@ -25,7 +25,7 @@ replaces it again. The same track already playing is adopted, not restarted.
 Pausing, resuming or changing the volume by hand keeps the owner; stopping
 clears it.
 
-**Sound cues** (``cue(name)``, the quiz's phase sounds, #53): a short file
+**Sound cues** (``cue(name)``, the quiz's phase sounds): a short file
 from the session's ``audio/`` folder (``audio/<name>.mp3|ogg|wav|flac``;
 silent when there is none). A cue **never stomps real music**: while an
 item's music or ad-hoc music is playing or paused, the cue is skipped (and
@@ -36,11 +36,11 @@ cue like any track: the cue is forgotten. The presenter's pause, stop and
 volume act on a cue as on any track.
 
 States (the presenter's chip): ``idle``, ``playing``, ``paused``, ``error``
-(the detail says why). ``output_device()`` (#102) is a separate, lightweight
+(the detail says why). ``output_device()`` is a separate, lightweight
 check — whether this PC has an audio output device at all — used by the
 quiz's Sounds chip alongside its cue-file inventory (``src/quiz/cues.py``).
 
-**After a restart** (#95): what plays or is paused — its source, position,
+**After a restart**: what plays or is paused — its source, position,
 volume, fades and owner (the item whose timer drives it, or none: ad hoc) — is
 the ``music`` section of ``live/state.json``, written with every change. When
 the session comes back after a restart (not after the presenter's Close), the
@@ -204,7 +204,7 @@ class MusicService:
             self.live.loop.call_soon_threadsafe(self.live.push_state)
 
     def output_device(self) -> tuple[str, str]:
-        """Whether this PC has an audio output device (#102): ``ok`` | ``none`` | ``unknown``.
+        """Whether this PC has an audio output device: ``ok`` | ``none`` | ``unknown``.
 
         Only enumerates devices (miniaudio, a few ms) — never opens one, so this
         never makes a sound. ``unknown`` when the enumeration itself fails; never
@@ -243,7 +243,7 @@ class MusicService:
         self.live.commit()
 
     def skip(self, direction: str) -> None:
-        """The next or previous track of the playing Spotify playlist, album or artist (#191).
+        """The next or previous track of the playing Spotify playlist, album or artist.
 
         Only while it plays: a file is a single track, and a paused Spotify would start playing
         on a skip. Spotify's own rule applies to previous: past the first seconds of a track it
@@ -529,7 +529,7 @@ class MusicService:
 
     def _spotify_label(self, uri: str) -> str:
         """The link's real name once Spotify has said it (asked in the background when the account
-        is connected), else the kind and the start of the id (#191)."""
+        is connected), else the kind and the start of the id."""
         backend = self.backends.get("spotify")
         name = backend.name_of(uri) if backend is not None and hasattr(backend, "name_of") else ""
         return name or spotify_label(uri)

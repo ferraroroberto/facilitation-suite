@@ -1,6 +1,6 @@
-"""Quiz load bots (#56): N phones play a whole game against a DISPOSABLE instance.
+"""Quiz load bots: N phones play a whole game against a DISPOSABLE instance.
 
-The script is the rehearsal harness for the quiz's reliability promises (#34 §4):
+The script is the rehearsal harness for the quiz's reliability promises:
 no lost joins, no lost or double-scored answers, and a restart mid-question
 that loses nothing. It never touches the live app or a real session folder:
 
@@ -32,7 +32,7 @@ that loses nothing. It never touches the live app or a real session folder:
 ``--restart-mid-question`` kills the server process (a crash, no clean
 shutdown) once half the bots have answered question ``--restart-at`` and
 starts it again on the same ports. Nobody presses "Go live": the server takes
-the session live again by itself at startup (#95) — the run fails if it does
+the session live again by itself at startup — the run fails if it does
 not. It then checks the game came back as it was (game, PIN, question,
 deadline, players, answers so far) and that the next leaderboard equals the
 one before plus that question's points, per player.

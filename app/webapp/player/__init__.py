@@ -1,1 +1,1 @@
-"""The public quiz player surface (#34): a separate, minimal app on loopback."""
+"""The public quiz player surface: a separate, minimal app on loopback."""

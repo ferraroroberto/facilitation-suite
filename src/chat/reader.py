@@ -1,6 +1,6 @@
-"""The chat reader (Zoom, Teams with ``reader.source = "teams"``, #237, or Google
-Meet with ``"meet"``; the server passes the presenter's choice as ``--source``,
-#239) — its own process, so a crash never takes the server down.
+"""The chat reader (Zoom, Teams with ``reader.source = "teams"``, or Google
+Meet with ``"meet"``; the server passes the presenter's choice as ``--source``)
+— its own process, so a crash never takes the server down.
 
     python -m src.chat.reader --server http://127.0.0.1:8449 [--parent-pid N] [--source zoom|teams|meet]
     python -m src.chat.reader --server … --simulate burst:50

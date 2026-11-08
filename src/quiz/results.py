@@ -1,4 +1,4 @@
-"""A session's quiz results (#55), read back from ``live/quiz.jsonl``.
+"""A session's quiz results, read back from ``live/quiz.jsonl``.
 
 **One source of truth.** The file is replayed with ``service.replay`` (every
 record through ``Game.apply``) against the plan's game scopes from

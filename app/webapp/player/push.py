@@ -1,4 +1,4 @@
-"""The player sockets (#52): each phone's own view, pushed when its game changes.
+"""The player sockets: each phone's own view, pushed when its game changes.
 
 ``QuizService`` runs ``notify`` after every record (a join, an answer, a
 phase, a kick) and when the live session changes. Bursts coalesce: one flush

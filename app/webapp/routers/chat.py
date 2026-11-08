@@ -97,7 +97,7 @@ async def reader_stop(request: Request) -> dict[str, Any]:
 
 @router.put("/reader/source")
 async def reader_source(request: Request, body: SourceChoice) -> dict[str, Any]:
-    """The presenter's Zoom · Teams · Meet switch (#239): save the choice; a running
+    """The presenter's Zoom · Teams · Meet switch: save the choice; a running
     reader restarts on it (its first read is a baseline, so nothing already in
     the chat is posted again). A stopped reader or a simulation only saves it."""
     require_local(request, "The chat source can only be changed on this PC")

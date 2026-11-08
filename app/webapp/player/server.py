@@ -1,4 +1,4 @@
-"""The quiz player app — the only thing the public internet can reach (#34, #49, #52).
+"""The quiz player app — the only thing the public internet can reach.
 
 Served on ``127.0.0.1:<quiz.public_port>`` (default 8451) by
 ``app/webapp/player/listener.py`` and published by a Cloudflare named tunnel
@@ -16,7 +16,7 @@ listener, which runs on the main app's loop), so every route is ``async``:
     GET  /play/static/…       → its CSS and JS (``app/webapp/player/static/``)
     GET  /play/api/ping       → {"ok": true, "time": <server epoch seconds>, "lang":
                               the live session's language, so the join screen
-                              speaks it before the phone has a view (#91)}
+                              speaks it before the phone has a view}
     POST /play/api/join       {pin, nickname, key?} → {state: joined | wrong_pin |
                               no_game | closed, player_id, secret, name, …, view}
     POST /play/api/resume     {player_id, secret} → {state: resumed |

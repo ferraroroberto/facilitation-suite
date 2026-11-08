@@ -52,6 +52,12 @@ def fetch(url: str) -> bytes:
         return r.read()
 
 
+def commit_artifact(name: str, data: bytes) -> None:
+    """Write one generated gazetteer file into ``OUT``, the committed folder the app ships and reads."""
+    # runtime-write-exempt: the gazetteer is a committed artefact under src/activities/map that this script regenerates by design
+    (OUT / name).write_bytes(data)
+
+
 def build_cities() -> dict[tuple[str, str], tuple[float, float, int]]:
     raw = zipfile.ZipFile(io.BytesIO(fetch(CITIES_URL))).read("cities15000.txt").decode("utf-8")
     lines = []
@@ -74,8 +80,7 @@ def build_cities() -> dict[tuple[str, str], tuple[float, float, int]]:
                     keep.append(a)
         lines.append("\t".join([gid, name, ascii_name, cc, f"{float(lat):.4f}", f"{float(lon):.4f}", str(pop), "|".join(keep)]))
     data = ("\n".join(lines) + "\n").encode("utf-8")
-    # runtime-write-exempt: regenerates the committed gazetteer under src/activities/map, on purpose
-    (OUT / "cities.tsv.gz").write_bytes(gzip.compress(data, compresslevel=9, mtime=0))
+    commit_artifact("cities.tsv.gz", gzip.compress(data, compresslevel=9, mtime=0))
     print(f"✅ {len(lines)} cities → cities.tsv.gz ({(OUT / 'cities.tsv.gz').stat().st_size // 1024} KB)")
     return coords
 
@@ -95,8 +100,7 @@ def build_countries(coords: dict[tuple[str, str], tuple[float, float, int]]) -> 
             lat, lon = (best[0], best[1]) if best else (None, None)
         out.append({"iso": iso, "iso3": iso3, "name": en.territories.get(iso, name), "name_es": es.territories.get(iso, name),
                     "names": sorted(n for n in names if n), "capital": capital, "lat": lat, "lon": lon})
-    # runtime-write-exempt: regenerates the committed gazetteer under src/activities/map, on purpose
-    (OUT / "countries.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    commit_artifact("countries.json", json.dumps(out, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     print(f"✅ {len(out)} countries → countries.json")
 
 
@@ -167,13 +171,10 @@ def build_world() -> None:
            f'data-kx="{KX:.6f}" data-scale="{SVG_SCALE}">\n'
            "<!-- Country outlines: world-atlas countries-50m (Natural Earth, public domain). -->\n"
            f'<g class="land">{"".join(paths)}</g></svg>\n')
-    # runtime-write-exempt: regenerates the committed gazetteer under src/activities/map, on purpose
-    (OUT / "world.svg").write_text(svg, encoding="utf-8")
+    commit_artifact("world.svg", svg.encode("utf-8"))
     print(f"✅ {len(paths)} countries → world.svg ({(OUT / 'world.svg').stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
-    # runtime-write-exempt: regenerates the committed gazetteer under src/activities/map, on purpose
-    OUT.mkdir(parents=True, exist_ok=True)
     build_countries(build_cities())
     build_world()

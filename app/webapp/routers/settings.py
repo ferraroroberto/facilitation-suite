@@ -1,6 +1,6 @@
 """Settings shared by every session: OBS connection and profiles, the chat reader, the phone remote,
 the appearance (light/dark) of the facilitator's screens, the defaults new sessions start from with
-the stage library (#110), and the Spotify account (status and the Connect button, this PC only)."""
+the stage library, and the Spotify account (status and the Connect button, this PC only)."""
 
 from __future__ import annotations
 
@@ -86,8 +86,8 @@ def remote_payload(request: Request) -> dict[str, Any]:
 
     A loopback bind (``config.host`` 127.0.0.1 / ::1 / localhost) never hands out
     that link: no other device can reach a listener bound to loopback only,
-    however good the cert on disk (#101) — the same bind check ``public_url``
-    already makes for the tray's Open link (#39). A page on the local listener
+    however good the cert on disk — the same bind check ``public_url``
+    already makes for the tray's Open link. A page on the local listener
     (plain HTTP on this PC, ``local_port``) still gets the tailnet HTTPS link: it
     is for the phone, not for the page it is shown on."""
     cfg = request.app.state.config

@@ -1,4 +1,4 @@
-"""The second listener: the player app on ``127.0.0.1:<quiz.public_port>`` (#49).
+"""The second listener: the player app on ``127.0.0.1:<quiz.public_port>``.
 
 Started inside the main app's lifespan as a task on the **same event loop**,
 with the main app's one ``QuizService`` (the player routes call it directly —

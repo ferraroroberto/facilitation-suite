@@ -1,4 +1,4 @@
-"""Serving the hash-stamped static assets (#209): cached for good under their own URL, never stale.
+"""Serving the hash-stamped static assets: cached for good under their own URL, never stale.
 
 ``.js``/``.css`` go out with their module imports stamped (``src/static_versioning.py``). A request whose
 ``?v=`` is this process's fleet hash names exactly these bytes, so it is ``immutable`` for a year; any

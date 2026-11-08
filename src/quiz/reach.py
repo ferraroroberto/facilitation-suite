@@ -1,4 +1,4 @@
-"""Is the public quiz link reachable? (#56, #82) — the readiness item and the presenter chip.
+"""Is the public quiz link reachable? — the readiness item and the presenter chip.
 
 One check, six distinct states (``unknown`` is never folded into ``ok``):
 
@@ -147,7 +147,7 @@ def resolve_public(host: str, resolvers: tuple[str, ...] = PUBLIC_RESOLVERS,
 
     Asks each resolver in turn and returns the first one's addresses (a
     resolver can still serve a cached NXDOMAIN minutes after a new name went
-    live — seen in #49 — so an empty answer moves on to the next); raises
+    live, so an empty answer moves on to the next); raises
     ``DnsError`` only when none of them answered at all.
     """
     failures, answered = [], False

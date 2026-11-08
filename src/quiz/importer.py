@@ -11,7 +11,7 @@ The header is found by its texts' prefixes in the first ``HEADER_ROWS`` rows,
 not at a fixed cell. ``Correct answer(s)`` is a number (``1``) or a comma list
 (``"1,3"``). The template has no quiz name: the caller passes a title.
 
-Only this layout is in scope; Kahoot's report ``.xlsx`` is not (#50).
+Only this layout is in scope; Kahoot's report ``.xlsx`` is not.
 """
 
 from __future__ import annotations

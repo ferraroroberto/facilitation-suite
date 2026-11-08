@@ -1,4 +1,4 @@
-"""The Cloudflare named tunnel that publishes the quiz player (#82).
+"""The Cloudflare named tunnel that publishes the quiz player.
 
 ``webapp/cloudflared.yml`` (gitignored; template ``webapp/cloudflared.sample.yml``)
 maps the public hostname (``quiz.<domain>``) to the player listener on

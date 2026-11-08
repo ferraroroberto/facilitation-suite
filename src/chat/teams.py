@@ -1,4 +1,4 @@
-"""Teams chat tree → messages (pure, unit-tested; #237).
+"""Teams chat tree → messages (pure, unit-tested).
 
 Teams (on the web, and the new desktop app, both Chromium) exposes the open
 chat to UI Automation as a tree keyed by automation ids. The message list is

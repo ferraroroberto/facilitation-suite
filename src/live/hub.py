@@ -34,7 +34,7 @@ written again two seconds later, an append-only log (events, chat, quiz —
 warning goes once every file that failed has been written again (OneDrive
 holding the file open while it uploads is the usual cause).
 
-Resume after a restart (#95): the session that is live is also named in a
+Resume after a restart: the session that is live is also named in a
 machine-local pointer (``data/live.json``), removed when the presenter closes
 it; ``state.json`` says ``"live": false`` once closed. At startup
 ``resume_last()`` takes that session live again — only when both the pointer

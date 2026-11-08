@@ -1,4 +1,4 @@
-"""Static-asset versioning: one fleet hash stamped onto every ``.js``/``.css`` URL (#209).
+"""Static-asset versioning: one fleet hash stamped onto every ``.js``/``.css`` URL.
 
 The webapp is an ES-module graph, so a per-file hash would go stale on a transitive edit (``a.js``
 changes, ``b.js``'s own bytes do not, yet ``b.js`` now pulls in something different). One **fleet
