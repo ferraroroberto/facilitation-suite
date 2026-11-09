@@ -20,7 +20,7 @@ import pytest
 
 from src.no_window import NO_WINDOW
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 GATE = REPO_ROOT / "scripts" / "verify-before-ship.ps1"
 BOX_LOCK = REPO_ROOT / "scripts" / "box_lock_gate.ps1"
 POWERSHELL = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
