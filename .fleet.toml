@@ -209,6 +209,13 @@ module = "src/obs/connection_state.py"
 type   = "ObsState"
 derive = "advance"
 
+# The coalesced state push's latch, declared once (docs/live.md#the-coalesced-push).
+[[state_machines]]
+name   = "push-latch"
+module = "src/live/push_latch.py"
+type   = "PushState"
+derive = "advance"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

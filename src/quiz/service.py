@@ -126,6 +126,7 @@ from src.activities.registry import options_with_defaults
 from src.jsonl import JsonlAppender, read_jsonl
 from src.live.actions import Action, register
 from src.live.hub import LiveError, LiveHub, now_ms
+from src.live.push_latch import PushLatch
 from src.quiz.engine import (
     CLOSED,
     GRACE_MS,
@@ -143,7 +144,6 @@ from src.quiz.model import QuizError, QuizQuestion, question_from_item
 logger = logging.getLogger(__name__)
 
 QUIZ_FILE = "quiz.jsonl"
-PUSH_EVERY_S = 0.25  # joins and answers in a burst: at most four snapshot pushes a second
 LOBBY, QUESTION, PODIUM = "quiz_lobby", "quiz", "quiz_podium"
 QUIZ_TYPES = (LOBBY, QUESTION, PODIUM)
 WRONG_PIN = "wrong_pin"  # join_pin: no game of the live session has that PIN
@@ -255,7 +255,7 @@ class QuizService:
         self._log = JsonlAppender(QUIZ_FILE, live.write_failed, live.write_ok)
         self._reveal: Optional[Any] = None  # the pending reveal handle of the open question (time-up or early close)
         self._reveal_at: Optional[int] = None  # when that handle is due to fire (clock ms)
-        self._push_pending = False
+        self._push = PushLatch()
         live.extra_state.append(self.state_fields)
         live.item_listeners.append(self._on_item)
         live.session_listeners.append(self._on_session)
@@ -668,15 +668,7 @@ class QuizService:
         if not soon or self.live.loop is None:
             self.live.push_state()
             return
-        if self._push_pending:
-            return
-        self._push_pending = True
-
-        def push() -> None:
-            self._push_pending = False
-            self.live.push_state()
-
-        self.live.loop.call_later(PUSH_EVERY_S, push)
+        self._push.push_soon(self.live.loop, self.live.push_state)
 
     # -------------------------------------------------------- durability
 
