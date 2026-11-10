@@ -76,6 +76,7 @@ flowchart LR
   obs -->|obs-websocket v5| obsapp["OBS Studio"]
   hub -->|timer start · pause · reset · end · item change| music["src/music/service.py<br/>MusicService — item music synced to its timer · ad hoc · latest wins"]
   music --> acts
+  music -->|player state| playerstate["src/music/player_state.py<br/>PlayerState · advance · is_loaded"]
   music --> filebk["src/music/file_backend.py<br/>miniaudio mixer · own thread · per-sample fades"]
   filebk -->|default output device| speakers["this PC's audio output"]
   filebk --> audiofiles[("session audio/ · mp3 wav ogg flac")]
