@@ -237,6 +237,27 @@ module = "src/live/capture_state.py"
 type   = "CaptureStatus"
 derive = "capture_status"
 
+# A copilot hint's outcome, declared once (docs/results.md#a-hints-outcome).
+[[state_machines]]
+name   = "hint-outcome"
+module = "src/results/hint_status.py"
+type   = "HintStatus"
+derive = "hint_status"
+
+# A results card's load state, declared once (docs/results.md#a-cards-load-state).
+[[state_machines]]
+name   = "card-load"
+module = "app/webapp/static/js/card-state.js"
+type   = "CardState"
+derive = "advance"
+
+# The quiz player's connection label, declared once (docs/quiz-player.md).
+[[state_machines]]
+name   = "player-connection"
+module = "app/webapp/player/static/conn-state.js"
+type   = "ConnState"
+derive = "connState"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

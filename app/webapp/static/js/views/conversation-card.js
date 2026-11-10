@@ -7,6 +7,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc } from '/static/js/ui.js';
+import { CardState, setCardState, settledState } from '/static/js/card-state.js';
 import { recorderSection, summaryHtml } from '/static/js/views/conversation-recorder.js';
 
 const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
@@ -41,14 +42,14 @@ function lineRow(e, names) {
 
 // A hint the presenter never saw says why: a chip only for those exceptions, never for one that was shown.
 function hintRow(e) {
-  const chip = e.status === 'stale' ? '<span class="chip warn">Dropped · stale</span>'
-    : e.status === 'failed' ? `<span class="chip bad">No hint · ${esc(FAILURE[e.failure] || 'failed')}</span>` : '';
+  const chip = e.stale ? '<span class="chip warn">Dropped · stale</span>'
+    : e.failed ? `<span class="chip bad">No hint · ${esc(FAILURE[e.failure] || 'failed')}</span>` : '';
   const meta = [REASON[e.reason] || e.reason, e.reason === 'drift' ? '' : e.model,
     e.reason === 'drift' || e.lag_ms == null ? '' : `${(e.lag_ms / 1000).toFixed(1)} s`].filter(Boolean).join(' · ');
   const hints = e.hints.length
     ? `<ul class="convo-hints">${e.hints.map((h) => `<li><span class="convo-hint-type">${esc(TYPE_LABEL[h.type] || h.type)}</span>` +
       `<span>${esc(h.text)}</span></li>`).join('')}</ul>`
-    : `<p class="small muted convo-hint-none">${e.status === 'failed' ? 'No answer reached the presenter.' : 'Nothing to suggest.'}</p>`;
+    : `<p class="small muted convo-hint-none">${e.failed ? 'No answer reached the presenter.' : 'Nothing to suggest.'}</p>`;
   return `<div class="list-row convo-hint convo-hint--${esc(e.status)}"><span class="convo-speaker">${icon('wand-sparkles')}</span>` +
     `<div class="grow">${hints}<div class="convo-hint-meta"><span class="row-meta">${esc(meta)}</span>${chip}</div></div>${time(e.at_ms)}</div>`;
 }
@@ -86,14 +87,14 @@ export function conversationCard(sid) {
         api(`/api/sessions/${sid}/results/recorded`).catch(() => null),
       ]);
     } catch (e) {
-      card.dataset.state = 'error';
+      setCardState(card, CardState.ERROR);
       card.hidden = false;
       card.open = true;
       card.innerHTML = `${summary('could not be read')}<div class="collapse-body"></div>`;
       card.querySelector('.collapse-body').appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: () => load(source) }));
       return;
     }
-    card.dataset.state = c.segments.length ? 'ready' : 'empty';
+    setCardState(card, settledState(c.segments.length));
     card.dataset.source = c.source;
     card.hidden = !c.segments.length && !(st && (st.consent || st.transcript));
     card.innerHTML = `${summary(c.segments.length ? count(c) : 'no transcript yet')}<div class="collapse-body convo-body">${body(c)}</div>`;

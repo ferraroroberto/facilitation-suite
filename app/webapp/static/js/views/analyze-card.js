@@ -5,6 +5,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, toast } from '/static/js/ui.js';
+import { CardState, setCardState, settledState } from '/static/js/card-state.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -20,7 +21,7 @@ function inputChips(a) {
 export function analyzeCard(sid) {
   const card = document.createElement('div');
   card.className = 'card analyze-card';
-  card.dataset.state = 'loading';
+  setCardState(card, CardState.LOADING);
   const head = `<div class="card-head"><h3 class="card-title">${icon('wand-sparkles')} Analyze session</h3></div>`;
   card.innerHTML = head;
   card.appendChild(emptyStateEl('refresh-cw', 'Reading the session…'));
@@ -30,7 +31,7 @@ export function analyzeCard(sid) {
     try {
       a = await api(`/api/sessions/${sid}/analysis`);
     } catch (e) {
-      card.dataset.state = 'error';
+      setCardState(card, CardState.ERROR);
       card.innerHTML = head;
       card.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: load }));
       return;
@@ -40,7 +41,7 @@ export function analyzeCard(sid) {
 
   function draw(a) {
     const ready = a.captured > 0;
-    card.dataset.state = ready ? 'ready' : 'empty';
+    setCardState(card, settledState(ready));
     card.innerHTML = head +
       `<div class="analyze-inputs">${inputChips(a)}</div>` +
       `<input class="input mono analyze-command" readonly value="${esc(a.command)}" aria-label="Command to paste into the agent" ${ready ? '' : 'disabled'}>` +

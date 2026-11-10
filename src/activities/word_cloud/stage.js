@@ -167,6 +167,7 @@ export function render(body, result, ctx) {
   const stroke = parseFloat(css.getPropertyValue('--st-font-stroke')) || 0;
   // Widths are measured in the theme font: lay out again once it has loaded.
   if (document.fonts) {
+    // state-literal-exempt: FontFaceSet.status is the browser's own vocabulary; nothing here can declare it
     if (document.fonts.status !== 'loaded') document.fonts.ready.then(again);
     const asked = fontsAsked.get(body) || new Set();
     fontsAsked.set(body, asked);

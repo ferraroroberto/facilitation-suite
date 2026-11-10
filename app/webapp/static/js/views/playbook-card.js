@@ -5,6 +5,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, toast } from '/static/js/ui.js';
+import { CardState, setCardState } from '/static/js/card-state.js';
 
 /**
  * @param {string} sid        the session id
@@ -20,10 +21,10 @@ export function playbookCard(sid, known, onChanged) {
   function show(read, userAction) {
     card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('file-text')} Playbook</h3></div>`;
     if (!read.exists) {
-      card.dataset.state = 'empty';
+      setCardState(card, CardState.EMPTY);
       card.appendChild(emptyStateEl('file-text', 'No playbook for this session yet', { actionLabel: 'Create playbook', onAction: create }));
     } else {
-      card.dataset.state = 'ready';
+      setCardState(card, CardState.READY);
       drawBody(read.html);
     }
     if (userAction && read.exists !== known) onChanged();
@@ -55,13 +56,13 @@ export function playbookCard(sid, known, onChanged) {
   }
 
   async function load(userAction) {
-    if (userAction && card.dataset.state === 'ready') card.dataset.state = 'loading';
+    if (userAction && card.dataset.state === CardState.READY) setCardState(card, CardState.LOADING);
     try {
       const read = await api(url);
       show(read, userAction);
       if (userAction) toast('Playbook reloaded');
     } catch (e) {
-      card.dataset.state = 'error';
+      setCardState(card, CardState.ERROR);
       card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('file-text')} Playbook</h3></div>`;
       card.appendChild(emptyStateEl('triangle-alert', e.message, { actionLabel: 'Retry', onAction: () => load(false) }));
     }
@@ -81,7 +82,7 @@ export function playbookCard(sid, known, onChanged) {
     catch (e) { toast(e.message, 'error'); }
   }
 
-  card.dataset.state = 'loading';
+  setCardState(card, CardState.LOADING);
   card.append(emptyStateEl('refresh-cw', 'Reading the playbook…'));
   load(false);
   return card;

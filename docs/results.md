@@ -17,6 +17,30 @@ When the [live copilot](copilot.md) ran in the session, a **Conversation** card 
 
 When the podcast recorder's tracks were transcribed after the call ([copilot.md](copilot.md#after-the-call-the-recorders-tracks)), the card shows that transcript first, `live/copilot/recorder-transcript.jsonl`, with the summary of the call above the items. A **Recorded · Live** switch goes back to the live one (`?source=live`). The hints sit in both by when they came back. The card ends with the **Recorder tracks** section: the episode folder, **Transcribe**, **Summarise again** and how the run is going (`GET`/`POST /api/sessions/<id>/results/recorded`, `POST …/recorded/summary`). A session the copilot never ran in, and whose copilot consent was never confirmed, shows no card. A session without recorder tracks shows its live conversation as before.
 
+## A hint's outcome
+
+Each hint request in `hints.jsonl` ends in one of four outcomes, read from the record by one function, `hint_status` in `src/results/hint_status.py` (`HintStatus`, machine `hint-outcome` in `.fleet.toml`). A record is written once, so an outcome never changes and `advance` refuses every move. The Conversation read-back sends `status` (the card's CSS class) and the derived `failed` and `stale` flags, which the card reads instead of spelling the words.
+
+| Outcome | Meaning |
+|---|---|
+| `shown` | the model answered and the presenter saw at least one hint |
+| `empty` | the model answered with nothing to suggest |
+| `stale` | the answer came back after the item changed and was dropped |
+| `failed` | no answer reached the presenter (the hub was down or timed out); a failure outranks a drop |
+
+## A card's load state
+
+The Analyze, Playbook and Conversation cards read their data from the server and show where they are as `data-state` on the card. The four states are declared once in `app/webapp/static/js/card-state.js` (`CardState`, machine `card-load` in `.fleet.toml`), and `setCardState` is the only code that writes the attribute: it calls `advance`, which refuses a move the table does not list.
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `loading` | the first read, or a reload the user asked for, is in flight | `ready`, `empty`, `error` |
+| `ready` | the read answered and the card shows what it found | `loading` (Reload), `ready`, `empty`, `error` |
+| `empty` | the read answered and there is nothing to show yet | `ready`, `empty`, `error` |
+| `error` | the read failed; the card offers a retry | `ready`, `empty`, `error` |
+
+A card nothing was written to yet may start in any state. Only a ready card goes back to `loading`.
+
 ## One person under several names
 
 Zoom's chat shows only a display name, so a rename mid-session, a short name and a second device ("iPhone de Ana") read as different people. The **People under several names** card on the Results tab lists likely groups; **Merge** accepts one, and *Merge by hand* joins any two names. Nothing merges without that click.

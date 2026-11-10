@@ -15,11 +15,13 @@ flowchart LR
   subgraph player[Quiz player listener 127.0.0.1:8451 — app/webapp/player/ · same process + loop]
     playerapp["app/webapp/player/server.py<br/>/play page · /play/api/join · resume · answer · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
     playerpush["app/webapp/player/push.py<br/>PlayerPush — each phone's own view on every change"]
+  playerconn["app/webapp/player/static/conn-state.js<br/>ConnState · connState — the dot and label"]
   end
   playerapp -->|same QuizService, async routes| quizsvc
   playerpush -->|player_view only| quizsvc
   server -.->|lifespan starts / stops| listener["app/webapp/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
   listener --> playerapp
+  playerapp -->|page's module script| playerconn
   server -.->|lifespan starts / stops| locallistener["app/webapp/local_listener.py<br/>LocalListener · plain HTTP on 127.0.0.1:8456 · loopback only · busy port = ❌ log, tray opens the HTTPS URL"]
   locallistener -->|"serves this same app (second uvicorn.Server, same loop)"| server
   remotev -->|HTTPS · pairing cookie| gate["app/webapp/auth.py<br/>RemoteAuth — this PC always, others with the token"]
@@ -183,6 +185,7 @@ flowchart LR
   appv --> copilotr["routers/copilot.py<br/>overlay settings · recording retention · screens · sample · local only · mode (workshop · interview) · consent · injected transcript"]
   copilotr --> copilot
   resultsr --> convo["src/results/conversation.py<br/>transcript + hints read back under their items · recorded first, live on request"]
+  convo -->|outcome per hint| hintstatus["src/results/hint_status.py<br/>HintStatus · hint_status · advance"]
   convo --> copfiles
   appv --> recordedr["routers/recorded.py<br/>recorder folder · transcribe · summarise again · run state"]
   recordedr --> aftercall["src/copilot/after_call.py<br/>after-call pass on its own thread · one run per session"]
