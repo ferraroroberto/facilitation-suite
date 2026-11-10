@@ -173,6 +173,14 @@ enabled  = true
 baseline = ".conventions-ratchet-baseline.json"
 rules    = ["no-window", "logging-not-print", "no-drive-path", "subprocess-timeout", "state-literal", "state-set-repeat", "state-write"]
 
+# The item timer's mode, declared once (docs/timer-state.md): the state rules stop reporting the
+# owner module and keep reporting any other module that re-derives it.
+[[state_machines]]
+name   = "item-timer"
+module = "src/live/timer_mode.py"
+type   = "TimerMode"
+derive = "timer_mode"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

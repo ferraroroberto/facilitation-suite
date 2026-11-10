@@ -7,7 +7,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, fmtMinutes, switchRow } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
-import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, hms, timing, driftText } from '/static/js/live.js';
+import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, timerMode, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 import { isQuiz, buildQuiz, drawQuiz, tickQuiz } from '/static/js/presenter-quiz.js';
@@ -393,12 +393,12 @@ function tickItemTimer(cur, s) {
   const ts = s.timers[cur.id];
   const left = ts ? remaining(ts, live.now()) : cur.timer.seconds;
   tc.textContent = clock(left);
-  tc.classList.toggle('done', !!(ts && ts.done));
-  const running = ts && ts.running_since != null;
-  tc.classList.toggle('paused', !!(ts && !running && !ts.done));
-  card.querySelector('[data-tstate]').textContent = !ts ? 'not started' : ts.done ? 'time is up' : running ? 'running' : 'paused';
+  const mode = timerMode(ts);
+  tc.classList.toggle('done', mode === 'done');
+  tc.classList.toggle('paused', mode === 'paused');
+  card.querySelector('[data-tstate]').textContent = { idle: 'not started', running: 'running', paused: 'paused', done: 'time is up' }[mode];
   const btn = card.querySelector('[data-ttoggle]');
-  const label = running ? `${icon('pause')} Pause` : ts && !ts.done ? `${icon('play')} Resume` : `${icon('play')} Start timer`;
+  const label = mode === 'running' ? `${icon('pause')} Pause` : mode === 'paused' ? `${icon('play')} Resume` : `${icon('play')} Start timer`;
   if (btn.dataset.label !== label) { btn.dataset.label = label; btn.innerHTML = `${label}<kbd>T</kbd>`; }
 }
 

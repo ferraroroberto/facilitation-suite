@@ -11,7 +11,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, APP } from '/static/js/ui.js';
-import { connectLive, neighbour, remaining, hms, timing, driftText } from '/static/js/live.js';
+import { connectLive, neighbour, remaining, timerMode, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 
 const livePane = document.getElementById('paneLive');
@@ -238,13 +238,13 @@ function tick() {
   const tEl = livePane.querySelector('[data-r-timer]');
   const ts = cur && cur.timer ? s.timers[cur.id] : null;
   if (cur && cur.timer) {
-    const running = ts && ts.running_since != null;
+    const mode = timerMode(ts);
     tEl.textContent = clock(ts ? remaining(ts, now) : cur.timer.seconds);
-    tEl.classList.toggle('running', !!running);
-    tEl.classList.toggle('done', !!(ts && ts.done));
-    tEl.classList.toggle('paused', !!(ts && !running && !ts.done));
+    tEl.classList.toggle('running', mode === 'running');
+    tEl.classList.toggle('done', mode === 'done');
+    tEl.classList.toggle('paused', mode === 'paused');
     const btn = livePane.querySelector('[data-r-ttoggle]');
-    const html = running ? `${icon('pause')} Pause` : `${icon('play')} ${ts && !ts.done ? 'Resume' : 'Timer'}`;
+    const html = mode === 'running' ? `${icon('pause')} Pause` : `${icon('play')} ${mode === 'paused' ? 'Resume' : 'Timer'}`;
     if (btn.dataset.html !== html) { btn.dataset.html = html; btn.innerHTML = html; }
   } else {
     tEl.textContent = '';

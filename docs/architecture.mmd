@@ -37,6 +37,7 @@ flowchart LR
   liver --> acts["src/live/actions.py<br/>intent registry"]
   acts --> hub
   hub --> run["src/live/plan.py<br/>run order"]
+  hub --> timermode["src/live/timer_mode.py<br/>TimerMode + timer_mode()<br/>the one derive of idle · running · paused · done"]
   hub --> store
   hub --> livefiles[("live/state.json · live/events.jsonl")]
   sessr -->|plan saved| hub
