@@ -29,11 +29,11 @@ export function summaryHtml(summary) {
 function statusText(st) {
   const job = st.job;
   if (!st.consent) return 'Confirm the copilot consent for this session first: the presenter asks for it when Copilot is switched on.';
-  if (job && job.state === 'running') {
+  if (job && job.running) {
     if (job.step === 'summary') return 'Summarising the call…';
     return `Transcribing ${plural(job.tracks.length, 'track')} · ${duration(job.done_s)} of ${duration(job.total_s)} of audio`;
   }
-  if (job && job.state === 'failed') return `Not transcribed: ${reason(job.failure, job.detail)}.`;
+  if (job && job.failed) return `Not transcribed: ${reason(job.failure, job.detail)}.`;
   const parts = [];
   if (st.transcript) parts.push(`Transcribed ${when(st.transcript.modified_ms)} · ${plural(st.transcript.lines, 'line')}`);
   if (job && job.missed) parts.push(`${plural(job.missed, 'chunk')} could not be transcribed`);
@@ -50,7 +50,7 @@ function statusText(st) {
 export function recorderSection(sid, st, done) {
   const el = document.createElement('section');
   el.className = 'convo-recorder';
-  const running = Boolean(st.job && st.job.state === 'running');
+  const running = Boolean(st.job && st.job.running);
   const off = !st.consent || running;
   el.innerHTML = '<h4 class="convo-item-title">Recorder tracks</h4>' +
     '<form class="convo-recorder-form">' +
@@ -82,7 +82,7 @@ export function recorderSection(sid, st, done) {
       if (!el.isConnected) return;
       let next;
       try { next = await api(`/api/sessions/${sid}/results/recorded`); } catch (e) { say(e.message); return; }
-      if (next.job && next.job.state === 'running') el.replaceWith(recorderSection(sid, next, done));
+      if (next.job && next.job.running) el.replaceWith(recorderSection(sid, next, done));
       else done();
     }, POLL_MS);
   }

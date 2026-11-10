@@ -74,6 +74,18 @@ A one-to-one call held on content-management's podcast recorder leaves each side
 
 The recorder's takes are a recording the participants agreed to for the recorder. The after-call pass changes nothing about consent or the **Recording** mark. The recorded transcript and summary are kept like the live transcript; `recording_retention_days` removes only the copilot's own `*.wav`.
 
+### The after-call run's state
+
+A run is a job with three states, declared once in `src/copilot/after_call_state.py` (`AfterCallState`, machine `after-call-run` in `.fleet.toml`). `advance` is the only code that moves a job, and it refuses a move the table does not list. The one-run-per-session guard and the job's wire form read the state through `is_running` and `is_failed`; the recorder section of the Conversation card reads the derived `running` and `failed` fields of `GET …/results/recorded` instead of spelling the states (`state` itself is still sent).
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `running` | transcribing the takes, or summarising the transcript already on disk | `done`, `failed` |
+| `done` | finished; a transcript stands, and the summary may have failed on its own | none |
+| `failed` | stopped before a transcript was written; the reason is in `failure` and `detail` | none |
+
+A new run replaces a finished job with a new one in `running`.
+
 ## The overlay
 
 A native window on top of every app, on whichever screen you pick (a prompter monitor in front of the camera, say). It is transparent, lets every click through and shows nothing until there is a hint; then it pops up, holds and fades. Two modes:
