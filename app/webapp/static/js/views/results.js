@@ -60,7 +60,6 @@ const base = () => `/api/sessions/${ctx.sessionId}`;
 // card opened right after the first render is never swapped for a closed copy by a second one.
 let loading = null;
 function load() {
-  console.log('[DEBUG-473] load', Math.round(performance.now()), !!loading);
   loading ??= read().finally(() => { loading = null; });
   return loading;
 }
@@ -100,7 +99,6 @@ function stamp(ms) {
 }
 
 function render() {
-  console.log('[DEBUG-473] render', Math.round(performance.now()), new Error().stack.split(String.fromCharCode(10)).slice(2,4).join('|'));
   analyzeEl = analyzeCard(ctx.sessionId);
   conversationEl = conversationCard(ctx.sessionId);
   setStatus(head, [data.session.title, shortDate(data.session.date)].filter(Boolean).join(' · '));

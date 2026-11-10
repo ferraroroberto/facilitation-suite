@@ -207,10 +207,24 @@ def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, sav
     surface(page, "results.reconcile-warning")
 
 
+# Resolves with the card's open state two frames on: its toggle event and any re-render of the view have run by then.
+_OPEN_AFTER_FRAMES = "el => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(el.open))))"
+
+
+def _open_card(card: Locator, inside: str) -> None:
+    """Open a collapsible card and wait until it stays open; a card a re-render closed again is clicked once more."""
+    for _ in range(4):
+        if not card.evaluate("el => el.open"):
+            card.locator("summary").click()
+        if card.evaluate(_OPEN_AFTER_FRAMES):
+            break
+    expect(card.locator(inside)).to_be_visible()
+
+
 def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
     """Two names are merged by hand, saved next to the plan, and undone; nothing merges without the click."""
     card = pane.locator("details.card--collapsible", has_text="People under several names")
-    card.locator("summary").click()
+    _open_card(card, "[data-from]")
     expect(card.locator(".diff-row")).to_have_count(0)
     assert not (folder / "aliases.yaml").exists()
     card.locator("[data-from]").select_option(index=0)
@@ -218,7 +232,7 @@ def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
     card.locator("[data-manual]").click()
     expect(card.locator(".chip.ok")).to_have_text("Merged")
     assert (folder / "aliases.yaml").is_file()
-    card.locator("summary").click()
+    _open_card(card, "[data-unmerge]")
     card.locator("[data-unmerge]").click()
     expect(card.locator(".diff-row")).to_have_count(0)
     assert not (folder / "aliases.yaml").exists()
@@ -282,8 +296,6 @@ def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
 
 
 def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
-    dbg_console: list = []
-    page.on("console", lambda m: dbg_console.append(m.text) if "DEBUG-473" in m.text else None)
     base = webapp.base_url
     folder = webapp.root / "sessions" / "demo" / "results-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
@@ -294,12 +306,6 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     _check_analyze_command(page, pane, folder)
     _check_conversation(page, pane, folder)
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
-    try:
-        _check_merge_names(page, pane, folder)
-    except Exception:
-        print("[DEBUG-473] CONSOLE", *dbg_console, sep=" | ")
-        print("[DEBUG-473] DETAILS", page.evaluate("[...document.querySelectorAll('details')].map(d => [d.className, d.open, d.querySelector('summary')?.textContent.trim().slice(0, 40), d.getBoundingClientRect().top|0])"))
-        print("[DEBUG-473] CARD", pane.locator("details.card--collapsible", has_text="People under several names").evaluate("e => e.outerHTML.slice(0, 600)"))
-        raise
+    _check_merge_names(page, pane, folder)
     _check_rebuild(page, base, sid, pane, folder)
     _check_phone_layout(page, pane, shots)
