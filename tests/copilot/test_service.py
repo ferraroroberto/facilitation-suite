@@ -161,6 +161,8 @@ def test_a_channel_that_cannot_open_is_shown_and_the_rest_carries_on(live: LiveH
     copilot.start()
     wait_for(lambda: {c["speaker"]: c["state"] for c in copilot.snapshot()["channels"]} == {"me": "error", "them": "recording"})
     assert "not available" in copilot.snapshot()["channels"][0]["detail"]
+    flags = {c["speaker"]: (c["starting"], c["recording"], c["failed"]) for c in copilot.snapshot()["channels"]}
+    assert flags == {"me": (False, False, True), "them": (False, True, False)}  # what the presenter card reads
     wait_for(lambda: copilot.snapshot()["stats"]["lines"] == 1)
     copilot.stop()
 
