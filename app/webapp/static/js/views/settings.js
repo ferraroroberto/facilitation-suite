@@ -212,7 +212,7 @@ function obsCard() {
     `<div class="list"><button type="button" class="list-row settings-row" data-conn data-track="settings.obs-connection">` +
     `<span class="settings-ico">${icon('radio')}</span><span class="grow"><span class="row-title">Connection</span>` +
     `<span class="row-meta">${esc(connectionText())}</span></span>${icon('chevron-right')}</button></div>` +
-    (st.state !== 'connected' && data.obs.enabled ? `<p class="small muted settings-note">${esc(st.detail)}</p>` : '') +
+    (!st.connected && data.obs.enabled ? `<p class="small muted settings-note">${esc(st.detail)}</p>` : '') +
     `<div class="row-actions"><button type="button" class="button-surface" data-test data-track="settings.obs-test">${icon('refresh-cw')} Test connection</button></div>`;
   const list = card.querySelector('[data-profiles]');
   Object.entries(data.profiles).forEach(([key, p]) => {
@@ -233,7 +233,7 @@ function obsCard() {
     e.currentTarget.disabled = true;
     try {
       data = await api('/api/settings/obs/test', { method: 'POST' });
-      toast(data.obs_state.state === 'connected' ? data.obs_state.detail : 'OBS is not reachable', data.obs_state.state === 'connected' ? 'info' : 'error');
+      toast(data.obs_state.connected ? data.obs_state.detail : 'OBS is not reachable', data.obs_state.connected ? 'info' : 'error');
     } catch (err) { toast(err.message, 'error'); }
     render();
   });

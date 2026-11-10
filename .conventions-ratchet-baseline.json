@@ -2,20 +2,18 @@
   "version": 1,
   "entries": [
     {"key": "app/webapp/player/static/play.js", "counts": {"state-literal": 1}},
-    {"key": "app/webapp/routers/settings.py", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/presenter-copilot-panel.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/presenter-copilot.js", "counts": {"state-literal": 1}},
-    {"key": "app/webapp/static/js/presenter.js", "counts": {"state-literal": 4}},
+    {"key": "app/webapp/static/js/presenter.js", "counts": {"state-literal": 2}},
     {"key": "app/webapp/static/js/remote.js", "counts": {"state-literal": 1}},
-    {"key": "app/webapp/static/js/stage.js", "counts": {"state-literal": 2}},
+    {"key": "app/webapp/static/js/stage.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/views/analyze-card.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/views/conversation-card.js", "counts": {"state-literal": 2}},
     {"key": "app/webapp/static/js/views/playbook-card.js", "counts": {"state-literal": 4}},
-    {"key": "app/webapp/static/js/views/settings.js", "counts": {"state-literal": 9}},
+    {"key": "app/webapp/static/js/views/settings.js", "counts": {"state-literal": 6}},
     {"key": "src/activities/word_cloud/stage.js", "counts": {"state-literal": 1}},
     {"key": "src/copilot/service.py", "counts": {"state-literal": 1}},
     {"key": "src/live/capture.py", "counts": {"state-write": 3}},
-    {"key": "src/obs/service.py", "counts": {"state-literal": 1}},
     {"key": "src/quiz/service.py", "counts": {"state-write": 3}},
     {"key": "src/results/conversation.py", "counts": {"state-literal": 1}}
   ]

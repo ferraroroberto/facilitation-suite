@@ -20,6 +20,7 @@ from src.certs import cert_hostname
 from src.config import profiles
 from src.env_file import get_value
 from src.music.spotify import CLIENT_ID_KEY, REFRESH_KEY
+from src.obs.connection_state import is_connecting, is_off
 from src.sessions.model import StageFont
 from src.sessions.theme import FONT_TYPES, lettering_css, stage_font_file
 
@@ -196,7 +197,7 @@ async def test_obs(request: Request) -> dict[str, Any]:
     obs.reconnect()
     for _ in range(60):  # the attempt itself times out after 3 s
         await asyncio.sleep(0.1)
-        if obs.state == "off" or (obs.attempts > before and obs.state != "connecting"):
+        if is_off(obs.state) or (obs.attempts > before and not is_connecting(obs.state)):
             break
     return payload(request)
 

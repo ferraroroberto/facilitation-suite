@@ -483,14 +483,14 @@ function drawChips() {
   const rc = READER_CHIP[r.state] || ['bad', r.state];
   const what = sourceOf(r) !== 'zoom' && r.state === 'window_not_found' ? 'open the chat' : rc[1];
   chips.push([rc[0], `${sourceName(r)} chat · ${what}`, rc[2], r.detail]);
-  const o = s.obs || { state: 'off' };
+  const o = s.obs || { off: true };
   const profileLabel = { camera_strip: 'Camera strip', camera_pip: 'Camera PiP', screen_only: 'Screen only' }[o.profile] || '';
-  if (o.state === 'connected') {
+  if (o.connected) {
     chips.push(o.warning ? ['warn', `OBS · ${profileLabel || 'check scenes'}`, null, o.warning] : ['ok', `OBS · ${profileLabel ? 'profile ' + profileLabel : 'connected'}`, null, o.detail]);
-  } else if (o.state === 'off') {
+  } else if (o.off) {
     chips.push(['', 'OBS · off', null, o.detail]);
   } else {
-    chips.push(['bad', o.state === 'connecting' ? 'OBS · connecting' : 'OBS · not reachable', 'obs-retry', o.detail]);
+    chips.push(['bad', o.connecting ? 'OBS · connecting' : 'OBS · not reachable', 'obs-retry', o.detail]);
   }
   const st = s.stages || [];
   if (st.length) chips.push(['ok', `Stage · ${st.length > 1 ? st.length + ' windows' : `${st[0].w}×${st[0].h}`}`]);
