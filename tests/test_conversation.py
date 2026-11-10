@@ -46,6 +46,8 @@ def test_the_endpoint_returns_the_lines_and_hints_in_order_under_their_item(clie
     ]
     failed = data["segments"][1]["entries"][1]
     assert failed["failure"] == "timeout" and "detail" not in failed  # the error text stays in the file and the log
+    assert (failed["failed"], failed["stale"]) == (True, False)
+    assert [(e["failed"], e["stale"]) for e in data["segments"][0]["entries"] if e["kind"] == "hint"] == [(False, False), (False, True)]
     stamps = [e["at_ms"] for s in data["segments"] for e in s["entries"]]
     assert stamps == sorted(stamps)
     assert (data["lines"], data["hints"], data["stale"], data["failed"]) == (5, 2, 1, 1)

@@ -8,6 +8,8 @@
 //   30 s, the page polls every second (and keeps trying the socket). `?transport=poll`
 //   forces polling (a dev toggle).
 
+import { ConnState, connState } from '/play/static/conn-state.js';
+
 const STORE = 'facilitation-suite.play';
 const THEME = 'facilitation-suite.play.theme';
 const POLL_MS = 1000;
@@ -204,13 +206,12 @@ let online = null;
 function setConn() {
   const el = $('#conn');
   const polling = pollTimer !== null;
-  let state = online === false ? 'offline' : polling ? 'polling' : wsOpen ? 'online' : 'checking';
-  if (!me && online) state = 'online'; // not joined yet: the ping answered, that is all there is
-  el.dataset.conn = state;
+  const conn = connState({ online, polling, wsOpen, joined: Boolean(me) });
+  el.dataset.conn = conn;
   el.textContent = {
-    offline: me ? T.conn_reconnecting : T.conn_offline, polling: T.conn_connected,
-    online: me ? T.conn_live : T.conn_online, checking: T.conn_checking,
-  }[state];
+    [ConnState.OFFLINE]: me ? T.conn_reconnecting : T.conn_offline, [ConnState.POLLING]: T.conn_connected,
+    [ConnState.ONLINE]: me ? T.conn_live : T.conn_online, [ConnState.CHECKING]: T.conn_checking,
+  }[conn];
   document.body.dataset.transport = wsOpen && !polling ? 'ws' : polling ? 'poll' : 'none';
 }
 

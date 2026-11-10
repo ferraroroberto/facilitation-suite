@@ -32,6 +32,7 @@ from src.copilot.service import HINTS_FILE, TRANSCRIPT_FILE
 from src.importer.review import read_meta
 from src.jsonl import read_jsonl
 from src.live.plan import build_run, one_line
+from src.results.hint_status import HintStatus, hint_status, is_failed, is_stale
 from src.sessions.model import Session
 
 logger = logging.getLogger(__name__)
@@ -82,23 +83,17 @@ def _recorded_line(rec: dict[str, Any], moves: list[tuple[int, Optional[str]]]) 
             "text": str(rec["text"]).strip(), "injected": False}
 
 
-def _status(rec: dict[str, Any]) -> str:
-    if rec.get("failure"):
-        return "failed"
-    if rec.get("dropped"):
-        return "stale"
-    return "shown" if rec.get("hints") else "empty"
-
-
 def _hint(rec: dict[str, Any]) -> Optional[dict[str, Any]]:
     at = _epoch_ms(rec.get("at"))
     if at is None:
         return None
     hints = [{"type": str(h.get("type") or ""), "text": str(h.get("text") or "")}
              for h in rec.get("hints") or [] if isinstance(h, dict) and str(h.get("text") or "").strip()]
+    status = hint_status({**rec, "hints": hints})
     return {"kind": "hint", "at_ms": at, "item_id": rec.get("item_id"), "reason": str(rec.get("reason") or ""),
             "model": str(rec.get("model") or ""), "lag_ms": rec.get("lag_ms"), "hints": hints,
-            "status": _status({**rec, "hints": hints}), "failure": str(rec.get("failure") or "")}
+            "status": status.value, "failed": is_failed(status), "stale": is_stale(status),
+            "failure": str(rec.get("failure") or "")}
 
 
 def load_conversation(folder: Path, session: Session, source: Optional[str] = None) -> dict[str, Any]:
@@ -134,8 +129,8 @@ def load_conversation(folder: Path, session: Session, source: Optional[str] = No
             segments.append({"item_id": item_id, "title": titles.get(item_id or "", ""), "in_plan": item_id in titles,
                              "entries": []})
         segments[-1]["entries"].append(entry)
-    return {"lines": len(lines), "hints": sum(len(h["hints"]) for h in hints if h["status"] == "shown"),
-            "stale": sum(1 for h in hints if h["status"] == "stale"),
-            "failed": sum(1 for h in hints if h["status"] == "failed"), "segments": segments,
+    return {"lines": len(lines), "hints": sum(len(h["hints"]) for h in hints if h["status"] == HintStatus.SHOWN),
+            "stale": sum(1 for h in hints if h["stale"]),
+            "failed": sum(1 for h in hints if h["failed"]), "segments": segments,
             "mode": session.copilot_mode, "interviewee": session.copilot_interviewee, "source": chosen,
             "sources": sources, "summary": read_recorded_summary(folder) if chosen == "recorded" else None}

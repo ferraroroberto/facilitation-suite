@@ -52,6 +52,7 @@ async function sessionFontState() {
   const faces = [...document.fonts].filter((f) => f.family.replace(/["']/g, '') === 'Session Font');
   if (!faces.length) return 'none';
   await Promise.all(faces.map((f) => f.load().catch(() => null)));
+  // state-literal-exempt: FontFace.status is the browser's own vocabulary; nothing here can declare it
   return faces.every((f) => f.status === 'loaded') ? 'loaded' : 'failed';
 }
 
