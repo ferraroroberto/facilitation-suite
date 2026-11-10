@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
-class TimerMode(str, Enum):
+class TimerMode(StrEnum):
     """The closed set of modes. Adding one means handling it in every reader."""
 
     IDLE = "idle"
