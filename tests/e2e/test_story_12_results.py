@@ -282,6 +282,8 @@ def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
 
 
 def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
+    dbg_console: list = []
+    page.on("console", lambda m: dbg_console.append(m.text) if "DEBUG-473" in m.text else None)
     base = webapp.base_url
     folder = webapp.root / "sessions" / "demo" / "results-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
@@ -292,6 +294,12 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     _check_analyze_command(page, pane, folder)
     _check_conversation(page, pane, folder)
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
-    _check_merge_names(page, pane, folder)
+    try:
+        _check_merge_names(page, pane, folder)
+    except Exception:
+        print("[DEBUG-473] CONSOLE", *dbg_console, sep=" | ")
+        print("[DEBUG-473] DETAILS", page.evaluate("[...document.querySelectorAll('details')].map(d => [d.className, d.open, d.querySelector('summary')?.textContent.trim().slice(0, 40), d.getBoundingClientRect().top|0])"))
+        print("[DEBUG-473] CARD", pane.locator("details.card--collapsible", has_text="People under several names").evaluate("e => e.outerHTML.slice(0, 600)"))
+        raise
     _check_rebuild(page, base, sid, pane, folder)
     _check_phone_layout(page, pane, shots)
