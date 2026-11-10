@@ -131,12 +131,12 @@ export function buildPanel(body, live) {
 function drawStatus(panel, c, now) {
   ['me', 'them'].forEach((speaker) => {
     const ch = (c.channels || []).find((x) => x.speaker === speaker);
-    const fill = c.on && ch && ch.state === 'recording' ? meterFill(ch.level) : 0;
+    const fill = c.on && ch && ch.recording ? meterFill(ch.level) : 0;
     panel.querySelector(`[data-chan="${speaker}"] [data-meter]`).style.transform = `scaleX(${fill.toFixed(2)})`;
     const at = (c.last_chunk_at || {})[speaker];
     let text = 'off';
     if (c.on) {
-      if (ch && ch.state !== 'recording') text = ch.state === 'starting' ? 'starting' : 'not recording';
+      if (ch && !ch.recording) text = ch.starting ? 'starting' : 'not recording';
       else if (c.capture === 'off') text = 'no audio source (capture is off)';
       else text = at ? `last chunk transcribed ${ago(at, now)}` : 'no chunk transcribed yet';
     }

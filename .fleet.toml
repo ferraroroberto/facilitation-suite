@@ -223,6 +223,13 @@ module = "src/music/login_state.py"
 type   = "LoginState"
 derive = "advance"
 
+# A copilot capture channel's state, declared once (docs/copilot.md#a-capture-channels-state).
+[[state_machines]]
+name   = "copilot-channel"
+module = "src/copilot/channel_state.py"
+type   = "ChannelState"
+derive = "advance"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

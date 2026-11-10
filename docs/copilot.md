@@ -60,6 +60,18 @@ None of them blocks the session: capture, transcription and hints run on their o
 
 After the session, the Results tab's **Conversation** card reads the transcript back with the hints under their items (see [results.md](results.md)).
 
+### A capture channel's state
+
+Each channel (`me`, `them`) has three states, declared once in `src/copilot/channel_state.py` (`ChannelState`, machine `copilot-channel` in `.fleet.toml`). `advance` is the only code that moves a channel, and it refuses a move the table does not list. The snapshot's `channels` carry the derived `starting`, `recording` and `failed` flags beside `state`, which the Copilot card and the header chip read instead of spelling the states.
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `starting` | the device is being opened | `recording`, `error` |
+| `recording` | the device is open and its audio is being captured | none |
+| `error` | the device could not be opened; the reason is in `detail` | none |
+
+Switching Copilot off clears the channels, and switching it on plans two fresh ones in `starting`. A new state is added to `ChannelState` with its meaning in `MEANINGS` and its row in `TRANSITIONS`, then handled in each reader above; a reader never gets its own flag for it.
+
 ## After the call: the recorder's tracks
 
 A one-to-one call held on content-management's podcast recorder leaves each side's own camera and mic as a separate take, at full quality, in the episode folder's `video editing/`: `recorder - host - <date time>.mp4` for you and `recorder - guest - <date time>.mp4` for the other side, each with a `.json` sidecar. These takes exist only after the recorder is stopped, so they cannot feed the live copilot. The after-call pass (`src/copilot/after_call.py`, `src/copilot/recorder_tracks.py`) builds a better transcript from them:
