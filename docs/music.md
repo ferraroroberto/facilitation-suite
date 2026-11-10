@@ -27,6 +27,17 @@ An item can carry **music**: a file, or a Spotify playlist, album, artist or tra
 
 The presenter's chip says *Music · <track>* (playing), *paused*, *idle* or *error* — with the reason, e.g. no audio output device (speakers or headset disconnected) or a file missing from `audio/`; a music problem never stops the deck. The readiness list's **Music files** check (only when the session plays files) says whether every track is in the folder, on this PC and playable; its **Spotify** check (only when the session plays Spotify) says whether the login works and the Spotify desktop app on this PC is visible. **After a restart** the music comes back with the session, near its position (the time the server was down counts as played, like the item's timer): an item's music resumes, fading in, only if that item is still on stage and its timer — if it started one — is running; with its timer paused it comes back paused, and resuming the timer resumes it where it was; with another item on stage or its timer reset or ended, it stays silent. Music played by hand resumes, fading in, if it was playing, or comes back paused. Quiz cues never come back. Spotify carries on from wherever the desktop app is when it still holds the session's music; if the account has moved on to something else, the session's music starts over instead. After you close the session (×), going live again starts silent. Music starts and stops are logged (`facilitation-suite.log`, *sound is coming out* once the device plays) and appended to `live/events.jsonl`.
 
+## Player state
+
+The player has four states, declared once in `src/music/player_state.py` (`PlayerState`, machine `music-player` in `.fleet.toml`). `MusicService.state` moves only through `advance`, which refuses a move the table does not list. The service's guards and the snapshot's derived flags read the state through the helpers there; the presenter's Music card and the phone remote read the flags `playing`, `paused`, `loaded` (playing or paused) and `engaged` (anything but idle) of `state.music` instead of spelling the states (`state` itself is still sent, and saved in `live/state.json`).
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `idle` | nothing loaded: never started, stopped, or the track ended | `idle`, `playing`, `paused` (only a restart bringing paused music back), `error` |
+| `playing` | a track is loaded and its clock runs | `playing` (a new track replaces it), `paused`, `idle`, `error` |
+| `paused` | a track is loaded and held; resume continues where it stopped | `playing`, `idle`, `error` |
+| `error` | a start or a backend failed; the reason is in the detail | `error`, `idle`, `playing` |
+
 ## Spotify setup (once)
 
 Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** only — never a web player (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`. `.env.example` (committed) lists the keys; copy it to `.env` before starting.

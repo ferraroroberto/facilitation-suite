@@ -75,6 +75,7 @@ from src.live.timer_mode import TimerMode, timer_mode
 from src.music.backend import Backend, EventSink, MusicError, Track
 from src.music.file_backend import FileBackend
 from src.music.library import audio_files, cue_file, resolve
+from src.music.player_state import PlayerState, advance, is_engaged, is_loaded
 from src.music.spotify import SpotifyBackend, is_link, normalize
 from src.music.spotify import label as spotify_label
 
@@ -103,7 +104,7 @@ class MusicService:
         spotify = self.backends.get("spotify")
         if spotify is not None and hasattr(spotify, "on_names"):
             spotify.on_names = self._names_arrived
-        self.state = "idle"
+        self.state = PlayerState.IDLE
         self.detail = ""
         self.track: Optional[Track] = None  # what plays or is paused (or the last one, for the toggle)
         self.owner: Optional[str] = None  # the item whose timer drives it; None = ad hoc
@@ -166,11 +167,13 @@ class MusicService:
 
     def state_fields(self) -> dict[str, Any]:
         return {"music": {
-            "state": self.state, "detail": self.detail, "owner": self.owner, "cue": self.cue_name,
+            "state": self.state.value, "detail": self.detail, "owner": self.owner, "cue": self.cue_name,
+            "playing": self.state is PlayerState.PLAYING, "paused": self.state is PlayerState.PAUSED,
+            "loaded": is_loaded(self.state), "engaged": is_engaged(self.state),
             "volume": self.volume,
-            "track": {"kind": self.track.kind, "label": self.track.label} if self.track and self.state != "idle" else None,
+            "track": {"kind": self.track.kind, "label": self.track.label} if self.track and is_engaged(self.state) else None,
             "sounding": self.sounding,
-            "backend": self.backend.snapshot() if self.backend is not None and self.state != "idle" else None,
+            "backend": self.backend.snapshot() if self.backend is not None and is_engaged(self.state) else None,
             "tracks": [{k: v for k, v in t.items() if k != "music"} for t in self.tracks()],
             "spotify": self._spotify_configured(),
         }}
@@ -225,9 +228,9 @@ class MusicService:
 
     def toggle(self) -> None:
         """Play/pause by hand. With nothing playing: the item's music, else the last track."""
-        if self.state == "playing":
+        if self.state is PlayerState.PLAYING:
             self._pause(self.fade_out_s)
-        elif self.state == "paused":
+        elif self.state is PlayerState.PAUSED:
             self._resume(self.fade_in_s)
         else:
             cur = self.live.current()
@@ -249,7 +252,7 @@ class MusicService:
         Only while it plays: a file is a single track, and a paused Spotify would start playing
         on a skip. Spotify's own rule applies to previous: past the first seconds of a track it
         restarts that track."""
-        if self.state != "playing" or self.track is None or self.backend is None:
+        if self.state is not PlayerState.PLAYING or self.track is None or self.backend is None:
             raise MusicError(409, "nothing_playing", "Nothing is playing — start the music first")
         if self.track.kind != "spotify" or not hasattr(self.backend, "skip"):
             raise MusicError(409, "single_track", "Next and previous track work on Spotify music; a file is one track")
@@ -257,7 +260,7 @@ class MusicService:
 
     def set_volume(self, volume: int) -> None:
         self.volume = volume
-        if self.backend is not None and self.state in ("playing", "paused"):
+        if self.backend is not None and is_loaded(self.state):
             self.backend.set_volume(volume)
         self.live.commit()
 
@@ -290,7 +293,7 @@ class MusicService:
         if path is None:
             logger.debug("music: no %s cue in audio/ — silent", name)
             return False
-        if self.state in ("playing", "paused") and self.cue_name is None:
+        if is_loaded(self.state) and self.cue_name is None:
             logger.info("ℹ️ music: cue %s skipped — %s music is %s", name, "the item's" if self.owner else "ad-hoc",
                         self.state)
             return False
@@ -300,7 +303,7 @@ class MusicService:
 
     def end_cue(self, fade_s: float = CUE_FADE_OUT_S) -> None:
         """Fade out a cue that is still playing (or paused); any other music is left alone."""
-        if self.cue_name is not None and self.state in ("playing", "paused"):
+        if self.cue_name is not None and is_loaded(self.state):
             self._stop(fade_s)
 
     # --------------------------------------------------------------- hooks
@@ -321,11 +324,11 @@ class MusicService:
         m, iid = item.get("music"), item["id"]
         owned = self.owner == iid
         if event == "start":
-            if owned and self.state == "paused":
+            if owned and self.state is PlayerState.PAUSED:
                 self._resume((m or {}).get("fade_in_s", self.fade_in_s))
-            elif m and m["start"] == "with_timer" and not (owned and self.state == "playing"):
+            elif m and m["start"] == "with_timer" and not (owned and self.state is PlayerState.PLAYING):
                 self._play_music(m, owner=iid)
-        elif event == "pause" and owned and self.state == "playing":
+        elif event == "pause" and owned and self.state is PlayerState.PLAYING:
             self._pause((m or {}).get("fade_out_s", self.fade_out_s))
         elif event == "reset" and owned:
             self._stop((m or {}).get("fade_out_s", self.fade_out_s))
@@ -341,7 +344,7 @@ class MusicService:
             if pm.get("on_leave", "fade_out") == "fade_out":
                 self._stop(pm.get("fade_out_s", self.fade_out_s))
         m = cur.get("music")
-        if m and m["start"] == "on_enter" and not (self.owner == cur["id"] and self.state == "playing"):
+        if m and m["start"] == "on_enter" and not (self.owner == cur["id"] and self.state is PlayerState.PLAYING):
             self._play_music(m, owner=cur["id"])
 
     def _halt(self, fade_s: float) -> None:
@@ -366,7 +369,7 @@ class MusicService:
 
     def saved(self) -> Optional[dict[str, Any]]:
         """The ``music`` section of ``live/state.json``: what plays or is paused (a cue never)."""
-        if self.state not in ("playing", "paused") or self.track is None or self.cue_name is not None:
+        if not is_loaded(self.state) or self.track is None or self.cue_name is not None:
             return None
         ref = self.track.ref
         if self.track.kind == "file" and self.live.folder is not None:
@@ -374,7 +377,7 @@ class MusicService:
                 ref = Path(ref).relative_to(self.live.folder).as_posix()
             except ValueError:
                 pass
-        return {"kind": self.track.kind, "ref": ref, "loop": self.track.loop, "state": self.state,
+        return {"kind": self.track.kind, "ref": ref, "loop": self.track.loop, "state": self.state.value,
                 "position_s": round(self.position(), 2), "at_ms": now_ms(), "volume": self.volume,
                 "fade_in_s": self.fade_in_s, "fade_out_s": self.fade_out_s, "owner": self.owner}
 
@@ -382,9 +385,9 @@ class MusicService:
         """The session came back after a restart: its music comes back as the module docstring says."""
         owner, was = saved.get("owner"), saved.get("state")
         at = saved.get("at_ms")
-        down_s = max(0, now_ms() - at) / 1000 if was == "playing" and isinstance(at, int) else 0.0
+        down_s = max(0, now_ms() - at) / 1000 if was == PlayerState.PLAYING and isinstance(at, int) else 0.0
         position = float(saved.get("position_s") or 0) + down_s
-        play = was == "playing"
+        play = was == PlayerState.PLAYING
         if owner:
             cur, timer = self.live.current(), self.live.timers.get(owner)
             keeps_playing = bool(cur and (cur.get("music") or {}).get("on_timer_end") == "keep_playing")
@@ -407,7 +410,7 @@ class MusicService:
             raise MusicError(409, "no_backend", f"{track.kind.capitalize()} playback is not set up in this app")
         self.backend, self.track, self.owner, self.cue_name = backend, track, owner, None
         self.volume, self.fade_in_s, self.fade_out_s = volume, fade_in, fade_out
-        self.state, self.detail, self.sounding, self._held = "paused", "", False, True
+        self.state, self.detail, self.sounding, self._held = advance(self.state, PlayerState.PAUSED), "", False, True
         self._pos_s, self._pos_at = position, None
         logger.info("ℹ️ music: %s back paused after a restart at %.1f s (%s)", track.label, position,
                     f"with {owner}" if owner else "ad hoc")
@@ -428,11 +431,11 @@ class MusicService:
     def _play_music(self, m: dict[str, Any], owner: Optional[str]) -> None:
         ref = m["path"] if m["source"] == "file" else m["uri"]
         track = self._track(m["source"], ref, bool(m.get("loop")))
-        if self.track == track and self.state in ("playing", "paused"):
+        if self.track == track and is_loaded(self.state):
             # Already this track: adopt it (the timer now drives it), don't start it over.
             self.owner = owner
             self.fade_in_s, self.fade_out_s = float(m["fade_in_s"]), float(m["fade_out_s"])
-            if self.state == "paused":
+            if self.state is PlayerState.PAUSED:
                 self._resume(self.fade_in_s)
             return
         self._start(track, int(m["volume"]), float(m["fade_in_s"]), float(m["fade_out_s"]), owner)
@@ -442,52 +445,53 @@ class MusicService:
         backend = self.backends.get(track.kind)
         if backend is None:
             raise MusicError(409, "no_backend", f"{track.kind.capitalize()} playback is not set up in this app")
-        if (self.backend is not None and self.backend is not backend and self.state in ("playing", "paused")
-                and not self._held):
+        if self.backend is not None and self.backend is not backend and is_loaded(self.state) and not self._held:
             self.backend.stop(min(fade_in_s, DEFAULT_FADE_S))
         self.play_id += 1
         backend.play(self.play_id, track, volume, fade_in_s, start_s=start_s)
         self.backend, self.track, self.owner, self.cue_name = backend, track, owner, cue
         self.volume, self.fade_in_s, self.fade_out_s = volume, fade_in_s, fade_out_s
-        self.state, self.detail, self.sounding, self._held = "playing", "", False, False
+        self.state, self.detail, self.sounding, self._held = advance(self.state, PlayerState.PLAYING), "", False, False
         self._pos_s, self._pos_at = start_s, now_ms()
         logger.info("ℹ️ music: play %s (%s, volume %d, fade in %.1f s, %s)", track.label, track.kind, volume,
                     fade_in_s, f"with {owner}" if owner else f"cue {cue}" if cue else "by hand")
         self.live.event("music_play", track=track.label, kind=track.kind, owner=owner, **({"cue": cue} if cue else {}))
 
     def _pause(self, fade_s: float) -> None:
-        if self.state != "playing" or self.backend is None:
+        if self.state is not PlayerState.PLAYING or self.backend is None:
             return
         self.backend.pause(fade_s)
-        self.state = "paused"
+        self.state = advance(self.state, PlayerState.PAUSED)
         self._pos_s, self._pos_at = self.position(), None
         logger.info("ℹ️ music: pause %s (fade out %.1f s)", self.track.label if self.track else "", fade_s)
         self.live.event("music_pause")
 
     def _resume(self, fade_s: float) -> None:
-        if self.state != "paused" or self.backend is None or self.track is None:
+        if self.state is not PlayerState.PAUSED or self.backend is None or self.track is None:
             return
         if self._held:  # back paused after a restart: nothing loaded yet — start it where it was
             self._start(self.track, self.volume, fade_s, self.fade_out_s, self.owner, start_s=self._pos_s)
             return
         self.backend.resume(self.volume, fade_s)
-        self.state = "playing"
+        self.state = advance(self.state, PlayerState.PLAYING)
         self._pos_at = now_ms()
         logger.info("ℹ️ music: resume %s (fade in %.1f s)", self.track.label if self.track else "", fade_s)
         self.live.event("music_resume")
 
     def _stop(self, fade_s: float) -> None:
-        if self.state in ("playing", "paused") and self.backend is not None:
+        if is_loaded(self.state) and self.backend is not None:
             if not self._held:  # held after a restart: nothing plays in the backend
                 self.backend.stop(fade_s)
             logger.info("ℹ️ music: stop %s (fade out %.1f s)", self.track.label if self.track else "", fade_s)
             self.live.event("music_stop")
-        self.state, self.detail, self.owner, self.sounding, self.cue_name = "idle", "", None, False, None
+        self.state = advance(self.state, PlayerState.IDLE)
+        self.detail, self.owner, self.sounding, self.cue_name = "", None, False, None
         self._held = False
 
     def _fail(self, detail: str) -> None:
         logger.warning("⚠️ music: %s", detail)
-        self.state, self.detail, self.owner, self.sounding, self.cue_name = "error", detail, None, False, None
+        self.state = advance(self.state, PlayerState.ERROR)
+        self.detail, self.owner, self.sounding, self.cue_name = detail, None, False, None
         self._held = False
         self.live.event("music_error", detail=detail)
 
@@ -507,9 +511,10 @@ class MusicService:
         if event == "playing":
             self.sounding = True
             logger.info("✅ music: sound is coming out — %s", detail)
-        elif event == "ended" and self.state == "playing":
+        elif event == "ended" and self.state is PlayerState.PLAYING:
             logger.info("ℹ️ music: %s ended", detail)
-            self.state, self.owner, self.sounding, self.cue_name = "idle", None, False, None
+            self.state = advance(self.state, PlayerState.IDLE)
+            self.owner, self.sounding, self.cue_name = None, False, None
             self.live.event("music_end")
         elif event == "error":
             self._fail(detail)

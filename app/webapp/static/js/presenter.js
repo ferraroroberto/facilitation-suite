@@ -569,7 +569,7 @@ function buildMusic() {
   const pick = body.querySelector('[data-mpick]');
   body.querySelector('[data-mtoggle]').addEventListener('click', () => {
     const m = live.state && live.state.music;
-    if (m && (m.state === 'playing' || m.state === 'paused')) live.send('music_toggle');
+    if (m && m.loaded) live.send('music_toggle');
     else if (pick.value) live.send('music_play', pick.value);
   });
   body.querySelector('[data-mprev]').addEventListener('click', () => live.send('music_prev'));
@@ -588,7 +588,7 @@ function buildMusic() {
 function drawMusic(cur, s) {
   const card = root.querySelector('.p-music');
   const m = s.music;
-  const show = !!(m && (m.tracks.length || m.spotify || m.state !== 'idle'));
+  const show = !!(m && (m.tracks.length || m.spotify || m.engaged));
   card.hidden = !show;
   if (!show) return;
   const body = card.querySelector('[data-body]');
@@ -606,8 +606,7 @@ function drawMusic(cur, s) {
     const own = m.tracks.find((t) => t.items.includes(cur.id));
     if (own) pick.value = String(own.n);
   }
-  const playing = m.state === 'playing';
-  const paused = m.state === 'paused';
+  const { playing, paused } = m;
   body.querySelector('[data-mdot]').className = `p-cap-dot ${playing ? 'live' : paused ? 'paused' : m.state === 'error' ? 'error' : ''}`;
   body.querySelector('[data-mnow]').textContent = m.track ? `${m.track.label}${paused ? ' · paused' : ''}` : m.state === 'error' ? 'Music error' : 'Nothing playing';
   const btn = body.querySelector('[data-mtoggle]');

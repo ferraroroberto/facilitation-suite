@@ -680,6 +680,7 @@ def test_next_and_previous_need_spotify_music_that_is_playing(isolated_env: Path
     from src.config import load_config
     from src.live.actions import run_action
     from src.live.hub import LiveHub
+    from src.music.player_state import PlayerState
     from src.music.service import MusicService
     from src.sessions.store import SessionStore
     from tests.test_music import FakeBackend
@@ -693,7 +694,7 @@ def test_next_and_previous_need_spotify_music_that_is_playing(isolated_env: Path
         run_action(hub, "music_next")
     assert err.value.code == "nothing_playing"
     run_action(hub, "music_play", "https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO")
-    music.state = "playing"  # the backend's "playing" event, played by hand
+    music.state = PlayerState.PLAYING  # the backend's "playing" event, played by hand
     run_action(hub, "music_next")
     run_action(hub, "music_prev")
     assert made["spotify"].calls[-2:] == [("skip", "next", 80), ("skip", "previous", 80)]

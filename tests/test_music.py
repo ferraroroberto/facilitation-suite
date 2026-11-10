@@ -134,9 +134,26 @@ def test_items_without_music_behave_as_before(isolated_env: Path) -> None:
     end_timer(hub, "brk-coffee")
     assert made[0].calls == []
     assert hub.snapshot()["state"]["music"] == {"state": "idle", "detail": "", "owner": None, "cue": None, "volume": 80, "track": None,
+                                               "playing": False, "paused": False, "loaded": False, "engaged": False,
                                                "sounding": False, "backend": None, "tracks": [],
                                                "spotify": False}
     assert music.state == "idle"
+
+
+def test_the_snapshot_flags_follow_the_state(rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:
+    hub, music, _ = rig
+    flags = ("state", "playing", "paused", "loaded", "engaged")
+
+    def seen() -> dict[str, Any]:
+        return {k: music.state_fields()["music"][k] for k in flags}
+
+    goto_id(hub, "slide-105")
+    run_action(hub, "timer_toggle")
+    assert seen() == {"state": "playing", "playing": True, "paused": False, "loaded": True, "engaged": True}
+    run_action(hub, "timer_toggle")
+    assert seen() == {"state": "paused", "playing": False, "paused": True, "loaded": True, "engaged": True}
+    music._fail("boom")
+    assert seen() == {"state": "error", "playing": False, "paused": False, "loaded": False, "engaged": True}
 
 
 def test_with_timer_start_pause_resume_reset_and_end(rig: tuple[LiveHub, MusicService, FakeBackend]) -> None:

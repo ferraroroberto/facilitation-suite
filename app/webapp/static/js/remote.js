@@ -212,10 +212,9 @@ function drawQuiz(cur, q) {
 /** Music: play/pause (the item's music when nothing plays), stop and the volume. */
 function drawMusic(m) {
   const box = livePane.querySelector('[data-r-music]');
-  box.hidden = !(m && (m.tracks.length || m.state !== 'idle'));
+  box.hidden = !(m && (m.tracks.length || m.engaged));
   if (box.hidden) return;
-  const playing = m.state === 'playing';
-  const paused = m.state === 'paused';
+  const { playing, paused } = m;
   livePane.querySelector('[data-r-mnow]').textContent = m.state === 'error' ? `Music error — ${m.detail}`
     : m.track ? `Music · ${m.track.label}${paused ? ' · paused' : ''}` : 'Music · nothing playing';
   const btn = livePane.querySelector('[data-r-mtoggle]');
