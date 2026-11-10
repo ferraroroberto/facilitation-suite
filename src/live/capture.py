@@ -48,6 +48,7 @@ from src.atomic_write import atomic_write_text
 from src.chat.hub import ChatHub
 from src.live.actions import Action, register
 from src.live.hub import LiveError, LiveHub, now_ms
+from src.live.push_latch import PushLatch
 from src.logger import relay
 from src.no_window import NO_WINDOW
 from src.results.aliases import ALIASES_FILE, Excluded, ident, read_aliases
@@ -56,7 +57,6 @@ logger = logging.getLogger(__name__)
 
 CAPTURES_FILE = "captures.json"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-PUSH_EVERY_S = 0.25  # at most four result pushes a second during a burst
 
 
 class CaptureService:
@@ -68,7 +68,7 @@ class CaptureService:
         self.places: dict[int, str] = {}
         # Rehearsal: the facilitator's own messages count. Deliberately not persisted.
         self.count_own = False
-        self._push_pending = False
+        self._push = PushLatch()
         self._excluded: tuple[Any, Excluded] = (None, Excluded())  # (what it was built from, the senders)
         self._session: Optional[str] = None
         self.freeze_url: Optional[str] = None  # the server's own base URL, for the PNG
@@ -295,18 +295,12 @@ class CaptureService:
 
     def _on_messages(self, records: list[dict[str, Any]]) -> None:
         active = self.active_item()
-        if active is None or self._push_pending or self.live.loop is None:
+        if active is None or self._push.is_scheduled() or self.live.loop is None:
             return
         cur = self.live.current()
         if not cur or cur["id"] != active:
             return
-        self._push_pending = True
-
-        def push() -> None:
-            self._push_pending = False
-            self.live.push_state()
-
-        self.live.loop.call_later(PUSH_EVERY_S, push)
+        self._push.push_soon(self.live.loop, self.live.push_state)
 
     # -------------------------------------------------------- durability
 

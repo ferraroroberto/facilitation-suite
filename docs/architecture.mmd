@@ -56,6 +56,8 @@ flowchart LR
   proc -.->|spawns| reader
   chathub -->|new messages| capture["src/live/capture.py<br/>CaptureService · windows · hide · freeze"]
   capture --> hub
+  capture -->|coalesced push| pushlatch["src/live/push_latch.py<br/>PushLatch · PushState · advance"]
+  quizsvc --> pushlatch
   capture --> reg
   reg --> parsers[("src/activities/&lt;type&gt;/parse.py · stage.js")]
   capture --> capfiles[("live/captures.json · captures/&lt;item&gt;.json + .png")]
