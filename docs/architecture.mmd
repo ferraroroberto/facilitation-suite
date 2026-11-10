@@ -56,6 +56,7 @@ flowchart LR
   proc -.->|spawns| reader
   chathub -->|new messages| capture["src/live/capture.py<br/>CaptureService · windows · hide · freeze"]
   capture --> hub
+  capture -->|status per item| capturestate["src/live/capture_state.py<br/>CaptureStatus · capture_status · advance"]
   capture -->|coalesced push| pushlatch["src/live/push_latch.py<br/>PushLatch · PushState · advance"]
   quizsvc --> pushlatch
   capture --> reg

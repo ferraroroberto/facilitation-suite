@@ -24,6 +24,16 @@ An item's timer is idle, running, paused or done, derived in one place and sent 
 
 **After a restart** (`tray.bat --restart`, a crash): the session that was live comes back live by itself — no **Go live** — at the same item, with its clocks, timers, quiz game and music (see [Music](music.md)); the log says `ℹ️ live: session … resumed after a restart`, and its `session_live` event in `events.jsonl` carries `"resumed": true`. Only a session that was still live: one you closed (×) never comes back by itself (its `state.json` says `"live": false`), and going live by hand still restores its position, clocks and timers. The app remembers which session is live in `data/live.json` (this PC only). `live.resume_on_start: false` in `config/config.json` turns this off. The stage's look comes from `themes/default.css` plus the session's own optional `theme.css`; the session's own **Session settings** card (Sessions tab, an open session) sets its **language on the stage** (English or Español: the words the stage says by itself — the hint under activities, "Write your answer in the chat" / "Escribe tu respuesta en el chat", default titles such as "Break" / "Descanso", the breakout rounds and room counts, and every word of the quiz the audience reads, on the stage and on the phones: "Locked in" / "¡Respuesta registrada!") and, optionally, a hint of your own instead of the language's. The phone's join screen speaks the language of the session on stage; the presenter's controls stay in English. After changing the language, reload the stage and the phones.
 
+## A capture's status
+
+An activity's capture is a list of `[start, stop)` windows. Its status is read from that list by one function, `capture_status` in `src/live/capture_state.py` (`CaptureStatus`, machine `capture-status` in `.fleet.toml`): no window is `idle`, an open last window is `live`, a closed one is `stopped`. `CaptureService` calls `advance` before it opens or closes a window, and `advance` refuses a move the table does not list. The snapshot's `capture` block carries the derived `idle`, `live` and `stopped` flags beside `status`, which the presenter's capture card and the phone remote read instead of spelling the states.
+
+| Status | Meaning | Moves to |
+|---|---|---|
+| `idle` | no window was ever opened; answers are not counted yet | `live` |
+| `live` | the last window is open; every participant message counts | `stopped` |
+| `stopped` | the last window is closed and the result is frozen | `live` (a reopen starts a new window) |
+
 ## The coalesced push
 
 A burst of chat messages (a capture), joins or answers (a quiz) would push a full snapshot to every view per event. The first event schedules one push `PUSH_EVERY_S` (0.25 s) later and the events that arrive while it waits ride on it, so a burst costs at most four pushes a second. The latch has two states, declared once in `src/live/push_latch.py` (`PushState`, machine `push-latch` in `.fleet.toml`); `CaptureService` and `QuizService` each hold one `PushLatch` and call `push_soon`, and nothing else writes the flag. `advance` is the only code that moves it and refuses a move the table does not list.

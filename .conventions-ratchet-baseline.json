@@ -2,8 +2,6 @@
   "version": 1,
   "entries": [
     {"key": "app/webapp/player/static/play.js", "counts": {"state-literal": 1}},
-    {"key": "app/webapp/static/js/presenter.js", "counts": {"state-literal": 2}},
-    {"key": "app/webapp/static/js/remote.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/stage.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/views/analyze-card.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/views/conversation-card.js", "counts": {"state-literal": 2}},

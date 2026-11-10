@@ -360,12 +360,13 @@ function countOwnSwitch(on, label) {
 
 function drawCapture(body, c) {
   const status = c ? c.status : 'idle';
+  const idle = !c || c.idle;
   const btn = body.querySelector('[data-captoggle]');
   const label = { idle: `${icon('play')} Start capture`, live: `${icon('square')} Stop capture`, stopped: `${icon('play')} Reopen capture` }[status];
   if (btn.dataset.status !== status) {
     btn.dataset.status = status;
     btn.innerHTML = `${label}<kbd>Space</kbd>`;
-    btn.classList.toggle('live', status === 'live');
+    btn.classList.toggle('live', !!(c && c.live));
   }
   body.querySelector('[data-capdot]').className = `p-cap-dot ${status}`;
   body.querySelector('[data-capstate]').textContent = { idle: 'Not started — answers are not counted yet', live: 'Capturing answers', stopped: 'Stopped — the result is frozen' }[status];
@@ -373,7 +374,7 @@ function drawCapture(body, c) {
   drawLeftOut(body);
   body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden || c.excluded)
     ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}${c.excluded ? ` · ${c.excluded} not counted` : ''}`
-    : status === 'idle' ? 'Press Space when the question is on stage.' : 'No answers yet.';
+    : idle ? 'Press Space when the question is on stage.' : 'No answers yet.';
 }
 
 /** The word cloud's entries the stage has no room for (the plug-in counts them by the preview of what Zoom sees). */
@@ -502,7 +503,7 @@ function drawChips() {
     if (ago < 3600) chips.push(['ok', `${deck ? 'Stream Deck' : 'Buttons'} · ${la.action.replace(/_/g, ' ')}`, null, `Last press ${ago} s ago (${la.source})`]);
   }
   const mu = s.music;
-  if (mu && (mu.tracks.length || mu.spotify || mu.state !== 'idle')) {
+  if (mu && (mu.tracks.length || mu.spotify || mu.engaged)) {
     const label = mu.track ? mu.track.label : '';
     // Links to Settings → Music (the Spotify account, the default fades) in the app's own window.
     const settings = 'href:/#settings/music';
