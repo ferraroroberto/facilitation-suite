@@ -9,3 +9,16 @@ Sessions → **Import PowerPoint** (type the path or **Browse**, which opens the
 - **Re-import changes nothing until you review it.** The export waits in `slides/incoming/` and the Plan tab opens the review: slides are matched by SlideID first, then — for a slide PowerPoint re-created with a new id — by image and text fingerprints, and each one is *identical*, *modified* (image, title or notes — it says which, "Notes changed · 2 lines added"), *new*, *removed* or *moved* (the fewest moves that explain the new order), with the old and new picture side by side. Every change has its own switch; **Apply** does only those. An activity stays anchored to the slide before it: a moved slide takes its activities along, and when a slide is removed its activities follow the previous surviving slide (the review says which). A declined change keeps the old picture/title (modified), keeps the slide (removed), keeps the plan order (moved) or leaves the slide out (new — the next re-import offers it again). **Back** leaves the review waiting (a banner in the Plan tab); **Cancel** throws the export away.
 
 `FS_TEST_POWERPOINT=1` runs the one test that drives the real PowerPoint (on a synthetic deck it builds itself).
+
+## Import job state
+
+An import runs as a job with four states, declared once in `src/importer/job_state.py` (`ImportState`, machine `import-job` in `.fleet.toml`). `advance` is the only code that moves a job, and it refuses a move the table does not list. The busy guard and the job's wire form read the state through `is_active` and `is_succeeded`; the import dialog reads the derived `active` and `succeeded` fields of `GET /api/imports/<id>` instead of spelling the states (`state` itself is still sent).
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `queued` | accepted, the worker thread has not started the export | `running` |
+| `running` | exporting and analysing slides | `done`, `error` |
+| `done` | finished; the result is on the job | none |
+| `error` | stopped with a code and a message; nothing was applied | none |
+
+A job in `queued` or `running` holds the single import slot (the next start answers `busy`).

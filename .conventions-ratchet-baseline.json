@@ -3,7 +3,6 @@
   "entries": [
     {"key": "app/webapp/player/static/play.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/routers/settings.py", "counts": {"state-literal": 1}},
-    {"key": "app/webapp/static/js/importer.js", "counts": {"state-literal": 3}},
     {"key": "app/webapp/static/js/presenter-copilot-panel.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/presenter-copilot.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/presenter.js", "counts": {"state-literal": 7}},
@@ -17,7 +16,6 @@
     {"key": "src/activities/word_cloud/stage.js", "counts": {"state-literal": 1}},
     {"key": "src/copilot/after_call.py", "counts": {"state-literal": 4}},
     {"key": "src/copilot/service.py", "counts": {"state-literal": 1}},
-    {"key": "src/importer/service.py", "counts": {"state-literal": 5}},
     {"key": "src/live/capture.py", "counts": {"state-write": 3}},
     {"key": "src/music/service.py", "counts": {"state-literal": 15}},
     {"key": "src/obs/service.py", "counts": {"state-literal": 1}},

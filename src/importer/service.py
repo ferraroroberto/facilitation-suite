@@ -43,6 +43,7 @@ from typing import Any, Optional
 
 from src.errors import DomainError
 from src.importer.analyze import detect_profile, dhash, text_hash
+from src.importer.job_state import ImportState, advance, is_active, is_succeeded
 from src.no_window import NO_WINDOW
 from src.sessions.model import Item, Section, Session, Source, ensure_ids
 from src.write_target import outside_code
@@ -312,7 +313,7 @@ class ImportJob:
     id: str
     session_id: str
     deck: str
-    state: str = "queued"  # queued | running | done | error
+    state: ImportState = ImportState.QUEUED
     done: int = 0
     total: int = 0
     message: str = ""
@@ -321,8 +322,14 @@ class ImportJob:
     only: Optional[list[int]] = None
     started_at: float = field(default_factory=time.time)
 
+    def move(self, to: ImportState) -> None:
+        self.state = advance(self.state, to)
+
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "session_id": self.session_id, "state": self.state, "done": self.done,
+        """The wire form: ``state`` plus ``active`` / ``succeeded`` derived from it, so the dialog
+        never spells the states itself."""
+        return {"id": self.id, "session_id": self.session_id, "state": self.state.value,
+                "active": is_active(self.state), "succeeded": is_succeeded(self.state), "done": self.done,
                 "total": self.total, "message": self.message, "code": self.code, "result": self.result}
 
 
@@ -343,7 +350,7 @@ class Importer:
         if not path.is_file():
             raise DeckImportError("deck_not_found", "That PowerPoint file does not exist")
         with self._lock:
-            if any(j.state in ("queued", "running") for j in self._jobs.values()):
+            if any(is_active(j.state) for j in self._jobs.values()):
                 raise DeckImportError("busy", "An import is already running")
             job = ImportJob(id=uuid.uuid4().hex[:10], session_id=session_id, deck=str(path), only=only)
             self._jobs[job.id] = job
@@ -354,7 +361,7 @@ class Importer:
         return self._jobs.get(job_id)
 
     def _run(self, job: ImportJob) -> None:
-        job.state = "running"
+        job.move(ImportState.RUNNING)
         job.message = "Opening the deck in PowerPoint…"
         try:
             folder = self._folder(job.session_id)
@@ -405,11 +412,13 @@ class Importer:
                 summary = {"first_import": False, "review": True}
                 job.message = f"Exported {exported} slides — review the changes"
             job.result = {"slides": exported, "unsure_profiles": unsure, **summary}
-            job.state = "done"
+            job.move(ImportState.DONE)
             logger.info("✅ import: %s slides for session %s (%s)", exported, job.session_id, summary)
         except DeckImportError as exc:
-            job.state, job.code, job.message = "error", exc.code, str(exc)
+            job.move(ImportState.ERROR)
+            job.code, job.message = exc.code, str(exc)
             logger.error("❌ import failed (%s): %s", exc.code, exc)
         except Exception as exc:  # noqa: BLE001 — surfaced to the UI, detail in the log
-            job.state, job.code, job.message = "error", "import_failed", "The import failed — see the log"
+            job.move(ImportState.ERROR)
+            job.code, job.message = "import_failed", "The import failed — see the log"
             logger.exception("❌ import crashed: %s", exc)
