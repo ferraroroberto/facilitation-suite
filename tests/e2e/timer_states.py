@@ -15,9 +15,9 @@ TIMER_STATES = """async () => {
   const timer = { enabled: true, seconds: 60, start: 'manual', show_on: 'stage', end: 'keep' };
   const states = {
     idle: null,
-    running: { total: 60, elapsed: 0, running_since: 1000, done: false },
-    paused: { total: 60, elapsed: 10, running_since: null, done: false },
-    done: { total: 60, elapsed: 60, running_since: null, done: true },
+    running: { total: 60, elapsed: 0, running_since: 1000, done: false, mode: 'running' },
+    paused: { total: 60, elapsed: 10, running_since: null, done: false, mode: 'paused' },
+    done: { total: 60, elapsed: 60, running_since: null, done: true, mode: 'done' },
   };
   const out = {};
   for (const [name, t] of Object.entries(states)) {

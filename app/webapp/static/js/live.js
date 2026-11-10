@@ -67,6 +67,13 @@ export function connectLive(role, handlers = {}) {
   return live;
 }
 
+/** The mode of an item's timer in the live state: the server derives it (`mode` on every timer
+ * entry); an item with no entry has not started one, so it is idle. The only place a view
+ * maps a timer to a mode. */
+export function timerMode(t) {
+  return t ? t.mode : 'idle';
+}
+
 /** Seconds left on an item timer state at server time `now` (never below 0). */
 export function remaining(t, now) {
   if (!t) return null;

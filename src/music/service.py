@@ -71,6 +71,7 @@ from typing import Any, Optional
 from src.config import data_dir
 from src.live.actions import Action, register
 from src.live.hub import LiveHub, now_ms
+from src.live.timer_mode import TimerMode, timer_mode
 from src.music.backend import Backend, EventSink, MusicError, Track
 from src.music.file_backend import FileBackend
 from src.music.library import audio_files, cue_file, resolve
@@ -387,11 +388,11 @@ class MusicService:
         if owner:
             cur, timer = self.live.current(), self.live.timers.get(owner)
             keeps_playing = bool(cur and (cur.get("music") or {}).get("on_timer_end") == "keep_playing")
-            if cur is None or cur["id"] != owner or (timer is not None and timer.done and not keeps_playing):
+            if cur is None or cur["id"] != owner or (timer_mode(timer) is TimerMode.DONE and not keeps_playing):
                 logger.info("ℹ️ music: %s's music not resumed — %s", owner,
                             "its timer ended" if cur and cur["id"] == owner else "its item is no longer on stage")
                 return
-            if timer is not None and timer.running_since is None and not timer.done:
+            if timer_mode(timer) is TimerMode.PAUSED:
                 play = False  # the timer is paused: so is its music
         track = self._track(str(saved.get("kind")), str(saved.get("ref") or ""), bool(saved.get("loop")))
         volume = int(saved.get("volume", self.volume))

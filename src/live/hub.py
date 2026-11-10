@@ -64,6 +64,7 @@ from src.groups.roster import RosterError, load_groups
 from src.importer.review import read_meta
 from src.jsonl import JsonlAppender
 from src.live.plan import build_run
+from src.live.timer_mode import TimerMode, TimerState, restore_timer, timer_mode
 from src.sessions.model import Session
 from src.sessions.store import SessionError, SessionStore
 from src.write_target import outside_code
@@ -106,21 +107,6 @@ class Client:
             while not self.queue.empty():
                 self.queue.get_nowait()
             self.queue.put_nowait(message)
-
-
-@dataclass
-class TimerState:
-    total: int
-    elapsed: float = 0.0
-    running_since: Optional[int] = None
-    done: bool = False
-
-    def remaining(self, at_ms: int) -> float:
-        running = (at_ms - self.running_since) / 1000 if self.running_since is not None else 0.0
-        return self.total - self.elapsed - running
-
-    def as_dict(self) -> dict[str, Any]:
-        return {"total": self.total, "elapsed": round(self.elapsed, 3), "running_since": self.running_since, "done": self.done}
 
 
 class LiveHub:
@@ -423,7 +409,7 @@ class LiveHub:
         cur = self.items[index]
         self._enter_section(cur["section_id"])
         timer = cur.get("timer")
-        if timer and timer.get("start") == "on_enter" and cur["id"] not in self.timers:
+        if timer and timer.get("start") == "on_enter" and timer_mode(self.timers.get(cur["id"])) is TimerMode.IDLE:
             self._timer_start(cur)
         self.event("item", item_id=cur["id"], index=index, kind=cur["kind"])
         for fn in self.item_listeners:
@@ -502,14 +488,16 @@ class LiveHub:
 
     def _timer_start(self, item: dict[str, Any]) -> None:
         t = self.timers.get(item["id"])
-        if t is None or t.done:
+        mode = timer_mode(t)
+        if mode is TimerMode.RUNNING:
+            return
+        if mode is not TimerMode.PAUSED:  # never started, or ran out: a fresh run
             t = TimerState(total=int(item["timer"]["seconds"]))
             self.timers[item["id"]] = t
-        if t.running_since is None:
-            t.running_since = now_ms()
-            self._schedule_end(item["id"])
-            self.event("timer_start", item_id=item["id"], remaining=round(t.remaining(now_ms())))
-            self._timer_heard("start", item)
+        t.running_since = now_ms()
+        self._schedule_end(item["id"])
+        self.event("timer_start", item_id=item["id"], remaining=round(t.remaining(now_ms())))
+        self._timer_heard("start", item)
 
     def _timer_heard(self, event: str, item: dict[str, Any]) -> None:
         for fn in self.timer_listeners:
@@ -517,7 +505,7 @@ class LiveHub:
 
     def _timer_pause(self, item_id: str) -> None:
         t = self.timers.get(item_id)
-        if t is None or t.running_since is None:
+        if timer_mode(t) is not TimerMode.RUNNING:
             return
         t.elapsed += (now_ms() - t.running_since) / 1000
         t.running_since = None
@@ -530,20 +518,18 @@ class LiveHub:
     def start_timer_for(self, item_id: str) -> None:
         """Start an item's timer from another service (capture start, step 7)."""
         item = self.item_by_id(item_id)
-        if item and item.get("timer") and (item_id not in self.timers or self.timers[item_id].done
-                                           or self.timers[item_id].running_since is None):
+        if item and item.get("timer") and timer_mode(self.timers.get(item_id)) is not TimerMode.RUNNING:
             self._timer_start(item)
             self.commit()
 
     def pause_timer_for(self, item_id: str) -> None:
-        if item_id in self.timers and self.timers[item_id].running_since is not None:
+        if timer_mode(self.timers.get(item_id)) is TimerMode.RUNNING:
             self._timer_pause(item_id)
             self.commit()
 
     def timer_toggle(self) -> None:
         item = self._timer_item()
-        t = self.timers.get(item["id"])
-        if t is not None and t.running_since is not None:
+        if timer_mode(self.timers.get(item["id"])) is TimerMode.RUNNING:
             self._timer_pause(item["id"])
         else:
             self._timer_start(item)
@@ -554,14 +540,14 @@ class LiveHub:
         t = self.timers.get(item["id"])
         if t is None:
             t = self.timers[item["id"]] = TimerState(total=int(item["timer"]["seconds"]))
-        restarted = t.done
-        if t.done:
+        restarted = timer_mode(t) is TimerMode.DONE
+        if restarted:
             # "One more minute" after the end: a fresh minute, running.
             t.total, t.elapsed, t.done = 60, 0.0, False
             t.running_since = now_ms()
         else:
             t.total += 60
-        if t.running_since is not None:
+        if timer_mode(t) is TimerMode.RUNNING:
             self._schedule_end(item["id"])
         self.event("timer_add_minute", item_id=item["id"])
         if restarted:
@@ -598,7 +584,7 @@ class LiveHub:
         self._timer_handles.pop(item_id, None)
         t = self.timers.get(item_id)
         item = self.item_by_id(item_id)
-        if t is None or item is None or t.running_since is None:
+        if item is None or timer_mode(t) is not TimerMode.RUNNING:
             return
         if t.remaining(now_ms()) > 0.05:  # a minute was added meanwhile
             self._schedule_end(item_id)
@@ -701,10 +687,11 @@ class LiveHub:
         for item_id, raw in (data.get("timers") or {}).items():
             if self.item_by_id(item_id) is None:
                 continue
-            t = TimerState(total=int(raw.get("total", 0)), elapsed=float(raw.get("elapsed", 0)),
-                           running_since=raw.get("running_since"), done=bool(raw.get("done")))
+            t = restore_timer(item_id, raw)
+            if t is None:
+                continue
             self.timers[item_id] = t
-            if t.running_since is not None:
+            if timer_mode(t) is TimerMode.RUNNING:
                 self._schedule_end(item_id)
 
     # ---------------------------------------------------------------- resume

@@ -5,7 +5,7 @@
 // (/themes/<name>.css + the session's own theme.css), never the fleet UI.
 
 import { esc, lines } from '/static/js/ui.js';
-import { remaining } from '/static/js/live.js';
+import { remaining, timerMode } from '/static/js/live.js';
 import { words, roundLine } from '/static/js/stage-words.js';
 import { roleStyle } from '/static/js/lettering.js';
 
@@ -167,18 +167,11 @@ export function clock(sec) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-const TIMER_STATES = ['idle', 'running', 'paused', 'done'];
-
-/** Where a stage timer is: not started, running, paused or ended — the class that colours it. */
-function timerState(t) {
-  if (!t) return 'idle';
-  if (t.done) return 'done';
-  return t.running_since == null ? 'paused' : 'running';
-}
-
-function setTimerState(el, state) {
-  el.classList.remove(...TIMER_STATES);
-  el.classList.add(state);
+/** The class that colours a stage timer: its mode (idle, running, paused or done). */
+function setTimerMode(el, mode) {
+  if (el.dataset.timerMode) el.classList.remove(el.dataset.timerMode);
+  el.classList.add(mode);
+  el.dataset.timerMode = mode;
 }
 
 /** A slide: its picture (with the imported text boxes over the text-free one), or its title alone. */
@@ -234,21 +227,21 @@ function itemHtml(it, sid, lang, hint, opts) {
 
 /** The timer widgets of the drawn item (break clock, corner pill) and the quiz chat hint, from the live state. */
 function syncTimers(canvas, item, t, ctx, opts) {
-  const phase = timerState(t);
+  const mode = timerMode(t);
   // "Remove the timer" at 00:00: it leaves the stage once done.
-  const gone = !!(t && t.done && item.timer && item.timer.end === 'hide');
+  const gone = mode === 'done' && !!(item.timer && item.timer.end === 'hide');
   const clockEl = canvas.querySelector('[data-clock]');
   if (clockEl) {
     const left = t ? remaining(t, ctx.now) : item.timer.seconds;
     clockEl.textContent = clock(left);
-    setTimerState(clockEl, phase);
+    setTimerMode(clockEl, mode);
     clockEl.hidden = gone;
   }
   const pill = canvas.querySelector('[data-pill]');
   if (pill) {
     pill.hidden = !t || !!opts.noTimers || gone;
     if (t) pill.querySelector('[data-pill-text]').textContent = clock(remaining(t, ctx.now));
-    setTimerState(pill, phase);
+    setTimerMode(pill, mode);
   }
   const quizHint = canvas.querySelector('[data-quizhint]');
   if (quizHint) {
