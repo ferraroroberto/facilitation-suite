@@ -181,6 +181,13 @@ module = "src/live/timer_mode.py"
 type   = "TimerMode"
 derive = "timer_mode"
 
+# The deck-import job's state, declared once (docs/import.md#import-job-state).
+[[state_machines]]
+name   = "import-job"
+module = "src/importer/job_state.py"
+type   = "ImportState"
+derive = "advance"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

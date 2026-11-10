@@ -61,15 +61,15 @@ export function importDialog(sid, { lastPath = '', reimport = false, slides = nu
         sync();
         return;
       }
-      let pollError = null; // set when a status poll failed: the job is then still 'running' in our copy
-      while (job.state === 'queued' || job.state === 'running') {
+      let pollError = null; // set when a status poll failed: the job is then still active in our copy
+      while (job.active) {
         bar.style.width = job.total ? `${Math.round((job.done / job.total) * 100)}%` : '4%';
         msg.textContent = job.message;
         await new Promise((r) => setTimeout(r, 400));
         try { job = await api(`/api/imports/${job.id}`); } catch (e) { pollError = e.message; msg.textContent = pollError; break; }
       }
       running = false;
-      if (job.state === 'done') {
+      if (job.succeeded) {
         bar.style.width = '100%';
         const r = job.result;
         finished = r;

@@ -118,6 +118,7 @@ flowchart LR
   model --> reg
   reg --> plug[("src/activities/&lt;type&gt;/editor.json")]
   slidesr --> importer["src/importer/service.py<br/>ImportJob · plan build · re-import"]
+  importer -->|job state| jobstate["src/importer/job_state.py<br/>ImportState · advance · is_active"]
   importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
   importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]
   importer -->|re-import| staged[("slides/incoming/<br/>staged export")]
