@@ -230,6 +230,13 @@ module = "src/copilot/channel_state.py"
 type   = "ChannelState"
 derive = "advance"
 
+# An activity capture's status, declared once (docs/live.md#a-captures-status).
+[[state_machines]]
+name   = "capture-status"
+module = "src/live/capture_state.py"
+type   = "CaptureStatus"
+derive = "capture_status"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

@@ -166,7 +166,7 @@ function drawLive() {
   const cap = s.capture && cur && s.capture.item_id === cur.id ? s.capture : null;
   preview.render(cur, { plan, state: s, now: live.now() });
   const where = cur ? `${cur.kind === 'slide' ? 'Slide' : 'Item'} ${s.index + 1} of ${s.count}` : '';
-  sub.textContent = [where, cap && cap.status === 'live' ? 'capturing' : '', s.blackout ? 'blackout' : ''].filter(Boolean).join(' · ');
+  sub.textContent = [where, cap && cap.live ? 'capturing' : '', s.blackout ? 'blackout' : ''].filter(Boolean).join(' · ');
   livePane.querySelector('[data-r-title]').textContent = cur ? oneLine(cur.title) : '';
   livePane.querySelector('[data-r-count]').textContent = cap ? `· ${cap.answers} answer${cap.answers === 1 ? '' : 's'}` : '';
   livePane.querySelector('[data-r-nextlabel]').textContent = nxt ? `Next · ${nxt.index + 1}` : 'Next';
@@ -175,11 +175,10 @@ function drawLive() {
   const capBtn = livePane.querySelector('[data-r-capture]');
   capBtn.hidden = !(cur && cur.capture);
   if (cur && cur.capture) {
-    const status = cap ? cap.status : 'idle';
-    const [glyph, label] = status === 'live' ? ['square', 'Stop capture'] : status === 'stopped' ? ['refresh-cw', 'Reopen capture'] : ['play', 'Start capture'];
+    const [glyph, label] = cap && cap.live ? ['square', 'Stop capture'] : cap && cap.stopped ? ['refresh-cw', 'Reopen capture'] : ['play', 'Start capture'];
     const html = `${icon(glyph)} ${label}`;
     if (capBtn.dataset.html !== html) { capBtn.dataset.html = html; capBtn.innerHTML = html; }
-    capBtn.classList.toggle('live', status === 'live');
+    capBtn.classList.toggle('live', !!(cap && cap.live));
   }
   livePane.querySelector('[data-r-prev]').disabled = !neighbour(items(), s.index, -1);
   livePane.querySelector('[data-r-nextbtn]').disabled = !nxt;

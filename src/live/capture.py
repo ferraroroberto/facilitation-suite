@@ -47,6 +47,7 @@ from src.activities.registry import options_with_defaults, parser, result_for
 from src.atomic_write import atomic_write_text
 from src.chat.hub import ChatHub
 from src.live.actions import Action, register
+from src.live.capture_state import CaptureStatus, advance, capture_status, is_idle, is_live, is_stopped
 from src.live.hub import LiveError, LiveHub, now_ms
 from src.live.push_latch import PushLatch
 from src.logger import relay
@@ -93,14 +94,11 @@ class CaptureService:
 
     # ----------------------------------------------------------- queries
 
-    def status(self, item_id: str) -> str:
-        wins = self.windows.get(item_id)
-        if not wins:
-            return "idle"
-        return "live" if wins[-1][1] is None else "stopped"
+    def status(self, item_id: str) -> CaptureStatus:
+        return capture_status(self.windows.get(item_id))
 
     def active_item(self) -> Optional[str]:
-        return next((k for k in self.windows if self.status(k) == "live"), None)
+        return next((k for k in self.windows if is_live(self.status(k))), None)
 
     def excluded(self) -> Excluded:
         """The excluded senders as people, with the names merged in ``aliases.yaml``; rebuilt only when
@@ -134,12 +132,14 @@ class CaptureService:
         out: dict[str, Any] = {"hidden": sorted(self.hidden), "count_own": self.count_own, "capture": None,
                                "excluded_senders": list(self.live.excluded_senders)}
         if cur and cur.get("capture"):
+            status = self.status(cur["id"])
             counted = self.messages_for(cur["id"])
             every = self.messages_for(cur["id"], include_hidden=True)
             hidden_in = [m["id"] for m in every if m["id"] in self.hidden]
             left_out = [m for m in every if m["id"] not in self.hidden and m["sender"] in self.excluded()]
             out["capture"] = {
-                "item_id": cur["id"], "status": self.status(cur["id"]), "windows": self.windows.get(cur["id"], []),
+                "item_id": cur["id"], "status": status.value, "idle": is_idle(status), "live": is_live(status),
+                "stopped": is_stopped(status), "windows": self.windows.get(cur["id"], []),
                 "answers": len(counted), "people": len({m["sender"] for m in counted}), "hidden": len(hidden_in),
                 "excluded": len(left_out),
                 "result": self.result(cur) if parser(cur["type"] or "") else None,
@@ -152,7 +152,7 @@ class CaptureService:
         cur = self.live.current()
         if not cur or not cur.get("capture"):
             raise LiveError(409, "not_capturable", "Space captures answers on an activity — this item has none")
-        if self.status(cur["id"]) == "live":
+        if is_live(self.status(cur["id"])):
             self.stop(cur["id"], by_hand=True)
         else:
             self.start(cur["id"])
@@ -174,6 +174,7 @@ class CaptureService:
         other = self.active_item()
         if other and other != item_id:
             self.stop(other, by_hand=True)  # one capture at a time
+        advance(self.status(item_id), CaptureStatus.LIVE)
         self.windows.setdefault(item_id, []).append([now_ms(), None])
         reopened = len(self.windows[item_id]) > 1
         logger.info("ℹ️ capture %s %s", "reopened on" if reopened else "started on", item_id)
@@ -187,9 +188,10 @@ class CaptureService:
             self.live.commit()
 
     def stop(self, item_id: str, *, by_hand: bool) -> None:
-        wins = self.windows.get(item_id)
-        if not wins or wins[-1][1] is not None:
+        if not is_live(self.status(item_id)):
             return
+        advance(self.status(item_id), CaptureStatus.STOPPED)
+        wins = self.windows[item_id]
         wins[-1][1] = now_ms()
         item = self.live.item_by_id(item_id)
         count = len(self.messages_for(item_id))
@@ -213,7 +215,7 @@ class CaptureService:
         self._save()
         # A frozen capture that contained it is re-frozen so the files match what counts.
         for item_id in list(self.windows):
-            if self.status(item_id) == "stopped" and any(m["id"] == message_id for m in self.messages_for(item_id, include_hidden=True)):
+            if is_stopped(self.status(item_id)) and any(m["id"] == message_id for m in self.messages_for(item_id, include_hidden=True)):
                 item = self.live.item_by_id(item_id)
                 if item is not None:
                     self._freeze(item)
@@ -229,7 +231,7 @@ class CaptureService:
         names = [n for n in self.live.excluded_senders if ident(n) != key]
         if excluded:
             names.append(name)
-        stopped = [i for i in self.windows if self.status(i) == "stopped"]
+        stopped = [i for i in self.windows if is_stopped(self.status(i))]
         before = {i: [m["id"] for m in self.messages_for(i)] for i in stopped}
         self.live.set_excluded_senders(names)
         logger.info("ℹ️ capture: a sender is %s", "no longer counted" if excluded else "counted again")
@@ -253,7 +255,7 @@ class CaptureService:
         self.live.event("place", message_id=message_id, geonameid=geonameid)
         self._save()
         for item_id in list(self.windows):
-            if self.status(item_id) == "stopped" and any(m["id"] == message_id for m in self.messages_for(item_id, include_hidden=True)):
+            if is_stopped(self.status(item_id)) and any(m["id"] == message_id for m in self.messages_for(item_id, include_hidden=True)):
                 item = self.live.item_by_id(item_id)
                 if item is not None:
                     self._freeze(item)
@@ -262,7 +264,7 @@ class CaptureService:
     # ------------------------------------------------------------- hooks
 
     def _on_item(self, prev: Optional[dict[str, Any]], cur: dict[str, Any]) -> None:
-        if self.live.stop_capture_on_leave and prev is not None and prev["id"] != cur["id"] and self.status(prev["id"]) == "live":
+        if self.live.stop_capture_on_leave and prev is not None and prev["id"] != cur["id"] and is_live(self.status(prev["id"])):
             logger.info("ℹ️ capture on %s stopped: the activity was left", prev["id"])
             self.stop(prev["id"], by_hand=False)
         # Each activity opens with its own "show names" option; the presenter can flip it.
@@ -277,19 +279,19 @@ class CaptureService:
     def _on_timer(self, event: str, item: dict[str, Any]) -> None:
         if not item.get("capture"):
             return
-        if event == "start" and self.status(item["id"]) != "live":
+        if event == "start" and not is_live(self.status(item["id"])):
             self.start(item["id"])
-        elif event == "reset" and self.status(item["id"]) == "live":
+        elif event == "reset" and is_live(self.status(item["id"])):
             self.stop(item["id"], by_hand=False)
 
     def _on_timer_end(self, item: dict[str, Any], end: str) -> None:
         stops = end == "stop_capture" or (end == "hide" and self.live.stop_capture_on_leave)
-        if stops and self.status(item["id"]) == "live":
+        if stops and is_live(self.status(item["id"])):
             self.stop(item["id"], by_hand=False)
 
     def _on_close(self) -> None:
         """The session is closing: a capture still live is stopped so it is frozen and in the report."""
-        for item_id in [k for k in self.windows if self.status(k) == "live"]:
+        for item_id in [k for k in self.windows if is_live(self.status(k))]:
             logger.info("ℹ️ capture on %s stopped: the session closed with it still open", item_id)
             self.stop(item_id, by_hand=False)
 

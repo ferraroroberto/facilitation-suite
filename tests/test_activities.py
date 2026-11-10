@@ -216,9 +216,12 @@ def test_capture_counts_only_inside_its_windows(svc) -> None:
     state = live.snapshot()["state"]["capture"]
     assert state["answers"] == 2 and state["people"] == 2  # "You" never counts
     assert {w["key"] for w in state["result"]["words"]} == {"reuniones", "perfeccionismo"}
+    assert (state["status"], state["idle"], state["live"], state["stopped"]) == ("live", False, True, False)
 
     run_action(live, "capture_toggle")  # stop: frozen
     assert cap.status("act-kryptonite") == "stopped"
+    state = live.snapshot()["state"]["capture"]
+    assert (state["status"], state["idle"], state["live"], state["stopped"]) == ("stopped", False, False, True)
     assert live.timers["act-kryptonite"].running_since is None  # stopped by hand: the timer pauses
     frozen = json.loads((folder / "live" / "captures" / "act-kryptonite.json").read_text(encoding="utf-8"))
     assert [a["text"] for a in frozen["answers"]] == ["reuniones", "perfeccionismo"]
