@@ -34,6 +34,7 @@ from typing import Any, Optional
 
 from src.atomic_write import atomic_write_text
 from src.config import CopilotConfig
+from src.copilot.after_call_state import AfterCallState, advance, is_failed, is_running
 from src.copilot.audio import wav_bytes
 from src.copilot.hints import NOT_SPEECH, Answer, Line, ask_chain, model_chain
 from src.copilot.hub_client import HubDown, HubFailure, HubTimeout, complete, transcribe
@@ -65,7 +66,7 @@ class AfterCallError(DomainError):
 class Job:
     """The current or last run of one session (kept in memory; the files are what lasts)."""
 
-    state: str  # running | done | failed
+    state: AfterCallState
     step: str  # transcribe | summary
     started_at: str
     tracks: list[dict[str, Any]] = field(default_factory=list)
@@ -79,6 +80,12 @@ class Job:
     summary_failure: str = ""  # why the summary step left no summary (the transcript stands)
     summary_detail: str = ""
     finished_at: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        """The wire form: ``state`` plus ``running`` / ``failed`` derived from it, so the Results tab
+        never spells the states itself."""
+        return {**asdict(self), "state": self.state.value,
+                "running": is_running(self.state), "failed": is_failed(self.state)}
 
 
 class _Abort(Exception):
@@ -228,17 +235,25 @@ class AfterCall:
     def job(self, sid: str) -> Optional[dict[str, Any]]:
         with self._lock:
             job = self._jobs.get(sid)
-            return asdict(job) if job is not None else None
+            return job.as_dict() if job is not None else None
 
     def _update(self, sid: str, **changes: Any) -> None:
         with self._lock:
             for key, value in changes.items():
                 setattr(self._jobs[sid], key, value)
 
+    def _finish(self, sid: str, to: AfterCallState, **changes: Any) -> None:
+        """End the run: the state moves through ``advance`` and the closing fields land with it."""
+        with self._lock:
+            job = self._jobs[sid]
+            job.state = advance(job.state, to)
+            for key, value in changes.items():
+                setattr(job, key, value)
+
     def _claim(self, sid: str, job: Job) -> None:
         with self._lock:
             current = self._jobs.get(sid)
-            if current is not None and current.state == "running":
+            if current is not None and is_running(current.state):
                 raise AfterCallError(409, "running", "The recorder tracks are already being transcribed")
             self._jobs[sid] = job
 
@@ -262,7 +277,7 @@ class AfterCall:
         tracks = find_tracks(folder, live_window(read_jsonl(session_folder / "live" / "events.jsonl")))
         if not tracks:
             raise AfterCallError(422, "no_tracks", "No recorder tracks in that folder from while this session was live")
-        job = Job("running", "transcribe", _stamp(), tracks=[t.as_dict() for t in tracks],
+        job = Job(AfterCallState.RUNNING, "transcribe", _stamp(), tracks=[t.as_dict() for t in tracks],
                   total_s=round(sum(t.duration_s for t in tracks), 1))
         self._claim(sid, job)
         logger.info("ℹ️ after-call: %d recorder take(s), %.0f s of audio, for session %s", len(tracks), job.total_s, sid)
@@ -275,7 +290,7 @@ class AfterCall:
         lines = read_recorded(session_folder)
         if not lines:
             raise AfterCallError(409, "no_transcript", "There is no recorded transcript to summarise")
-        self._claim(sid, Job("running", "summary", _stamp(), lines=len(lines)))
+        self._claim(sid, Job(AfterCallState.RUNNING, "summary", _stamp(), lines=len(lines)))
         threading.Thread(target=self._run_summary, args=(sid, session_folder, session, cfg, lines, True), daemon=True,
                          name=f"after-call-summary-{sid}").start()
 
@@ -293,11 +308,11 @@ class AfterCall:
                 raise _Abort("write_failed", f"{RECORDED_TRANSCRIPT_FILE} could not be written ({exc})") from exc
         except _Abort as exc:
             logger.error("❌ after-call: transcript not written (%s: %s)", exc.code, exc.detail)
-            self._update(sid, state="failed", failure=exc.code, detail=exc.detail, finished_at=_stamp())
+            self._finish(sid, AfterCallState.FAILED, failure=exc.code, detail=exc.detail, finished_at=_stamp())
             return
         except Exception as exc:  # a thread has no caller to raise to: the job must still end
             logger.exception("❌ after-call: run failed")
-            self._update(sid, state="failed", failure="error", detail=str(exc), finished_at=_stamp())
+            self._finish(sid, AfterCallState.FAILED, failure="error", detail=str(exc), finished_at=_stamp())
             return
         logger.info("✅ after-call: %s written, %d lines, %d chunks missed", RECORDED_TRANSCRIPT_FILE, len(lines), missed)
         self._update(sid, lines=len(lines), missed=missed, missed_detail=f"{code}: {detail}" if missed else "")
@@ -311,7 +326,7 @@ class AfterCall:
         except Exception as exc:  # a thread has no caller to raise to: the job must still end
             logger.exception("❌ after-call: summary failed")
             failure, detail = "error", str(exc)
-        self._update(sid, state="done", summary_failure=failure, summary_detail=detail, finished_at=_stamp())
+        self._finish(sid, AfterCallState.DONE, summary_failure=failure, summary_detail=detail, finished_at=_stamp())
 
     def status(self, sid: str, session_folder: Path, session: Session) -> dict[str, Any]:
         """What the Results card shows: the saved folder, the consent, the run and what the files hold."""

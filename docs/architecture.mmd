@@ -180,6 +180,7 @@ flowchart LR
   convo --> copfiles
   appv --> recordedr["routers/recorded.py<br/>recorder folder · transcribe · summarise again · run state"]
   recordedr --> aftercall["src/copilot/after_call.py<br/>after-call pass on its own thread · one run per session"]
+  aftercall -->|run state| acstate["src/copilot/after_call_state.py<br/>AfterCallState · advance · is_running"]
   aftercall --> rtracks["src/copilot/recorder_tracks.py<br/>main takes in video editing/ · start from the file name · ffmpeg → 16 kHz mono"]
   rtracks -->|reads| recorderfiles[("podcast recorder episode folder<br/>recorder - host / guest - date time.mp4 + .json")]
   aftercall -->|"POST /v1/audio/transcriptions · /v1/chat/completions"| llmhub

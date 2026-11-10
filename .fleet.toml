@@ -195,6 +195,13 @@ module = "src/music/player_state.py"
 type   = "PlayerState"
 derive = "advance"
 
+# The after-call run's state, declared once (docs/copilot.md#the-after-call-runs-state).
+[[state_machines]]
+name   = "after-call-run"
+module = "src/copilot/after_call_state.py"
+type   = "AfterCallState"
+derive = "advance"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]
