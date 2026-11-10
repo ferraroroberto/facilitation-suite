@@ -38,6 +38,17 @@ The player has four states, declared once in `src/music/player_state.py` (`Playe
 | `paused` | a track is loaded and held; resume continues where it stopped | `playing`, `idle`, `error` |
 | `error` | a start or a backend failed; the reason is in the detail | `error`, `idle`, `playing` |
 
+## The Spotify login's state
+
+The in-app login (Settings → Music → Connect Spotify) has four states, declared once in `src/music/login_state.py` (`LoginState`, machine `spotify-login` in `.fleet.toml`). `Login.state` moves only through `advance`, which refuses a move the table does not list. Settings reads the snapshot's derived flags `waiting`, `done` and `failed` of `login` instead of spelling the states (`state` itself is still sent).
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `idle` | no login started since the app began | `waiting` |
+| `waiting` | the browser is open on Spotify's consent page and the callback is listening | `waiting` (a new start replaces it), `done`, `failed` |
+| `done` | the token was exchanged and saved to `.env` | `waiting` (Reconnect) |
+| `failed` | the answer was refused, foreign or late, or the exchange failed; the reason is in the detail | `waiting` (try again) |
+
 ## Spotify setup (once)
 
 Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** only — never a web player (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`. `.env.example` (committed) lists the keys; copy it to `.env` before starting.

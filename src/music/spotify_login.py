@@ -9,8 +9,8 @@ write ``SPOTIFY_REFRESH_TOKEN`` to ``.env``. The token, the code and the
 client id are never logged, printed or sent to a page.
 
 ``Login`` runs it in a background thread for the app: ``start()`` returns at
-once, ``snapshot()`` says ``idle`` / ``waiting`` / ``done`` / ``failed`` with
-a line for the page.
+once, ``snapshot()`` says ``idle`` / ``waiting`` / ``done`` / ``failed`` (the states are
+declared in ``login_state.py``) with a line for the page.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from typing import Any, Optional
 
 from src.env_file import get_value, set_value
 from src.errors import DomainError
+from src.music.login_state import LoginState, advance, is_done, is_failed, is_waiting
 from src.music.spotify import CLIENT_ID_KEY, REFRESH_KEY, SCOPES, TOKEN_URL, Http, parse_json, urllib_http
 
 logger = logging.getLogger(__name__)
@@ -36,8 +37,6 @@ logger = logging.getLogger(__name__)
 AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
 DEFAULT_PORT = 8765  # the redirect URI registered in the Spotify developer app
 WAIT_S = 300
-
-IDLE, WAITING, DONE, FAILED = "idle", "waiting", "done", "failed"
 
 
 class LoginError(DomainError):
@@ -142,15 +141,16 @@ class Login:
         self._lock = threading.Lock()
         self._callback: Optional[Callback] = None
         self._run = 0
-        self.state, self.detail, self.at = IDLE, "", 0.0
+        self.state, self.detail, self.at = LoginState.IDLE, "", 0.0
 
     def snapshot(self) -> dict[str, Any]:
-        return {"state": self.state, "detail": self.detail, "at": self.at or None}
+        return {"state": self.state.value, "waiting": is_waiting(self.state), "done": is_done(self.state),
+                "failed": is_failed(self.state), "detail": self.detail, "at": self.at or None}
 
-    def _set(self, run: int, state: str, detail: str) -> None:
+    def _set(self, run: int, state: LoginState, detail: str) -> None:
         with self._lock:
             if run == self._run:
-                self.state, self.detail, self.at = state, detail, time.time()
+                self.state, self.detail, self.at = advance(self.state, state), detail, time.time()
 
     def start(self) -> dict[str, Any]:
         """Open the consent page and wait for the redirect in the background.
@@ -171,7 +171,8 @@ class Login:
             except OSError as exc:
                 raise LoginError(f"Port {self.port} is busy (is scripts/spotify_login.py running?) — close it and try again") from exc
             self._callback = callback
-            self.state, self.detail, self.at = WAITING, "Log in to Spotify in the browser window that opened", time.time()
+            self.state = advance(self.state, LoginState.WAITING)
+            self.detail, self.at = "Log in to Spotify in the browser window that opened", time.time()
         redirect = redirect_uri(self.port)
         logger.info("ℹ️ spotify: login started from the app (redirect %s)", redirect)
         threading.Thread(target=self._finish, args=(run, callback, client_id, redirect, verifier),
@@ -189,11 +190,11 @@ class Login:
         except LoginError as exc:
             if run == self._run:
                 logger.warning("⚠️ spotify: login from the app failed: %s", exc)
-            self._set(run, FAILED, str(exc))
+            self._set(run, LoginState.FAILED, str(exc))
             return
         except Exception as exc:  # noqa: BLE001 — the page must learn it ended
             logger.exception("❌ spotify: login from the app failed")
-            self._set(run, FAILED, f"The login failed ({type(exc).__name__}) — see the log")
+            self._set(run, LoginState.FAILED, f"The login failed ({type(exc).__name__}) — see the log")
             return
         finally:
             with self._lock:
@@ -205,4 +206,4 @@ class Login:
                 self.on_saved()
             except Exception:  # noqa: BLE001 — the token is saved either way
                 logger.exception("❌ spotify: after-login refresh failed")
-        self._set(run, DONE, "Connected — the login is saved in .env")
+        self._set(run, LoginState.DONE, "Connected — the login is saved in .env")

@@ -86,6 +86,7 @@ flowchart LR
   music --> spotbk["src/music/spotify.py<br/>SpotifyBackend — Web API · own thread · stepped fades · distinct states"]
   spotbk -->|HTTPS · token from .env| spotapi["Spotify Web API → the desktop app on this PC"]
   login["scripts/spotify_login.py<br/>terminal login"] --> spotlogin["src/music/spotify_login.py<br/>PKCE login · loopback callback :8765"]
+  spotlogin -->|login state| loginstate["src/music/login_state.py<br/>LoginState · advance · is_waiting"]
   spotlogin -.->|writes SPOTIFY_REFRESH_TOKEN| envfile[(".env (gitignored)")]
   spotbk --> envfile
   sessr -->|Plan tab picker · readiness| musiclib["src/music/library.py<br/>copy into audio/ · Music files check"]
