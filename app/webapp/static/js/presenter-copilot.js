@@ -10,7 +10,6 @@ import { confirmDialog } from '/static/js/dialogs.js';
 import { buildPanel, drawPanel } from '/static/js/presenter-copilot-panel.js';
 
 const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
-const CHANNEL_STATE = { starting: 'accent', error: 'bad' };
 
 /** Hints still worth showing: fresh (server time) and asked for the item on stage. */
 function liveHints(c, itemId, now) {
@@ -134,16 +133,16 @@ export function drawCopilot(card, live, cur, sid) {
   name.hidden = !interview;
   name.dataset.saved = c.interviewee || '';
   if (document.activeElement !== name) name.value = c.interviewee || ''; // never under the facilitator's typing
-  const recording = c.on && c.channels.some((ch) => ch.state === 'recording');
+  const recording = c.on && c.channels.some((ch) => ch.recording);
   const rec = card.querySelector('[data-cop-rec]');
   rec.hidden = !recording;
-  rec.lastChild.textContent = `Recording · ${c.channels.filter((ch) => ch.state === 'recording').map((ch) => ch.label.toLowerCase()).join(' + ')}`;
+  rec.lastChild.textContent = `Recording · ${c.channels.filter((ch) => ch.recording).map((ch) => ch.label.toLowerCase()).join(' + ')}`;
   card.querySelector('.p-meta').textContent = !c.on ? 'off' : c.local_only ? 'local model only' : (c.hints_model || 'listening');
 
   const status = [];
   if (c.on) {
-    c.channels.filter((ch) => ch.state !== 'recording').forEach((ch) =>
-      status.push([CHANNEL_STATE[ch.state] || 'bad', ch.state === 'starting' ? `${ch.label} · starting` : `${ch.label} · not recording`, ch.detail]));
+    c.channels.filter((ch) => !ch.recording).forEach((ch) =>
+      status.push([ch.starting ? 'accent' : 'bad', ch.starting ? `${ch.label} · starting` : `${ch.label} · not recording`, ch.detail]));
     if (c.behind_s >= c.behind_warn_s) status.push(['warn', `Transcript ${c.behind_s} s behind`, 'Chunks are waiting for the hub to transcribe them']);
     c.problems.forEach((p) => status.push([p.level || 'bad', p.message.split(' — ')[0], p.message]));
   }
@@ -169,7 +168,7 @@ export function copilotChip(s) {
   if (!c || !c.on) return null;
   const p = c.problems.find((x) => x.level !== 'warn') || c.problems[0]; // a failure outranks a cap held on purpose
   if (p) return [p.level || 'bad', `Copilot · ${p.message.split(' — ')[0].toLowerCase()}`, null, p.message];
-  if (c.channels.some((ch) => ch.state === 'error')) return ['bad', 'Copilot · a channel is not recording'];
+  if (c.channels.some((ch) => ch.failed)) return ['bad', 'Copilot · a channel is not recording'];
   if (c.behind_s >= c.behind_warn_s) return ['warn', `Copilot · ${c.behind_s} s behind`];
   return ['accent', `Copilot · ${c.channels.length ? 'recording' : 'on'}`, null, c.local_only ? 'Hints from the local model only' : ''];
 }

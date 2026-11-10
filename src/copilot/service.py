@@ -46,6 +46,7 @@ from src.atomic_write import atomic_write_text
 from src.config import COPILOT_CAPTURE, CopilotConfig
 from src.copilot.audio import WavRecorder, wav_bytes
 from src.copilot.capture import CaptureError, DeviceSource, FileSource
+from src.copilot.channel_state import ChannelState, advance, is_failed, is_recording, is_starting
 from src.copilot.hints import (
     MAX_HINTS,
     MODEL_HINT_TYPES,
@@ -99,6 +100,14 @@ PROBLEM_TEXT = {
 }
 # A cap reached is the copilot holding back on purpose, not something broken: the card shows it as a warning.
 WARN_PROBLEMS = ("hint_capped", "summary_capped")
+
+
+def _channel_view(speaker: str, channel: dict[str, str], level: Optional[tuple[float, float]], now: float) -> dict[str, Any]:
+    """One channel on the snapshot: its state, the flags the presenter reads instead of spelling it, and its level."""
+    state = ChannelState(channel["state"])
+    return {"speaker": speaker, **channel,
+            "starting": is_starting(state), "recording": is_recording(state), "failed": is_failed(state),
+            "level": {"db": round(level[0], 1), "age_s": round(now - level[1], 1)} if level is not None else None}
 
 
 def _fresh_stats() -> dict[str, int]:
@@ -321,7 +330,7 @@ class CopilotService:
         if cfg.capture not in ("devices", "files"):
             return {}
         labels = {"me": "Mic", "them": "Call audio"} if cfg.capture == "devices" else {"me": "me.wav", "them": "them.wav"}
-        return {s: {"label": labels[s], "state": "starting", "detail": ""} for s in SPEAKERS}
+        return {s: {"label": labels[s], "state": ChannelState.STARTING, "detail": ""} for s in SPEAKERS}
 
     def _session_changed(self, sid: Optional[str]) -> None:
         self.stop()
@@ -434,16 +443,17 @@ class CopilotService:
                 source.start()
             except CaptureError as exc:
                 logger.error("❌ copilot: %s", exc)
-                self._on_loop(self._channel, run, source.speaker, "error", str(exc))
+                self._on_loop(self._channel, run, source.speaker, ChannelState.ERROR, str(exc))
                 continue
             run.sources.append(source)
-            self._on_loop(self._channel, run, source.speaker, "recording", "")
+            self._on_loop(self._channel, run, source.speaker, ChannelState.RECORDING, "")
         if run.stopped.is_set():
             self._close_sources(run)
 
-    def _channel(self, run: _Run, speaker: str, state: str, detail: str) -> None:
+    def _channel(self, run: _Run, speaker: str, state: ChannelState, detail: str) -> None:
         if run is self._run and speaker in self.channels:
-            self.channels[speaker] = {**self.channels[speaker], "state": state, "detail": detail}
+            current = self.channels[speaker]
+            self.channels[speaker] = {**current, "state": advance(ChannelState(current["state"]), state), "detail": detail}
             self.live.push_state()
 
     def _close_sources(self, run: _Run) -> None:
@@ -848,8 +858,7 @@ class CopilotService:
             "mode": self.mode,
             "interviewee": self.interviewee,
             "capture": cfg.capture,
-            "channels": [{"speaker": s, **c, "level": ({"db": round(levels[s][0], 1), "age_s": round(now - levels[s][1], 1)}
-                                                       if s in levels else None)} for s, c in self.channels.items()],
+            "channels": [_channel_view(s, c, levels.get(s), now) for s, c in self.channels.items()],
             "last_chunk_at": dict(self.last_chunk_at),
             "last_check": self.last_check,
             "playbook": {"exists": playbook_chars > 0, "chars": playbook_chars, "used_chars": min(playbook_chars, PLAYBOOK_CHARS)},

@@ -172,6 +172,7 @@ flowchart LR
   mic["your mic (WASAPI input)"] -->|me| capture2["src/copilot/capture.py<br/>miniaudio · 16 kHz mono · loopback of the call's output"]
   callout["the call's sound (WASAPI loopback)"] -->|them| capture2
   capture2 --> copilot
+  copilot -->|channel state| chstate["src/copilot/channel_state.py<br/>ChannelState · advance · is_recording"]
   copilot --> vad["src/copilot/vad.py<br/>RMS dBFS chunks · 20 s min · 45 s cap · silent chunks dropped"]
   copilot -->|"POST /v1/audio/transcriptions · /v1/chat/completions"| llmhub["local LLM hub (copilot.hub_url)<br/>whisper · claude_haiku → gemini_flash_lite → local model"]
   copilot --> copfiles[("live/copilot/me-*.wav · them-*.wav · transcript.jsonl · hints.jsonl · summary.json")]
