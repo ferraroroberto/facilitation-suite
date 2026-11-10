@@ -7,3 +7,16 @@ Each item in the plan has a **Camera layout** (an OBS profile) — *Camera strip
 **Click to restore the layout.** You switch OBS by hand — full-screen camera to talk — and want the slide's layout back: click the stage window. With *A click on the stage goes to the next item* off (the default), a click re-applies the current item's Camera layout through the same switch as `obs_profile/<name>`; it does nothing when the item has no layout, OBS is not connected, or **Settings → Live tools → Clicking the stage → restore the item's camera layout** is switched off (on by default). With the first one on, a click goes to the next item instead and does not touch OBS.
 
 OBS is never in the critical path: it runs on its own thread, reconnects by itself, and the presenter's **OBS** chip says *profile …*, *not reachable* (click to retry), *connecting* or *off*. A profile without a scene, or a scene OBS doesn't have, leaves OBS as it is and the chip says so. The deck keeps working with OBS closed.
+
+## The connection's state
+
+The connection has four states, declared once in `src/obs/connection_state.py` (`ObsState`, machine `obs-connection` in `.fleet.toml`). `advance` is the only code that moves `ObsService.state`, and it refuses a move the table does not list. Readers do not spell the states: Python asks `is_connected`, `is_connecting` and `is_off`, and the snapshot (the presenter and stage state, `GET /api/settings`) carries the derived `connected`, `connecting` and `off` fields beside `state`, which the presenter chip, the stage's click-to-restore and the Settings card read.
+
+| State | Meaning | Moves to |
+|---|---|---|
+| `off` | scene switching is turned off in Settings; no connection is held | `connecting` |
+| `connecting` | an attempt is running now | `connected`, `disconnected`, `off` |
+| `connected` | the last request or heartbeat worked | `connecting`, `disconnected`, `off` |
+| `disconnected` | OBS is not reachable, or the link was lost; a retry follows | `connecting`, `off` |
+
+Connected is only reached through an attempt that worked. A move to the state it is already in only updates the detail. A new state is added to `ObsState` with its meaning in `MEANINGS` and its row in `TRANSITIONS`, then handled in each reader above; a reader never gets its own flag for it.

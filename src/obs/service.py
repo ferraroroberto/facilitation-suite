@@ -4,7 +4,7 @@ Every item has an OBS profile; each profile maps to one OBS scene (Settings).
 When the live item changes, the scene follows. OBS being closed, restarting
 or refusing a request is **never** fatal: a worker thread owns the
 connection, reconnects with backoff, and reports one state for the
-presenter's chip — each with its own message:
+presenter's chip (declared in ``src/obs/connection_state.py``) — each with its own message:
 
 - ``off``          — switching is turned off in Settings
 - ``connecting``   — trying now
@@ -24,6 +24,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from src.config import AppConfig, profiles
+from src.obs.connection_state import ObsState, advance, is_connected, is_connecting, is_off
 
 logger = logging.getLogger(__name__)
 # obsws-python logs a full traceback on every refused connection; with OBS
@@ -41,7 +42,7 @@ class ObsService:
         self.on_change = on_change
         self._factory = client_factory
         self.client: Any = None
-        self.state, self.detail = "connecting", ""
+        self.state, self.detail = ObsState.CONNECTING, ""
         self.version = ""
         self.scenes: list[str] = []
         self.profile: Optional[str] = None  # the profile OBS was last switched to
@@ -82,10 +83,11 @@ class ObsService:
 
     # ----------------------------------------------------------------- state
 
-    def _set(self, state: str, detail: str) -> None:
+    def _set(self, state: ObsState, detail: str) -> None:
         if (state, detail) != (self.state, self.detail):
             if state != self.state:
-                logger.info("ℹ️ obs: %s → %s (%s)", self.state, state, detail)
+                state = advance(self.state, state)
+                logger.info("ℹ️ obs: %s → %s (%s)", self.state.value, state.value, detail)
             self.state, self.detail = state, detail
             self._changed()
 
@@ -98,7 +100,8 @@ class ObsService:
             pass
 
     def snapshot(self) -> dict[str, Any]:
-        return {"state": self.state, "detail": self.detail, "profile": self.profile, "scene": self.scene,
+        return {"state": self.state, "connected": is_connected(self.state), "connecting": is_connecting(self.state),
+                "off": is_off(self.state), "detail": self.detail, "profile": self.profile, "scene": self.scene,
                 "warning": self.warning, "version": self.version}
 
     def readiness(self) -> dict[str, Any]:
@@ -106,7 +109,7 @@ class ObsService:
         if not cfg.obs.enabled:
             return {"enabled": False, "connected": False, "detail": "Scene switching is off in Settings"}
         mapped = sum(1 for p in profiles(cfg).values() if p["scene"])
-        if self.state != "connected":
+        if not is_connected(self.state):
             return {"enabled": True, "connected": False, "detail": self.detail or "Not connected"}
         return {"enabled": True, "connected": True, "detail": f"OBS {self.version} · {mapped} of 3 profiles have a scene"}
 
@@ -114,7 +117,7 @@ class ObsService:
 
     def _connect(self) -> bool:
         cfg = self.config().obs
-        self._set("connecting", f"Connecting to OBS at {cfg.host}:{cfg.port}")
+        self._set(ObsState.CONNECTING, f"Connecting to OBS at {cfg.host}:{cfg.port}")
         self.attempts += 1
         try:
             if self._factory is not None:
@@ -126,11 +129,11 @@ class ObsService:
             self.version = str(getattr(client.get_version(), "obs_version", ""))
             self.scenes = [s["sceneName"] for s in client.get_scene_list().scenes]
         except Exception as exc:  # noqa: BLE001 — refused, timeout, auth: all mean "not connected"
-            self._set("disconnected", f"OBS is not reachable at {cfg.host}:{cfg.port} — open OBS and turn on its WebSocket server ({type(exc).__name__})")
+            self._set(ObsState.DISCONNECTED, f"OBS is not reachable at {cfg.host}:{cfg.port} — open OBS and turn on its WebSocket server ({type(exc).__name__})")
             return False
         self.client = client
         self._failures = 0
-        self._set("connected", f"OBS {self.version} · {len(self.scenes)} scenes")
+        self._set(ObsState.CONNECTED, f"OBS {self.version} · {len(self.scenes)} scenes")
         return True
 
     def _disconnect(self) -> None:
@@ -165,7 +168,7 @@ class ObsService:
         while not self._stop.is_set():
             if not self.config().obs.enabled:
                 self._disconnect()
-                self._set("off", "Scene switching is off in Settings")
+                self._set(ObsState.OFF, "Scene switching is off in Settings")
                 self._wake.wait(2.0)
                 self._wake.clear()
                 self._drain(lambda kind, arg: None)
@@ -212,5 +215,5 @@ class ObsService:
         except Exception as exc:  # noqa: BLE001 — any failure means the connection is gone
             logger.warning("⚠️ obs: request failed (%s) — reconnecting", exc)
             self._disconnect()
-            self._set("disconnected", f"Lost OBS ({type(exc).__name__}) — reconnecting")
+            self._set(ObsState.DISCONNECTED, f"Lost OBS ({type(exc).__name__}) — reconnecting")
             return False

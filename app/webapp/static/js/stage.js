@@ -115,7 +115,7 @@ function runLive() {
       if (clicks().advance) { live.send('next'); return; }
       const it = current();
       const obs = live.state && live.state.obs;
-      if (it && it.profile && obs && obs.state === 'connected') live.send('obs_profile', it.profile);
+      if (it && it.profile && obs && obs.connected) live.send('obs_profile', it.profile);
     },
   });
 

@@ -202,6 +202,13 @@ module = "src/copilot/after_call_state.py"
 type   = "AfterCallState"
 derive = "advance"
 
+# The OBS connection's state, declared once (docs/obs.md#the-connections-state).
+[[state_machines]]
+name   = "obs-connection"
+module = "src/obs/connection_state.py"
+type   = "ObsState"
+derive = "advance"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

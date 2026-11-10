@@ -74,6 +74,7 @@ flowchart LR
   hub -->|reveal rooms| roster
   hub -->|item profile| obs["src/obs/service.py<br/>ObsService · own thread · reconnect"]
   obs -->|obs-websocket v5| obsapp["OBS Studio"]
+  obs -->|connection state| obsstate["src/obs/connection_state.py<br/>ObsState · advance · is_connected"]
   hub -->|timer start · pause · reset · end · item change| music["src/music/service.py<br/>MusicService — item music synced to its timer · ad hoc · latest wins"]
   music --> acts
   music -->|player state| playerstate["src/music/player_state.py<br/>PlayerState · advance · is_loaded"]
