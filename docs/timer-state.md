@@ -42,7 +42,7 @@ Impossible, and refused by `timer_mode` with `InconsistentTimer` rather than map
 
 ## Proof
 
-`tests/test_timer_mode.py` holds the table (one row per reachable observation, plus the impossible ones and the absent entry), the snapshot `mode` at every step through the real hub, and the restore of a running, a paused, a done and an inconsistent timer from a state file. The test carrying `state-machine-proof: item-timer` is the one that shows an illegal combination is refused.
+`tests/live/test_timer_mode.py` holds the table (one row per reachable observation, plus the impossible ones and the absent entry), the snapshot `mode` at every step through the real hub, and the restore of a running, a paused, a done and an inconsistent timer from a state file. The test carrying `state-machine-proof: item-timer` is the one that shows an illegal combination is refused.
 
 ## Adding a mode
 

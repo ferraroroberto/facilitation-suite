@@ -386,8 +386,6 @@ function drawLeftOut(scope) {
   note.textContent = left ? `${left} ${left === 1 ? 'entry' : 'entries'} not shown on the stage` : '';
 }
 
-const TIMER_WORDS = { idle: 'not started', running: 'running', paused: 'paused', done: 'time is up' };
-
 function tickItemTimer(cur, s) {
   const card = root.querySelector('.p-item');
   const tc = card.querySelector('[data-tclock]');
@@ -398,7 +396,7 @@ function tickItemTimer(cur, s) {
   const mode = timerMode(ts);
   tc.classList.toggle('done', mode === 'done');
   tc.classList.toggle('paused', mode === 'paused');
-  card.querySelector('[data-tstate]').textContent = TIMER_WORDS[mode];
+  card.querySelector('[data-tstate]').textContent = { idle: 'not started', running: 'running', paused: 'paused', done: 'time is up' }[mode];
   const btn = card.querySelector('[data-ttoggle]');
   const label = mode === 'running' ? `${icon('pause')} Pause` : mode === 'paused' ? `${icon('play')} Resume` : `${icon('play')} Start timer`;
   if (btn.dataset.label !== label) { btn.dataset.label = label; btn.innerHTML = `${label}<kbd>T</kbd>`; }
