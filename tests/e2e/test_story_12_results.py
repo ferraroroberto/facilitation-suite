@@ -207,10 +207,24 @@ def _check_reconcile_warning(page: Page, base: str, sid: str, pane: Locator, sav
     surface(page, "results.reconcile-warning")
 
 
+# Resolves with the card's open state two frames on: its toggle event and any re-render of the view have run by then.
+_OPEN_AFTER_FRAMES = "el => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(el.open))))"
+
+
+def _open_card(card: Locator, inside: str) -> None:
+    """Open a collapsible card and wait until it stays open; a card a re-render closed again is clicked once more."""
+    for _ in range(4):
+        if not card.evaluate("el => el.open"):
+            card.locator("summary").click()
+        if card.evaluate(_OPEN_AFTER_FRAMES):
+            break
+    expect(card.locator(inside)).to_be_visible()
+
+
 def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
     """Two names are merged by hand, saved next to the plan, and undone; nothing merges without the click."""
     card = pane.locator("details.card--collapsible", has_text="People under several names")
-    card.locator("summary").click()
+    _open_card(card, "[data-from]")
     expect(card.locator(".diff-row")).to_have_count(0)
     assert not (folder / "aliases.yaml").exists()
     card.locator("[data-from]").select_option(index=0)
@@ -218,7 +232,7 @@ def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
     card.locator("[data-manual]").click()
     expect(card.locator(".chip.ok")).to_have_text("Merged")
     assert (folder / "aliases.yaml").is_file()
-    card.locator("summary").click()
+    _open_card(card, "[data-unmerge]")
     card.locator("[data-unmerge]").click()
     expect(card.locator(".diff-row")).to_have_count(0)
     assert not (folder / "aliases.yaml").exists()
