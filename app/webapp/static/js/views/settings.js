@@ -469,7 +469,7 @@ async function loadSpotify(fresh = false) {
   try {
     spotify = await api(fresh ? '/api/settings/spotify/check' : '/api/settings/spotify', fresh ? { method: 'POST' } : {});
   } catch (e) {
-    spotify = { state: 'unknown', detail: e.message, device: '', checked_at: null, client_id_set: true, logged_in: false, login: { state: 'idle' } };
+    spotify = { state: 'unknown', detail: e.message, device: '', checked_at: null, client_id_set: true, logged_in: false, login: { waiting: false, done: false, failed: false, detail: '' } };
   }
   paintSpotify();
   pollLogin();
@@ -483,15 +483,15 @@ function paintSpotify() {
 /** While the browser login is open: ask again every moment until it is saved or failed. */
 function pollLogin() {
   clearTimeout(loginTimer);
-  if (!spotify || spotify.login.state !== 'waiting') return;
+  if (!spotify || !spotify.login.waiting) return;
   loginTimer = setTimeout(async () => {
     try { spotify = await api('/api/settings/spotify'); } catch (e) { /* asked again next time */ }
-    if (spotify.login.state === 'done') {
+    if (spotify.login.done) {
       toast('Spotify connected');
       loadSpotify(true);
       return;
     }
-    if (spotify.login.state === 'failed') toast(spotify.login.detail, 'error');
+    if (spotify.login.failed) toast(spotify.login.detail, 'error');
     paintSpotify();
     pollLogin();
   }, LOGIN_POLL_MS);
@@ -508,14 +508,14 @@ function spotifyCard() {
   card.dataset.spotifyCard = '';
   const sp = spotify;
   const [kind, label] = sp ? (SPOTIFY_CHIP[sp.state] || ['bad', sp.state]) : ['', 'Checking…'];
-  const waiting = !!sp && sp.login.state === 'waiting';
+  const waiting = !!sp && sp.login.waiting;
   const fact = (name, value) => `<div class="list-row deck-row"><span class="deck-label">${name}</span><span class="grow small">${esc(value)}</span></div>`;
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('music')} Spotify</h3>` +
     `<span class="chip ${kind}" data-spotify-state><span class="dot"></span>${esc(label)}</span></div>` +
     (sp ? `<div class="list">${fact('Account', sp.detail)}${fact('Plays on', sp.device || 'The Spotify app on this PC')}${fact('Last check', whenText(sp.checked_at))}</div>` : '') +
     (waiting ? `<p class="status-line unknown" data-login-line>${icon('refresh-cw')} ${esc(sp.login.detail)}. This card updates by itself.</p>` : '') +
-    (sp && sp.login.state === 'failed' ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
+    (sp && sp.login.failed ? `<p class="status-line warn" data-login-line>${icon('triangle-alert')} ${esc(sp.login.detail)}</p>` : '') +
     (sp && !sp.client_id_set ? '<p class="small muted settings-note">First create the Spotify developer app and put its client id in <code>.env</code> (see Spotify setup in the README).</p>' : '') +
     '<p class="small muted settings-note">Music plays on the Spotify desktop app of this PC only, never a web player (a Premium account): open the app before the session. Connecting opens Spotify’s login in the browser; the login is saved on this PC only.</p>' +
     `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-connect data-track="settings.spotify-connect"${!sp || !sp.client_id_set || waiting ? ' disabled' : ''}>${icon('link')} ${sp && sp.logged_in ? 'Reconnect Spotify' : 'Connect Spotify'}</button>` +

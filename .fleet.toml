@@ -216,6 +216,13 @@ module = "src/live/push_latch.py"
 type   = "PushState"
 derive = "advance"
 
+# The Spotify login's state, declared once (docs/music.md#the-spotify-logins-state).
+[[state_machines]]
+name   = "spotify-login"
+module = "src/music/login_state.py"
+type   = "LoginState"
+derive = "advance"
+
 # A raw replace skips the unique temp name, the cleanup on a failed write and the
 # retry while OneDrive holds the target open.
 [[conventions_ratchet.must_use]]

@@ -96,7 +96,7 @@ def test_connect_saves_the_token_and_reconnect_replaces_it(app_login: Any, isola
     _no_secrets(before)
 
     r = c.post("/api/settings/spotify/connect")
-    assert r.status_code == 200 and r.json()["login"]["state"] == "waiting"
+    assert r.status_code == 200 and r.json()["login"]["state"] == "waiting" and r.json()["login"]["waiting"]
     _no_secrets(r.json())
     url = urllib.parse.urlparse(login.open_browser.urls[-1])
     q = dict(urllib.parse.parse_qsl(url.query))
@@ -106,7 +106,7 @@ def test_connect_saves_the_token_and_reconnect_replaces_it(app_login: Any, isola
     assert "connected" in login.open_browser.answer()
 
     done = _until_login(c, "done")
-    assert done["login"]["state"] == "done" and done["logged_in"]
+    assert done["login"]["state"] == "done" and done["login"]["done"] and not done["login"]["waiting"] and done["logged_in"]
     assert done["state"] == "token_expired"  # the fake's refresh answer: the status check really ran
     _no_secrets(done)
     assert read_env()[REFRESH_KEY] == "refresh-secret-1"
@@ -127,7 +127,7 @@ def test_a_refused_or_foreign_answer_fails_and_keeps_the_old_token(app_login: An
     c.post("/api/settings/spotify/connect")
     login.open_browser.answer(code="bad")
     failed = _until_login(c, "failed")
-    assert failed["login"]["state"] == "failed" and "refused" in failed["login"]["detail"]
+    assert failed["login"]["state"] == "failed" and failed["login"]["failed"] and "refused" in failed["login"]["detail"]
     c.post("/api/settings/spotify/connect")
     assert "failed" in login.open_browser.answer(state="someone-else")
     failed = _until_login(c, "failed")

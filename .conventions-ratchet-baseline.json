@@ -10,7 +10,6 @@
     {"key": "app/webapp/static/js/views/analyze-card.js", "counts": {"state-literal": 1}},
     {"key": "app/webapp/static/js/views/conversation-card.js", "counts": {"state-literal": 2}},
     {"key": "app/webapp/static/js/views/playbook-card.js", "counts": {"state-literal": 4}},
-    {"key": "app/webapp/static/js/views/settings.js", "counts": {"state-literal": 6}},
     {"key": "src/activities/word_cloud/stage.js", "counts": {"state-literal": 1}},
     {"key": "src/copilot/service.py", "counts": {"state-literal": 1}},
     {"key": "src/results/conversation.py", "counts": {"state-literal": 1}}
