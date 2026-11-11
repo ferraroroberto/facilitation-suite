@@ -1,4 +1,4 @@
-"""A session's stage look on top of ``themes/default.css``: its lettering
+"""A session's stage look on top of ``assets/themes/default.css``: its lettering
 (session.yaml → ``font``: the title font — file or installed family, weight,
 line thickness, capitals —, the text font, and which of the two each kind of
 text uses, with its capitals) as generated CSS, then its own ``theme.css``
@@ -7,7 +7,7 @@ from the folder. A session naming a library theme (``library/<name>``,
 
 Each kind of text (``TEXT_ROLES``) reads four variables — ``--st-<role>-font``,
 ``-weight``, ``-stroke`` and ``-case`` — whose defaults are in
-``themes/default.css``; the stage sets the same variables on one item for its
+``assets/themes/default.css``; the stage sets the same variables on one item for its
 own exceptions (``stage-render.js`` → ``roleStyle``, the same mapping).
 
 The font file stays where it is on this PC (it is named by path in
@@ -33,7 +33,7 @@ FALLBACK = '"Patrick Hand", system-ui, sans-serif'
 CSS_ROLE = {"title": "title", "sub": "sub", "hint": "hint", "answers": "answers", "slide_text": "slide"}
 
 
-# The stage timer's colour in each state; themes/default.css says the same (a test holds them equal).
+# The stage timer's colour in each state; assets/themes/default.css says the same (a test holds them equal).
 TIMER_DEFAULTS = {"idle": "#1f1f1f", "running": "#00a44e", "paused": "#f2b705", "done": "#c40c0c"}
 PILL_INK = "#ffffff"
 PILL_INK_DARK = "#1f1f1f"

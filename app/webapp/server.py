@@ -105,7 +105,7 @@ from src.usage_log import usage_router
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-THEMES_DIR = Path(__file__).resolve().parents[2] / "themes"
+THEMES_DIR = Path(__file__).resolve().parents[2] / "assets" / "themes"
 BUILD = build_identity()
 ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activities": ACTIVITIES_DIR})
 # An overlay started only for Settings' sample stops this long after it, unless Copilot is on by then.
