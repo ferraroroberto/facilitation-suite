@@ -1,6 +1,6 @@
 /* Fleet design tokens (~/.claude/design.md light + design.dark.md dark), under the
  * names the vendored _vendored/ components read. The app and the presenter use
- * these; the stage does not (it follows the session theme, themes/*.css). */
+ * these; the stage does not (it follows the session theme, assets/themes/*.css). */
 
 :root {
   --bg: #ffffff;

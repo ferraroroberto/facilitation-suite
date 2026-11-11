@@ -9,8 +9,6 @@ description = "<b>facilitation-suite</b> — live workshop app: stage, cockpit, 
 chips       = ["public: cloudflared quiz.robertoferraro.net → :8451 /play", "this PC: http://127.0.0.1:8456 (loopback)"]
 depends_on  = ["local-llm-hub"]
 shape       = "webapp-tray"
-# themes/: the stage themes are stylesheets picked by name from a session, served at /themes/ beside the app and not inside app/webapp/static/ (the fleet-design pages); docs/layout.md has the full reason.
-extra_roots = ["themes"]
 
 # Vendored byte-for-byte from project-scaffolding; sha = the scaffold commit the
 # copy was taken from. /propagate-vendored hash-verifies + bumps.
@@ -293,7 +291,7 @@ tier   = "full"
 prefix = "tests/e2e/"
 [[e2e.rule]]
 tier   = "full"
-prefix = "themes/"
+prefix = "assets/themes/"
 [[e2e.rule]]
 tier       = "full"
 prefix     = "tests/fixtures/"
@@ -441,7 +439,7 @@ reason = "every size outside 16/18/20/24 is on the projector stage or in the pre
 # dark shots stay light. (The stage follows the session theme and is never tagged.)
 theme_storage_key = "facilitation-suite.theme"
 # The stage preview in the Plan editor and the stage-font sample in Settings are the real stage
-# drawn by the session theme (themes/*.css), not the fleet design: not the app's own UI, so
+# drawn by the session theme (assets/themes/*.css), not the fleet design: not the app's own UI, so
 # nothing in them is measured.
 exclude_selectors = [".preview-frame", ".font-sample-host"]
 

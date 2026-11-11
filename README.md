@@ -48,7 +48,7 @@ Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11)
 
 Appearance (light, dark or system), HTTPS for the phone remote and the log files: [docs/operations.md](docs/operations.md).
 
-**Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. The `.js`/`.css` under `app/webapp/static/`, `themes/` and `src/activities/` are stamped with one hash taken at startup and cached for good under it (the pages stay `no-cache`), so an edit to them shows up after the restart, not on a reload.
+**Restart matrix:** anything under `app/` or `src/` → `tray.bat --restart`. The `.js`/`.css` under `app/webapp/static/`, `assets/themes/` and `src/activities/` are stamped with one hash taken at startup and cached for good under it (the pages stay `no-cache`), so an edit to them shows up after the restart, not on a reload.
 
 ## Features
 
@@ -77,7 +77,7 @@ Each feature has its own reference in `docs/`:
 
 ## Layout
 
-Where each folder's code goes, and why `themes/` sits at the root: [docs/layout.md](docs/layout.md).
+Where each folder's code goes: [docs/layout.md](docs/layout.md).
 
 ```
 app/
@@ -88,7 +88,6 @@ app/
   tray/              pystray tray owning the server (single_instance + watchdog vendored)
     overlay/         the live copilot's always-on-top overlay window (its own process, a client of /ws)
 src/                 config, defaults (what new sessions start from), library (stage fonts and themes), logger, build identity, certs, tunnel (cloudflared), sessions/, importer/, live/, chat/, copilot/, geo/, groups/, obs/, music/, quiz/, results/
-themes/              stage themes (the stage follows these, not the fleet design)
 scripts/             verify-before-ship.ps1, standalone_restart.py, quiz_bots.py, copilot_dry_run.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
 brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
 tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)

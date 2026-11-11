@@ -208,12 +208,12 @@ def test_timer_colours_are_checked_and_become_theme_variables() -> None:
 
 
 def test_timer_defaults_match_the_theme_and_their_inks_hold_contrast() -> None:
-    """#211: the defaults are Roberto's four colours, the theme (themes/default.css) says the same, and the
+    """#211: the defaults are Roberto's four colours, the theme (assets/themes/default.css) says the same, and the
     pill's ink is white where white holds 3:1 (large text) on the fill, else the dark ink."""
     from src.sessions.theme import TIMER_DEFAULTS, contrast, timer_ink
 
     assert TIMER_DEFAULTS == {"idle": "#1f1f1f", "running": "#00a44e", "paused": "#f2b705", "done": "#c40c0c"}
-    css = (Path(__file__).resolve().parent.parent / "themes" / "default.css").read_text(encoding="utf-8")
+    css = (Path(__file__).resolve().parent.parent / "assets" / "themes" / "default.css").read_text(encoding="utf-8")
     for state, colour in TIMER_DEFAULTS.items():
         assert f"--st-timer-{state}: {colour};" in css.lower(), state
         assert f"--st-timer-{state}-ink: {timer_ink(colour)};" in css.lower(), state

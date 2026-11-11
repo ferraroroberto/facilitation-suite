@@ -17,7 +17,7 @@ export const FONT_DEFAULTS = {
   timer_idle: '', timer_running: '', timer_paused: '', timer_done: '', text_family: '', text_weight: 400, roles: {},
 };
 
-/** The stage timer's four states: the key in the block, its words, and the theme's colour (themes/default.css). */
+/** The stage timer's four states: the key in the block, its words, and the theme's colour (assets/themes/default.css). */
 export const TIMER_STATES = [
   ['idle', 'Not started', '#1f1f1f'],
   ['running', 'Running', '#00a44e'],

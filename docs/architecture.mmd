@@ -46,7 +46,7 @@ flowchart LR
   presenter <-->|WS snapshots / intents| liver
   appv -->|"WS snapshots (appearance)"| liver
   stage <-->|WS snapshots / intents| liver
-  presenter --> themes[("themes/*.css + session theme.css")]
+  presenter --> themes[("assets/themes/*.css + session theme.css")]
   zoom["Zoom · popped-out Meeting chat"] -->|MSAA walk every 0.5 s| reader["src/chat/reader.py<br/>own process · diff by order · simulator"]
   teams["Teams · open meeting chat (reader.source = teams)"] -->|UI Automation every 0.5 s<br/>src/chat/uia.py → teams.py| reader
   meet["Meet · in-call chat panel (reader.source = meet)"] -->|UI Automation every 0.5 s<br/>src/chat/uia.py → meet.py| reader

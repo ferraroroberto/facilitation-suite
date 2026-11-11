@@ -16,4 +16,4 @@
 
 ## Gotchas
 
-- **No node drives `/stage`, by design.** It is never tagged with `surface()` because it follows the session theme (`themes/*.css`), not the fleet design. Reach it on the disposable instance as `/stage`.
+- **No node drives `/stage`, by design.** It is never tagged with `surface()` because it follows the session theme (`assets/themes/*.css`), not the fleet design. Reach it on the disposable instance as `/stage`.

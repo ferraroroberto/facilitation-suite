@@ -8,7 +8,7 @@ copies it there; a file already there with the same bytes is reused, a
 different one with the same name becomes ``<name>-2``.
 
 Themes are named in ``session.yaml`` (``theme:``): a repo theme by its file
-name (``themes/default.css`` → ``default``), a library theme as
+name (``assets/themes/default.css`` → ``default``), a library theme as
 ``library/<name>``. A library theme's CSS is served inside the session's own
 ``theme.css`` (``src/sessions/theme.py``); like the repo themes, its rules are
 scoped under ``.stage-canvas``.
@@ -29,7 +29,7 @@ from src.sessions.theme import FONT_TYPES
 logger = logging.getLogger(__name__)
 
 LIBRARY_DIR = "_library"
-REPO_THEMES = PROJECT_ROOT / "themes"
+REPO_THEMES = PROJECT_ROOT / "assets" / "themes"
 THEME_PREFIX = "library/"
 THEME_TYPES = {".css": "text/css"}
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,79}$")
