@@ -68,6 +68,7 @@ let appearance = cachedAppearance();
 // the change reached the server is stale and must not flip the page back.
 let awaiting = null;
 let awaitTimer = null;
+const AWAIT_ECHO_MS = 3000; // no echo from the server within this long means it is offline: stop waiting
 let lastServer = null;
 
 function cachedAppearance() {
@@ -146,7 +147,7 @@ export async function setAppearance(value) {
   paintAppearance(value);
   awaiting = value;
   clearTimeout(awaitTimer);
-  awaitTimer = setTimeout(() => stopAwaiting(true), 3000); // no echo (offline): stop waiting
+  awaitTimer = setTimeout(() => stopAwaiting(true), AWAIT_ECHO_MS);
   try {
     const r = await api('/api/settings/appearance', { method: 'PUT', body: { appearance: value } });
     // Saved. The live echo (same socket as any stale snapshot, so after it) ends the wait.

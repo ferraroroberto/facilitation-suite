@@ -7,11 +7,7 @@ import { createStage } from '/static/js/stage-render.js';
 import { words } from '/static/js/stage-words.js';
 import { fontSeed } from '/static/js/views/plan-fields.js';
 
-const ZONES = {
-  camera_strip: [0.583, 0.23, 0.983, 0.77],
-  camera_pip: [0.738, 0, 1, 0.262],
-  screen_only: null,
-};
+const SAMPLE_DEBOUNCE_MS = 250; // stepping through items fast asks the server for sample answers only once the selection settles
 
 /**
  * The preview, bound to the Plan tab: `st` (the session being edited), `getEditor` (the editor
@@ -32,7 +28,7 @@ export function createPreview({ st, getEditor, slideOf, titleOf }) {
       capture: it.kind === 'activity' && spec.capture !== false,
       title: titleOf(it), question: it.question || (it.kind === 'activity' ? words(st.session.language).question : ''),
       font: it.font || fontSeed(), options: it.options || {},
-      profile, zone: st.zones && profile in st.zones ? st.zones[profile] : ZONES[profile], slide_file: s ? s.file : null,
+      profile, zone: (st.zones || {})[profile] ?? null, slide_file: s ? s.file : null,
       timer: it.timer && it.timer.enabled !== false ? it.timer : null,
       ...(it.type === 'groups_reveal' ? { rooms: (st.rounds || {})[(it.options || {}).round || 'pairs'] || [] } : {}),
       ...(it.kind === 'breakout' ? { rooms: (st.rounds || {})[(it.options || {}).round || ''] || [] } : {}),
@@ -61,7 +57,7 @@ export function createPreview({ st, getEditor, slideOf, titleOf }) {
         previewResults.set(key, res.result);
         if (pv && pv.frame === frame && frame.isConnected) draw();
       } catch (e) { /* the preview stays without sample answers */ }
-    }, 250);
+    }, SAMPLE_DEBOUNCE_MS);
   }
 
   function previewCard(it) {

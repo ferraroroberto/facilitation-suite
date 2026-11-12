@@ -18,6 +18,7 @@ import { sourceName } from '/static/js/chat-source.js';
 const livePane = document.getElementById('paneLive');
 const chatPane = document.getElementById('paneChat');
 const groupsPane = document.getElementById('paneGroups');
+const TICK_MS = 500; // the remote's clock readouts refresh twice a second between snapshots
 let live = null;
 let plan = null;
 let preview = null;
@@ -60,7 +61,7 @@ async function start() {
       if (online) loadChat();
     },
   });
-  setInterval(tick, 500);
+  setInterval(tick, TICK_MS);
 }
 
 function unpaired(code) {

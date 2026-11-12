@@ -4,6 +4,8 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { api, esc, toast } from '/static/js/ui.js';
 
+const IMPORT_POLL_MS = 400; // short enough that the progress bar follows each slide, long enough not to flood a COM-bound import
+
 /** Resolves the job's result when an import finished (`result.review`: a re-import waits for review), else null. */
 export function importDialog(sid, { lastPath = '', reimport = false, slides = null } = {}) {
   return new Promise((resolve) => {
@@ -65,7 +67,7 @@ export function importDialog(sid, { lastPath = '', reimport = false, slides = nu
       while (job.active) {
         bar.style.width = job.total ? `${Math.round((job.done / job.total) * 100)}%` : '4%';
         msg.textContent = job.message;
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, IMPORT_POLL_MS));
         try { job = await api(`/api/imports/${job.id}`); } catch (e) { pollError = e.message; msg.textContent = pollError; break; }
       }
       running = false;
