@@ -1,6 +1,6 @@
 """The live session: one server-owned state, pushed to every view over ``/ws``.
 
-The stage, the presenter (and later the phone remote and the Stream Deck)
+The stage, the presenter (and the phone remote and the Stream Deck)
 only send **intents** (``next``, ``timer_toggle``, …, see ``actions.py``);
 this hub is the only thing that mutates the state, and it pushes a full
 snapshot to every connected client after each change. Snapshots are small
@@ -14,7 +14,7 @@ hops onto the loop with ``call_soon_threadsafe``.
 Clocks are wall-clock epochs in milliseconds; each snapshot carries
 ``server_now`` so a client can correct for its own clock skew.
 
-Timers are per item (epic §9): an item's timer state is created when it is
+Timers are per item: an item's timer state is created when it is
 first started and lives until reset. A timer keeps running when the
 presenter moves on (like a real kitchen timer), but its end behaviour
 ``advance`` only fires while its item is still on stage. Other services hear
@@ -22,12 +22,12 @@ when a timer starts running (a start, a resume, a minute added after 00:00),
 when it is paused and when it is reset — the capture follows the start and
 the reset, the music (``src/music/``) all three.
 
-Durability (epic §5.4): the position, clocks and timers are mirrored to
+Durability: the position, clocks and timers are mirrored to
 ``live/state.json`` so a restarted server resumes where it was (other
 services add their own sections through ``persisted`` — the music — and read
 them back from ``restored`` when the session goes live again), and every
 item change, clock and timer event is appended to ``live/events.jsonl``
-(which drives the session PDF order in step 12). A failed write is logged,
+(which drives the session PDF order). A failed write is logged,
 kept in memory and surfaced on the presenter as ``write_error``; the state is
 written again two seconds later, an append-only log (events, chat, quiz —
 ``src/jsonl.py``) writes the kept records first with its next append, and the
@@ -521,7 +521,7 @@ class LiveHub:
             self._timer_heard("pause", item)
 
     def start_timer_for(self, item_id: str) -> None:
-        """Start an item's timer from another service (capture start, step 7)."""
+        """Start an item's timer from another service (capture start)."""
         item = self.item_by_id(item_id)
         if item and item.get("timer") and timer_mode(self.timers.get(item_id)) is not TimerMode.RUNNING:
             self._timer_start(item)

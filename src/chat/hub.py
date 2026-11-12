@@ -2,7 +2,7 @@
 
 Messages come from the reader process (Zoom or the simulator) over loopback
 HTTP. While a session is live they are appended to its ``live/chat.jsonl``
-(one JSON object per line, append-only, epic §5.1) and pushed to every view
+(one JSON object per line, append-only) and pushed to every view
 as ``{"type": "chat", "messages": [...]}``; the full list is loaded back from
 the file when the session goes live again, so a restart loses nothing. A
 failed append keeps its messages and writes them first with the next one.

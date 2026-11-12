@@ -1,4 +1,4 @@
-// The re-import review (epic §6): what changed in the deck — identical,
+// The re-import review: what changed in the deck — identical,
 // modified (image / title / notes), new, removed, moved — each change with its
 // own switch, applied only on "Apply". Shown by the Plan tab in place of the
 // plan; Back leaves the review waiting, Cancel throws the staged export away.

@@ -1,4 +1,4 @@
-// The magic map on the stage (epic §10).
+// The magic map on the stage.
 //
 // The world outline is an SVG in an equirectangular projection with a 35°
 // standard parallel (x = lon·cos35°·10, y = −lat·10, see scripts/build_geo.py).

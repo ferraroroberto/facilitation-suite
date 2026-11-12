@@ -3,7 +3,7 @@
 Three activity types, one plug-in folder each under ``src/activities/``:
 
 - ``quiz_lobby`` (no capture) starts a game. Options: ``title`` (the quiz's
-  name), ``accept_chat`` (answers typed in the Zoom chat count too, Step 6)
+  name), ``accept_chat`` (answers typed in the Zoom chat count too)
   and ``close_when_all_answered`` (reveal early once every active player has
   answered). The game is the ``quiz`` items that follow it in plan
   order, up to the next ``quiz_podium``.

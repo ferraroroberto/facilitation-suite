@@ -1,4 +1,4 @@
-"""The "ready for the live session" checklist (epic §3.1 step 5).
+"""The "ready for the live session" checklist.
 
 Each check reports one of four states — ``ok``, ``warn`` (needs attention),
 ``todo`` (not done yet) or ``unknown`` (the app could not establish it) —

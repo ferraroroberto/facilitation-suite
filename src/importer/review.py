@@ -1,4 +1,4 @@
-"""Re-import review (epic §6): what changed in the deck, applied change by change.
+"""Re-import review: what changed in the deck, applied change by change.
 
 A re-import no longer touches the session: the export is **staged** in
 ``slides/incoming/`` (PNGs + ``slides.json``), and ``diff`` compares it with

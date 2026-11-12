@@ -1,4 +1,4 @@
-"""Read the popped-out Zoom chat through Windows MSAA (epic §7.1).
+"""Read the popped-out Zoom chat through Windows MSAA.
 
 UI Automation sees nothing inside Zoom's chat; MSAA does. The popped-out
 meeting chat is a top-level window (class ``ZConfChatPopupContainerWndClass``,
@@ -179,6 +179,6 @@ def screen_reader_flag() -> bool:
 
 
 def set_screen_reader_flag(on: bool) -> None:
-    """The "screen reader present" flag (§7.1: unproven whether Zoom needs it at
+    """The "screen reader present" flag (unproven whether Zoom needs it at
     window creation, so the reader sets it while it runs and restores it)."""
     user32.SystemParametersInfoW(SPI_SETSCREENREADER, 1 if on else 0, None, SPIF_SENDCHANGE)

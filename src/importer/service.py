@@ -1,4 +1,4 @@
-"""Import a PowerPoint into a session folder, and fold it into the plan (epic §6).
+"""Import a PowerPoint into a session folder, and fold it into the plan.
 
 ``ImportJob`` runs the COM exporter (``src.importer.pptx_com``) as a child
 process with a timeout, reports progress, then:

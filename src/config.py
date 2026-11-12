@@ -70,7 +70,7 @@ class ReaderConfig:
 
 @dataclass(frozen=True)
 class RemoteConfig:
-    """The phone remote (epic §3.2): other devices need this bearer token. A
+    """The phone remote: other devices need this bearer token. A
     secret — gitignored config only, never logged. Empty: only this PC gets in."""
 
     token: str = ""
@@ -169,7 +169,7 @@ class StageClickConfig:
     restore_camera: bool = True
 
 
-# OBS profiles (epic §11): each item's profile picks an OBS scene, and the
+# OBS profiles: each item's profile picks an OBS scene, and the
 # stage keeps that profile's camera zone empty. Zones are fractions of the
 # 1920×1080 canvas (x0, y0, x1, y1); the strip matches the house slides' grey box.
 # The PiP is OBS's corner scene: a 16:9 camera flush in the top-right corner, about 503 × 283 px

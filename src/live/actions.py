@@ -2,7 +2,7 @@
 
 Keyboard (stage and presenter), presenter buttons, the phone remote and the
 Stream Deck all send these ids; nothing else mutates the live state. Adding an
-action is one entry here (epic §12: same shape as home-automation's action
+action is one entry here (same shape as home-automation's action
 registry). ``arg`` actions take one path segment (``goto_section/3``).
 """
 

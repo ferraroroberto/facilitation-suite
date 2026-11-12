@@ -4,7 +4,7 @@ Every model allows unknown keys and dumps them back unchanged, so a file
 edited by hand (or by a newer version of the app) survives a load → save
 round-trip. A ``schema`` bump gets an entry in ``MIGRATIONS``.
 
-Timers are per item only (epic §9): an item has no timer until one is added,
+Timers are per item only: an item has no timer until one is added,
 and nothing is inherited from sections or settings.
 """
 

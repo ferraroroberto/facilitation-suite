@@ -1,4 +1,4 @@
-"""Per-slide image analysis: fingerprints and the OBS profile (epic §6).
+"""Per-slide image analysis: fingerprints and the OBS profile.
 
 **Fingerprint.** A 64-bit difference hash (dHash) of the PNG — stable under
 re-export and tiny rendering noise, different when the drawing changes —

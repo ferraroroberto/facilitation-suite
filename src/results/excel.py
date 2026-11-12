@@ -1,4 +1,4 @@
-"""The Excel report (epic §14): a summary, one sheet per activity, participation.
+"""The Excel report: a summary, one sheet per activity, participation.
 
 - **Summary** — the session, then one row per activity: answers, people,
   hidden, when it was captured.

@@ -1,4 +1,4 @@
-"""Is every file of a session folder really on this PC? (epic §5.4)
+"""Is every file of a session folder really on this PC?
 
 OneDrive Files On-Demand leaves cloud-only placeholders that look like normal
 files until a read blocks on a download. ``os.stat`` does not hydrate a

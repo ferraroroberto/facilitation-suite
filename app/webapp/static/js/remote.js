@@ -1,4 +1,4 @@
-// /remote — the phone in the facilitator's hand (epic §3.2): what is on stage,
+// /remote — the phone in the facilitator's hand: what is on stage,
 // what comes next, the session clock against the plan, and the same intents as
 // the keyboard — next/previous, capture, timer, blackout — as big buttons, plus
 // the music (play/pause, stop, volume) when the session has any, and on a quiz
