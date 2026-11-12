@@ -6,7 +6,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc } from '/static/js/ui.js';
+import { api, esc, plural } from '/static/js/ui.js';
 import { CardState, setCardState, settledState } from '/static/js/card-state.js';
 import { recorderSection, summaryHtml } from '/static/js/views/conversation-recorder.js';
 
@@ -15,7 +15,6 @@ const REASON = { item: 'On item change', them: 'After a line from them', inject:
 const FAILURE = { hub_down: 'hub down', timeout: 'timed out' };
 const SOURCE_LABEL = { recorded: 'Recorded', live: 'Live' };
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const time = (ms) => `<time class="convo-time" datetime="${new Date(ms).toISOString()}">${clock(ms)}</time>`;
 

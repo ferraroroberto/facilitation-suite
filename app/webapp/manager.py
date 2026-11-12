@@ -40,6 +40,7 @@ from app.webapp.event_loop import LOOP_FACTORY
 from src.certs import cert_hostname, cert_paths, ensure_cert_fresh, uvicorn_ssl_args
 from src.config import AppConfig
 from src.no_window import NO_WINDOW
+from src.process_stop import stop_process
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ def _loopback_host(host: str) -> str:
     return "127.0.0.1" if host in ("0.0.0.0", "") else host
 
 
-def stop_process(proc: subprocess.Popen, name: str) -> None:
+def _stop_child(proc: subprocess.Popen, name: str) -> None:
     """CTRL_BREAK (Windows) → terminate → kill after 5 s. Best-effort."""
     try:
         logger.info("🛑 Stopping %s (pid=%s)", name, proc.pid)
@@ -97,11 +98,7 @@ def stop_process(proc: subprocess.Popen, name: str) -> None:
                 proc.send_signal(signal.CTRL_BREAK_EVENT)
             except Exception:  # noqa: BLE001
                 pass
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        stop_process(proc, 5)
     except Exception as exc:  # noqa: BLE001
         logger.debug("%s stop failed: %s", name, exc)
 
@@ -274,7 +271,7 @@ class WebappManager:
         if self._proc is None or self._proc.poll() is not None:
             return status
         try:
-            stop_process(self._proc, "webapp")
+            _stop_child(self._proc, "webapp")
         finally:
             self._proc = None
         return WebappStatus(False, OWNERSHIP_NONE, None, self.config.port, self.base_url, "stopped")

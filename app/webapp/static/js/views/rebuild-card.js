@@ -4,9 +4,8 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc, toast } from '/static/js/ui.js';
+import { api, esc, plural, toast } from '/static/js/ui.js';
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const RULES = 'Each activity uses the options the Plan says now, and rows the chat reader posted again are left out.';
 
 /** The numbers that moved for one activity, as chips; an empty list means nothing changes. */

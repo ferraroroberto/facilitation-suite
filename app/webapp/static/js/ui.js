@@ -185,6 +185,9 @@ export function setStatus(head, text) {
   if (s) s.textContent = text;
 }
 
+/** "1 file", "2 files". */
+export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 /** Minutes → "1:30" style. */
 export function fmtMinutes(min) {
   const m = Math.max(0, Math.round(min));

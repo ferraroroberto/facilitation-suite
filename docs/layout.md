@@ -48,7 +48,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `results/` | collection, reconciliation, PDF and Excel exports, the copilot's conversation read back |
 | `geo/` | the offline gazetteer behind the map |
 | `no_window.py`, `build_info.py`, `usage_log.py` | vendored from project-scaffolding |
-| the other top-level modules | small shared helpers: errors, atomic writes (`atomic_write.py`, the one `os.replace`), the write guard (`write_target.py`), files, JSONL, text folding, logging, env file, certificates, the tunnel |
+| the other top-level modules | small shared helpers: errors, atomic writes (`atomic_write.py`, the one `os.replace`), stopping a child process (`process_stop.py`), the write guard (`write_target.py`), files, JSONL, text folding, logging, env file, certificates, the tunnel |
 
 ## Where new code goes
 

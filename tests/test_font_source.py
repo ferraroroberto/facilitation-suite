@@ -45,6 +45,7 @@ const r = m.resolveFont({ font: { caps: false } }, null, it, 'caps');
 m.holdGlobal(it, 'caps', r);
 out.held = it;
 out.patch = m.globalPatch('family', { stage: { font: { family: 'Georgia' } } });
+out.family = [undefined, "", "theme", "Patrick Hand", "Georgia"].map((f) => [m.normalizeFamily(f), m.ownFamily(f)]);
 console.log(JSON.stringify(out));
 """
 
@@ -85,3 +86,8 @@ def test_resets_and_overrides(resolved: dict) -> None:
     assert resolved["followed"] == {"kind": "activity", "font": {"family": "theme"}}
     assert resolved["held"]["font"] == {"family": "theme", "caps": True}  # global's ALL CAPS, held by the item
     assert resolved["patch"] == {"file": "", "family": "Georgia"}
+
+
+def test_the_theme_family_has_one_resolver(resolved: dict) -> None:
+    # (normalized for the select, the family an item sets itself) per stored value
+    assert resolved["family"] == [[None, ""], ["", ""], ["theme", ""], ["theme", ""], ["Georgia", "Georgia"]]

@@ -3,7 +3,7 @@
 // leaves. GET/POST /api/sessions/<id>/results/recorded does the work; this module shows it and polls
 // while a run is going.
 
-import { api, esc } from '/static/js/ui.js';
+import { api, esc, plural } from '/static/js/ui.js';
 
 const FAILURE = {
   hub_down: 'the hub is not answering', timeout: 'the hub timed out', error: 'the hub gave no usable answer',
@@ -12,7 +12,6 @@ const FAILURE = {
 };
 const POLL_MS = 2000;
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const duration = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const when = (ms) => new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const reason = (code, detail) => `${FAILURE[code] || code}${detail ? ` (${detail})` : ''}`;

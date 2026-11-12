@@ -18,6 +18,7 @@ from typing import Optional
 
 from src.logger import log_path
 from src.no_window import NO_WINDOW
+from src.process_stop import stop_process
 from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
@@ -79,10 +80,6 @@ class OverlayProcess:
             if self.proc is None:
                 return
             if self.proc.poll() is None:
-                self.proc.terminate()
-                try:
-                    self.proc.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    self.proc.kill()
+                stop_process(self.proc, 3)
                 logger.info("ℹ️ overlay stopped")
             self.proc = None

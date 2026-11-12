@@ -7,7 +7,7 @@
 
 import { api, esc, toast } from '/static/js/ui.js';
 import { icon } from '/static/_vendored/icons/icons.js';
-import { MODE_LABEL, POSITION_LABEL, screenName } from '/static/js/views/overlay-card.js';
+import { MODE_LABEL, POSITION_LABEL, screenName, showOverlaySample } from '/static/js/views/overlay-card.js';
 
 const POLL_MS = 1000;
 const NOTES_CHARS = 1500; // src.copilot.hints.NOTES_CHARS
@@ -92,16 +92,7 @@ export function buildPanel(body, live) {
     panel.querySelector('[data-cop-detail]').hidden = !open;
     panel.classList.toggle('open', open);
   });
-  panel.querySelector('[data-cop-sample]').addEventListener('click', async () => {
-    try {
-      const d = await api('/api/copilot/sample', { method: 'POST' });
-      if (!d.overlay.enabled) toast('The overlay is off — switch it on in Settings');
-      else if (d.delivered) toast('A sample is on the overlay');
-      else toast('The overlay is not running — see data/logs/facilitation-suite.log, then restart the app', 'error');
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  });
+  panel.querySelector('[data-cop-sample]').addEventListener('click', () => showOverlaySample('in Settings'));
   panel.querySelector('[data-cop-test]').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;

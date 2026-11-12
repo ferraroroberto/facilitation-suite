@@ -372,6 +372,11 @@ class LiveHub:
         self.broadcast(self.plan_message())
         self.commit()
 
+    def push_state_threadsafe(self) -> None:
+        """``push_state`` from a worker thread: hop onto the loop, a no-op before it exists."""
+        if self.loop is not None:
+            self.loop.call_soon_threadsafe(self.push_state)
+
     def session_saved(self, sid: str) -> None:
         """Called from the Plan tab's save (a worker thread): reload if it is live."""
         if sid != self.session_id or self.loop is None:

@@ -32,6 +32,7 @@ from src.library import THEME_PREFIX, library_theme_css, themes_dir
 from src.live.capture import CAPTURES_FILE
 from src.live.freeze import render
 from src.no_window import NO_WINDOW
+from src.process_stop import stop_process
 from src.sessions.model import parse_session
 from src.sessions.store import SESSION_FILE
 from src.write_target import outside_code
@@ -137,11 +138,7 @@ def render_all(folder: Path, out: Path, item_ids: list[str]) -> list[str]:
         return item_ids
     finally:
         if proc is not None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            stop_process(proc, 10)
     # Windows releases the stopped server's log file a moment after the process ends.
     for _ in range(RMTREE_TRIES):
         shutil.rmtree(root, ignore_errors=True)

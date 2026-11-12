@@ -20,6 +20,7 @@
 // - click a pin or a cluster: who is there, with city and country.
 
 import { esc } from '/static/js/ui.js';
+import { icon } from '/static/_vendored/icons/icons.js';
 
 const KX = Math.cos((35 * Math.PI) / 180);
 const S = 10;
@@ -43,7 +44,6 @@ function loadWorld() {
 
 const project = (lat, lon) => [lon * KX * S, -lat * S];
 const ease = (t) => 1 - (1 - t) ** 3;
-const ICON = (n) => `<svg class="icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 
 /** A viewBox around the points, padded and stretched to the area's aspect. */
 function fitBox(points, aspect, pad = 0.18) {
@@ -340,7 +340,7 @@ function drawInset(area, st, W, H, onClick, layout) {
   box.style.left = `${left}px`;
   box.style.top = `${top}px`;
   box.style.width = `${iw}px`;
-  box.querySelector('.mp-inset-title').innerHTML = `${ICON('users')} <b>${pins.length}</b> · ${esc([...new Set(pins.map((p) => p.country_name))].join(' · '))}`;
+  box.querySelector('.mp-inset-title').innerHTML = `${icon('users')} <b>${pins.length}</b> · ${esc([...new Set(pins.map((p) => p.country_name))].join(' · '))}`;
   const map = box.querySelector('.mp-inset-map');
   map.style.height = `${iw / 1.5}px`;
   map.querySelector('.mp-land').setAttribute('viewBox', `${ib.x} ${ib.y} ${ib.w} ${ib.h}`);
@@ -373,7 +373,7 @@ function drawSide(body, result) {
   const side = body.querySelector('.mp-side');
   const r = result || { placed: 0, countries: 0, cities: [] };
   side.querySelector('.mp-total').innerHTML =
-    `<div class="mp-big">${r.placed || 0}${ICON('users')}</div><div class="mp-sub">${ICON('map-pin')} <b>${r.countries || 0}</b></div>`;
+    `<div class="mp-big">${r.placed || 0}${icon('users')}</div><div class="mp-sub">${icon('map-pin')} <b>${r.countries || 0}</b></div>`;
   side.querySelector('.mp-top').innerHTML = (r.cities || []).slice(0, 3).map((c) =>
     `<div class="mp-city"><div class="mp-city-head"><b>${esc(c.name)}</b><span>${c.count}</span></div>` +
     `<div class="mp-city-names">${esc(c.names.map((n) => n.split(' ')[0]).join(', '))}</div></div>`).join('');

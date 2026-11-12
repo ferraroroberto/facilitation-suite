@@ -24,6 +24,7 @@ from typing import Optional
 from src.chat.reader import SOURCES
 from src.config import data_dir
 from src.no_window import NO_WINDOW
+from src.process_stop import stop_process
 from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
@@ -86,11 +87,7 @@ class ReaderProcess:
                 stop.write_text(str(self.proc.pid), encoding="utf-8")
                 self.proc.wait(timeout=3)
             except (OSError, subprocess.TimeoutExpired):
-                self.proc.terminate()
-                try:
-                    self.proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.proc.kill()
+                stop_process(self.proc, 5)
             stop.unlink(missing_ok=True)
             logger.info("ℹ️ chat reader stopped (%s)", self.mode)
         self.proc, self.mode = None, None

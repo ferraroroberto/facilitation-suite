@@ -168,8 +168,8 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
         hub = request.app.state.live
         if "profiles" in patch and hub.session_id:
             hub.session_saved(hub.session_id)  # new zones on the stage
-        if "stage_click" in patch and hub.loop is not None:
-            hub.loop.call_soon_threadsafe(hub.push_state)  # the open stage follows at once
+        if "stage_click" in patch:
+            hub.push_state_threadsafe()  # the open stage follows at once
     return payload(request)
 
 
