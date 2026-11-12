@@ -325,7 +325,9 @@ async function renderDetail() {
   detailEl.appendChild(playbookCard(sid, f.playbook, renderDetail));
   detailEl.appendChild(analyzeCard(sid));
 
-  detailEl.appendChild(settingsCard(sid, s, data.look, () => paintTitle(title, s)));
+  // One saver for every write of this session, so a readiness action never overlaps a field save in flight.
+  const saveSession = sessionSaver(sid, s);
+  detailEl.appendChild(settingsCard(sid, s, data.look, saveSession, () => paintTitle(title, s)));
 
   // -- readiness
   const ready = document.createElement('div');
@@ -335,7 +337,7 @@ async function renderDetail() {
     `<div class="card-head"><h3 class="card-title">${icon('circle-check')} Ready for the live session</h3>` +
     `<span class="card-head-meta">${okCount} of ${data.readiness.length}</span></div>` +
     `<div class="list">${data.readiness.map((c) => readyRow(c)).join('')}</div>`;
-  ready.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => readinessAction(sid, s, b.dataset.action)));
+  ready.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => readinessAction(sid, s, b.dataset.action, saveSession)));
   detailEl.appendChild(ready);
 
   const go = document.createElement('div');
@@ -496,13 +498,12 @@ function wireDetails(card, sid, s, saveSession, onDetails) {
  * says whether it still uses them and can put them back. Global settings
  * stay on the Settings page.
  */
-function settingsCard(sid, s, look, onDetails) {
+function settingsCard(sid, s, look, saveSession, onDetails) {
   applySessionTheme(sid, s.theme, JSON.stringify([s.theme, s.font || {}]));
   const card = document.createElement('div');
   card.className = 'card session-settings-card';
   card.innerHTML = settingsHtml(s, look);
 
-  const saveSession = sessionSaver(sid, s);
   wireDetails(card, sid, s, saveSession, onDetails);
 
   // -- the stage look
@@ -546,7 +547,7 @@ function readyRow(c) {
     `<span class="grow"><b>${esc(c.label)}</b> <span class="muted small">${esc(c.detail)}</span></span>${btn}</div>`;
 }
 
-async function readinessAction(sid, s, action) {
+async function readinessAction(sid, s, action, saveSession) {
   if (action === 'pin') return pin(sid);
   if (action === 'import') return runImport(sid, s, false);
   if (action === 'test_reader') {
@@ -566,8 +567,7 @@ async function readinessAction(sid, s, action) {
     return renderDetail();
   }
   if (action === 'confirm_zoom_update') {
-    const next = Object.assign({}, s, { checklist: Object.assign({}, s.checklist, { zoom_autoupdate_off: true }) });
-    await save(sid, next);
+    if (await saveSession({ checklist: Object.assign({}, s.checklist, { zoom_autoupdate_off: true }) })) await refresh();
   }
 }
 
@@ -581,13 +581,6 @@ async function runImport(sid, s, reimport) {
     return;
   }
   await refresh();
-}
-
-async function save(sid, session) {
-  try {
-    await api(`/api/sessions/${sid}`, { method: 'PUT', body: { session } });
-    await refresh();
-  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function newSession() {

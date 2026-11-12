@@ -268,11 +268,7 @@ def _install_obs(app: FastAPI) -> None:
     """OBS follows each item's profile; its state rides on every live snapshot."""
     live = app.state.live
 
-    def pushed() -> None:  # called from the OBS worker thread
-        if live.loop is not None:
-            live.loop.call_soon_threadsafe(live.push_state)
-
-    obs = ObsService(lambda: app.state.config, on_change=pushed)
+    obs = ObsService(lambda: app.state.config, on_change=live.push_state_threadsafe)
     app.state.obs = obs
     live.zones = lambda: {k: v["zone"] for k, v in profiles(app.state.config).items()}
     live.item_listeners.append(lambda prev, cur: obs.switch(cur.get("profile")))
@@ -309,12 +305,8 @@ def _install_quiz(app: FastAPI) -> None:
     def quiz_live() -> bool:  # the live session plays a quiz: the public link is checked every few minutes
         return live.session_id is not None and any(it.get("type") in QUIZ_TYPES and not it.get("hidden") for it in live.items)
 
-    def pushed() -> None:  # called from the checking thread
-        if live.loop is not None:
-            live.loop.call_soon_threadsafe(live.push_state)
-
     reach = QuizReach(lambda: (app.state.config.quiz.public_url, app.state.config.quiz.public_port),
-                      wanted=quiz_live, on_change=pushed)
+                      wanted=quiz_live, on_change=live.push_state_threadsafe)
     service.reach = reach.current
     live.session_listeners.append(lambda sid: reach.kick() if sid and quiz_live() else None)
     app.state.quiz_reach = reach

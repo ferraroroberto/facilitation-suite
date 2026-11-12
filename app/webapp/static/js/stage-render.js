@@ -8,11 +8,11 @@ import { esc, lines } from '/static/js/ui.js';
 import { remaining, timerMode } from '/static/js/live.js';
 import { words, roundLine } from '/static/js/stage-words.js';
 import { roleStyle } from '/static/js/lettering.js';
+import { ownFamily } from '/static/js/font-source.js';
+import { icon } from '/static/_vendored/icons/icons.js';
 
 export const W = 1920;
 export const H = 1080;
-
-const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
 // Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx)
 // (ctx.lang: the session's language; ctx.quiz: the live quiz snapshot when it is
@@ -55,8 +55,8 @@ function resultFor(item, ctx) {
  */
 function lettering(f, defaultSize) {
   f = f || {};
-  // "theme" (and the older "Patrick Hand") = the session's stage font.
-  const family = !f.family || f.family === 'theme' || f.family === 'Patrick Hand' ? '' : `font-family:'${esc(f.family)}',var(--st-font);`;
+  const own = ownFamily(f.family);
+  const family = own ? `font-family:'${esc(own)}',var(--st-font);` : '';
   const size = Number(f.size_px) || defaultSize;
   return family + (f.caps === true ? 'text-transform:uppercase;' : f.caps === false ? 'text-transform:none;' : '') + (size ? `font-size:${size}px;` : '');
 }
@@ -183,7 +183,7 @@ function slideHtml(it, sid) {
       ? `<img class="st-slide" alt="" src="${slides}${esc(it.slide_file)}">`
       : `<div class="st-content"><h1 class="st-question" style="${lettering(it.font)}">${lines(it.title)}</h1></div>`;
   // a slide's timer sits in a bottom corner, away from the camera
-  if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>`;
+  if (it.timer) html += `<span class="st-pill st-slide-pill${pillLeft(it.zone) ? ' left' : ''}" data-pill hidden>${icon('timer')}<span data-pill-text></span></span>`;
   return html;
 }
 
@@ -202,11 +202,11 @@ function activityHtml(it, lang, hint) {
     `<p class="st-sub" data-sub hidden></p></div>` +
     `<div class="st-body" data-body></div>` +
     `<div class="st-foot">` +
-    (it.capture ? `<span class="st-hint">${ICON('message-square')}${esc(hint)}</span>` : '') +
+    (it.capture ? `<span class="st-hint">${icon('message-square')}${esc(hint)}</span>` : '') +
     // a quiz question takes chat answers too while its lobby accepts them: shown while it is open
-    (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${ICON('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
+    (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${icon('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
     `<span class="st-spacer"></span><span class="st-count" data-count></span>` +
-    `<span class="st-pill" data-pill hidden>${ICON('timer')}<span data-pill-text></span></span>` +
+    `<span class="st-pill" data-pill hidden>${icon('timer')}<span data-pill-text></span></span>` +
     `</div></div>`;
 }
 
@@ -220,7 +220,7 @@ function itemHtml(it, sid, lang, hint, opts) {
   else html += activityHtml(it, lang, hint);
   if (opts.guides && it.zone && (it.kind !== 'slide' || opts.slideGuides)) {
     const z = it.zone;
-    html += `<div class="st-guide" style="left:${z[0] * W}px;top:${z[1] * H}px;width:${(z[2] - z[0]) * W}px;height:${(z[3] - z[1]) * H}px">${ICON('video')}<span>Camera</span></div>`;
+    html += `<div class="st-guide" style="left:${z[0] * W}px;top:${z[1] * H}px;width:${(z[2] - z[0]) * W}px;height:${(z[3] - z[1]) * H}px">${icon('video')}<span>Camera</span></div>`;
   }
   return html + `</div><div class="st-blackout" data-blackout hidden></div>`;
 }
@@ -312,7 +312,7 @@ function drawCount(canvas, result) {
   const count = canvas.querySelector('[data-count]');
   if (!count) return;
   count.innerHTML = result && result.answers
-    ? `${ICON('message-square')} <b>${result.answers}</b> · ${ICON('users')} <b>${result.people}</b>` : '';
+    ? `${icon('message-square')} <b>${result.answers}</b> · ${icon('users')} <b>${result.people}</b>` : '';
 }
 
 /** Let the plug-in set the item's subtitle, re-centring on the camera when it changed. */

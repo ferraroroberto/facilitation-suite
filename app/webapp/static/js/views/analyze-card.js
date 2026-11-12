@@ -4,10 +4,8 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc, toast } from '/static/js/ui.js';
+import { api, esc, plural, toast } from '/static/js/ui.js';
 import { CardState, setCardState, settledState } from '/static/js/card-state.js';
-
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /** One chip per input: what the analysis will use, and what the skill will ask for instead. */
 function inputChips(a) {

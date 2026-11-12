@@ -13,6 +13,15 @@ export const STAGE_FONTS = [
   ['Segoe Print', 'Segoe Print (handwriting)'],
 ];
 
+/** An item's family as the Plan select names it: the older "Patrick Hand" is the same choice as 'theme'. */
+export const normalizeFamily = (family) => (family === 'Patrick Hand' ? 'theme' : family);
+
+/** The family an item sets itself, or '' where it follows the session's stage font. */
+export function ownFamily(family) {
+  const fam = normalizeFamily(family);
+  return fam && fam !== 'theme' ? fam : '';
+}
+
 const fileName = (path) => String(path || '').split(/[\\/]/).pop();
 
 /** The title font in words: its file's name, else the installed font's label. */
@@ -39,8 +48,7 @@ const READ = {
   family: {
     layer: (f) => titleFamily(f || {}),
     item: (it) => {
-      const fam = ((it.font || {}).family || '').trim();
-      return fam && fam !== 'theme' && fam !== 'Patrick Hand' ? fam : undefined;
+      return ownFamily(((it.font || {}).family || '').trim()) || undefined;
     },
   },
 };

@@ -204,8 +204,7 @@ class MusicService:
         backend = self.backends.get("spotify")
         if backend is not None and hasattr(backend, "forget_login"):
             backend.forget_login()
-        if self.live.loop is not None:
-            self.live.loop.call_soon_threadsafe(self.live.push_state)
+        self.live.push_state_threadsafe()
 
     def output_device(self) -> tuple[str, str]:
         """Whether this PC has an audio output device: ``ok`` | ``none`` | ``unknown``.

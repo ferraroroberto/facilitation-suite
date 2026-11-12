@@ -9,7 +9,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { bindTextSize } from '/static/_vendored/text-size/text-size.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
-import { APP, api, esc, pageHead, setStatus, toast, currentAppearance, onAppearance, setAppearance, switchRow } from '/static/js/ui.js';
+import { APP, api, esc, pageHead, plural, setStatus, toast, currentAppearance, onAppearance, setAppearance, switchRow } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
 import { words } from '/static/js/stage-words.js';
@@ -442,10 +442,9 @@ function libraryCard() {
   const row = (glyph, title, meta) => `<div class="list-row library-row"><span class="settings-ico">${icon(glyph)}</span>` +
     `<span class="grow"><span class="row-title">${esc(title)}</span><span class="row-meta">${esc(meta)}</span></span></div>`;
   const rows = [...lib.fonts.map((f) => row('type', f.name, 'Font')), ...own.map((t) => row('palette', t.label, 'Stage theme'))];
-  const n = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('folder')} Stage library</h3>` +
-    `<span class="card-head-meta">${n(lib.fonts.length, 'font')} · ${n(own.length, 'theme')}</span></div>` +
+    `<span class="card-head-meta">${plural(lib.fonts.length, 'font')} · ${plural(own.length, 'theme')}</span></div>` +
     (rows.length ? `<div class="list">${rows.join('')}</div>`
       : '<p class="small muted settings-note">Nothing here yet. Add a font file or a stage theme to offer it to every session.</p>') +
     `<p class="small muted settings-note">Your own files, kept next to your sessions and never in the app’s folder: <code class="library-path">${esc(lib.path)}</code></p>` +

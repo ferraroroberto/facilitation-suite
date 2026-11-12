@@ -35,6 +35,7 @@ from typing import Any, Optional
 import yaml
 
 from src.no_window import NO_WINDOW
+from src.process_stop import stop_process
 from src.write_target import outside_code
 
 logger = logging.getLogger(__name__)
@@ -190,11 +191,7 @@ class Tunnel:
             proc, self.proc = self.proc, None
         if proc is None or proc.poll() is not None:
             return
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        stop_process(proc, 5)
         logger.info("👋 tunnel: cloudflared stopped")
 
     def _rotate_log(self) -> None:

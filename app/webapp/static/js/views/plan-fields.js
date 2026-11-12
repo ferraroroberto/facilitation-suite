@@ -6,14 +6,10 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { api, esc, toast, switchRow } from '/static/js/ui.js';
 import { ROLES, TEXT_FONTS, sessionRole, fontName } from '/static/js/lettering.js';
-import { resolveFont, fontValueText, sourceLabel, itemCanHold, followPresentation, holdGlobal, ownLettering } from '/static/js/font-source.js';
+import { STAGE_FONTS, normalizeFamily, resolveFont, fontValueText, sourceLabel, itemCanHold, followPresentation, holdGlobal, ownLettering } from '/static/js/font-source.js';
 
 // An item's own title font; its first choice, 'theme', follows the presentation (fontField names it).
-const FONTS = [
-  ['system-ui', 'System sans'],
-  ['Georgia', 'Georgia (serif)'],
-  ['Segoe Print', 'Segoe Print (handwriting)'],
-];
+const FONTS = STAGE_FONTS.slice(1);
 const TIMER_START = { manual: 'When I start it', on_enter: 'When the item opens', with_capture: 'With the capture' };
 const TIMER_END = { keep: 'Keep showing 00:00', hide: 'Remove the timer', stop_capture: 'Stop the capture', advance: 'Go to the next item', chime: 'Play a chime' };
 const MUSIC_START = { with_timer: 'With the timer', on_enter: 'When the item opens', manual: 'Only from the presenter' };
@@ -177,7 +173,7 @@ function fontField({ st, markDirty, updatePreview, renderList, renderEditor }, i
     box.appendChild(row);
   };
   const presentation = (key) => fontValueText(key, resolveFont(st.session, defaults, null, key).value);
-  const famValue = font.family === 'Patrick Hand' ? 'theme' : font.family;
+  const famValue = normalizeFamily(font.family);
   const families = [['theme', `As the presentation (${presentation('family')})`], ...FONTS];
   if (!families.some(([v]) => v === famValue)) families.push([famValue, famValue]);
   prop('family', 'Font', selectField(label, families, famValue, (v) => set({ family: v }), { track: 'plan.font-family' }));

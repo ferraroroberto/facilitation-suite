@@ -23,6 +23,18 @@ function screenOptions(d) {
   return options(pairs, d.overlay.screen);
 }
 
+/** Put a sample on the overlay and toast what happened; `offHint` says where to switch the overlay on. */
+export async function showOverlaySample(offHint) {
+  try {
+    const d = await api('/api/copilot/sample', { method: 'POST' });
+    if (!d.overlay.enabled) toast(`The overlay is off — switch it on ${offHint}`);
+    else if (d.delivered) toast('A sample is on the overlay');
+    else toast('The overlay is not running — see data/logs/facilitation-suite.log, then restart the app', 'error');
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
 export function overlayCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card overlay-card';
@@ -80,16 +92,7 @@ export function overlayCard() {
     card.appendChild(body);
     body.querySelectorAll('[data-ov]').forEach((sel) => sel.addEventListener('change', () => save({ [sel.dataset.ov]: sel.value })));
     body.querySelector('[data-ov-look]').addEventListener('click', () => editLook(o, d));
-    body.querySelector('[data-ov-sample]').addEventListener('click', async () => {
-      try {
-        const d = await api('/api/copilot/sample', { method: 'POST' });
-        if (!o.enabled) toast('The overlay is off — switch it on first');
-        else if (d.delivered) toast('A sample is on the overlay');
-        else toast('The overlay is not running — see data/logs/facilitation-suite.log, then restart the app', 'error');
-      } catch (e) {
-        toast(e.message, 'error');
-      }
-    });
+    body.querySelector('[data-ov-sample]').addEventListener('click', () => showOverlaySample('first'));
   }
 
   api('/api/copilot/settings').then(draw).catch((e) => {

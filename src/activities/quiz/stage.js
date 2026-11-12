@@ -33,6 +33,7 @@
 // down too (fitPhase), so nothing is cut or runs off the stage.
 
 import { esc } from '/static/js/ui.js';
+import { icon } from '/static/_vendored/icons/icons.js';
 
 const KEYS = ['A', 'B', 'C', 'D'];
 // Answer n's shape — the same four as the phones (app/webapp/player/play.html): triangle, diamond, circle, square.
@@ -43,7 +44,6 @@ const SHAPES = {
   4: '<rect x="3" y="3" width="18" height="18" rx="1.5"/>',
 };
 const shape = (n) => `<svg class="qz-shape" viewBox="0 0 24 24" aria-hidden="true">${SHAPES[n]}</svg>`;
-const ICON = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 const RING = 2 * Math.PI * 54; // the countdown ring's circumference (r = 54 in a 120 box)
 const TOP = 5; // leaderboard rows
 const MAX_NAMES = 60; // lobby names drawn at most; those that do not fit, and the rest, are "+N more"
@@ -147,7 +147,7 @@ function answersOf(options) {
 function tile(a, mark, w) {
   return `<div class="qz-tile qz-a${a.n}${mark ? ` ${mark}` : ''}" data-choice="${a.n}">${shape(a.n)}` +
     `<span class="qz-key">${KEYS[a.n - 1]}</span><span class="qz-text">${esc(a.text)}</span>` +
-    (mark === 'correct' ? `<span class="qz-mark" data-correct>${ICON('check')}${esc(w.correct)}</span>` : '') + '</div>';
+    (mark === 'correct' ? `<span class="qz-mark" data-correct>${icon('check')}${esc(w.correct)}</span>` : '') + '</div>';
 }
 
 const DRAW = { lobby, question, reveal, leaderboard, podium };
@@ -162,7 +162,7 @@ function lobby(body, { ctx, q, w, st, fresh, redraw }) {
       `<div class="qz-join" data-qz-join><p class="qz-label">${esc(w.join)}</p><p class="qz-url" data-qz-url></p>` +
       `<p class="qz-label">${esc(w.pin)}</p><p class="qz-pin" data-qz-pin></p></div>` +
       '<p class="qz-note" data-qz-note hidden></p>' +
-      `<p class="qz-count">${ICON('users')}<span data-qz-count></span></p>` +
+      `<p class="qz-count">${icon('users')}<span data-qz-count></span></p>` +
       '<ul class="qz-names" data-qz-names></ul>' +
       '</div></div>';
     st.shown = new Map(); // player id → its <li>
@@ -175,13 +175,13 @@ function lobby(body, { ctx, q, w, st, fresh, redraw }) {
   if (st.qr !== want) {
     st.qr = want;
     qr.classList.toggle('off', want === 'off' || want === 'sample');
-    qr.innerHTML = want === 'off' ? ICON('smartphone')
+    qr.innerHTML = want === 'off' ? icon('smartphone')
       : want === 'sample' ? `<span class="qz-qr-sample">QR</span>` : `<img alt="" src="${want}">`;
   }
   body.querySelector('[data-qz-join]').hidden = !!note;
   const noteEl = body.querySelector('[data-qz-note]');
   noteEl.hidden = !note;
-  noteEl.innerHTML = note ? `${ICON('triangle-alert')}<span>${esc(note)}</span>` : '';
+  noteEl.innerHTML = note ? `${icon('triangle-alert')}<span>${esc(note)}</span>` : '';
   const pin = q ? String(q.pin || '') : '123456';
   body.querySelector('[data-qz-pin]').textContent = pin.length === 6 ? `${pin.slice(0, 3)} ${pin.slice(3)}` : pin;
   body.querySelector('[data-qz-url]').textContent = q && q.join_url
@@ -276,7 +276,7 @@ function question(body, { ctx, q, w, st, fresh }) {
   if (!index.hidden) index.textContent = w.question(q.question_index + 1, q.question_count);
   const answered = body.querySelector('[data-qz-answered]');
   answered.hidden = !q;
-  if (q) answered.innerHTML = `${ICON('check')}<b>${q.answered_count}</b> / ${q.player_count} ${esc(w.answered)}`;
+  if (q) answered.innerHTML = `${icon('check')}<b>${q.answered_count}</b> / ${q.player_count} ${esc(w.answered)}`;
 
   // The countdown: the server's deadline, on this screen's clock corrected by the server's (ctx.now).
   st.limit = Number(q && q.time_limit) || Number((ctx.options || {}).time_limit) || 20;
@@ -317,7 +317,7 @@ function reveal(body, { ctx, q, w, fresh }) {
     '<div class="qz-bars">' + answers.map((a) => {
       const count = dist[a.n - 1] || 0;
       return `<div class="qz-bar qz-a${a.n} ${mark(a)}" data-bar="${a.n}" style="--h:${count / top}">` +
-        `<span class="qz-bar-count">${correct.has(a.n) ? ICON('check') : ''}${count}</span>` +
+        `<span class="qz-bar-count">${correct.has(a.n) ? icon('check') : ''}${count}</span>` +
         `<div class="qz-bar-fill">${shape(a.n)}</div></div>`;
     }).join('') + '</div>' +
     `<div class="qz-answers n${answers.length}">${answers.map((a) => tile(a, mark(a), w)).join('')}</div>` +
@@ -443,7 +443,7 @@ function podium(body, { ctx, q, w, st, fresh, redraw }) {
   if (fresh || st.sig !== sig) {
     body.innerHTML = '<div class="qz-podium">' + places.map((p) =>
       `<div class="qz-step p${p.rank}" data-rank="${p.rank}"><div class="qz-top">` +
-      (p.rank === 1 ? ICON('crown') : '') +
+      (p.rank === 1 ? icon('crown') : '') +
       `<span class="qz-pname">${esc(p.name)}</span><span class="qz-pscore">${p.score}</span></div>` +
       `<div class="qz-block"><span>${p.rank}</span></div></div>`).join('') +
       (board.length ? '' : `<p class="qz-empty">${esc(q || ctx.preview ? w.no_players : w.starting)}</p>`) + '</div>';
