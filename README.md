@@ -79,21 +79,6 @@ Each feature has its own reference in `docs/`:
 
 Where each folder's code goes: [docs/layout.md](docs/layout.md).
 
-```
-app/
-  webapp/            FastAPI server (server.py), routers/, static/ (app, presenter, stage)
-  player/            the public quiz player app on 127.0.0.1:8451 (only /play*; published by the Cloudflare tunnel)
-  activities/<type>/ activity plug-ins (editor.json; parse.py + stage.js from step 7)
-    static/_vendored/  fleet UI components, vendored verbatim from project-scaffolding
-  tray/              pystray tray owning the server (single_instance + watchdog vendored)
-    overlay/         the live copilot's always-on-top overlay window (its own process, a client of /ws)
-src/                 config, defaults (what new sessions start from), library (stage fonts and themes), logger, build identity, certs, tunnel (cloudflared), sessions/, importer/, live/, chat/, copilot/, geo/, groups/, obs/, music/, quiz/, results/
-scripts/             verify-before-ship.ps1, standalone_restart.py, quiz_bots.py, copilot_dry_run.py, gen_icons.py, build_sprite.py, gen_tailscale_cert.py, spotify_login.py
-brand/               the Lucide `presentation` master (icons via project-scaffolding's brand_gen)
-tests/               hermetic unit tests + tests/e2e (Playwright, disposable instance)
-webapp/              machine-local, gitignored: certificates/, cloudflared.yml (template: cloudflared.sample.yml, committed)
-```
-
 ## Verify
 
 ```powershell
