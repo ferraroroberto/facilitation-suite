@@ -185,7 +185,11 @@ export function drawPanel(panel, c, { cur, sid, now }) {
 /** While Copilot is on, ask for the copilot block every second and redraw the status from it. */
 function startPoll(panel, live) {
   let busy = false;
-  setInterval(async () => {
+  const timer = setInterval(async () => {
+    if (!panel.isConnected) { // the presenter rebuilt its shell: this panel is gone, so is its loop
+      clearInterval(timer);
+      return;
+    }
     if (busy || !panel.dataset.on || document.hidden) return;
     busy = true;
     try {

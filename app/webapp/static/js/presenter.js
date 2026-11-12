@@ -13,6 +13,7 @@ import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 import { isQuiz, buildQuiz, drawQuiz, tickQuiz } from '/static/js/presenter-quiz.js';
 import { senderKey, drawExcluded } from '/static/js/presenter-excluded.js';
 import { drawCopilot, copilotChip } from '/static/js/presenter-copilot.js';
+import { SOURCE_NAMES, sourceOf, sourceName } from '/static/js/chat-source.js';
 
 // The cockpit is one view; the stage and the phone remote never load the usage log.
 initUsageLog().trackView('live');
@@ -465,15 +466,6 @@ const READER_CHIP = {
   error: ['bad', 'error'],
   off: ['', 'off', 'start-reader'],
 };
-// The reader's source: its last heartbeat says Zoom, Teams or Meet (the simulator counts as Zoom);
-// a stopped reader shows the source chosen on the switch, the one it starts on.
-const SOURCE_NAMES = { zoom: 'Zoom', teams: 'Teams', meet: 'Meet' };
-const sourceOf = (r) => {
-  const s = r.state === 'off' || !r.source ? r.chosen : r.source;
-  return s in SOURCE_NAMES ? s : 'zoom';
-};
-const sourceName = (r) => SOURCE_NAMES[sourceOf(r)];
-
 function drawChips() {
   const box = root.querySelector('[data-chips]');
   if (!box || !live.state) return;

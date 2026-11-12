@@ -220,7 +220,7 @@ def _install_chat(app: FastAPI) -> None:
 
     def on_session(sid: Optional[str]) -> None:
         chat_hub.sync_session()
-        if sid and cfg.reader.enabled and not proc.running():
+        if sid and app.state.config.reader.enabled and not proc.running():
             proc.start()
         elif sid is None and proc.running() and live.loop is not None:
             live.loop.run_in_executor(None, proc.stop)

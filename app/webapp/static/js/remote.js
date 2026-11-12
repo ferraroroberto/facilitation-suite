@@ -13,6 +13,7 @@ import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, APP } from '/static/js/ui.js';
 import { connectLive, neighbour, remaining, timerMode, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
+import { sourceName } from '/static/js/chat-source.js';
 
 const livePane = document.getElementById('paneLive');
 const chatPane = document.getElementById('paneChat');
@@ -270,8 +271,8 @@ async function loadChat() {
 function drawChat() {
   const hidden = new Set((live && live.state && live.state.hidden) || []);
   const reader = live && live.state && live.state.reader;
-  const name = { teams: 'Teams', meet: 'Meet' }[reader && reader.source] || 'Zoom';
-  const status = reader ? (name !== 'Zoom' && reader.state === 'window_not_found' ? 'open the chat on the PC' : READER_TEXT[reader.state] || reader.state) : '';
+  const name = sourceName(reader);
+  const status = reader ? (name !== 'Zoom' &&reader.state === 'window_not_found' ? 'open the chat on the PC' : READER_TEXT[reader.state] || reader.state) : '';
   chatPane.innerHTML = `<div class="card home-head"><span class="home-title">${icon('message-square')}<span class="home-title-text">${name} chat</span></span>` +
     `<span class="status">${esc(status)}</span></div>`;
   const shown = chat.filter((m) => !m.own).slice(-80).reverse();
