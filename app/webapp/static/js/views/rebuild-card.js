@@ -1,6 +1,8 @@
 // The Rebuild results card (Results tab): a past session's frozen captures recomputed with today's
 // rules. Preview (GET /api/sessions/<id>/rebuild, writes nothing) → Rebuild (POST, backs up first) →
 // Undo (POST …/undo). A session that is live cannot be rebuilt; the server says so.
+// The card's own flow is `data-step` (idle, loading, preview, busy, error): `data-state` belongs to
+// card-state.js and its four words, which this card does not write.
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
@@ -35,8 +37,8 @@ export function rebuildCard(sid, latest, onChange) {
   const head = `<div class="card-head"><h3 class="card-title">${icon('refresh-cw')} Rebuild results</h3></div>`;
   let backup = latest;
 
-  const shell = (inner, state) => {
-    card.dataset.state = state;
+  const shell = (inner, step) => {
+    card.dataset.step = step;
     card.innerHTML = head + inner;
   };
 

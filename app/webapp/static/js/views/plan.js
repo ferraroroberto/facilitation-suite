@@ -247,7 +247,7 @@ async function load() {
     st.deck = deck;
     st.slides = new Map(deck.slides.map((s) => [s.slide_id, s]));
     st.types = Object.fromEntries(acts.types.map((t) => [t.type, t]));
-    // Camera zones as set in Settings (the preview's dashed box); defaults if unreachable.
+    // Camera zones as set in Settings (the preview's dashed box); none are drawn if it is unreachable.
     st.zones = await api('/api/settings').then((x) => Object.fromEntries(Object.entries(x.profiles).map(([k, v]) => [k, v.zone]))).catch(() => null);
     await loadRounds();
   } catch (e) {

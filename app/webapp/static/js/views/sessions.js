@@ -15,6 +15,9 @@ import { applySessionTheme } from '/static/js/stage-render.js';
 import { words, LANGUAGES } from '/static/js/stage-words.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
 
+const DAY_MS = 24 * 60 * 60 * 1000; // a session dated yesterday still counts as upcoming, so a run that went past midnight stays on top
+const READER_RECHECK_MS = 4000; // the chat reader needs a few seconds to attach to the meeting before the readiness check can turn green
+
 let root;
 let ctx;
 let head;
@@ -189,7 +192,7 @@ async function refresh() {
 
 function pickDefault() {
   const now = Date.now();
-  const upcoming = sessions.filter((s) => s.date && new Date(s.date).getTime() >= now - 86400000)
+  const upcoming = sessions.filter((s) => s.date && new Date(s.date).getTime() >= now - DAY_MS)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   return upcoming[0] || sessions[0];
 }
@@ -200,7 +203,7 @@ function renderList() {
     listEl.appendChild(emptyStateEl('calendar-days', 'No sessions yet.', { actionLabel: 'New session', onAction: newSession }));
     return;
   }
-  const now = Date.now() - 86400000;
+  const now = Date.now() - DAY_MS;
   const upcoming = sessions.filter((s) => !s.date || new Date(s.date).getTime() >= now)
     .sort((a, b) => (a.date ? new Date(a.date) : Infinity) - (b.date ? new Date(b.date) : Infinity));
   const past = sessions.filter((s) => s.date && new Date(s.date).getTime() < now)
@@ -554,7 +557,7 @@ async function readinessAction(sid, s, action, saveSession) {
     try {
       const started = await api('/api/chat/reader/start', { method: 'POST' });
       toast(`Chat reader started — ${started.hint}; this check turns green once it has read it`);
-      setTimeout(renderDetail, 4000);
+      setTimeout(renderDetail, READER_RECHECK_MS);
     } catch (e) { toast(e.message, 'error'); }
     return;
   }

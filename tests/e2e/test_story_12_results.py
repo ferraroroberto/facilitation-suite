@@ -241,13 +241,13 @@ def _check_merge_names(page: Page, pane: Locator, folder: Path) -> None:
 def _check_rebuild(page: Page, base: str, sid: str, pane: Locator, folder: Path) -> None:
     """Rebuild results: the preview names what moves and writes nothing, confirming backs up and rebuilds, Undo restores."""
     card = pane.locator(".rebuild-card")
-    expect(card).to_have_attribute("data-state", "idle")
+    expect(card).to_have_attribute("data-step", "idle")
     session = page.request.get(f"{base}/api/sessions/{sid}").json()["session"]
     cloud = next(it for sec in session["sections"] for it in sec["items"] if it["id"] == "act-kryptonite")
     cloud["options"] = {**(cloud.get("options") or {}), "terms": "words"}  # the Plan changes an option after the session ran
     assert page.request.put(f"{base}/api/sessions/{sid}", data={"session": session}).ok
     card.locator("[data-preview]").click()
-    expect(card).to_have_attribute("data-state", "preview")
+    expect(card).to_have_attribute("data-step", "preview")
     expect(card.locator(".rebuild-row")).to_have_count(6)
     expect(card.locator(".rebuild-row", has_text="kryptonite")).to_contain_text("removed")
     expect(card.locator("[data-confirm]")).to_have_text("Rebuild 1 activity")
@@ -257,7 +257,7 @@ def _check_rebuild(page: Page, base: str, sid: str, pane: Locator, folder: Path)
     card.locator("[data-confirm]").click()
     expect(page.locator("#toast")).to_contain_text("Results rebuilt", timeout=120000)
     assert len(list((folder / "live").glob("rebuild-backup-*"))) == 1
-    expect(card).to_have_attribute("data-state", "idle")
+    expect(card).to_have_attribute("data-step", "idle")
     card.locator("[data-undo]").click()
     expect(page.locator("#toast")).to_contain_text("Previous results restored")
     assert not list((folder / "live").glob("rebuild-backup-*"))

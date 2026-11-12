@@ -12,6 +12,9 @@ import { api } from '/static/js/ui.js';
 import { connectLive, bindKeys, clickToAdvance } from '/static/js/live.js';
 import { createStage, applyTheme } from '/static/js/stage-render.js';
 
+const UPDATE_TICK_MS = 250; // clocks and timers on the stage tick locally between snapshots, a quarter second apart
+const IDLE_CURSOR_MS = 2000; // the pointer hides after two quiet seconds so it never sits on the captured stage
+
 // The letterbox around the scaled canvas is the theme's own background, which
 // only the canvas can read (the theme scopes its variables under .stage-canvas).
 function syncLetterbox() {
@@ -96,7 +99,7 @@ function runLive() {
 
   setInterval(() => {
     if (plan && live.state && live.state.plan_rev === plan.rev) stage.update({ plan, state: live.state, now: live.now() });
-  }, 250);
+  }, UPDATE_TICK_MS);
 
   function sayHello() { live.hello(window.innerWidth, window.innerHeight); }
   window.addEventListener('resize', sayHello);
@@ -129,6 +132,6 @@ function runLive() {
   document.addEventListener('mousemove', () => {
     document.body.classList.remove('idle');
     clearTimeout(idle);
-    idle = setTimeout(() => document.body.classList.add('idle'), 2000);
+    idle = setTimeout(() => document.body.classList.add('idle'), IDLE_CURSOR_MS);
   });
 }

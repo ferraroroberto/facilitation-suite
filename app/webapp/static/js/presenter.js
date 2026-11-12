@@ -19,6 +19,7 @@ import { SOURCE_NAMES, sourceOf, sourceName } from '/static/js/chat-source.js';
 initUsageLog().trackView('live');
 
 const root = document.getElementById('presenter');
+const CLOCK_TICK_MS = 250; // a quarter second keeps the timer digits from visibly lagging a snapshot
 const KIND_LABEL = { slide: 'slide', break: 'break', breakout: 'breakout' };
 const KIND_ICON = { break: 'coffee', breakout: 'door-open' };
 let plan = null;
@@ -859,7 +860,7 @@ setInterval(() => {
   if (isQuiz(cur)) tickQuiz(root.querySelector('.p-item [data-body]'), s.quiz, live);
   drawTiming(cur, s);
   tickChatAge();
-}, 250);
+}, CLOCK_TICK_MS);
 
 // ----------------------------------------------------------------------- chime
 
