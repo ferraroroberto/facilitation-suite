@@ -1,4 +1,4 @@
-"""The session PDF (epic §14): slides and live results in the order they happened.
+"""The session PDF: slides and live results in the order they happened.
 
 Every page of the ``timeline`` (``collect.py``) is one widescreen page — the
 slide PNG, or the capture's frozen PNG exactly as the stage showed it — then

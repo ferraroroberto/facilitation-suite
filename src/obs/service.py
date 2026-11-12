@@ -1,4 +1,4 @@
-"""OBS scene switching over obs-websocket v5 (built into OBS 28+; epic §11).
+"""OBS scene switching over obs-websocket v5 (built into OBS 28+).
 
 Every item has an OBS profile; each profile maps to one OBS scene (Settings).
 When the live item changes, the scene follows. OBS being closed, restarting

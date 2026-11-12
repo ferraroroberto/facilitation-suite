@@ -1,25 +1,29 @@
-"""Structural guard (audit #389): a module/class/function docstring in ``src/`` or ``app/``
-must not carry more issue-number or build-step history (``#NNN``, "Step N") than the baseline
-below. The vendored comment ratchet (``scripts/comment_ratchet.py``, fleet-config#1517) scans
-only ``#`` *comments* -- a docstring is explicitly out of its scope -- so this whole class of
-drift went ungated until now. A docstring states the present-tense why; how the code got there
-lives in the issue, the PR and ``git log``.
+"""Structural guard: prose in ``src/``, ``app/`` and ``assets/`` must not point into the build
+history. A docstring or comment states the present-tense why; how the code got here lives in the
+issue, the PR and ``git log``.
 
-Existing debt predates this guard and is baselined below at the count measured when it was
-added, mirroring this repo's own ratchet convention (``docs/layout.md`` neighbours,
-``.fleet.toml``'s ``[comment_ratchet]`` etc.): it never blocks unrelated work, but it cannot
-grow, and a file cleaned of its history markers must have its entry lowered or removed here,
-never raised."""
+The vendored comment ratchet (``scripts/comment_ratchet.py``) counts only ``#NNN`` references
+inside comments and is never edited here, so this test covers what it cannot:
+
+* ``#NNN`` issue references inside Python docstrings (a docstring is not a comment token);
+* ``epic §N`` pointers into the closed planning issue, in Python docstrings and comments and in
+  JS / CSS files;
+* ``step N`` build-step pointers (``N`` >= 1) in Python docstrings and comments -- a quiz podium's
+  "step 0" is a game state, not a pointer, and is not matched.
+
+No debt is baselined: a hit fails, and the fix is to reword it to what is true now."""
 
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-SCAN_DIRS = ("src", "app")
-EXCLUDE_PARTS = ("_vendored",)
+ROOT = Path(__file__).resolve().parents[2]
+SCAN_DIRS = ("src", "app", "assets")
+EXCLUDE_PARTS = ("_vendored", "fleet")
 # Mirrors the [vendored] table in .fleet.toml: copied byte-for-byte from project-scaffolding,
 # which keeps its own comment style -- never reworded in this repo.
 VENDORED_FILES = {
@@ -29,79 +33,63 @@ VENDORED_FILES = {
     "app/tray/single_instance.py",
     "app/tray/watchdog.py",
 }
-_REF = re.compile(r"(?<![&#])#(\d{1,5})\b")
-
-# path -> count at the time this guard was added (fleet-config#1520's structural-check
-# requirement for a *recurring* audit bucket). Shrink an entry as a file is cleaned up;
-# never raise one -- add a genuinely new exception by fixing the docstring instead.
-BASELINE: dict[str, int] = {
-    "app/webapp/player/__init__.py": 1,
-    "app/webapp/player/server.py": 4,
-    "app/webapp/player/listener.py": 1,
-    "app/webapp/player/push.py": 1,
-    "app/tray/tray.py": 1,
-    "app/webapp/assets.py": 1,
-    "app/webapp/event_loop.py": 2,
-    "app/webapp/routers/actions.py": 1,
-    "app/webapp/routers/chat.py": 1,
-    "app/webapp/routers/quiz.py": 2,
-    "app/webapp/routers/settings.py": 3,
-    "app/webapp/server.py": 3,
-    "src/chat/process.py": 1,
-    "src/chat/reader.py": 2,
-    "src/chat/teams.py": 1,
-    "src/chat/uia.py": 1,
-    "src/config.py": 5,
-    "src/defaults.py": 1,
-    "src/env_file.py": 2,
-    "src/library.py": 1,
-    "src/live/hub.py": 1,
-    "src/music/service.py": 6,
-    "src/quiz/__init__.py": 1,
-    "src/quiz/chat.py": 1,
-    "src/quiz/cues.py": 3,
-    "src/quiz/importer.py": 1,
-    "src/quiz/model.py": 2,
-    "src/quiz/qr.py": 1,
-    "src/quiz/reach.py": 3,
-    "src/quiz/results.py": 1,
-    "src/static_versioning.py": 1,
-    "src/tunnel.py": 1,
-}
+_ISSUE_REF = re.compile(r"(?<![&#])#(\d{1,5})\b")
+_EPIC_POINTER = re.compile(r"\bepic\s*§", re.IGNORECASE)
+_STEP_POINTER = re.compile(r"\bstep\s+[1-9]\d*\b", re.IGNORECASE)
 
 
-def _docstring_history_counts() -> dict[str, int]:
-    """``{repo-relative path: #NNN references across every docstring in the file}``."""
-    counts: dict[str, int] = {}
-    for base in SCAN_DIRS:
-        for path in sorted((ROOT / base).rglob("*.py")):
-            rel = path.relative_to(ROOT).as_posix()
-            if any(part in EXCLUDE_PARTS for part in path.parts) or rel in VENDORED_FILES:
-                continue
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            nodes: list[ast.AST] = [tree] + [
-                n for n in ast.walk(tree)
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-            ]
-            count = 0
-            for node in nodes:
-                doc = ast.get_docstring(node, clean=False)
-                if doc:
-                    count += len(_REF.findall(doc))
-            if count:
-                counts[rel] = count
-    return counts
-
-
-def test_no_docstring_gains_more_issue_or_step_history_than_the_baseline() -> None:
-    current = _docstring_history_counts()
-    offenders = [
-        f"{path}: {count} (baseline {BASELINE.get(path, 0)})"
-        for path, count in sorted(current.items())
-        if count > BASELINE.get(path, 0)
+def _python_prose(text: str, path: str) -> tuple[list[str], list[str]]:
+    """``(docstrings, comments)`` of one Python source."""
+    tree = ast.parse(text, filename=path)
+    nodes: list[ast.AST] = [tree] + [
+        n for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
     ]
+    docstrings = [d for d in (ast.get_docstring(n, clean=False) for n in nodes) if d]
+    comments = [
+        tok.string for tok in tokenize.generate_tokens(io.StringIO(text).readline)
+        if tok.type == tokenize.COMMENT
+    ]
+    return docstrings, comments
+
+
+def _hits(path: Path) -> list[str]:
+    """The rule names this file breaks, one entry per hit."""
+    text = path.read_text(encoding="utf-8")
+    hits: list[str] = []
+    if path.suffix == ".py":
+        docstrings, comments = _python_prose(text, str(path))
+        prose = docstrings + comments
+        hits += ["issue-ref in docstring"] * sum(len(_ISSUE_REF.findall(d)) for d in docstrings)
+        hits += ["step pointer"] * sum(len(_STEP_POINTER.findall(p)) for p in prose)
+        hits += ["epic pointer"] * sum(len(_EPIC_POINTER.findall(p)) for p in prose)
+    else:
+        hits += ["epic pointer"] * len(_EPIC_POINTER.findall(text))
+    return hits
+
+
+def _offenders() -> list[str]:
+    found: list[str] = []
+    for base in SCAN_DIRS:
+        for path in sorted((ROOT / base).rglob("*")):
+            rel = path.relative_to(ROOT).as_posix()
+            if (path.suffix not in {".py", ".js", ".css"} or rel in VENDORED_FILES
+                    or any(part in EXCLUDE_PARTS for part in path.parts)):
+                continue
+            found += [f"{rel}: {rule}" for rule in _hits(path)]
+    return found
+
+
+def test_scan_roots_exist() -> None:
+    """A wrong ``ROOT`` once made this guard scan nothing and pass vacuously."""
+    for base in SCAN_DIRS:
+        assert (ROOT / base).is_dir(), base
+
+
+def test_prose_carries_no_build_history_pointers() -> None:
+    offenders = _offenders()
     assert not offenders, (
-        "docstring(s) carry more #NNN issue/build-step history than the baseline allows -- "
-        "reword to the present-tense why and leave the history to the issue, the PR and "
-        "git log:\n" + "\n".join(offenders)
+        "docstring(s) or comment(s) point into the build history (#NNN in a docstring, "
+        "`epic §N`, `step N`) -- reword to the present-tense why and leave the history to "
+        "the issue, the PR and git log:\n" + "\n".join(offenders)
     )

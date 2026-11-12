@@ -1,10 +1,10 @@
-"""Activity plug-ins (epic §8): one folder per type under ``src/activities/<type>/``.
+"""Activity plug-ins: one folder per type under ``src/activities/<type>/``.
 
 A plug-in folder holds ``editor.json`` (label, icon, the options the Plan
 editor shows, their defaults; ``"needs_question": false`` for a type that
-shows no question, so readiness does not ask for one), and from step 7 ``parse.py`` (chat message →
+shows no question, so readiness does not ask for one), ``parse.py`` (chat message →
 contribution, contributions → result) and ``stage.js`` / ``stage.css`` (render
-the result on the stage). From step 12 ``parse.py`` may also say how its result
+the result on the stage). ``parse.py`` may also say how its result
 reads after the session: ``report(result)`` (the Results tab's summary line,
 top list and PDF tile) and ``value(parsed)`` (one answer's parsed value in the
 Excel report); both fall back to something generic. ``counted(text, parsed, result)``

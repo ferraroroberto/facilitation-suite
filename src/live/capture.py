@@ -1,6 +1,6 @@
 """Captures: which chat messages belong to which activity, and its live result.
 
-Epic §8. **Start** opens a window on the activity; every non-hidden
+**Start** opens a window on the activity; every non-hidden
 participant message received while a window is open belongs to it until
 **Stop**. A stopped capture can be reopened (a new window; what arrived while
 it was stopped stays out). The facilitator's own messages ("You") never

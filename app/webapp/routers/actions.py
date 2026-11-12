@@ -1,4 +1,4 @@
-"""The Stream Deck surface — ``POST /api/actions/{action_id}[/{arg}]`` (epic §12).
+"""The Stream Deck surface — ``POST /api/actions/{action_id}[/{arg}]``.
 
 The same contract as home-automation's generalized action alias
 (the same alias in home-automation): one stable URL per button, the id looked up in one

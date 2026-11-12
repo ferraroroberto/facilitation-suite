@@ -1,4 +1,4 @@
-"""The gate for other devices (the phone remote over the tailnet, epic §3.2).
+"""The gate for other devices (the phone remote over the tailnet).
 
 This PC is always let in (``errors.is_local``). Any other device needs the
 bearer token from ``config.json`` → ``remote.token`` — in an ``Authorization:

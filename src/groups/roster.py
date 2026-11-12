@@ -1,4 +1,4 @@
-"""The roster and the breakout rounds of one session (epic §13).
+"""The roster and the breakout rounds of one session.
 
 - **Roster**: ``roster.xlsx`` in the session folder (imported from anywhere:
   the original is copied, never edited). Columns by header, any order:

@@ -88,7 +88,7 @@ KICKED = "kicked"  # the host removed this player
 
 # Where a player plays from.
 PHONE = "phone"  # the public player page
-CHAT = "chat"  # the Zoom-chat fallback (Step 6)
+CHAT = "chat"  # the Zoom-chat fallback
 
 # Join and resume results.
 JOINED = "joined"

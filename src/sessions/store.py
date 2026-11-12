@@ -1,4 +1,4 @@
-"""Session folders and the ledger that lists them (epic §5).
+"""Session folders and the ledger that lists them.
 
 - A **session** is a folder holding ``session.yaml`` plus ``slides/``,
   ``live/`` and ``exports/``. It lives outside the repo (default under

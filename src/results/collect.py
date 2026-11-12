@@ -1,6 +1,6 @@
 """A session's results, read back from its folder after (or during) the session.
 
-Everything comes from files the live session wrote (epic §5.1, §14), so the
+Everything comes from files the live session wrote, so the
 Results tab works on any session without it being live:
 
 - ``live/captures/<item>.json`` — each frozen capture: the item, its windows,

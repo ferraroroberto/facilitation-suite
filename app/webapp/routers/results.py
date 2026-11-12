@@ -1,8 +1,7 @@
 """Results: per-activity answers, the session PDF, the Excel report, the Zoom check, the copilot's conversation.
 
 Everything reads the session folder (``src/results``), so a finished session
-works without being live. Exports land in the folder's ``exports/`` (epic
-§5.1) and are served from there; the reconciliation report is kept as
+works without being live. Exports land in the folder's ``exports/`` and are served from there; the reconciliation report is kept as
 ``exports/zoom-reconciliation.json`` so the tab shows it next time.
 """
 

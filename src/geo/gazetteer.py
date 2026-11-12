@@ -1,4 +1,4 @@
-"""Offline geocoding for the magic map (epic §10) — no network, ever.
+"""Offline geocoding for the magic map — no network, ever.
 
 Data (built by ``scripts/build_geo.py``, committed under
 ``src/activities/map/``): GeoNames ``cities15000`` (CC BY 4.0), country names
