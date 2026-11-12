@@ -72,10 +72,7 @@ async function showView(name) {
   if (name === 'settings') {
     trackView('settings');
     document.querySelectorAll('.pane').forEach((p) => { p.hidden = p !== settingsPane; });
-    document.querySelectorAll('.tabs .tab').forEach((t) => {
-      t.classList.remove('active');
-      t.setAttribute('aria-selected', 'false');
-    });
+    nav.setTab(null);
   } else {
     settingsPane.hidden = true;
     nav.setTab(name);
