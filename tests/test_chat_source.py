@@ -112,3 +112,18 @@ def test_reader_source_flag_wins_over_the_config(monkeypatch: pytest.MonkeyPatch
     assert reader.main(["--server", "http://127.0.0.1:1", "--source", "teams"]) == 0
     assert reader.main(["--server", "http://127.0.0.1:1"]) == 0  # no flag: the config's (zoom)
     assert seen == ["teams", "zoom"]
+
+
+def test_go_live_follows_the_reader_switch_saved_in_settings(client, fake_popen: list[list[str]], isolated_env: Path) -> None:
+    from tests.fixtures.demo import build_demo_session
+
+    sid, _ = build_demo_session(isolated_env / "sessions" / "demo" / "live", isolated_env / "sessions.local.yaml")
+    proc = client.app.state.reader_process
+    assert client.put("/api/settings", json={"reader": {"enabled": False}}).status_code == 200
+    assert client.post("/api/live/activate", json={"session": sid}).status_code == 200
+    assert fake_popen == []  # switched off in Settings: going live starts no reader
+    client.post("/api/live/deactivate")
+    assert client.put("/api/settings", json={"reader": {"enabled": True}}).status_code == 200
+    assert client.post("/api/live/activate", json={"session": sid}).status_code == 200
+    assert len(fake_popen) == 1  # switched back on: the next go-live starts it, no restart needed
+    proc.stop()

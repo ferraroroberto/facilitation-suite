@@ -15,6 +15,7 @@ import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/s
 import { words } from '/static/js/stage-words.js';
 import { overlayCard } from '/static/js/views/overlay-card.js';
 import { recordingCard } from '/static/js/views/recording-card.js';
+import { configuredSourceName } from '/static/js/chat-source.js';
 
 const CREDITS = [
   ['GeoNames', 'https://www.geonames.org', 'the map\'s cities and countries (cities15000), licensed CC BY 4.0'],
@@ -293,7 +294,7 @@ function readerCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
   const source = data.reader.source;
-  const name = { teams: 'Teams', meet: 'Meet' }[source] || 'Zoom';
+  const name = configuredSourceName(source);
   card.innerHTML = `<div class="card-head"><h3 class="card-title">${icon('message-square')} ${name} chat reader</h3></div>`;
   card.appendChild(switchRow(data.reader.enabled, 'Start the reader when a session goes live', (next) => save({ reader: { enabled: next } })));
   const note = document.createElement('p');
