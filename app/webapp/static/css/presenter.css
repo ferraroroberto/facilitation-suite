@@ -325,7 +325,7 @@
 .p-cop-detail { display: grid; gap: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--line-muted); }
 .p-cop-detail[hidden] { display: none; }
 .p-cop-sec { display: grid; gap: 4px; }
-.p-cop-h { margin: 0; font-size: var(--font-caption); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.p-cop-h { margin: 0; font-size: var(--font-body-sm); font-weight: 600; color: var(--muted); }
 .p-cop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .p-cop-read { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
 .p-cop-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 var(--space-sm); border: 0; background: none; color: var(--accent-text); font: inherit; font-size: var(--font-body-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
