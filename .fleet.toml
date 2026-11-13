@@ -103,6 +103,10 @@ baseline = ".comment-ratchet-baseline.json"
 exclude  = ["app/webapp/player/static/fleet/**"]
 docstrings      = true
 history_phrases = true
+# A build-step pointer ("step 3") narrates how the code got here. N >= 1: a quiz podium's
+# "step 0" is a game state, not a pointer. `#NNN` in docstrings and `epic §` are already
+# covered by `docstrings` and the shared history patterns.
+extra_history_patterns = ['\bstep\s+[1-9]\d*\b']
 
 # [structure_ratchet] -- the scaffold's baseline-and-ratchet layout stage. The gate runs
 # scripts/structure_ratchet.py: a new file over 1,000 lines, a new function over 100 lines
