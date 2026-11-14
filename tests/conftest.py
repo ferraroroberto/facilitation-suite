@@ -40,6 +40,7 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pa
     monkeypatch.setenv("FS_CONFIG_PATH", str(root / "config.json"))
     monkeypatch.setenv("FS_LEDGER_PATH", str(root / "sessions.local.yaml"))
     monkeypatch.setenv("FS_DATA_DIR", str(root / "data"))
+    monkeypatch.setenv("FS_USAGE_DB", str(root / "data" / "usage.sqlite3"))  # never the real usage log
     monkeypatch.setenv("FS_ENV_PATH", str(root / ".env"))  # never the real secrets file
     for key in ("SPOTIFY_CLIENT_ID", "SPOTIFY_REFRESH_TOKEN", "SPOTIFY_DEVICE_NAME"):
         monkeypatch.delenv(key, raising=False)

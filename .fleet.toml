@@ -53,6 +53,7 @@ conventions_readers = { src = "scripts/conventions_readers.py", sha = "ab06ad732
 conventions_state = { src = "scripts/conventions_state.py", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "scripts/conventions_state.py" }
 runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "4a06ca84fc9c5005d4be7fa505c9d0e7c0472dba", dest = "scripts/runtime_write_ratchet.py" }
 runtime_write_resolve = { src = "scripts/runtime_write_resolve.py", sha = "5505185c5f4b10eea5ab268e7b6676c6c54340c4", dest = "scripts/runtime_write_resolve.py" }
+runtime_data    = { src = "src/runtime_data.py", sha = "4d0b0ff30e23eb95c73c4b0b1517ec6a43d3a836", dest = "src/runtime_data.py" }
 no_window       = { src = "src/no_window.py", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "src/no_window.py" }
 build_info      = { src = "src/build_info.py", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "src/build_info.py" }
 geometry        = { src = "tests/e2e/_geometry.py", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "tests/e2e/_geometry.py" }
