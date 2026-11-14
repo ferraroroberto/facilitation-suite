@@ -28,6 +28,12 @@ def test_version_reports_build_identity(client) -> None:
     assert body["schema_version"] == 1
 
 
+def test_version_reports_the_fleet_hash_the_shell_stamps(client) -> None:
+    body = client.get("/api/version").json()
+    assert body["asset_hash"] == client.app.state.assets.fleet_hash
+    assert f"/static/js/app.js?v={body['asset_hash']}" in client.get("/").text
+
+
 def test_version_serves_the_captured_build_unmapped(client) -> None:
     build = client.app.state.build
     assert set(build) == {"git_sha", "built_at"}

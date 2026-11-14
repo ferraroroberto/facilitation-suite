@@ -23,6 +23,7 @@ disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "5d460
 empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/empty-state" }
 switch          = { src = "app/webapp/static/_vendored/switch", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/switch" }
 toast           = { src = "app/webapp/static/_vendored/toast", sha = "3b708fd3c54ab7b93b08d489406c405762c83c41", dest = "app/webapp/static/_vendored/toast" }
+build-watch = { src = "app/webapp/static/_vendored/build-watch", sha = "8c59c65b62896a7c0b9a1df4c45794c2c2320c42", dest = "app/webapp/static/_vendored/build-watch" }
 select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/select-native" }
 home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "app/webapp/static/_vendored/home-head" }
 icon-button     = { src = "app/webapp/static/_vendored/icon-button", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/icon-button" }
