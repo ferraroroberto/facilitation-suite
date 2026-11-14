@@ -7,6 +7,7 @@ import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
 import { api, APP, followAppearance } from '/static/js/ui.js';
 import { connectLive } from '/static/js/live.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
+import { initBuildWatch } from '/static/_vendored/build-watch/build-watch.js';
 
 const VIEWS = {
   sessions: () => import('/static/js/views/sessions.js'),
@@ -126,6 +127,7 @@ followHash().then((linked) => { if (!linked) showView(nav.getTab() || 'sessions'
 // the phone or another tab switches this one too.
 connectLive('app', { onState: (s) => followAppearance(s.appearance) });
 
+initBuildWatch();
 api('/api/version').then((v) => {
   document.getElementById('buildReadout').textContent = buildReadoutText(v.git_sha, v.built_at);
 }).catch(() => {
