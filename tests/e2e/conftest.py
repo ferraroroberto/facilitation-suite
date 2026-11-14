@@ -87,6 +87,7 @@ def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
         FS_CONFIG_PATH=str(root / "config.json"),
         FS_LEDGER_PATH=str(root / "sessions.local.yaml"),
         FS_DATA_DIR=str(root / "data"),
+        FS_USAGE_DB=str(root / "data" / "usage.sqlite3"),  # never the real usage log
         FS_ENV_PATH=str(root / ".env"),  # no real Spotify login in a disposable instance
         PYTHONUTF8="1",
     )

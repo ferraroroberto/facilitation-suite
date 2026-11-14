@@ -12,6 +12,7 @@ import sqlite3
 import tomllib
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import REPO_ROOT, paired_remote
@@ -93,11 +94,28 @@ def test_the_stored_event_fields_are_only_the_contract(client: TestClient, isola
         assert secret.encode() not in blob, secret
 
 
-def test_the_file_lives_in_the_data_dir_and_nowhere_else(client: TestClient, isolated_env: Path) -> None:
+def test_the_file_lives_where_the_override_says_and_never_in_the_repo(client: TestClient, isolated_env: Path) -> None:
     client.post("/api/usage/events", json={"session_id": SID, "device_class": "phone", "os_class": "ios",
                                           "events": [{"kind": "session_start"}]})
     assert (isolated_env / "data" / "usage.sqlite3").is_file()
     assert not list(REPO_ROOT.glob("*.sqlite3")) and not list((REPO_ROOT / "app").rglob("*.sqlite3"))
+
+
+def test_without_the_override_the_file_goes_to_the_runtime_data_root(
+    isolated_env: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """The fleet convention: the usage store resolves through ``runtime_db_path``, not the repo's data/."""
+    from app.webapp.server import create_app
+
+    root = tmp_path / "runtime-root"
+    monkeypatch.delenv("FS_USAGE_DB", raising=False)
+    monkeypatch.delenv("FACILITATION_SUITE_DATA_DIR", raising=False)
+    monkeypatch.setenv("FLEET_DATA_ROOT", str(root))
+    body = {"session_id": SID, "device_class": "desktop", "os_class": "windows", "events": [{"kind": "session_start"}]}
+    with TestClient(create_app(), client=("127.0.0.1", 50000)) as pc:
+        assert pc.post("/api/usage/events", json=body).status_code == 200
+    assert (root / "facilitation-suite" / "usage.sqlite3").is_file()
+    assert not (isolated_env / "data" / "usage.sqlite3").exists()
 
 
 def test_another_device_needs_the_phone_token(isolated_env: Path) -> None:

@@ -98,6 +98,7 @@ from src.quiz.chat import ChatAnswers
 from src.quiz.cues import QuizCues
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
+from src.runtime_data import runtime_db_path
 from src.sessions.store import SessionStore
 from src.static_versioning import AssetVersions
 from src.usage_log import usage_router
@@ -112,7 +113,8 @@ ASSETS = AssetVersions({"/static": STATIC_DIR, "/themes": THEMES_DIR, "/activiti
 OVERLAY_SAMPLE_KEEP_S = 60
 OVERLAY_WATCH_S = 15  # how often a dead overlay is noticed while Copilot is on and wants it
 LAST_LIVE_FILE = "live.json"  # data/: the session that is live, for the resume at startup
-USAGE_DB_FILE = "usage.sqlite3"  # data/: the usage log (views and control ids only)
+USAGE_DB_FILE = "usage.sqlite3"  # the usage log (views and control ids only), in the runtime-data dir
+USAGE_DB_ENV = "FS_USAGE_DB"  # full-path override; the test harnesses point it at a temp file
 
 
 async def _keep_overlay_up(app: FastAPI) -> None:
@@ -362,10 +364,11 @@ def create_app() -> FastAPI:
     app.include_router(settings.router)
     app.include_router(actions.router)
     app.include_router(quiz.router)
-    # Records which views and controls the owner uses: the vendored usage log, in the gitignored
-    # data/ (FS_DATA_DIR in tests). Behind RemoteAuth like every route; the quiz player app
-    # (app/webapp/player/) never mounts it.
-    app.include_router(usage_router(data_dir() / USAGE_DB_FILE))
+    # Records which views and controls the owner uses: the vendored usage log, an fsync-heavy
+    # SQLite file that lives under the fleet runtime-data root, not the repo. Behind RemoteAuth
+    # like every route; the quiz player app (app/webapp/player/) never mounts it.
+    usage_db = runtime_db_path("facilitation-suite", USAGE_DB_FILE, env_var=USAGE_DB_ENV, create=True)
+    app.include_router(usage_router(usage_db))
     return app
 
 
