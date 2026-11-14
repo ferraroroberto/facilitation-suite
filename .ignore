@@ -42,6 +42,7 @@
 /src/build_info.py
 /src/compression.py
 /src/no_window.py
+/src/runtime_data.py
 /src/usage_log.py
 /tests/e2e/_geometry.py
 /tests/e2e/_surface.py
