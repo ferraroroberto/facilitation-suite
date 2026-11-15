@@ -372,6 +372,8 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .sec-toggle,
 .sec-rename { --icon-btn-box: 34px; }
 .sec-rename { margin-right: auto; }
+/* On a phone the section name needs the room (the pencil would cut "Welcome" to 6 letters); Rename stays in the row's kebab. */
+@media (max-width: 520px) { .sec-rename { display: none; } .sec-name { flex: 1; } }
 .sec-name { display: flex; align-items: center; color: var(--ink); min-height: var(--hit-min); font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sec-meta { font-size: var(--font-body-sm); color: var(--muted); white-space: nowrap; }
 .sec-min { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-body-sm); color: var(--muted); }
