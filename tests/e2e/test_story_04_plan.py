@@ -216,14 +216,14 @@ def _hide_slides_and_reorder(page: Page, theme: str) -> None:
 def _add_section_and_breakout(page: Page) -> None:
     """A new section from the add menu, with a breakout card in it."""
     # a new section right after "Working agreement", from its add menu
-    page.locator(".add-slot .button-surface").nth(3).click()
+    page.locator(".add-slot .button-tint").nth(3).click()
     page.locator(".row-menu-item", has_text="Section after this one").click()
     page.fill("#f-name", "Energiser")
     surface(page, "plan.new-section")
     page.locator(".detail-save-btn").click()
     expect(page.locator(".sec-row").nth(4)).to_contain_text("Energiser")
     # a breakout card in it: the round under its title, a ten-minute clock
-    page.locator(".add-slot .button-surface").nth(4).click()
+    page.locator(".add-slot .button-tint").nth(4).click()
     page.locator(".row-menu-item", has_text="Breakout").click()
     page.locator("#panePlan .ed-row", has_text="Rooms").locator(".segmented-item", has_text="Groups of 4 · A").click()
     expect(page.locator(".item-row.selected")).to_contain_text("Groups of 4 · A")

@@ -448,8 +448,8 @@ function libraryCard() {
     (rows.length ? `<div class="list">${rows.join('')}</div>`
       : '<p class="small muted settings-note">Nothing here yet. Add a font file or a colour set to offer it to every session.</p>') +
     `<p class="small muted settings-note">Your own files, kept next to your sessions and never in the app’s folder: <code class="library-path">${esc(lib.path)}</code></p>` +
-    `<div class="row-actions settings-actions"><button type="button" class="button-surface" data-add="font" data-track="settings.add-font">${icon('plus')} Add font…</button>` +
-    `<button type="button" class="button-surface" data-add="theme" data-track="settings.add-theme">${icon('plus')} Add colour set…</button></div>`;
+    `<div class="row-actions settings-actions"><button type="button" class="button-tint" data-add="font" data-track="settings.add-font" aria-haspopup="dialog">${icon('plus')} Add font…</button>` +
+    `<button type="button" class="button-tint" data-add="theme" data-track="settings.add-theme" aria-haspopup="dialog">${icon('plus')} Add colour set…</button></div>`;
   card.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', async () => {
     const kind = b.dataset.add;
     try {

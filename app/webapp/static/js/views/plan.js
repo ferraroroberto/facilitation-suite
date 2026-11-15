@@ -289,7 +289,7 @@ function renderToolbar() {
     (st.deck && st.deck.slides.length
       ? `<button type="button" class="button-surface" data-reimport-selected data-track="plan.import-selected" hidden>${icon('refresh-cw')} Re-import selected</button>`
       : '') +
-    `<button type="button" class="button-surface" data-add-section data-track="plan.add-section" aria-haspopup="dialog">${icon('plus')} Add section</button>` +
+    `<button type="button" class="button-tint" data-add-section data-track="plan.add-section" aria-haspopup="dialog">${icon('plus')} Add section</button>` +
     `<button type="button" class="button-surface" data-kahoot data-track="plan.import-kahoot" title="A quiz from Kahoot's spreadsheet template (.xlsx)">${icon('upload')} Import Kahoot</button>` +
     `<span class="plan-fold"><button type="button" class="button-ghost" data-fold="collapse" data-track="plan.fold-all" title="Collapse all sections">${icon('chevrons-down-up')} Collapse all</button>` +
     `<button type="button" class="button-ghost" data-fold="expand" data-track="plan.fold-all" title="Expand all sections">${icon('chevrons-up-down')} Expand all</button></span>` +
@@ -400,7 +400,7 @@ function renderList() {
     if (!collapsed) {
       const add = document.createElement('div');
       add.className = 'add-slot';
-      add.innerHTML = `<button type="button" class="button-surface" data-track="plan.add-item" aria-haspopup="menu">${icon('plus')} Add slide or activity</button>`;
+      add.innerHTML = `<button type="button" class="button-tint" data-track="plan.add-item" aria-haspopup="menu">${icon('plus')} Add slide or activity</button>`;
       add.querySelector('button').addEventListener('click', (e) => {
         rowMenu(e.currentTarget, [
           { label: 'Activity', icon: 'message-square', onClick: () => addItem(si, 'activity') },
