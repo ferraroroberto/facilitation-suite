@@ -1,6 +1,6 @@
 # Live copilot
 
-During a live online session (a workshop, an interview, an important call), Copilot records your mic and the call's sound, transcribes them in short chunks through the local LLM hub, and has a model read the running transcript together with the session's plan and notes to suggest a few discreet hints: what to ask next, what to notice, that the agenda is slipping, a point worth summing up. The hints show on the presenter and on an overlay window only you see. The recording itself is never hidden.
+During a live online session (a workshop, an interview, an important call), Copilot records your mic and the call's sound, transcribes them in short chunks through the local LLM hub, and has a model read the running transcript together with the session's plan and notes to suggest a few discreet hints: what to ask next, what to notice, that the agenda is slipping, a point worth summing up. The hints show on the presenter, on an overlay window only you see, and on the [phone remote](phone-remote.md) for when you walk away from the PC. The recording itself is never hidden.
 
 **Consent.** Recording people needs their informed consent and a visible notice; in Spain and the EU, staying in the call is not consent. Tell the participants before you switch Copilot on. The presenter's Copilot card shows a **Recording** mark the whole time it runs. (Not legal advice.)
 

@@ -8,15 +8,7 @@ import { setSwitch } from '/static/_vendored/switch/switch.js';
 import { api, esc, toast, switchRow } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
 import { buildPanel, drawPanel } from '/static/js/presenter-copilot-panel.js';
-
-const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
-
-/** Hints still worth showing: fresh (server time) and asked for the item on stage. */
-function liveHints(c, itemId, now) {
-  if (!c || !c.on || !c.hints || !c.hints.length || !c.hints_at) return [];
-  if (now - c.hints_at > c.ttl_s * 1000 || c.hints_item_id !== itemId) return [];
-  return c.hints;
-}
+import { HINT_LABEL, liveHints } from '/static/js/live.js';
 
 /** Copilot on or off. Switching on for a session whose consent is not recorded asks once first; the server
  *  refuses to record without it, so a Stream Deck press cannot skip the question. */
@@ -152,7 +144,7 @@ export function drawCopilot(card, live, cur, sid) {
 
   const hints = liveHints(c, cur ? cur.id : null, now);
   const list = card.querySelector('[data-cop-hints]');
-  const items = hints.map((h) => `<li class="p-hint"><span class="p-hint-type">${h.test ? 'Test · ' : ''}${esc(TYPE_LABEL[h.type] || h.type)}</span>` +
+  const items = hints.map((h) => `<li class="p-hint"><span class="p-hint-type">${h.test ? 'Test · ' : ''}${esc(HINT_LABEL[h.type] || h.type)}</span>` +
     `<span class="p-hint-text">${esc(h.text)}</span></li>`).join('');
   if (list.dataset.html !== items) { list.dataset.html = items; list.innerHTML = items; }
   card.querySelector('[data-cop-idle]').textContent = !c.on

@@ -9,8 +9,8 @@ import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, plural } from '/static/js/ui.js';
 import { CardState, setCardState, settledState } from '/static/js/card-state.js';
 import { recorderSection, summaryHtml } from '/static/js/views/conversation-recorder.js';
+import { HINT_LABEL } from '/static/js/live.js';
 
-const TYPE_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
 const REASON = { item: 'On item change', them: 'After a line from them', inject: 'After injected lines', drift: 'Clock', mode: 'On mode change' };
 const FAILURE = { hub_down: 'hub down', timeout: 'timed out' };
 const SOURCE_LABEL = { recorded: 'Recorded', live: 'Live' };
@@ -46,7 +46,7 @@ function hintRow(e) {
   const meta = [REASON[e.reason] || e.reason, e.reason === 'drift' ? '' : e.model,
     e.reason === 'drift' || e.lag_ms == null ? '' : `${(e.lag_ms / 1000).toFixed(1)} s`].filter(Boolean).join(' · ');
   const hints = e.hints.length
-    ? `<ul class="convo-hints">${e.hints.map((h) => `<li><span class="convo-hint-type">${esc(TYPE_LABEL[h.type] || h.type)}</span>` +
+    ? `<ul class="convo-hints">${e.hints.map((h) => `<li><span class="convo-hint-type">${esc(HINT_LABEL[h.type] || h.type)}</span>` +
       `<span>${esc(h.text)}</span></li>`).join('')}</ul>`
     : `<p class="small muted convo-hint-none">${e.failed ? 'No answer reached the presenter.' : 'Nothing to suggest.'}</p>`;
   return `<div class="list-row convo-hint convo-hint--${esc(e.status)}"><span class="convo-speaker">${icon('wand-sparkles')}</span>` +
