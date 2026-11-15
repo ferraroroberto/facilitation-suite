@@ -417,7 +417,7 @@ async function wrapUp(e) {
   busy = false;
   if (r) {
     wrapUpNote = stepLine(r.steps);
-    toast(wrapUpNote, r.steps.some((s) => s.status === 'failed') ? 'error' : 'info');
+    toast(wrapUpNote, r.failed ? 'error' : 'info');
   }
   await load(); // a rebuild changes the results, the exports change the links, the analysis card starts polling
 }

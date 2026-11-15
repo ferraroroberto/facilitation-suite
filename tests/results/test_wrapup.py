@@ -37,7 +37,7 @@ def test_finish_runs_every_step_in_order_and_skips_a_rebuild_with_nothing_to_cha
     monkeypatch.setattr(client.app.state.analysis, "start", lambda s, *_: started.append(s))
     r = client.post(f"/api/sessions/{sid}/wrap-up")
     assert r.status_code == 200, r.text
-    assert [s["key"] for s in r.json()["steps"]] == ["rebuild", "pdf", "xlsx", "analysis"]
+    assert [s["key"] for s in r.json()["steps"]] == ["rebuild", "pdf", "xlsx", "analysis"] and r.json()["failed"] is False
     steps = _steps(r.json())
     assert steps["rebuild"] == ("done", "Nothing to change")
     assert steps["pdf"] == ("done", "3 pages") and steps["xlsx"] == ("done", "Saved")
@@ -66,8 +66,9 @@ def test_a_failed_rebuild_stops_the_exports_so_they_never_carry_stale_results(cl
         raise rebuild.RebuildError(502, "render_failed", "1 stage picture(s) could not be drawn")
 
     monkeypatch.setattr(rebuild, "apply", broken)
-    steps = _steps(client.post(f"/api/sessions/{sid}/wrap-up").json())
-    assert steps["rebuild"] == ("failed", "1 stage picture(s) could not be drawn")
+    body = client.post(f"/api/sessions/{sid}/wrap-up").json()
+    steps = _steps(body)
+    assert steps["rebuild"] == ("failed", "1 stage picture(s) could not be drawn") and body["failed"] is True
     assert {steps[k][0] for k in ("pdf", "xlsx", "analysis")} == {"skipped"}
     assert not (folder / "exports" / "session-full.pdf").exists() and not (folder / "exports" / "report.xlsx").exists()
 
