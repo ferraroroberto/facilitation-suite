@@ -390,7 +390,7 @@ function settingsHtml(s, look) {
     (look.uses_defaults ? '' : `<button type="button" class="button-ghost" data-look-reset data-track="sessions.look-reset">${icon('rotate-ccw')} Reset all to defaults</button>`) +
     `<span class="card-head-meta" data-lettering>${esc(letteringLabel(s.font))}</span></div>` +
     `<p class="muted small">Two fonts: the <b>title font</b> for titles and questions, the <b>text font</b> for the rest. Below, each kind of text can take either, in capitals or as typed; an item can set its own in the Plan tab. The timer’s colours are at the end. New sessions start from Settings → Stage defaults.</p>` +
-    `<div class="font-rows"><label class="font-row"><span class="small">Stage theme</span><select class="select-native" aria-label="Stage theme" data-theme-select data-track="sessions.theme">` +
+    `<div class="font-rows"><label class="font-row"><span class="small">Colour set</span><select class="select-native" aria-label="Colour set" data-theme-select data-track="sessions.theme">` +
     themeOptions(look.themes, s.theme) +
     `</select></label></div>` +
     fontEditorHtml(s.font, { hint: hintOf(s), library: look.fonts, defaults: look.defaults }));
@@ -527,7 +527,7 @@ function settingsCard(sid, s, look, saveSession, onDetails) {
     reset.addEventListener('click', async () => {
       const ok = await confirmDialog({
         title: 'Reset all to defaults?',
-        message: 'The stage theme and lettering go back to Settings → Stage defaults. Every item that follows the presentation changes with it; items with their own value keep it.',
+        message: 'The colour set and lettering go back to Settings → Stage defaults. Every item that follows the presentation changes with it; items with their own value keep it.',
         actionLabel: 'Reset all',
       });
       if (!ok) return;

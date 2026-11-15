@@ -420,8 +420,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
   object-fit: cover;
 }
 .thumb-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
-.item-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chips { display: inline-flex; gap: 4px; flex: none; }
+.item-title { flex: 1 1 8ch; min-width: 8ch; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the chips wrap inside the row rather than push the kebab past the card's edge on a phone */
+.chips { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; flex: 0 1 auto; min-width: 0; }
 .add-row {
   display: flex;
   align-items: center;

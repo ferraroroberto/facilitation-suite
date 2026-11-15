@@ -383,9 +383,9 @@ function themeCard() {
   const card = document.createElement('div');
   card.className = 'card settings-card';
   card.innerHTML =
-    `<div class="card-head"><h3 class="card-title">${icon('presentation')} Stage theme</h3></div>` +
+    `<div class="card-head"><h3 class="card-title">${icon('presentation')} Stage colour set</h3></div>` +
     `<div class="font-rows"><label class="font-row"><span class="small">New sessions</span>` +
-    `<select class="select-native" aria-label="Default stage theme" data-default-theme data-track="settings.default-theme">${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
+    `<select class="select-native" aria-label="Default colour set" data-default-theme data-track="settings.default-theme">${themeOptions(defs.library.themes, defs.stage.theme)}</select></label></div>` +
     '<p class="small muted settings-note">The stage’s colours and layout. A new session copies the default; an existing session keeps its own (on the Sessions tab, in Session settings under Stage look, where “Reset to default” takes the current one).</p>';
   card.querySelector('[data-default-theme]').addEventListener('change', async (e) => {
     if (await saveDefaults({ stage: { theme: e.target.value } })) render();
@@ -441,15 +441,15 @@ function libraryCard() {
   card.className = 'card settings-card';
   const row = (glyph, title, meta) => `<div class="list-row library-row"><span class="settings-ico">${icon(glyph)}</span>` +
     `<span class="grow"><span class="row-title">${esc(title)}</span><span class="row-meta">${esc(meta)}</span></span></div>`;
-  const rows = [...lib.fonts.map((f) => row('type', f.name, 'Font')), ...own.map((t) => row('palette', t.label, 'Stage theme'))];
+  const rows = [...lib.fonts.map((f) => row('type', f.name, 'Font')), ...own.map((t) => row('palette', t.label, 'Colour set'))];
   card.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('folder')} Stage library</h3>` +
-    `<span class="card-head-meta">${plural(lib.fonts.length, 'font')} · ${plural(own.length, 'theme')}</span></div>` +
+    `<span class="card-head-meta">${plural(lib.fonts.length, 'font')} · ${plural(own.length, 'colour set')}</span></div>` +
     (rows.length ? `<div class="list">${rows.join('')}</div>`
-      : '<p class="small muted settings-note">Nothing here yet. Add a font file or a stage theme to offer it to every session.</p>') +
+      : '<p class="small muted settings-note">Nothing here yet. Add a font file or a colour set to offer it to every session.</p>') +
     `<p class="small muted settings-note">Your own files, kept next to your sessions and never in the app’s folder: <code class="library-path">${esc(lib.path)}</code></p>` +
     `<div class="row-actions settings-actions"><button type="button" class="button-surface" data-add="font" data-track="settings.add-font">${icon('plus')} Add font…</button>` +
-    `<button type="button" class="button-surface" data-add="theme" data-track="settings.add-theme">${icon('plus')} Add stage theme…</button></div>`;
+    `<button type="button" class="button-surface" data-add="theme" data-track="settings.add-theme">${icon('plus')} Add colour set…</button></div>`;
   card.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', async () => {
     const kind = b.dataset.add;
     try {
