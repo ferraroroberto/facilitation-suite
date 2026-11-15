@@ -2,6 +2,8 @@
 
 The gear in any tab's header opens **Settings**: what is common to every presentation, in five sections — each with its own link, `/#settings/<section>` (the presenter's music chip opens `/#settings/music`).
 
+Each section is overline-headed inset groups of one-line rows (the fleet `settings-group` component): a row holds one trailing item — a value that opens a sheet, a picker, a switch or a number field. Switches, pickers, numbers and the light/dark and text-size choices save as you change them; what needs room (Spotify, the lettering editor, the stage library, the phone remote, the Stream Deck URLs, the credits) opens in a sheet.
+
 | Section | What | Global or per session |
 |---|---|---|
 | **Appearance** | light / dark / system for the app, the presenter and the phone remote · text size | global (every device) · text size per device |

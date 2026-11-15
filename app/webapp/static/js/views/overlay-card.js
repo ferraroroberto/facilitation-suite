@@ -3,9 +3,9 @@
 // and how it looks. Every save moves an open overlay at once and puts a sample there, so finding the
 // right spot on the prompter screen is a matter of picking and looking.
 
-import { icon } from '/static/_vendored/icons/icons.js';
-import { api, esc, toast, switchRow } from '/static/js/ui.js';
+import { api, esc, toast } from '/static/js/ui.js';
 import { formDialog } from '/static/js/dialogs.js';
+import { actionRow, factRow, selectRow, settingsGroup, toggleRow, valueRow } from '/static/js/views/settings-rows.js';
 
 export const POSITION_LABEL = {
   'top-left': 'Top left', 'top-center': 'Top centre', 'top-right': 'Top right', center: 'Centre',
@@ -35,11 +35,11 @@ export async function showOverlaySample(offHint) {
   }
 }
 
-export function overlayCard() {
-  const card = document.createElement('div');
-  card.className = 'card settings-card overlay-card';
-  const head = `<div class="card-head"><h3 class="card-title">${icon('monitor')} Copilot overlay</h3></div>`;
-  card.innerHTML = head + '<p class="small muted">Loading…</p>';
+export function overlayGroup() {
+  const { frag, card, foot } = settingsGroup('overlay', 'Copilot overlay', [], '');
+  card.classList.add('overlay-card');
+  const message = (text) => { card.replaceChildren(factRow({ glyph: 'monitor', label: 'Overlay', value: text })); };
+  message('Loading…');
 
   async function save(patch, message = 'Overlay saved — a sample shows where it sits') {
     try {
@@ -75,28 +75,27 @@ export function overlayCard() {
 
   function draw(d) {
     const o = d.overlay;
-    card.innerHTML = head;
-    card.appendChild(switchRow(o.enabled, 'Show the hints on an overlay window', (next) => save({ enabled: next }, next ? 'Overlay on — a sample shows where it sits' : 'Overlay off')));
-    const body = document.createElement('div');
-    body.innerHTML =
-      '<div class="font-rows">' +
-      `<label class="font-row"><span class="small">Screen</span><select class="select-native" aria-label="Overlay screen" data-ov="screen" data-track="settings.overlay-screen">${screenOptions(d)}</select></label>` +
-      `<label class="font-row"><span class="small">Position</span><select class="select-native" aria-label="Overlay position" data-ov="position" data-track="settings.overlay-position">${options(d.positions.map((p) => [p, POSITION_LABEL[p] || p]), o.position)}</select></label>` +
-      `<label class="font-row"><span class="small">Shows</span><select class="select-native" aria-label="What the overlay shows" data-ov="mode" data-track="settings.overlay-mode">${options(d.modes.map((m) => [m, MODE_LABEL[m] || m]), o.mode)}</select></label>` +
-      '</div>' +
-      `<div class="list"><button type="button" class="list-row settings-row" data-ov-look data-track="settings.overlay-look">` +
-      `<span class="settings-ico">${icon('palette')}</span><span class="grow"><span class="row-title">Look</span>` +
-      `<span class="row-meta">${esc(SHAPE_LABEL[o.shape] || o.shape)} · ${o.width} px · ${esc(o.font)} ${o.font_size} px · ${o.opacity} % · ${o.show_seconds} s</span></span>${icon('chevron-right')}</button></div>` +
-      `<div class="row-actions"><button type="button" class="button-tint" data-ov-sample data-track="settings.overlay-sample">${icon('eye')} Show a sample</button></div>` +
-      '<p class="small muted settings-note">The overlay stays on top of every app on the screen you pick, lets every click through and shows nothing until Copilot has a hint, then fades. “Only a cue” flashes a small icon instead and puts the words on the presenter, so it never covers the call.</p>';
-    card.appendChild(body);
-    body.querySelectorAll('[data-ov]').forEach((sel) => sel.addEventListener('change', () => save({ [sel.dataset.ov]: sel.value })));
-    body.querySelector('[data-ov-look]').addEventListener('click', () => editLook(o, d));
-    body.querySelector('[data-ov-sample]').addEventListener('click', () => showOverlaySample('first'));
+    const pick = (key, { row, select }) => {
+      select.dataset.ov = key;
+      select.addEventListener('change', () => save({ [key]: select.value }));
+      return row;
+    };
+    const look = `${SHAPE_LABEL[o.shape] || o.shape} · ${o.width} px · ${o.font} ${o.font_size} px · ${o.opacity} % · ${o.show_seconds} s`;
+    card.replaceChildren(
+      toggleRow({ glyph: 'monitor', label: 'Show hints on an overlay', on: o.enabled, track: 'settings.overlay-enabled',
+        onToggle: (next) => save({ enabled: next }, next ? 'Overlay on — a sample shows where it sits' : 'Overlay off') }),
+      pick('screen', selectRow({ glyph: 'layout-grid', label: 'Screen', aria: 'Overlay screen', track: 'settings.overlay-screen', optionsHtml: screenOptions(d) })),
+      pick('position', selectRow({ glyph: 'map-pin', label: 'Position', aria: 'Overlay position', track: 'settings.overlay-position',
+        optionsHtml: options(d.positions.map((p) => [p, POSITION_LABEL[p] || p]), o.position) })),
+      pick('mode', selectRow({ glyph: 'eye', label: 'Shows', aria: 'What the overlay shows', track: 'settings.overlay-mode',
+        optionsHtml: options(d.modes.map((m) => [m, MODE_LABEL[m] || m]), o.mode) })),
+      valueRow({ glyph: 'palette', label: 'Look', value: look, track: 'settings.overlay-look', onOpen: () => editLook(o, d) }),
+      actionRow({ glyph: 'play', label: 'Show a sample', track: 'settings.overlay-sample', onTap: () => showOverlaySample('first') }),
+    );
+    foot.textContent = 'Stays on top of every app on the screen you pick, lets every click through and shows nothing until Copilot has a hint. “Only a cue” puts the words on the presenter.';
+    foot.hidden = false;
   }
 
-  api('/api/copilot/settings').then(draw).catch((e) => {
-    card.innerHTML = head + `<p class="small muted">${esc(e.message)}</p>`;
-  });
-  return card;
+  api('/api/copilot/settings').then(draw).catch((e) => message(e.message));
+  return frag;
 }

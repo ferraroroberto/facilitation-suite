@@ -306,7 +306,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .font-stroke input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .font-stroke output { width: 56px; text-align: right; }
 .font-color { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--input-bg); cursor: pointer; }
-.font-size-input { width: 96px; }
+.font-size-input { width: 80px; }
 .font-note { margin: var(--space-sm) 0 0; }
 .font-group { margin: var(--space-md) 0 0; font-size: var(--font-label); font-weight: 600; color: var(--muted); }
 .font-sample-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
@@ -708,24 +708,20 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .rebuild-row .row-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ---- Settings ----------------------------------------------------------- */
-.settings-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
-.settings-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-left: 0; padding-right: 0; }
-.settings-row .grow { display: grid; }
-.settings-row > .icon { color: var(--muted); }
-.settings-ico { width: 64px; display: grid; place-items: center; color: var(--muted); }
+/* The groups, rows and footnotes are the vendored settings-group; only what a row holds beyond it is here. */
 .settings-note { margin: 0; }
-.zone-thumb { position: relative; flex: none; width: 64px; height: 36px; border-radius: 6px; background: var(--card-off); border: 1px solid var(--line); overflow: hidden; }
-.zone-thumb span { position: absolute; background: var(--muted); border-radius: 3px; }
+.settings-row .segmented { flex: none; margin-left: auto; }
+.settings-sheet { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
+.sheet-body { margin-top: var(--space-sm); }
+.dialog-wide { width: min(640px, 92vw); }
 .deck-row { gap: var(--space-md); padding: 8px 0; }
 .remote-actions .button-tint, .remote-actions .button-surface { gap: 8px; padding: 0 14px; }
 .deck-label { width: 220px; flex: none; font-weight: 600; font-size: var(--font-body-sm); }
 .deck-row code { font-family: var(--mono); font-size: var(--font-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-row .button-surface { padding: 0 12px; }
 @media (max-width: 640px) { .deck-label { width: auto; } .deck-row { flex-wrap: wrap; } }
-/* Five sections, each a heading-md title over its cards; a deep link scrolls to one. */
-.settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); scroll-margin-top: var(--gap); }
-.settings-section-title { display: flex; align-items: center; gap: 8px; margin: var(--space-md) 0 0; font-size: var(--font-heading-md); font-weight: 700; line-height: 1.25; }
-.settings-section-title .icon { width: var(--icon-title); height: var(--icon-title); color: var(--muted); }
+/* Five sections of groups; a deep link scrolls to one. */
+.settings-section { scroll-margin-top: var(--gap); }
 .settings-actions .button-tint, .settings-actions .button-surface { gap: 8px; padding: 0 14px; }
 .library-row { padding: 8px 0; }
 .library-row .grow { display: grid; min-width: 0; }

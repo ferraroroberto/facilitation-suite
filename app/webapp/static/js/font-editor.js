@@ -116,8 +116,8 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [], def
     `<span class="small muted" data-contrast></span></span></div>` +
     `<label class="font-row"><span class="small">Size</span><span class="inline-controls">` +
     `<input type="number" class="input font-size-input" min="24" max="240" step="2" placeholder="72" value="${size || ''}" aria-label="Title size in stage px" data-title-size>` +
-    `<span class="small muted">px · empty = 72</span></span></label>` + globalDiff(font, defaults, 'size') + `</div>` +
-    `<p class="small muted font-note">Colour and size letter activity titles and questions. Imported slides keep their PowerPoint size and colour.</p>` +
+    `<span class="small muted">px</span></span></label>` + globalDiff(font, defaults, 'size') + `</div>` +
+    `<p class="small muted font-note">Colour and size letter activity titles and questions; an empty size is 72. Imported slides keep their PowerPoint size and colour.</p>` +
     (file ? `<p class="mono small muted font-path" title="${esc(file)}">${esc(file)}</p>` : '') +
     `<h4 class="font-group">Text font</h4><div class="font-rows">` +
     `<label class="font-row"><span class="small">Font</span><select class="select-native" aria-label="Text font" data-text-family data-track="font.text-family">` +

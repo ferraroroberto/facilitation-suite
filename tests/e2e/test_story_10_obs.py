@@ -58,7 +58,7 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             # Settings: give Camera PiP another scene
             page.goto(f"{inst.base_url}/")
             page.locator("[data-open-settings]").first.click()
-            expect(page.locator(".settings-card .chip", has_text="OBS")).to_contain_text("OBS connected")
+            expect(page.locator("[data-value=obs-state]")).to_have_text("OBS connected")
             page.locator("[data-profile=camera_pip]").click()
             page.locator("dialog select[name=scene]").select_option("Camera big")
             surface(page, "settings.obs-profile")
@@ -68,12 +68,12 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             surface(page, "settings.obs")
 
             # #191: a click on the stage goes on only when this switch is on (off by default)
-            card = page.locator(".settings-card", has_text="Clicking the stage")
+            card = page.locator("[data-group=stage-click]")
             expect(card.locator("[role=switch]")).to_have_count(2)  # next item (off), restore camera layout (on)
             expect(card.locator("[role=switch]").nth(0)).to_have_attribute("aria-checked", "false")
             expect(card.locator("[role=switch]").nth(1)).to_have_attribute("aria-checked", "true")
             card.locator("[role=switch]").nth(0).click()
-            expect(page.locator(".settings-card", has_text="Clicking the stage").locator("[role=switch]").nth(0)).to_have_attribute("aria-checked", "true")
+            expect(page.locator("[data-group=stage-click]").locator("[role=switch]").nth(0)).to_have_attribute("aria-checked", "true")
             # the switch moves at once and the save follows: wait for the server to have it
             page.wait_for_function("() => fetch('/api/settings').then((r) => r.json()).then((j) => j.stage_click.advance === true)")
         finally:
