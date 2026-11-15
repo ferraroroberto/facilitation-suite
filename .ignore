@@ -3,6 +3,7 @@
 /app/tray/watchdog.py
 /app/webapp/serve.py
 /app/webapp/static/_vendored/base
+/app/webapp/static/_vendored/build-watch
 /app/webapp/static/_vendored/button
 /app/webapp/static/_vendored/card
 /app/webapp/static/_vendored/disclosure
