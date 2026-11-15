@@ -142,6 +142,15 @@ class WebappManager:
             return local
         return self.public_url
 
+    @property
+    def child_pid(self) -> int | None:
+        """The pid of the webapp child this manager spawned and that is still alive, else ``None``.
+
+        ``start(wait=False)`` returns before the child binds, so its status carries no pid yet;
+        the tray's respawn guard reads the pid here."""
+        proc = self._proc
+        return proc.pid if proc is not None and proc.poll() is None else None
+
     def is_local_listener_up(self) -> bool:
         """A real ``/healthz`` round-trip on the local listener."""
         try:
