@@ -10,6 +10,7 @@
 | Sub-feature | Surface name | Driving test node(s) |
 | --- | --- | --- |
 | chat | `remote.chat` | `tests/e2e/test_story_14_remote.py::test_phone_remote` |
+| copilot-hints | `remote.copilot-hints` | `tests/e2e/test_story_14_remote.py::test_phone_remote` |
 | groups | `remote.groups` | `tests/e2e/test_story_14_remote.py::test_phone_remote` |
 | idle | `remote.idle` | `tests/e2e/test_smoke.py::test_shell_loads_and_navigates` |
 | live | `remote.live` | `tests/e2e/test_story_14_remote.py::test_phone_remote` |

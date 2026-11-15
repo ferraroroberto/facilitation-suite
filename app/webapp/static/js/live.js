@@ -110,6 +110,16 @@ export function timing(plan, state, cur, now) {
   return out;
 }
 
+/** How a copilot hint's type reads on every screen that shows one. */
+export const HINT_LABEL = { next_q: 'Ask', notice: 'Notice', drift: 'Time', recap: 'Recap' };
+
+/** The copilot's hints still worth showing: fresh (server time) and asked for the item on stage. */
+export function liveHints(c, itemId, now) {
+  if (!c || !c.on || !c.hints || !c.hints.length || !c.hints_at) return [];
+  if (now - c.hints_at > c.ttl_s * 1000 || c.hints_item_id !== itemId) return [];
+  return c.hints;
+}
+
 /** "+2 min" / "−3 min" / "on time". */
 export function driftText(minutes) {
   return minutes >= 1 ? `+${minutes} min` : minutes <= -1 ? `−${-minutes} min` : 'on time';

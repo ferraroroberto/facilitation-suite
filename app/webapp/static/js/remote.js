@@ -1,5 +1,6 @@
 // /remote — the phone in the facilitator's hand: what is on stage,
-// what comes next, the session clock against the plan, and the same intents as
+// what comes next, the session and section clocks against the plan, the copilot's
+// hints while it is on (a strip that folds away), and the same intents as
 // the keyboard — next/previous, capture, timer, blackout — as big buttons, plus
 // the music (play/pause, stop, volume) when the session has any, and on a quiz
 // its phase, players, answers, time left and Lock (Next steps the quiz phases).
@@ -11,7 +12,7 @@ import { icon } from '/static/_vendored/icons/icons.js';
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
 import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, APP } from '/static/js/ui.js';
-import { connectLive, neighbour, remaining, timerMode, hms, timing, driftText } from '/static/js/live.js';
+import { connectLive, neighbour, remaining, timerMode, hms, timing, driftText, liveHints, HINT_LABEL } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { sourceName } from '/static/js/chat-source.js';
 
@@ -25,6 +26,9 @@ let preview = null;
 let shellFor = null;
 let chat = [];
 let groupsRound = 'pairs';
+const HINTS_KEY = APP + '.remote.hints'; // this phone's own fold of the hint strip
+let hintsFolded = false;
+try { hintsFolded = localStorage.getItem(HINTS_KEY) === 'folded'; } catch (e) { /* no storage: start open */ }
 const READER_TEXT = {
   reading: 'reading', simulating: 'simulating', starting: 'starting', window_not_found: 'pop out the chat on the PC',
   stale: 'no answer from the reader', error: 'reader error', off: 'reader off',
@@ -106,7 +110,13 @@ function buildShell() {
     '<div class="card r-now"><div class="stage-host r-stage"></div>' +
       '<div class="r-caption"><b data-r-title></b><span class="r-count" data-r-count></span><span class="r-timer" data-r-timer></span></div></div>' +
     '<div class="card r-next"><div class="grow"><div class="r-label" data-r-nextlabel></div><div class="r-next-title" data-r-next></div></div>' +
-      '<div class="r-clock"><b data-r-elapsed></b><span data-r-drift></span></div></div>' +
+      '<div class="r-clock"><b data-r-elapsed></b><span data-r-drift></span></div>' +
+      '<div class="r-sec" data-r-sec hidden><span class="r-sec-name" data-r-secname></span><span class="r-sec-left" data-r-secleft></span></div></div>' +
+    '<div class="card r-hints" data-r-hints hidden>' +
+      // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
+      `<button type="button" class="r-hints-head" data-r-hints-fold aria-controls="rHintList">${icon('wand-sparkles')}` +
+        `<b>Copilot</b><span class="r-hints-meta" data-r-hints-meta></span>${icon('chevron-down')}</button>` +
+      '<ol class="r-hint-list" id="rHintList" data-r-hint-list></ol></div>' +
     // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
     `<button type="button" class="button-primary r-capture" data-r-capture hidden></button>` +
     '<div class="card r-quiz" data-r-quiz hidden><div class="r-quiz-top"><b data-r-qphase></b><span class="r-quiz-left" data-r-qleft></span></div>' +
@@ -153,6 +163,11 @@ function buildShell() {
   on('[data-r-mstop]', 'music_stop');
   const vol = livePane.querySelector('[data-r-mvol]');
   vol.addEventListener('change', () => live.send('music_volume', vol.value));
+  livePane.querySelector('[data-r-hints-fold]').addEventListener('click', () => {
+    hintsFolded = !hintsFolded;
+    try { localStorage.setItem(HINTS_KEY, hintsFolded ? 'folded' : 'open'); } catch (e) { /* this visit only */ }
+    tick();
+  });
 }
 
 function drawLive() {
@@ -257,6 +272,39 @@ function tick() {
   const drift = livePane.querySelector('[data-r-drift]');
   drift.textContent = t ? driftText(t.drift) : 'clock not started';
   drift.className = t && t.drift >= 1 ? 'over' : '';
+  drawSection(t);
+  drawHints(s.copilot, cur, now);
+}
+
+/** The section on stage and its time left (or over), once the session clock runs. */
+function drawSection(t) {
+  const box = livePane.querySelector('[data-r-sec]');
+  box.hidden = !(t && t.section);
+  if (box.hidden) return;
+  const left = t.section.minutes - t.inSection;
+  livePane.querySelector('[data-r-secname]').textContent = t.section.name;
+  const el = livePane.querySelector('[data-r-secleft]');
+  el.textContent = left >= 0 ? `${clock(left * 60)} left of ${t.section.minutes} min` : `over by ${clock(-left * 60)}`;
+  el.classList.toggle('over', left < 0);
+}
+
+/** While Copilot is on: its fresh hints for the item on stage, the same ones the presenter shows; folded,
+ *  only how many there are. */
+function drawHints(c, cur, now) {
+  const box = livePane.querySelector('[data-r-hints]');
+  box.hidden = !(c && c.on);
+  if (box.hidden) return;
+  const hints = liveHints(c, cur ? cur.id : null, now);
+  livePane.querySelector('[data-r-hints-fold]').setAttribute('aria-expanded', String(!hintsFolded));
+  box.classList.toggle('folded', hintsFolded);
+  box.classList.toggle('has-hints', hints.length > 0);
+  livePane.querySelector('[data-r-hints-meta]').textContent = hints.length
+    ? `${hints.length} hint${hints.length === 1 ? '' : 's'}` : 'listening';
+  const list = livePane.querySelector('[data-r-hint-list]');
+  list.hidden = hintsFolded;
+  const html = hints.map((h) => `<li class="r-hint"><span class="r-hint-type">${h.test ? 'Test · ' : ''}${esc(HINT_LABEL[h.type] || h.type)}</span>` +
+    `<span class="r-hint-text">${esc(h.text)}</span></li>`).join('');
+  if (list.dataset.html !== html) { list.dataset.html = html; list.innerHTML = html; }
 }
 
 // ---- Chat ------------------------------------------------------------------------

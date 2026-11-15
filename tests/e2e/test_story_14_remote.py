@@ -1,5 +1,5 @@
 """Story 14: the phone remote — what is on stage, what is next, the session
-clock; Next, Start capture (the timer starts with it), answers counting up,
+and section clocks; the copilot's hints, folded or open; Next, Start capture (the timer starts with it), answers counting up,
 blackout; the chat to hide a message from; the breakout rooms to read out;
 one light/dark for the presenter, the phone and the app (#92); and what an
 unpaired phone sees."""
@@ -55,6 +55,33 @@ def _follow_and_capture(page: Page, base: str, shots) -> Locator:
     shot(page, shots / "story-14-remote-1-live.png", settle=0.6)  # let the cloud settle
     surface(page, "remote.live")
     return sub
+
+
+def _check_section_and_hints(page: Page, base: str) -> None:
+    """The section clock under Next; with Copilot on, its hints in a strip that folds away and stays folded
+    on this phone across a reload; off again (the instance is shared), the strip goes."""
+    expect(page.locator("[data-r-secleft]")).to_contain_text("left of")
+    hints = page.locator("[data-r-hints]")
+    expect(hints).to_be_hidden()  # Copilot off
+    assert page.request.post(f"{base}/api/copilot/consent").ok
+    assert page.request.post(f"{base}/api/actions/copilot_toggle").ok
+    expect(page.locator("[data-r-hints-meta]")).to_have_text("listening")
+    r = page.request.post(f"{base}/api/copilot/transcript",
+                          data={"lines": [{"speaker": "them", "text": "We could test the cheapest idea first"}]})
+    assert r.ok, r.text()
+    expect(hints.locator(".r-hint").first).to_contain_text("Ask which idea they would test first")
+    expect(page.locator("[data-r-hints-meta]")).to_have_text("2 hints")
+    surface(page, "remote.copilot-hints")
+    page.locator("[data-r-hints-fold]").click()
+    expect(page.locator("[data-r-hint-list]")).to_be_hidden()
+    expect(page.locator("[data-r-hints-fold]")).to_have_attribute("aria-expanded", "false")
+    page.reload()
+    expect(page.locator("[data-r-hints-meta]")).to_have_text("2 hints")
+    expect(page.locator("[data-r-hint-list]")).to_be_hidden()
+    page.locator("[data-r-hints-fold]").click()
+    expect(hints.locator(".r-hint")).to_have_count(2)
+    assert page.request.post(f"{base}/api/actions/copilot_toggle").ok
+    expect(hints).to_be_hidden()
 
 
 def _check_chat_and_groups(page: Page, shots) -> None:
@@ -165,6 +192,7 @@ def test_phone_remote(page: Page, browser: Browser, webapp, shots) -> None:
     assert page.request.post(f"{base}/api/live/activate", data={"session": sid}).ok
     assert page.request.post(f"{base}/api/actions/clock_start").ok
     sub = _follow_and_capture(page, base, shots)
+    _check_section_and_hints(page, base)
     _check_chat_and_groups(page, shots)
     _check_capture_and_blackout(page, base, sub)
     _check_appearance_everywhere(page, browser, base, webapp)
