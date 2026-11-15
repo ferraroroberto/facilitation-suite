@@ -145,3 +145,12 @@ def test_restart_refuses_a_wedged_external_process(
     monkeypatch.setattr(manager, "is_port_in_use", lambda: True)
     with pytest.raises(RuntimeError, match="externally"):
         manager.restart()
+
+
+def test_child_pid_names_the_live_spawned_child_only(manager: WebappManager, owned_process) -> None:
+    assert manager.child_pid is None
+    manager._proc = owned_process
+    assert manager.child_pid == owned_process.pid
+    owned_process.kill()
+    owned_process.wait(timeout=5)
+    assert manager.child_pid is None

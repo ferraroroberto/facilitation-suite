@@ -17,9 +17,11 @@ the tray on ``tray.bat --restart`` and is started again if it exits.
 
 Self-heal (vendored ``app/tray/watchdog.py``):
 the initial spawn retries with backoff on a background thread, a health
-watchdog splits *dead* (not listening → respawn, then ``rearm()`` if that
-failed) from *wedged* (listening, ``/healthz`` silent → alert only), and every
-attempt leaves a breadcrumb in ``webapp/watchdog.log`` — the only durable
+watchdog splits *starting* (our own child is alive inside its startup window →
+back off), *dead* (not listening → respawn) and *wedged* (listening,
+``/healthz`` silent → alert only). Every spawn goes through one
+``RespawnGuard``, so a slow boot never leaves two webapp copies on the port, and
+every attempt leaves a breadcrumb in ``webapp/watchdog.log`` — the only durable
 trail under ``pythonw``, which has no ``sys.stderr``.
 """
 
@@ -37,6 +39,8 @@ from app.tray.watchdog import (
     DEFAULT_STARTUP_RETRY_DELAYS_S,
     BreadcrumbLog,
     HealthWatchdog,
+    RespawnGuard,
+    RespawnOutcome,
     retry_with_backoff,
 )
 from app.webapp.manager import WebappManager, WebappManagerConfig
@@ -114,6 +118,7 @@ class TrayApp:
         self.instance = instance  # held for the tray's lifetime (named mutex)
         self.manager = WebappManager(WebappManagerConfig.from_app_config(config))
         self.wd_log = BreadcrumbLog(WATCHDOG_LOG)
+        self.guard = RespawnGuard(self.wd_log)  # owns the one webapp child this tray spawned
         self.watchdog_stop = threading.Event()
         self.watchdog = HealthWatchdog(
             probe=self.manager.is_reachable,
@@ -129,15 +134,33 @@ class TrayApp:
         self.wd_log(f"webapp start attempt {attempt} failed: {exc}")
         logger.warning("⚠️ webapp start attempt %d failed: %s", attempt, exc)
 
+    def _spawn(self) -> int:
+        """Spawn the webapp without waiting for readiness and return the child's pid.
+
+        A start that raised on its readiness timeout would lose the pid of a child
+        that is still booting; readiness is the watchdog probe's job.
+        """
+        self.manager.start(wait=False)
+        pid = self.manager.child_pid
+        if pid is None:
+            raise RuntimeError("webapp start spawned no child process")
+        return pid
+
+    def _spawn_or_adopt(self) -> None:
+        if self.manager.status().running:
+            self.wd_log(f"adopting the webapp already answering at {self.manager.base_url}")
+            return
+        self.guard.respawn(self._spawn)
+
     def _start(self) -> None:
         try:
             retry_with_backoff(
-                lambda: self.manager.start(wait=True),
+                self._spawn_or_adopt,
                 DEFAULT_STARTUP_RETRY_DELAYS_S,
                 self._on_start_attempt_failed,
             )
-            self.wd_log(f"webapp started at {self.manager.base_url}")
-            _notify("facilitation-suite ready", self.manager.public_url)
+            self.wd_log(f"webapp spawned for {self.manager.base_url}")
+            _notify("facilitation-suite starting", self.manager.public_url)
         except Exception as exc:  # noqa: BLE001 — exhausted: loud, never silent
             self.starter_exc = exc
             self.wd_log(f"webapp start FAILED permanently: {exc}")
@@ -145,6 +168,12 @@ class TrayApp:
             _notify("facilitation-suite start failed", str(exc))
 
     def _on_wedge(self, count: int) -> None:
+        if self.guard.is_starting():
+            # Our own child is still booting (slow after an unclean reboot): a spawn
+            # now would leave two copies on one port.
+            self.wd_log(f"webapp pid {self.guard.pid} still starting ({count} failed probes)")
+            self.watchdog.rearm()
+            return
         if self.manager.is_port_in_use():
             # Wedged: listening but not answering. Alert only — auto-killing a
             # stuck process can mask what is actually wrong.
@@ -153,19 +182,20 @@ class TrayApp:
             logger.error("❌ %s", msg)
             _notify("facilitation-suite webapp wedged", "Listening but not answering — use tray.bat --restart")
             return
-        # Dead: not listening at all — safe to respawn.
+        # Dead: not listening at all — the guard stops our old child, then respawns.
         self.wd_log(f"webapp not listening ({count} consecutive failures) -- respawning")
         try:
-            self.manager.start(wait=True)
-            self.wd_log("webapp respawned successfully")
-            _notify("facilitation-suite webapp respawned", self.manager.base_url)
+            if self.guard.respawn(self._spawn) is RespawnOutcome.SPAWNED:
+                self.wd_log("webapp respawned")
+                _notify("facilitation-suite webapp respawned", self.manager.base_url)
         except Exception as exc:  # noqa: BLE001
             self.wd_log(f"webapp respawn failed: {exc}")
             logger.error("❌ webapp respawn failed: %s", exc)
             _notify("facilitation-suite respawn failed", str(exc))
-            self.watchdog.rearm()  # try again next tick, don't go silent
+        self.watchdog.rearm()  # re-evaluate next tick either way
 
     def _on_recover(self) -> None:
+        self.guard.mark_healthy()
         self.wd_log("webapp health recovered")
         logger.info("✅ webapp answering /healthz again")
         _notify("facilitation-suite webapp recovered", self.manager.base_url)
@@ -183,7 +213,13 @@ class TrayApp:
         def _do_restart() -> None:
             try:
                 _notify("facilitation-suite", "Restarting webapp…")
-                self.manager.restart(wait=True)
+                try:
+                    self.manager.restart(wait=True)
+                finally:
+                    # Tracked even when readiness timed out: that child is still alive.
+                    pid = self.manager.child_pid
+                    if pid is not None:
+                        self.guard.track(pid)
                 self.wd_log("webapp restarted from tray menu")
                 _notify("facilitation-suite webapp restarted", self.manager.public_url)
             except Exception as exc:  # noqa: BLE001
