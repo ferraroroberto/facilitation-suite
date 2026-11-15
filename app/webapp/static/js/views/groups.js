@@ -185,7 +185,7 @@ function renderRounds() {
   const noCsv = data.missing_emails && data.missing_emails.length;
   actions.innerHTML =
     `<button type="button" class="button-primary" data-shuffle data-track="groups.shuffle">${icon('shuffle')} Shuffle again</button>` +
-    `<button type="button" class="button-tint" data-copy data-track="groups.copy-rooms">${icon('copy')} Copy rooms for Zoom</button>` +
+    `<button type="button" class="button-surface" data-copy data-track="groups.copy-rooms">${icon('copy')} Copy rooms for Zoom</button>` +
     `<button type="button" class="button-surface" data-csv data-track="groups.export-csv" ${noCsv ? 'disabled' : ''}>${icon('download')} Export Zoom pre-assign CSV</button>` +
     `<button type="button" class="button-surface" data-reveal data-track="groups.reveal-slide">${icon('presentation')} Add reveal slide</button>`;
   detailEl.appendChild(actions);

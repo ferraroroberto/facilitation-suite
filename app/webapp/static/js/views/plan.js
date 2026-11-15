@@ -333,7 +333,8 @@ function renderList() {
     h.innerHTML =
       `<span class="grip" aria-hidden="true">${icon('grip-vertical')}</span>` +
       `<button type="button" class="icon-button sec-toggle" data-track="plan.section-toggle" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(sec.name)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>` +
-      `<button type="button" class="sec-name" data-track="plan.section-rename" title="Rename">${esc(sec.name)}</button>` +
+      `<span class="sec-name">${esc(sec.name)}</span>` +
+      `<button type="button" class="icon-button sec-rename" data-track="plan.section-rename" aria-label="Rename ${esc(sec.name)}">${icon('pencil')}</button>` +
       `<span class="sec-meta">${sec.items.length} item${sec.items.length === 1 ? '' : 's'}${collapsed ? ' · collapsed' : ''}</span>` +
       `<label class="sec-min"><input type="number" min="0" max="1440" value="${sec.minutes}" aria-label="Planned minutes for ${esc(sec.name)}"><span>min</span></label>` +
       `<button type="button" class="icon-button kebab" aria-label="Section actions" data-track="plan.section-menu">${icon('ellipsis-vertical')}</button>`;
@@ -341,7 +342,7 @@ function renderList() {
       if (collapsed) st.collapsed.delete(sec.id); else st.collapsed.add(sec.id);
       renderList();
     });
-    h.querySelector('.sec-name').addEventListener('click', () => renameSection(sec));
+    h.querySelector('.sec-rename').addEventListener('click', () => renameSection(sec));
     h.querySelector('.sec-min input').addEventListener('change', (e) => {
       sec.minutes = Math.max(0, parseInt(e.target.value, 10) || 0);
       markDirty();
@@ -397,11 +398,10 @@ function renderList() {
       listCard.appendChild(row);
     });
     if (!collapsed) {
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'add-row'; add.dataset.track = 'plan.add-item';
-      add.innerHTML = `${icon('plus')} Add slide or activity`;
-      add.addEventListener('click', (e) => {
+      const add = document.createElement('div');
+      add.className = 'add-slot';
+      add.innerHTML = `<button type="button" class="button-surface" data-track="plan.add-item">${icon('plus')} Add slide or activity</button>`;
+      add.querySelector('button').addEventListener('click', (e) => {
         rowMenu(e.currentTarget, [
           { label: 'Activity', icon: 'message-square', onClick: () => addItem(si, 'activity') },
           { label: 'Break', icon: 'coffee', onClick: () => addItem(si, 'break') },
