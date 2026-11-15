@@ -193,6 +193,11 @@ flowchart LR
   aftercall --> rtracks["src/copilot/recorder_tracks.py<br/>main takes in video editing/ · start from the file name · ffmpeg → 16 kHz mono"]
   rtracks -->|reads| recorderfiles[("podcast recorder episode folder<br/>recorder - host / guest - date time.mp4 + .json")]
   aftercall -->|"POST /v1/audio/transcriptions · /v1/chat/completions"| llmhub
+  resultsr -->|Run analysis| analysisrun["src/results/analysis_run.py<br/>session analysis on its own thread · one run per session"]
+  analysisrun --> dump
+  analysisrun -->|run state| acstate
+  analysisrun -->|"POST /v1/chat/completions · claude_sonnet → gemini_pro"| llmhub
+  analysisrun --> reportfiles[("report/analysis-&lt;date&gt;.md")]
   aftercall --> recfiles[("live/copilot/recorder-transcript.jsonl · recorder-summary.json")]
   convo --> recfiles
   copilot -.->|on / sample → starts · off → stops| overlayproc["app/tray/overlay/process.py<br/>OverlayProcess"]

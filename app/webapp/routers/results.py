@@ -118,9 +118,20 @@ def conversation(request: Request, sid: str, source: Optional[Literal["recorded"
 
 @router.get("/analysis")
 def analysis(request: Request, sid: str) -> dict[str, Any]:
-    """The *Analyze session* button's state: the command to copy and which inputs the analysis will find."""
+    """The *Analyze session* card's state: the command to copy, which inputs the analysis will find, whether the
+    app can run it through the hub, and the current or last run."""
     folder, session = _load(request, sid)
-    return analysis_facts(folder, len(load_results(folder, session)["activities"]))
+    runs = request.app.state.analysis
+    return {**analysis_facts(folder, len(load_results(folder, session)["activities"])),
+            "run_unavailable": runs.unavailable(), "job": runs.job(sid)}
+
+
+@router.post("/analysis/run")
+def run_analysis(request: Request, sid: str) -> dict[str, Any]:
+    """Ask the hub for the session's report; it is written to ``report/`` and shown on the card as a draft."""
+    folder, session = _load(request, sid)
+    request.app.state.analysis.start(sid, folder, len(load_results(folder, session)["activities"]))
+    return analysis(request, sid)
 
 
 def _roster_names(folder: Path) -> list[str]:

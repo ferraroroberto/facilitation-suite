@@ -672,7 +672,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .analyze-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
 .analyze-inputs { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .analyze-command { width: 100%; font-family: var(--mono); font-size: var(--font-body-sm); text-overflow: ellipsis; }
-.analyze-note { margin: 0; }
+.analyze-note, .analyze-run-note { margin: 0; }
+/* The draft report: the model's Markdown as plain text, scrolled inside the card so a long report keeps the buttons in reach. */
+.analyze-draft { margin: 0; max-height: 360px; overflow: auto; padding: var(--space-md); background: var(--card-off); border: 1px solid var(--line-muted); border-radius: var(--radius-sm); color: var(--ink); font-family: inherit; font-size: var(--font-body-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The Conversation card: the copilot's transcript as flat rows under each item, a hint row on a soft fill. */
 .convo-body { display: grid; gap: var(--space-md); }

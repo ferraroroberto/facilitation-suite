@@ -1,4 +1,5 @@
-"""The after-call run's state, declared once: running, done or failed.
+"""The after-call run's state, declared once: running, done or failed. The session analysis run
+(``src/results/analysis_run.py``) has the same lifecycle and holds this machine too.
 
 ``Job.state`` holds one ``AfterCallState`` and moves only through ``advance``, which refuses a move
 the table below does not list. The single-run guard and the job's wire form (``running``,
