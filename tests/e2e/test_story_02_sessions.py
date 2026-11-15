@@ -24,6 +24,7 @@ def _set_timer_default(page: Page, webapp, defaults: str) -> None:
     assert page.request.put(defaults, data={"stage": {"font": {"family": "Georgia", "weight": 700}}}).ok
     # #211: the timer colours are a global default too — set here in Settings, then copied into a new session
     page.goto(webapp.base_url + "/#settings/stage")
+    page.locator('[data-track="settings.lettering-open"]').click()  # the lettering editor is in a sheet
     default_card = page.locator(".defaults-font-card")
     expect(default_card.locator("[data-timer-color]")).to_have_count(4)
     expect(default_card.locator("[data-timer-color=running]")).to_have_value("#00a44e")

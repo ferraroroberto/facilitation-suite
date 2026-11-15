@@ -50,8 +50,9 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
 
     page.locator("#panePlan [data-open-settings]").click()
     expect(page.locator("#paneSettings")).to_be_visible()
-    expect(page.locator("#paneSettings .settings-section-title")).to_have_text(
-        ["Appearance", "Stage defaults", "Music", "Live tools", "About"])
+    expect(page.locator("#paneSettings .settings-overline")).to_have_text(
+        ["Appearance", "Stage defaults", "Music", "OBS", "Chat reader", "Clicking the stage", "Copilot overlay",
+         "Copilot recordings", "Remote control", "About"])
     surface(page, "settings.pane")
 
     before = page.evaluate("document.documentElement.dataset.theme")
@@ -77,7 +78,8 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
         chip.click()
     app_tab = opened.value
     expect(app_tab.locator("[data-section=music]")).to_be_in_viewport()
-    expect(app_tab.locator("[data-spotify-state]")).to_have_text("Not set up")
+    expect(app_tab.locator("[data-value=spotify]")).to_have_text("Not set up")
+    app_tab.locator("[data-value=spotify]").click()  # the row opens its sheet
     expect(app_tab.locator("[data-connect]")).to_be_disabled()  # no client id in .env
     app_tab.close()
     assert page.request.post(webapp.base_url + "/api/live/deactivate").ok

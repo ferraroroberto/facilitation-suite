@@ -22,6 +22,7 @@ modal           = { src = "app/webapp/static/_vendored/modal", sha = "713b1d1e36
 disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/disclosure" }
 empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/empty-state" }
 switch          = { src = "app/webapp/static/_vendored/switch", sha = "8f15c49560adbc076d24a8a63dd671868ffa7a4e", dest = "app/webapp/static/_vendored/switch" }
+settings-group = { src = "app/webapp/static/_vendored/settings-group", sha = "072d7355da45001255c3d53db00f80c3a3393900", dest = "app/webapp/static/_vendored/settings-group" }
 toast           = { src = "app/webapp/static/_vendored/toast", sha = "e56c8330f8500b83635773033a09de6fc3cba342", dest = "app/webapp/static/_vendored/toast" }
 build-watch = { src = "app/webapp/static/_vendored/build-watch", sha = "8c59c65b62896a7c0b9a1df4c45794c2c2320c42", dest = "app/webapp/static/_vendored/build-watch" }
 select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/select-native" }
@@ -402,12 +403,18 @@ safe_calls = ["data_dir", "outside_code"]
 enabled  = true
 baseline = ".usage-track-ratchet-baseline.json"
 rules    = ["untracked-control", "untracked-sheet", "dynamic-id", "usage-log-wired"]
-# Shared control builders (the font editor's `tabs`, the Plan tab's choice, select and reset helpers); every caller passes the id.
+# Shared control builders (the font editor's `tabs`, the Plan tab's choice, select and reset helpers, the Settings rows and sheets); every caller passes the id.
 builders = [
   "app/webapp/static/js/font-editor.js:tabs",
   "app/webapp/static/js/views/plan-fields.js:segmentedChoice",
   "app/webapp/static/js/views/plan-fields.js:selectField",
   "app/webapp/static/js/views/plan-fields.js:resetButton",
+  "app/webapp/static/js/views/settings-rows.js:valueRow",
+  "app/webapp/static/js/views/settings-rows.js:selectRow",
+  "app/webapp/static/js/views/settings-rows.js:toggleRow",
+  "app/webapp/static/js/views/settings-rows.js:numberRow",
+  "app/webapp/static/js/views/settings-rows.js:actionRow",
+  "app/webapp/static/js/dialogs.js:sheetDialog",
 ]
 
 # The scaffold's verify skill (project-scaffolding#412) boots the suite's own disposable instance and

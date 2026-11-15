@@ -57,6 +57,27 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
   });
 }
 
+/**
+ * A sheet: an empty <dialog> with a title and a close button, for the caller to fill and redraw
+ * (`body`). `onClose` runs once it is dismissed (Escape, ×, backdrop). `track` is its usage view id.
+ */
+export function sheetDialog({ title, track, wide = false, onClose = null }) {
+  const dlg = document.createElement('dialog');
+  dlg.className = 'detail-dialog' + (wide ? ' dialog-wide' : '');
+  dlg.dataset.trackView = track;
+  dlg.innerHTML =
+    `<div class="detail-card">` +
+    `<div class="detail-header"><h2>${esc(title)}</h2>` +
+    `<button type="button" class="icon-button detail-close" aria-label="Close" data-close data-track="dialog.sheet-close">${icon('x')}</button></div>` +
+    `<div class="sheet-body"></div></div>`;
+  document.body.appendChild(dlg);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('close', () => { dlg.remove(); if (onClose) onClose(); });
+  dlg.showModal();
+  return { dlg, body: dlg.querySelector('.sheet-body') };
+}
+
 /** Confirm dialog; resolves true/false. `danger` styles the action destructive. */
 export function confirmDialog({ title, message, actionLabel = 'Confirm', danger = false }) {
   return new Promise((resolve) => {
