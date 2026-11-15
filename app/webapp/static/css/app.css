@@ -581,9 +581,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 }
 
 /* ---- Results ------------------------------------------------------------ */
-.check-card { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
-.check-card .grow { flex: 1 1 220px; min-width: 0; }
-.check-card .row-title, .check-card .row-meta { white-space: normal; }
+.check-card, .wrapup-card { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+.check-card .grow, .wrapup-card .grow { flex: 1 1 220px; min-width: 0; }
+.check-card .row-title, .check-card .row-meta, .wrapup-card .row-title, .wrapup-card .row-meta { white-space: normal; }
 .check-card .button-tint { gap: 8px; padding: 0 16px; }
 .check-banner { align-items: center; }
 .check-banner .grow { flex: 1; min-width: 0; }
@@ -665,7 +665,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .pdf-tile.appendix { color: var(--muted); border-style: dashed; }
 .pdf-note { margin: 0; }
 .export-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.export-actions .button-primary, .export-actions .button-surface { gap: 8px; min-height: 52px; padding: 0 20px; }
+.export-actions .button-tint, .export-actions .button-surface { gap: 8px; min-height: 52px; padding: 0 20px; }
 .export-open .button-tint { gap: 8px; text-decoration: none; padding: 0 16px; }
 
 /* The Analyze session card: the inputs the analysis will find, the command in a field the browser can always select. */

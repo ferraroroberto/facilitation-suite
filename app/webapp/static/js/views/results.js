@@ -48,7 +48,7 @@ export async function mount(el, context) {
   rebuildEl = document.createElement('div');
   list.append(head, checkEl, peopleEl, listEl, rebuildEl);
 
-  ctx.onSession(() => { selected = null; rebuildSid = null; load(); });
+  ctx.onSession(() => { selected = null; rebuildSid = null; wrapUpNote = ''; load(); });
   // No read here: both ways in (the nav and showView) call show() once this resolves.
 }
 
@@ -300,8 +300,7 @@ function renderDetail() {
   const q = data.quizzes.find((x) => quizKey(x.id) === selected);
   if (a) detailEl.appendChild(activityDetail(a));
   if (q) detailEl.appendChild(quizDetail(q));
-  if (data.pages.length || data.activities.length) detailEl.appendChild(pdfCard());
-  if (data.pages.length || data.activities.length) detailEl.appendChild(exportActions());
+  if (data.pages.length || data.activities.length) detailEl.append(wrapUpCard(), pdfCard(), exportActions());
   const open = openLinks();
   if (open) detailEl.appendChild(open);
   detailEl.append(conversationEl, analyzeEl);
@@ -387,10 +386,46 @@ function pdfCard() {
   return card;
 }
 
+// ---- Finish session: rebuild, the PDFs, the Excel report and the analysis in one tap ----
+
+const STEP_LABELS = { rebuild: 'Rebuild', pdf: 'PDF', xlsx: 'Excel', analysis: 'Analysis' };
+let wrapUpNote = ''; // the last run's per-step line, kept across the re-render the run causes
+
+const stepLine = (steps) => steps.map((s) => `${STEP_LABELS[s.key] || s.key}: ${s.message}`).join(' · ');
+
+function wrapUpCard() {
+  const card = document.createElement('div');
+  card.className = 'card wrapup-card';
+  card.innerHTML = `<div class="grow"><div class="row-title">Finish session</div>` +
+    `<div class="row-meta" role="status" data-wrapup-note>${esc(wrapUpNote || 'Rebuilds the results with the current rules when something changed, exports the PDFs and the Excel report, then starts the analysis.')}</div></div>` +
+    `<button type="button" class="button-primary" data-wrapup data-track="results.wrap-up">${icon('circle-check')} Finish session</button>`;
+  card.querySelector('[data-wrapup]').addEventListener('click', wrapUp);
+  return card;
+}
+
+async function wrapUp(e) {
+  if (busy) return;
+  busy = true;
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.textContent = 'Finishing…';
+  btn.closest('.wrapup-card').querySelector('[data-wrapup-note]').textContent = 'Rebuilding, exporting and starting the analysis… the PDFs take a minute.';
+  let r = null;
+  try {
+    r = await api(`${base()}/wrap-up`, { method: 'POST' });
+  } catch (err) { toast(err.message, 'error'); }
+  busy = false;
+  if (r) {
+    wrapUpNote = stepLine(r.steps);
+    toast(wrapUpNote, r.steps.some((s) => s.status === 'failed') ? 'error' : 'info');
+  }
+  await load(); // a rebuild changes the results, the exports change the links, the analysis card starts polling
+}
+
 function exportActions() {
   const row = document.createElement('div');
   row.className = 'row-actions export-actions';
-  row.innerHTML = `<button type="button" class="button-primary" data-pdf data-track="results.export-pdf">${icon('download')} Export session PDF</button>` +
+  row.innerHTML = `<button type="button" class="button-tint" data-pdf data-track="results.export-pdf">${icon('download')} Export session PDF</button>` +
     `<button type="button" class="button-surface" data-xlsx data-track="results.export-xlsx" ${data.activities.length || data.quizzes.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
   row.querySelector('[data-pdf]').addEventListener('click', exportPdf);
   row.querySelector('[data-xlsx]').addEventListener('click', exportXlsx);
