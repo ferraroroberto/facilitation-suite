@@ -108,6 +108,9 @@ flowchart LR
   rebuildr --> rebuild["src/activities/rebuild.py<br/>replay of frozen captures · backup in live/rebuild-backup-*"]
   rebuild --> replay
   rebuild --> capfiles
+  appv --> wrapupr["routers/wrapup.py<br/>finish: rebuild · PDFs · Excel · analysis"]
+  wrapupr --> rebuild
+  wrapupr --> resultsr
   resultsr --> collect["src/results/collect.py<br/>captures + events.jsonl → PDF order"]
   collect --> capfiles
   collect --> livefiles

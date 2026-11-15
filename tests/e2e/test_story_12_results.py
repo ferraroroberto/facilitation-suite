@@ -271,6 +271,18 @@ def _check_rebuild(page: Page, base: str, sid: str, pane: Locator, folder: Path)
     assert not list((folder / "live").glob("rebuild-backup-*"))
 
 
+def _check_finish_session(page: Page, pane: Locator, folder: Path) -> None:
+    """Finish session runs the wrap-up in one tap: the Plan change above rebuilds, the exports and the analysis follow."""
+    card = pane.locator(".wrapup-card")
+    card.locator("[data-wrapup]").click()
+    toast = page.locator("#toast")
+    expect(toast).to_contain_text("Rebuild: 1 rebuilt", timeout=180000)
+    expect(toast).to_contain_text("Excel: Saved")
+    expect(toast).to_contain_text("Analysis: Running through the hub")
+    expect(pane.locator(".wrapup-card [data-wrapup-note]")).to_contain_text("PDF: ")
+    assert len(list((folder / "live").glob("rebuild-backup-*"))) == 1
+
+
 def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
     """At phone width a long verbatim answer wraps inside its row instead of painting over the next one."""
     page.set_viewport_size({"width": 390, "height": 844})
@@ -316,4 +328,5 @@ def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     _check_reconcile_warning(page, base, sid, pane, saved, chat)
     _check_merge_names(page, pane, folder)
     _check_rebuild(page, base, sid, pane, folder)
+    _check_finish_session(page, pane, folder)
     _check_phone_layout(page, pane, shots)

@@ -75,6 +75,7 @@ from app.webapp.routers import (
     sessions,
     settings,
     slides,
+    wrapup,
 )
 from src.activities.registry import ACTIVITIES_DIR
 from src.build_info import build_identity
@@ -363,6 +364,7 @@ def create_app() -> FastAPI:
     app.include_router(results.router)
     app.include_router(recorded.router)
     app.include_router(rebuild.router)
+    app.include_router(wrapup.router)
     app.include_router(settings.router)
     app.include_router(actions.router)
     app.include_router(quiz.router)
