@@ -122,6 +122,7 @@ The overlay is its own process (`python -m app.tray.overlay`), a thin client of 
 | `hint_timeout_s`, `hint_interval_s`, `hint_ttl_s`, `context_minutes` | the hint budget, how often a **them** line may ask, how long a hint lives, how much transcript the model reads |
 | `summary_interval_s`, `drift_hint_minutes` | how often the rolling summary is refreshed; how far behind the plan a section runs before the drift hint (0: never) |
 | `hint_calls_per_hour`, `summary_calls_per_hour` | the caps per sliding hour (0: no cap) |
+| `analysis_models`, `analysis_timeout_s` | the models the Results tab's *Run analysis* asks in turn for a session's report (`claude_sonnet`, then `gemini_pro`), and the budget for all of them together (600 s); see [results.md](results.md#session-analysis) |
 | `recording_retention_days` | how long `live/copilot/*.wav` are kept: 0 keeps them for good (the default), a number removes the ones last written longer ago than that when the session is opened (in the Sessions tab or on going live), each removal logged. Set in **Settings → Live tools → Copilot recordings**. The transcript, hints and summary are never removed |
 | `silence_dbfs`, `min_chunk_s`, `max_chunk_s`, `silence_ms` | the chunker: the level under which a 20 ms frame is silence, and the cut rules |
 | `overlay` | the overlay's settings, as Settings writes them |

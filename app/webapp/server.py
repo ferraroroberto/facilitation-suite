@@ -98,6 +98,7 @@ from src.quiz.chat import ChatAnswers
 from src.quiz.cues import QuizCues
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
+from src.results.analysis_run import AnalysisRuns
 from src.runtime_data import runtime_db_path
 from src.sessions.store import SessionStore
 from src.static_versioning import AssetVersions
@@ -335,6 +336,7 @@ def create_app() -> FastAPI:
     _install_chat(app)
     _install_copilot(app)
     app.state.after_call = AfterCall(lambda: app.state.config.copilot)
+    app.state.analysis = AnalysisRuns(lambda: app.state.config.copilot)
     _install_obs(app)
     _install_music(app)
     _install_quiz(app)

@@ -1,8 +1,8 @@
-"""What the *Analyze session* button copies, and what the analysis will find in the session folder.
+"""What the *Analyze session* card's *Copy command* copies, and what the analysis will find in the session folder.
 
-The app starts no agent and makes no LLM call: the facilitator pastes the command into a coding agent
-session started in the repo root, where the ``analyze-session`` skill reads the session through
-``python -m src.results.dump``. This module only names the command and reports which inputs exist.
+The command is pasted into a coding agent session started in the repo root, where the ``analyze-session``
+skill reads the session through ``python -m src.results.dump``; the card's *Run analysis* goes through the
+hub instead (``analysis_run.py``). This module only names the command and reports which inputs exist.
 """
 
 from __future__ import annotations

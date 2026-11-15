@@ -30,7 +30,7 @@ from src.sessions.store import SessionStore, read_session_file
 logger = logging.getLogger(__name__)
 
 NOTES_FILE = "notes.md"
-# The analysis report's folder: the skill writes there and nothing else in the app does.
+# The analysis report's folder: only the skill and the app's analysis run (analysis_run.py) write there.
 REPORT_DIR = "report"
 USAGE = "usage: python -m src.results.dump <session folder> | --last"
 

@@ -151,7 +151,8 @@ def _check_exports(page: Page, pane: Locator, folder) -> None:
 
 
 def _check_analyze_command(page: Page, pane: Locator, folder: Path) -> None:
-    """Analyze session copies the skill's command for this folder; a browser that refuses leaves it selected."""
+    """Analyze session copies the skill's command for this folder (a browser that refuses leaves it selected), and
+    runs the analysis through the hub into report/."""
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     card = pane.locator(".analyze-card")
     expect(card).to_have_attribute("data-state", "ready")
@@ -169,6 +170,13 @@ def _check_analyze_command(page: Page, pane: Locator, folder: Path) -> None:
     card.locator("[data-copy]").click()
     expect(card.locator(".analyze-note")).to_contain_text("blocked copying")
     assert page.evaluate("getSelection().toString() || document.activeElement.value.substring(document.activeElement.selectionStart, document.activeElement.selectionEnd)") == expected
+
+    # Run analysis: the (fake) hub's answer lands in report/ and shows as a draft to review.
+    card.locator("[data-run]").click()
+    expect(card.locator(".analyze-run-note")).to_contain_text("Draft saved as report/analysis-")
+    expect(card.locator(".analyze-draft")).to_be_visible()
+    expect(card).to_contain_text("report/ holds 1 file")
+    assert [p.name for p in (folder / "report").iterdir()] == [card.locator(".analyze-draft-head").inner_text().split("· ")[1]]
 
 
 def _check_conversation(page: Page, pane: Locator, folder: Path) -> None:
