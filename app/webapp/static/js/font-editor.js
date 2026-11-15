@@ -112,7 +112,7 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [], def
     `<output class="mono small">${stroke} px</output></label>` +
     `<div class="font-row"><span class="small">Colour</span><span class="inline-controls">` +
     `<input type="color" class="font-color" aria-label="Title colour" data-title-color value="${esc(color || '#1f1f1f')}">` +
-    `<button type="button" class="button-surface" data-title-color-reset data-track="font.color-reset"${color ? '' : ' disabled'}>Theme colour</button>` +
+    `<button type="button" class="button-surface" data-title-color-reset data-track="font.color-reset"${color ? '' : ' disabled'}>Reset colour</button>` +
     `<span class="small muted" data-contrast></span></span></div>` +
     `<label class="font-row"><span class="small">Size</span><span class="inline-controls">` +
     `<input type="number" class="input font-size-input" min="24" max="240" step="2" placeholder="72" value="${size || ''}" aria-label="Title size in stage px" data-title-size>` +
@@ -139,7 +139,7 @@ export function fontEditorHtml(font, { hint, sampleClass = '', library = [], def
       `<input type="color" class="font-color" aria-label="Timer colour: ${esc(label.toLowerCase())}" data-timer-color="${key}" value="${esc(f[`timer_${key}`] || theme)}">` +
       `</span></div>`).join('') +
     `<div class="font-row"><span class="small"></span><span class="inline-controls"><button type="button" class="button-surface" data-timer-reset` +
-    `${TIMER_STATES.some(([key]) => f[`timer_${key}`]) ? '' : ' disabled'}>Theme colours</button></span></div></div>` +
+    `${TIMER_STATES.some(([key]) => f[`timer_${key}`]) ? '' : ' disabled'}>Reset colours</button></span></div></div>` +
     `<p class="small muted font-note">The stage timer — the pill on an activity or slide, the big clock on a break or breakout — takes the colour of its state: the pill as its fill, the clock as its text.</p>`;
 }
 
