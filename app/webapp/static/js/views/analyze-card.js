@@ -69,7 +69,7 @@ export function analyzeCard(sid) {
       `<div class="row-actions"><button type="button" class="button-primary" data-run data-track="results.run-analysis" ${canRun ? '' : 'disabled'}>${icon(running ? 'refresh-cw' : 'wand-sparkles')} ${running ? 'Analysing…' : job ? 'Run again' : 'Run analysis'}</button></div>` +
       `<input class="input mono analyze-command" readonly value="${esc(a.command)}" aria-label="Command to paste into the agent" ${ready ? '' : 'disabled'}>` +
       `<p class="small muted analyze-note">${esc(ready ? a.hint : '')}</p>` +
-      `<div class="row-actions"><button type="button" class="button-tint" data-copy data-track="results.copy-analyze" ${ready ? '' : 'disabled'}>${icon('copy')} Copy command</button></div>`;
+      `<div class="row-actions"><button type="button" class="button-surface" data-copy data-track="results.copy-analyze" ${ready ? '' : 'disabled'}>${icon('copy')} Copy command</button></div>`;
     card.querySelector('[data-copy]').addEventListener('click', () => copy(a));
     card.querySelector('[data-run]').addEventListener('click', run);
     if (running) setTimeout(poll, POLL_MS);

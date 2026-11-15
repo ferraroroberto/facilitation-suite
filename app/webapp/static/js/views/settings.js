@@ -146,7 +146,7 @@ function remoteCard() {
   row.className = 'row-actions remote-actions';
   if (r.enabled && r.link) {
     card.insertAdjacentHTML('beforeend', `<div class="list-row deck-row"><span class="deck-label">Pairing link</span><code class="grow" data-link>${esc(r.link.replace(/token=.*/, 'token=•••'))}</code></div>`);
-    row.innerHTML = `<button type="button" class="button-tint" data-copy data-track="settings.remote-copy">${icon('copy')} Copy the link</button>` +
+    row.innerHTML = `<button type="button" class="button-surface" data-copy data-track="settings.remote-copy">${icon('copy')} Copy the link</button>` +
       `<button type="button" class="button-surface" data-new data-track="settings.remote-new">${icon('refresh-cw')} New link (unpairs phones)</button>` +
       `<button type="button" class="button-surface" data-off data-track="settings.remote-off">${icon('x')} Turn off</button>`;
   } else {
