@@ -297,7 +297,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .font-rows { display: grid; gap: var(--space-sm); margin: var(--space-sm) 0; }
 .font-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
 .font-row .inline-controls .select-native { flex: 1; min-width: 0; }
-.font-row .inline-controls .button-surface { white-space: nowrap; }
+.font-row .inline-controls .button-surface, .font-row .inline-controls .button-tint { white-space: nowrap; }
 .font-row.font-stroke { grid-template-columns: 120px minmax(0, 1fr) 56px; }
 @media (max-width: 520px) {
   .font-row { grid-template-columns: 88px minmax(0, 1fr); }
