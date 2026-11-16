@@ -43,7 +43,7 @@ export async function mount(el, context) {
   head = pageHead({ glyph: 'chart-column', title: 'Results', status: '' });
   checkEl = document.createElement('div');
   listEl = document.createElement('div');
-  listEl.className = 'card list-card';
+  listEl.className = 'card list-card action-list';
   peopleEl = document.createElement('div');
   rebuildEl = document.createElement('div');
   list.append(head, checkEl, peopleEl, listEl, rebuildEl);
@@ -271,18 +271,21 @@ function renderList() {
       : 'Results appear after a live session.'));
     return;
   }
+  const rows = document.createElement('ul');
+  rows.className = 'action-rows';
   entries().forEach(({ key, activity: a, quiz: q }) => {
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'result-row' + (key === selected ? ' selected' : '');
-    row.dataset.track = 'results.open-result';
+    const title = a ? a.title : q.label;
+    const summary = a ? a.summary : q.summary;
+    const row = document.createElement('li');
+    row.className = 'action-row result-row' + (key === selected ? ' selected' : '');
     row.dataset.item = key;
-    row.innerHTML = `<span class="result-num">${a ? a.number : icon('crown')}</span>` +
-      `<span class="grow"><span class="row-title">${esc(a ? a.title : q.label)}</span><span class="row-meta">${esc(a ? a.summary : q.summary)}</span></span>` +
-      icon('chevron-right');
-    row.addEventListener('click', () => select(key));
-    listEl.appendChild(row);
+    row.innerHTML = '<button type="button" class="action-row-main" data-track="results.open-result">' +
+      `<span class="action-row-title" title="${esc(title)}"><span class="result-num">${a ? a.number : icon('crown')}</span>${esc(title)}</span>` +
+      `<span class="action-row-meta" title="${esc(summary)}">${esc(summary)}</span></button>`;
+    row.querySelector('.action-row-main').addEventListener('click', () => select(key));
+    rows.appendChild(row);
   });
+  listEl.appendChild(rows);
 }
 
 function select(id) {

@@ -590,25 +590,9 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .merge-manual { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-md) var(--space-md) 0; }
 .merge-manual .select-native { flex: 1 1 140px; min-width: 0; }
 .merge-manual .button-tint { min-height: 44px; padding: 0 16px; }
-.result-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  min-height: var(--row-lg);
-  padding: 10px 12px 10px 16px;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.result-row + .result-row { border-top: 1px solid var(--line-muted); }
 .result-row:hover { background: var(--card-off); }
 .result-row.selected { background: var(--accent-soft); }
-.result-row .grow { flex: 1; min-width: 0; display: grid; }
-.result-row > .icon { color: var(--muted); flex: none; }
+.action-row-title .result-num { display: inline-block; }
 .result-num { width: 1.5em; flex: none; color: var(--muted); font-size: var(--font-body-sm); }
 .result-detail { display: grid; gap: var(--gap); }
 .result-visual { padding: 0; overflow: hidden; aspect-ratio: 16 / 9; background: var(--card-off); }
