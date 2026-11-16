@@ -146,7 +146,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 /* Touch targets (design.md hit-target.min): a native input/select is a replaced element that cannot carry
    the .hit-target ::before, so it is a real 44px field (the spec's own filter height) with its 1px control-border
    boundary. The vendored .input-native / .select-native are restated here (app.css loads after them); never edit
-   the vendored files. The boundary stays a real border: an inset shadow reads as no boundary (COLOR-03). */
+   the vendored files. The vendored fields draw their own control-border ring inside that 44px box. */
 .input:not(textarea), .input-native, .select-native, .sec-min input { height: var(--hit-min); }
 
 /* ---- dialogs + row menu -------------------------------------------------- */
