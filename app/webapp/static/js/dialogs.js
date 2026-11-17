@@ -63,15 +63,17 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
  */
 export function sheetDialog({ title, track, wide = false, onClose = null }) {
   const dlg = document.createElement('dialog');
-  dlg.className = 'detail-dialog' + (wide ? ' dialog-wide' : '');
+  // the vendored settings-group sheet: it fits the screen, only its body scrolls, Done stays pinned
+  dlg.className = 'detail-dialog settings-sheet' + (wide ? ' dialog-wide' : '');
   dlg.dataset.trackView = track;
   dlg.innerHTML =
     `<div class="detail-card">` +
-    `<div class="detail-header"><h2>${esc(title)}</h2>` +
+    `<div class="detail-header"><h2 tabindex="-1" autofocus>${esc(title)}</h2>` +
     `<button type="button" class="icon-button detail-close" aria-label="Close" data-close data-track="dialog.sheet-close">${icon('x')}</button></div>` +
-    `<div class="sheet-body"></div></div>`;
+    `<div class="sheet-body settings-sheet-body"></div>` +
+    `<div class="detail-actions"><button type="button" class="button-primary detail-save-btn" data-close data-track="dialog.sheet-done">Done</button></div></div>`;
   document.body.appendChild(dlg);
-  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => dlg.close()));
   dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
   dlg.addEventListener('close', () => { dlg.remove(); if (onClose) onClose(); });
   dlg.showModal();

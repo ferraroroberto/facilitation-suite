@@ -50,16 +50,21 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
 
     page.locator("#panePlan [data-open-settings]").click()
     expect(page.locator("#paneSettings")).to_be_visible()
-    expect(page.locator("#paneSettings .settings-overline")).to_have_text(
+    expect(page.locator("#paneSettings .settings-group-label")).to_have_text(
         ["Appearance", "Stage defaults", "Music", "OBS", "Chat reader", "Clicking the stage", "Copilot overlay",
          "Copilot recordings", "Remote control", "About"])
     surface(page, "settings.pane")
 
     before = page.evaluate("document.documentElement.dataset.theme")
+    other = "light" if before == "dark" else "dark"
     with page.expect_response("**/api/settings/appearance"):  # #92: it sets the global appearance
-        page.locator("#paneSettings [data-theme-toggle]").click()
+        page.locator(f'#paneSettings [data-appearance="{other}"]').click()
     after = page.evaluate("document.documentElement.dataset.theme")
     assert before != after
+    # the full page closes back onto the tab it was opened from
+    page.locator("#paneSettings [data-close-settings]").click()
+    expect(page.locator("#paneSettings")).to_be_hidden()
+    expect(page.locator("#panePlan")).to_be_visible()
     # put it back for the stories after this one
     assert page.request.put(webapp.base_url + "/api/settings/appearance", data={"appearance": "system"}).ok
     assert errors == []

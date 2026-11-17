@@ -1,4 +1,4 @@
-// The Settings pane's markup builders on the vendored settings-group component: an overline header
+// The Settings page's markup builders on the vendored settings-group component: a group label
 // over an inset card of one-line rows, each row a lead glyph, a label and one trailing item (a value
 // and chevron that opens a sheet, a select, a switch, a number field, or a control of its own).
 // The component's README is the markup contract; nothing here restyles it.
@@ -22,12 +22,12 @@ const lead = (glyph) => icon(glyph, 'settings-row-icon');
 const chevron = (name) => icon(name, 'settings-row-chevron');
 
 /**
- * One group: the overline, the card of rows and the footnote under it. Returns the fragment to
+ * One group: its label, the card of rows and the footnote under it. Returns the fragment to
  * append and the `card` / `foot` the caller redraws when the rows arrive later.
  */
 export function settingsGroup(id, title, rows = [], footnote = '') {
   const frag = document.createDocumentFragment();
-  const head = el('h3', 'settings-overline');
+  const head = el('h3', 'settings-group-label');
   head.id = `settings-group-${id}`;
   head.textContent = title;
   const card = el('section', 'card settings-group');

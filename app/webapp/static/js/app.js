@@ -68,18 +68,22 @@ function trackView(id) {
   lastView = id;
 }
 
+// Settings is a full page over the current tab (a modal <dialog>): opening it leaves the
+// tab where it was, and its own data-track-view records the visit.
 async function showView(name) {
   leaveSessionHash(name);
   if (name === 'settings') {
-    trackView('settings');
-    document.querySelectorAll('.pane').forEach((p) => { p.hidden = p !== settingsPane; });
-    nav.setTab(null);
+    if (!settingsPane.open) settingsPane.showModal();
   } else {
-    settingsPane.hidden = true;
+    closeSettings();
     nav.setTab(name);
   }
   const mod = await ensureView(name);
   if (mod.show) mod.show();
+}
+
+function closeSettings() {
+  if (settingsPane.open) settingsPane.close();
 }
 
 // The nav's first onChange (its stored tab, at init) runs before followHash: it must
@@ -90,7 +94,7 @@ const nav = initNavTabs({
   onChange: (tab) => {
     trackView(tab);
     if (navReady) leaveSessionHash(tab);
-    settingsPane.hidden = true;
+    closeSettings();
     ensureView(tab).then((mod) => { if (mod.show) mod.show(); });
   },
 });
@@ -98,6 +102,7 @@ navReady = true;
 
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-open-settings]')) showView('settings');
+  if (e.target.closest('[data-close-settings]')) closeSettings();
 });
 
 ctx.goTo = showView;
