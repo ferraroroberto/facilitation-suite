@@ -19,6 +19,7 @@ rewrites the committed gallery.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import socket
@@ -26,14 +27,19 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
+from playwright.sync_api import Browser, BrowserContext
 
 from src.no_window import NO_WINDOW
 from tests.conftest import SAMPLE_CONFIG, write_test_config
+from tests.e2e._port_pool import pytest_runtest_makereport  # noqa: F401 — relabels a drained port pool
+from tests.e2e._port_pool import write_summary as port_pool_summary
+from tests.e2e._shared_context import SharedContexts
+from tests.e2e._shared_context import write_summary as shared_context_summary
 from tests.e2e._surface import pytest_collection_modifyitems  # noqa: F401
 from tests.fixtures.fake_hub import FakeHub
 
@@ -102,15 +108,22 @@ def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
     proc.fs_log = log  # type: ignore[attr-defined] — closed by stop_instance()
     base = f"http://127.0.0.1:{port}"
     deadline = time.time() + 30
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            raise RuntimeError(f"e2e webapp exited early; see {root / 'server.log'}")
-        try:
-            with urllib.request.urlopen(base + "/healthz", timeout=1) as r:
-                if r.status == 200:
+    probe = http.client.HTTPConnection("127.0.0.1", port, timeout=1)  # one kept-alive socket, not one per poll
+    try:
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError(f"e2e webapp exited early; see {root / 'server.log'}")
+            try:
+                probe.request("GET", "/healthz")
+                response = probe.getresponse()
+                response.read()
+                if response.status == 200:
                     return proc, Instance(base, root, f"http://127.0.0.1:{player_port}")
-        except OSError:
+            except (OSError, http.client.HTTPException):
+                probe.close()  # the next request reconnects
             time.sleep(0.25)
+    finally:
+        probe.close()
     stop_instance(proc)
     raise RuntimeError(f"e2e webapp did not answer /healthz within 30 s; see {root / 'server.log'}")
 
@@ -135,6 +148,42 @@ def webapp() -> Iterator[Instance]:
         finally:
             stop_instance(proc)
             hub.close()
+
+
+@pytest.fixture(scope="session")
+def _shared_contexts(browser: Browser) -> SharedContexts:
+    # Rebuilt per projection with `browser`; the contexts close with the browser. From here on a
+    # story's own `browser.new_context(**args)` is a lease from the same pool as `page`'s context.
+    shared = SharedContexts(browser)
+    shared.install()
+    return shared
+
+
+@pytest.fixture
+def context(
+    request: pytest.FixtureRequest,
+    _shared_contexts: SharedContexts,
+    browser_context_args: dict,
+    _artifacts_recorder: Any,
+) -> Iterator[BrowserContext]:
+    """The projection's shared context for this test's context arguments (``_shared_context``).
+
+    Replaces pytest-playwright's per-test context, so the connections a test opens to the app
+    are the ones the next test reuses. The recorder calls keep ``--tracing`` and ``--screenshot``
+    working per test on a context that outlives it.
+    """
+    marker = next(request.node.iter_markers("browser_context_args"), None)
+    args = {**browser_context_args, **(marker.kwargs if marker else {})}
+    ctx = _shared_contexts.acquire(args)
+    _artifacts_recorder.on_did_create_browser_context(ctx)
+    yield ctx
+    _artifacts_recorder.on_will_close_browser_context(ctx)
+    _shared_contexts.release(ctx, args)
+
+
+def pytest_terminal_summary(terminalreporter: Any) -> None:
+    shared_context_summary(terminalreporter)
+    port_pool_summary(terminalreporter)
 
 
 @pytest.fixture

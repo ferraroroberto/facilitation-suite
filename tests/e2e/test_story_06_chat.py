@@ -121,7 +121,8 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     page.locator(".dialog-confirm").click()
     expect(card.locator(".p-quiz-players li")).to_have_count(1)
 
-    remote = browser.new_page(viewport={"width": 390, "height": 844})
+    remote_ctx = browser.new_context(viewport={"width": 390, "height": 844})  # a leased context, unlike browser.new_page
+    remote = remote_ctx.new_page()
     remote.goto(f"{base}/remote")
     expect(remote.locator("[data-r-qphase]")).to_have_text("Answers locked · question 1 of 4")
     expect(remote.locator("[data-r-qcounts]")).to_contain_text("1 player · 1 answered")
@@ -129,4 +130,4 @@ def test_a_simulated_burst_reaches_the_presenter(page: Page, browser: Browser, w
     surface(remote, "remote.quiz-locked")
     remote.locator("[data-r-nextbtn]").click()  # the remote's Next steps the phases too
     expect(card.locator("[data-qphase]")).to_have_text("Leaderboard after question 1 of 4")
-    remote.close()
+    remote_ctx.close()

@@ -55,5 +55,5 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 - A new feature's logic goes in a `src/<domain>/` package, and its HTTP surface in a module under `app/webapp/routers/`. `src/` never imports `app/`.
 - A new directory-level helper goes in the domain package that uses it, not at the top of `src/`.
 - Browser code goes in `app/webapp/static/js/`; a view's helpers go in a module beside it, not into the view file.
-- Tests mirror the code they cover. A unit test for a domain with its own folder (`tests/quiz/`) goes there; an end-to-end story goes in `tests/e2e/`. A long story is a short test that calls named `_step` helpers.
+- Tests mirror the code they cover. A unit test for a domain with its own folder (`tests/quiz/`) goes there; an end-to-end story goes in `tests/e2e/`, and a unit test of the e2e harness itself (the context pool, the port-pool report) in `tests/e2e_harness/`, which keeps it out of the e2e node budget. A long story is a short test that calls named `_step` helpers.
 - A file or function over the limit is split along the seam its own sections already show. The one baselined offender, `createStage` in `stage-render.js`, keeps its build, update and draw steps in one closure over shared state, so splitting it means moving that state into an object; that change is made on its own, never as a side effect.
