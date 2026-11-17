@@ -695,7 +695,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 /* The groups, rows and footnotes are the vendored settings-group; only what a row holds beyond it is here. */
 .settings-note { margin: 0; }
 .settings-row .segmented { flex: none; margin-left: auto; }
-.settings-sheet { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
+.settings-sheet-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
 .sheet-body { margin-top: var(--space-sm); }
 .dialog-wide { width: min(640px, 92vw); }
 .deck-row { gap: var(--space-md); padding: 8px 0; }
@@ -729,7 +729,3 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .settings-sub-title { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: var(--font-body); font-weight: 700; }
 .settings-sub-title .icon { width: var(--icon-title); height: var(--icon-title); color: var(--muted); }
 .settings-sub .card-head-meta { margin-left: auto; }
-/* No detail pane: Settings keeps the centered measure on a wide window too (design.md Layout). */
-@media (min-width: 1100px) and (pointer: fine) {
-  #paneSettings .pane-body { max-width: var(--layout-measure); width: 100%; margin: 0 auto; }
-}

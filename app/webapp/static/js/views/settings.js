@@ -1,5 +1,5 @@
-// Settings — everything common to every presentation, in five sections of inset groups (an overline
-// header over a card of one-line rows; a row that needs room opens a sheet): Appearance (light/dark on
+// Settings — everything common to every presentation, in five sections of inset groups (a group
+// label over a card of one-line rows; a row that needs room opens a sheet): Appearance (light/dark on
 // every device, this device's text size), Stage defaults (the theme and lettering new sessions start
 // from, and the stage library of fonts and themes), Music (the Spotify account and the default
 // fades), Live tools (OBS, the chat reader, the Copilot overlay and recordings, the Stream Deck
@@ -9,7 +9,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { bindTextSize } from '/static/_vendored/text-size/text-size.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
-import { APP, api, esc, pageHead, plural, setStatus, toast, currentAppearance, onAppearance, setAppearance } from '/static/js/ui.js';
+import { APP, api, esc, plural, toast, currentAppearance, onAppearance, setAppearance } from '/static/js/ui.js';
 import { formDialog, sheetDialog } from '/static/js/dialogs.js';
 import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/static/js/font-editor.js';
 import { words } from '/static/js/stage-words.js';
@@ -54,7 +54,6 @@ const SPOTIFY_CHIP = {
 const LOGIN_POLL_MS = 1500;
 
 let root;
-let head;
 let data = null;
 let defs = null; // GET /api/settings/defaults: the defaults and the stage library
 let spotify = null; // GET /api/settings/spotify (null until it answers)
@@ -66,7 +65,6 @@ let remoteSheet = null; // the open phone remote sheet, redrawn when its link ch
 
 export async function mount(el) {
   root = el;
-  head = pageHead({ glyph: 'settings', title: 'Settings', status: 'Shared by every session', settings: false });
   await load();
 }
 
@@ -81,10 +79,10 @@ function scrollToWanted() {
   const el = wanted && root ? root.querySelector(`[data-section="${wanted}"]`) : null;
   if (!el) return;
   wanted = null;
-  // clear of a tab bar floating at the top (a narrow window); the rail and a bottom bar leave the top free
-  const nav = document.querySelector('.tabs').getBoundingClientRect();
-  const clear = (nav.top < 40 && nav.bottom < window.innerHeight / 3 ? nav.bottom : 0) + 12;
-  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - clear });
+  // the page scrolls itself, under its sticky header
+  const page = root.closest('dialog');
+  const clear = page.querySelector('.settings-page-head').offsetHeight + 12;
+  page.scrollTo({ top: el.getBoundingClientRect().top - page.getBoundingClientRect().top + page.scrollTop - clear });
 }
 
 async function load() {
@@ -115,8 +113,6 @@ function section(key, groups) {
 
 function render() {
   root.innerHTML = '';
-  root.appendChild(head);
-  setStatus(head, 'Shared by every session');
   root.appendChild(section('appearance', [appearanceGroup()]));
   root.appendChild(section('stage', [stageGroup()]));
   root.appendChild(section('music', [musicGroup()]));
@@ -159,7 +155,7 @@ function drawRemote() {
   if (!remoteSheet) return;
   const r = data.remote;
   const body = remoteSheet.body;
-  body.className = 'sheet-body settings-sheet';
+  body.classList.add('settings-sheet-stack');
   body.innerHTML =
     '<p class="small muted settings-note">Next, previous, capture, timer and blackout from your phone, over Tailscale. Open the link once on the phone: it pairs that phone. ' +
     'Other devices never get in without it; this PC never needs it.</p>';
@@ -221,7 +217,7 @@ function deckRows(list) {
 function openDeck() {
   const { body } = sheetDialog({ title: 'Stream Deck buttons', track: 'dialog.settings-deck' });
   const base = data.remote.base_url;
-  body.className = 'sheet-body settings-sheet';
+  body.classList.add('settings-sheet-stack');
   body.innerHTML =
     `<p class="small muted settings-note">Each button sends a POST to <code>${esc(base)}</code> plus the path below — the same pattern as home-automation's action alias, so the fleet Stream Deck plugin's “Call Action” key works with it. No token is needed from this PC (the fleet plugin's <code>FACILITATION_SUITE_BASE_URL</code> is this address).</p>` +
     `<div class="list deck-list" data-deck><p class="muted small">Loading…</p></div>`;
@@ -404,11 +400,11 @@ function stageGroup() {
 
 /** The default lettering: the session editor on a sample of its own (its CSS never reaches a stage). */
 function openLettering() {
-  const { dlg, body } = sheetDialog({ title: 'Stage lettering and timer colours', track: 'dialog.settings-lettering', wide: true });
-  body.className = 'sheet-body defaults-font-card';
+  const { body } = sheetDialog({ title: 'Stage lettering and timer colours', track: 'dialog.settings-lettering', wide: true });
+  body.classList.add('defaults-font-card');
   const draw = () => {
     const font = defs.stage.font;
-    const top = dlg.scrollTop;
+    const top = body.scrollTop;
     body.innerHTML =
       '<p class="small muted settings-note">The title font and the text font every new session starts from, which one each kind of text uses, and the colours of the timer (under Timer colours). A session can change its own; an item can set exceptions in the Plan tab.</p>' +
       fontEditorHtml(font, { hint: words('en').chat_hint, sampleClass: 'defaults-sample', library: defs.library.fonts });
@@ -426,7 +422,7 @@ function openLettering() {
         } catch (e) { toast(e.message, 'error'); return ''; }
       },
     });
-    dlg.scrollTop = top;
+    body.scrollTop = top;
   };
   draw();
 }
@@ -447,7 +443,7 @@ function linkDefaultsFont(font) {
 
 function openLibrary() {
   const { body } = sheetDialog({ title: 'Stage library', track: 'dialog.settings-library' });
-  body.className = 'sheet-body settings-sheet';
+  body.classList.add('settings-sheet-stack');
   const draw = () => {
     const lib = defs.library;
     const own = lib.themes.filter((t) => t.source === 'library');
@@ -550,7 +546,7 @@ function drawSpotify() {
   const waiting = !!sp && sp.login.waiting;
   const fact = (name, value) => `<div class="list-row deck-row"><span class="deck-label">${name}</span><span class="grow small">${esc(value)}</span></div>`;
   const body = spotifySheet.body;
-  body.className = 'sheet-body settings-sheet';
+  body.classList.add('settings-sheet-stack');
   body.innerHTML =
     (sp ? `<div class="list" data-spotify-card>${fact('Account', sp.detail)}${fact('Plays on', sp.device || 'The Spotify app on this PC')}${fact('Last check', whenText(sp.checked_at))}</div>` : '') +
     (waiting ? `<p class="status-line unknown" data-login-line>${icon('refresh-cw')} ${esc(sp.login.detail)}. This sheet updates by itself.</p>` : '') +
@@ -595,7 +591,7 @@ function paintAbout() {
 
 function openCredits() {
   const { body } = sheetDialog({ title: 'Credits', track: 'dialog.settings-credits' });
-  body.className = 'sheet-body credits';
+  body.classList.add('credits');
   body.innerHTML = `<ul class="credit-list">${CREDITS.map(([name, url, what]) =>
     `<li><a href="${url}" target="_blank" rel="noopener">${name}</a> — ${what}</li>`).join('')}</ul>`;
 }

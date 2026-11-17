@@ -97,11 +97,16 @@
   <section id="paneResults" class="pane" role="tabpanel" aria-labelledby="tabResults" aria-label="Results" hidden>
     <div class="pane-body" data-view="results"></div>
   </section>
-  <section id="paneSettings" class="pane" aria-label="Settings" hidden>
-    <div class="pane-body" data-view="settings"></div>
-  </section>
   <footer class="page-foot"><p id="buildReadout">Build: …</p></footer>
 </main>
+
+<dialog id="paneSettings" class="settings-page" aria-labelledby="settingsTitle" data-track-view="settings">
+  <header class="settings-page-head">
+    <h2 class="settings-page-title" id="settingsTitle">Settings</h2>
+    <button type="button" class="icon-button settings-page-close" aria-label="Close settings" data-close-settings data-track="settings.close"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+  </header>
+  <div class="settings-page-body" data-view="settings"></div>
+</dialog>
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
