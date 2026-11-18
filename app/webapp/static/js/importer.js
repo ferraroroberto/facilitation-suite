@@ -12,6 +12,7 @@ export function importDialog(sid, { lastPath = '', reimport = false, slides = nu
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog';
     dlg.dataset.trackView = 'import.deck';
+    dlg.dataset.surface = 'import.deck';
     dlg.innerHTML =
       `<div class="detail-card">` +
       `<div class="detail-header"><h2>${slides && slides.length ? 'Re-import selected slides' : reimport ? 'Re-import PowerPoint' : 'Import PowerPoint'}</h2>` +

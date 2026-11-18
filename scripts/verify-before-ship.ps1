@@ -68,6 +68,13 @@
                                is wired. Whole tree, never routed; exit 3 (a file
                                that cannot be read or closed) is NOT CONFIRMED and
                                fails.
+     11d. ux surface ratchet - no surface root without a constant `data-surface`, no id
+                               without an entry in docs/ux-surfaces.yaml, no entry
+                               no element carries, no id on two roots, no link to a
+                               missing entry, and docs/ux-surface-map.md is what the
+                               map generates, beyond .ux-surface-ratchet-baseline.json.
+                               Whole tree, never routed; exit 3 (a file that cannot be
+                               read or closed) is NOT CONFIRMED and fails.
      12. pytest (unit)       - hermetic suite, tests/e2e excluded; stages 12-13 run
                                inside the runtime write probe (--snapshot before,
                                --probe after), which fails on any untracked or
@@ -187,6 +194,8 @@ Invoke-Stage "conventions ratchet"     { & $py "scripts/conventions_ratchet.py" 
 Invoke-Stage "runtime write ratchet"   { & $py "scripts/runtime_write_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "usage track ratchet"     { & $py "scripts/usage_track_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "ux surface ratchet"      { & $py "scripts/ux_surface_ratchet.py" }
 # Runtime write probe, first half: what already sits untracked or ignored under
 # the code folders, so the probe after the tests names only what they wrote.
 $runtimeSnapshot = Join-Path ([IO.Path]::GetTempPath()) "runtime-write-snapshot-$PID.json"

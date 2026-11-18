@@ -112,14 +112,14 @@ function buildShell() {
     '<div class="card r-next"><div class="grow"><div class="r-label" data-r-nextlabel></div><div class="r-next-title" data-r-next></div></div>' +
       '<div class="r-clock"><b data-r-elapsed></b><span data-r-drift></span></div>' +
       '<div class="r-sec" data-r-sec hidden><span class="r-sec-name" data-r-secname></span><span class="r-sec-left" data-r-secleft></span></div></div>' +
-    '<div class="card r-hints" data-r-hints hidden>' +
+    '<div class="card r-hints" data-r-hints hidden data-surface="remote.copilot-hints">' +
       // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="r-hints-head" data-r-hints-fold aria-controls="rHintList">${icon('wand-sparkles')}` +
         `<b>Copilot</b><span class="r-hints-meta" data-r-hints-meta></span>${icon('chevron-down')}</button>` +
       '<ol class="r-hint-list" id="rHintList" data-r-hint-list></ol></div>' +
     // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
     `<button type="button" class="button-primary r-capture" data-r-capture hidden></button>` +
-    '<div class="card r-quiz" data-r-quiz hidden><div class="r-quiz-top"><b data-r-qphase></b><span class="r-quiz-left" data-r-qleft></span></div>' +
+    '<div class="card r-quiz" data-r-quiz hidden data-surface="remote.quiz"><div class="r-quiz-top"><b data-r-qphase></b><span class="r-quiz-left" data-r-qleft></span></div>' +
       '<div class="small muted" data-r-qcounts></div>' +
       // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-primary r-capture" data-r-qlock>${icon('square')} Lock answers</button></div>` +
@@ -135,7 +135,7 @@ function buildShell() {
       `<button type="button" class="button-surface" data-r-tplus hidden>${icon('plus')} 1 min</button>` +
       // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-surface" data-r-blackout>${icon('eye-off')} Blackout</button></div>` +
-    '<div class="card r-music" data-r-music hidden>' +
+    '<div class="card r-music" data-r-music hidden data-surface="remote.music">' +
       '<div class="r-music-now"><span data-r-mnow></span></div>' +
       '<div class="r-more">' +
         // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)

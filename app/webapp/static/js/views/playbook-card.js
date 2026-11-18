@@ -15,6 +15,7 @@ import { CardState, setCardState } from '/static/js/card-state.js';
 export function playbookCard(sid, known, onChanged) {
   const card = document.createElement('div');
   card.className = 'card playbook-card';
+  card.dataset.surface = 'sessions.playbook';
   const url = `/api/sessions/${sid}/playbook`;
 
   /** Draw the card for a read of the playbook; `userAction` = a Create/Reload the user just pressed. */

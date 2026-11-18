@@ -27,6 +27,7 @@ export async function mount(el, context) {
   list.className = 'split-list';
   detailEl = document.createElement('div');
   detailEl.className = 'split-detail';
+  detailEl.dataset.surface = 'groups.rooms';
   split.append(list, detailEl);
   root.appendChild(split);
 
@@ -45,6 +46,7 @@ export async function mount(el, context) {
   list.appendChild(search);
   listEl = document.createElement('div');
   listEl.className = 'card list-card';
+  listEl.dataset.surface = 'groups.roster';
   list.appendChild(listEl);
 
   ctx.onSession(() => load());

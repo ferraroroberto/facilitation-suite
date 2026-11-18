@@ -72,6 +72,7 @@ Each feature has its own reference in `docs/`:
 - **Settings** and **Configuration** — [docs/settings.md](docs/settings.md), [docs/configuration.md](docs/configuration.md)
 - **Sessions** — the session folder: [docs/sessions.md](docs/sessions.md)
 - **Running and operating** — appearance, HTTPS, logs: [docs/operations.md](docs/operations.md)
+- **UX surface map** — every tab, card, sheet, dialog, menu, Settings group, cockpit card, stage rendering, remote and player screen, one entry each with the `data-surface` id its root carries: [docs/ux-surface-map.md](docs/ux-surface-map.md)
 - **Verification** — the gate in detail, the design inventory, the verify skill: [docs/verification.md](docs/verification.md)
 - **Privacy** — what the repository holds and the local usage log: [docs/privacy.md](docs/privacy.md)
 
@@ -85,7 +86,7 @@ Where each folder's code goes: [docs/layout.md](docs/layout.md).
 & .\scripts\verify-before-ship.ps1
 ```
 
-Personal-data guard → byte-compile → ruff → static ratchet → docs ratchet → comment ratchet → structure ratchet → instruction ratchet → doc-refs ratchet → dead-code ratchet → conventions ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
+Personal-data guard → byte-compile → ruff → static ratchet → docs ratchet → comment ratchet → structure ratchet → instruction ratchet → doc-refs ratchet → dead-code ratchet → conventions ratchet → ux surface ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
 
 ## Privacy
 

@@ -1,0 +1,2639 @@
+# UX surface map: the single source for docs/ux-surface-map.md.
+#
+# Every tab, card, sheet, dialog, menu, Settings group, cockpit card, stage rendering, remote and player screen a person can
+# reach in facilitation-suite, one entry per surface. The convention is project-scaffolding's docs/ux-surface-map.md.
+# Edit this file, never the generated page; then run `python scripts/ux_surface_map.py`.
+#
+# A change that adds, removes, renames or reshapes a user-visible surface updates its entry here in the same change,
+# adds or removes the matching `data-surface` attribute in the code, and regenerates the page.
+
+app: facilitation-suite
+
+notes: |
+  The checklist of everything a person can see and do in facilitation-suite: every tab, drill-in, card, sheet, dialog, menu, Settings group, live-cockpit card, stage rendering, phone-remote screen and quiz-player screen, with how it is reached, what is on it and what each control does. [Sessions](sessions.md), [Plan](planning.md), [Groups](groups.md), [Results](results.md), [Settings](settings.md), [the live cockpit](live.md), [the phone remote](phone-remote.md) and [the quiz player](quiz-player.md) tell each story in prose; this page is the exhaustive index, so a layout change can check every surface and not only the ones a reviewer happens to open.
+
+  **Keeping it true.** A change that adds, removes, renames or reshapes a user-visible surface (a tab, card, sheet, dialog, menu, Settings group or row that opens something, cockpit card, stage rendering or remote/player screen) updates its entry in `docs/ux-surfaces.yaml` in the same change, adds or removes the matching `data-surface`, and regenerates this page with `python scripts/ux_surface_map.py`; this page is never edited by hand. The rule is in `CLAUDE.md`, and `scripts/ux_surface_ratchet.py` holds it in the gate.
+
+  **Ids.** `<area>.<surface>`, the form the e2e `surface(page, "<id>")` hook takes. An id never changes when a title is reworded; one id names one surface even when it is drawn two ways. The three generic dialog builders in `static/js/dialogs.js` stamp one id for the kind (`dialog.form`, `dialog.confirm`, `dialog.row-menu`); each caller's dialog is its own entry with `root: none` and a link to its kind, since the kind's element is the only root the code carries. A sheet is stamped by its caller (`sheet.dlg.dataset.surface`). A surface built by a vendored component carries the component's own id (`app.update-banner`).
+
+  **Five pages, three audiences.** The app (`/`, port 8449) is the facilitator's planning and review tool; the presenter (`/presenter`) is the live cockpit on the second monitor; the stage (`/stage`) is what Zoom sees, in the session's own theme; the phone remote (`/remote`) is the cockpit's buttons on a phone over Tailscale; the quiz player (`/play`, its own public port) is what a participant's phone shows. The app, presenter and remote follow the fleet design and the appearance setting; the stage and the player do not.
+
+  **Layout bands** (the app and the remote share the vendored nav):
+
+  | Band | Condition | Nav | Panes |
+  | --- | --- | --- | --- |
+  | Phone | touch pointer, up to 520px | the floating bottom pill | one column; Plan, Groups and Results stack their list above their detail |
+  | Narrow or mid window | a mouse below 1100px, or a touch device wider than 520px | an inline segmented control pinned at the top | one column, stacked |
+  | Wide | 1100px and up with a mouse | the left rail | Plan, Groups and Results are split panes (list left, detail right); Sessions keeps its 772px measure |
+
+  **Input modes.** Everything is reachable with a mouse and with touch. The keyboard reaches the Plan outline (arrows, Alt+arrows, Ctrl+A, Ctrl+D, H, Delete, Esc), the presenter and stage (the keys sheet) and every dialog (Esc closes). Drag and drop (Plan rows and sections) is mouse only; the row menu does the same moves for touch.
+
+  **Gating.** The Copilot card, its overlay and recordings, the quiz blocks, the music card and the quiz chips only appear when the session or the machine has them; each entry says when. A browser that blocks the clipboard gets a selected field and a toast instead of a silent failure.
+
+  **Where state lives.** The open session, the last tab and the theme ride `localStorage`; a deep link (`/#sessions/<id>`, `/#settings/<section>`) rides the URL; everything else lives in the session folder or the server. The phone remote remembers only whether its hint strip is folded.
+
+walk:
+  date: 2026-11-18
+  build: 0d935a0
+  widths: [390, 1280]
+  themes: [light, dark]
+
+areas:
+  - id: chrome
+    title: App chrome
+    notes: >-
+      The frame every tab shares: the nav, the page header, the build footer and the deep links.
+  - id: dialogs
+    title: Dialog builders
+    notes: >-
+      The three generic builders in `static/js/dialogs.js`. A caller's own dialog is listed in its
+      area with `root: none` and a link here.
+  - id: import
+    title: PowerPoint import
+    notes: The import dialog, shared by the Sessions tab and the Plan tab.
+  - id: sessions
+    title: Sessions
+    notes: The ledger and one session opened full pane. The default tab.
+  - id: plan
+    title: Plan
+    notes: >-
+      The outline of sections and items (left) and the selected item's editor (right), plus the
+      re-import review that replaces them.
+  - id: groups
+    title: Groups
+    notes: The roster with presence switches and the breakout rounds.
+  - id: results
+    title: Results
+    notes: Every captured activity and quiz game in the order it happened, and the session's exports.
+  - id: settings
+    title: Settings
+    notes: >-
+      A full page over the current tab, opened by the header gear: five sections of inset groups; a
+      row that needs room opens a sheet.
+  - id: presenter
+    title: Presenter cockpit
+    notes: >-
+      `/presenter`, the live cockpit on the second monitor.
+  - id: stage
+    title: Stage
+    notes: >-
+      `/stage`, the window OBS captures: the session theme, never the fleet design.
+  - id: remote
+    title: Phone remote
+    notes: >-
+      `/remote`, the cockpit's buttons on a phone, over Tailscale.
+  - id: player
+    title: Quiz player
+    notes: >-
+      `/play` on the quiz's own public port: the participant's phone.
+
+surfaces:
+
+  # --- App chrome --------------------------------------------------------------------------------------
+
+  - id: chrome.nav
+    area: chrome
+    title: Primary navigation
+    root: data-surface
+    reach:
+      - every page of the app; the same markup on the phone remote with three tabs
+    holds:
+      - Sessions · Plan · Groups · Results, each an icon and a label
+    does:
+      - a tap switches the pane and remembers it (`localStorage`) for the next visit
+      - the arrow keys move between tabs (the vendored tablist)
+    why: >-
+      the fleet navigation contract: one nav, one place, on every device
+    phone: the floating glass pill at the bottom of the screen, hidden while a modal is open
+    desktop: a segmented control pinned at the top below 1100px; a left rail from 1100px with a mouse
+    links:
+      - to: sessions.tab
+        via: Sessions
+      - to: plan.tab
+        via: Plan
+      - to: groups.tab
+        via: Groups
+      - to: results.tab
+        via: Results
+  - id: chrome.header
+    area: chrome
+    title: Page header
+    root: data-surface
+    reach:
+      - the top of every tab, drawn by `pageHead`
+    holds:
+      - the tab's icon and title
+      - a status line (how many sessions, sections and minutes, people present)
+      - the theme toggle
+      - the Settings gear
+    does:
+      - the toggle flips light and dark for every device at once
+      - the gear opens Settings over the current tab
+    states:
+      - the status line is empty until the tab has read its data
+    links:
+      - to: settings.pane
+        via: the gear
+  - id: chrome.toast
+    area: chrome
+    title: Toast
+    root:
+      none: the vendored toast element, one `#toast` per page; a message appears and goes by itself
+    reach:
+      - any save, copy, error or background job result on the app, the presenter and the remote
+    holds:
+      - one line of text; an error is drawn in the danger colour
+    states:
+      - a failed clipboard write says so and leaves the text selected
+  - id: app.update-banner
+    area: chrome
+    title: New version banner
+    root: data-surface
+    reach:
+      - the app notices the server moved to a newer build while the page was open
+    holds:
+      - >-
+          "New version available"
+      - Reload
+      - a dismiss cross
+    does:
+      - Reload reloads the page (only ever the person's tap)
+      - dismiss keeps it down until the server moves to yet another build
+    why: the vendored `build-watch` stamps this id itself, so no app code carries it
+  - id: chrome.build-readout
+    area: chrome
+    title: Build footer
+    root:
+      none: a line in the page foot, no root of its own
+    reach:
+      - the foot of every tab, and the About group in Settings
+    holds:
+      - >-
+          "Build: <sha> · <time>", or "Build: unknown" when the version could not be read
+  - id: chrome.deep-links
+    area: chrome
+    title: Deep links
+    root:
+      none: URLs, not elements
+    reach:
+      - >-
+          `/#sessions/<id>` opens that session full pane
+      - >-
+          `/#settings` and `/#settings/<section>` (appearance, stage, music, live, about) open
+          Settings at that section
+      - >-
+          `/presenter?session=<id>` goes live with that session
+    does:
+      - >-
+          the presenter's music chip and the Copilot panel's links use them to open the app's window
+    links:
+      - to: sessions.detail
+        via: /#sessions/<id>
+      - to: settings.pane
+        via: /#settings/<section>
+
+  # --- Dialog builders ---------------------------------------------------------------------------------
+
+  - id: dialog.form
+    area: dialogs
+    title: Form dialog
+    root: data-surface
+    reach:
+      - >-
+          any editor that asks for a few fields: new session, rename, add a section, OBS settings,
+          the overlay's look
+    holds:
+      - a title and a close cross
+      - >-
+          one labelled row per field (text, number, date and time, colour, select, textarea), each
+          with an optional hint
+      - one Save button, disabled until the form is valid
+    does:
+      - >-
+          Save resolves the values; Esc, the cross or a click on the backdrop dismisses with nothing
+    why: one `<dialog>` builder, never `window.prompt`, which would block the page
+    links:
+      - to: sessions.new-session
+        via: New session
+      - to: sessions.add-folder
+        via: Add an existing session folder
+      - to: sessions.duplicate
+        via: Duplicate
+      - to: plan.rename-section
+        via: Rename
+      - to: plan.new-section
+        via: Add section
+      - to: plan.add-slide
+        via: Slide from the deck
+      - to: plan.kahoot
+        via: Import Kahoot
+      - to: settings.obs-connection
+        via: Connection
+      - to: settings.obs-profile
+        via: a camera profile
+      - to: settings.overlay-look
+        via: Look
+  - id: dialog.confirm
+    area: dialogs
+    title: Confirm dialog
+    root: data-surface
+    reach:
+      - >-
+          any destructive or lossy step: remove from the ledger, delete, discard edits, reset,
+          close, kick a player
+    holds:
+      - a title and a close cross
+      - one sentence saying what happens and what is kept
+      - one action button, in the danger style when it destroys something
+    does:
+      - the action resolves true; Esc, the cross or the backdrop resolves false
+    why: the sentence always says what survives, so a confirmation is a decision and not a reflex
+  - id: dialog.row-menu
+    area: dialogs
+    title: Row menu
+    root: data-surface
+    reach:
+      - a kebab on a list row, the Plan's "Add slide or activity" button
+    holds:
+      - one button per action with an icon and a label
+      - a destructive action last, after a divider
+    does:
+      - a click runs the action and closes the menu; Esc or a click outside closes it
+    states:
+      - opens upwards when the anchor is near the bottom of the window
+    why: >-
+      design.md action-row: destructive last, after a divider
+    links:
+      - to: sessions.row-menu
+        via: a session's kebab
+      - to: plan.section-menu
+        via: a section's kebab
+      - to: plan.item-menu
+        via: an item's kebab
+      - to: plan.add-menu
+        via: Add slide or activity
+
+  # --- PowerPoint import -------------------------------------------------------------------------------
+
+  - id: import.deck
+    area: import
+    title: Import PowerPoint dialog
+    root: data-surface
+    reach:
+      - Sessions → the folder card's Import (or Re-import) PowerPoint
+      - Plan → the toolbar's Import PowerPoint, Re-import PowerPoint or Re-import selected
+      - the readiness row's Import
+    holds:
+      - the deck path (typed, or picked with the native Windows dialog from Browse)
+      - a sentence for what this run does (first import, re-import, selected slides)
+      - a progress bar and the job's message
+      - Import or Re-import
+    does:
+      - Browse opens the native file picker on this PC
+      - the job runs on the server and the bar follows each slide
+      - a first import writes slides and the plan; a re-import stages an export for review
+    states:
+      - >-
+          running: the dialog cannot be dismissed
+      - >-
+          failed: the bar turns red and the message says why; the server may still be running after
+          a lost poll
+    links:
+      - to: plan.reimport-review
+        via: a re-import that waits for review
+
+  # --- Sessions ----------------------------------------------------------------------------------------
+
+  - id: sessions.tab
+    area: sessions
+    title: Sessions tab
+    root: data-surface
+    reach:
+      - the Sessions tab (the first visit)
+      - the "Sessions" action of the empty Plan, Groups and Results
+    holds:
+      - the page header
+      - >-
+          the ledger: an Upcoming group, then Past, each row the title, a date and the folder
+          crumbs, with a kebab
+      - New session
+      - Add an existing session folder
+      - a note that the list is only a ledger of names and folders
+    does:
+      - a row opens the session full pane
+      - New session and Add open their form dialogs
+    states:
+      - a folder that is missing or unreadable carries a red chip
+      - >-
+          the ledger could not be read: an error with Retry
+    why: >-
+      the ledger holds only names and folders; every session lives in its own folder with its own
+      session.yaml
+    links:
+      - to: sessions.detail
+        via: a row
+      - to: sessions.row-menu
+        via: the kebab
+      - to: sessions.new-session
+        via: New session
+      - to: sessions.add-folder
+        via: Add an existing session folder
+      - to: sessions.empty
+        via: no sessions
+      - to: chrome.header
+  - id: sessions.empty
+    area: sessions
+    title: Sessions empty state
+    root:
+      none: a state of the ledger card, drawn inside `sessions.tab`
+    reach:
+      - a ledger with no sessions
+    holds:
+      - >-
+          "No sessions yet." and a New session button
+    links:
+      - to: sessions.new-session
+        via: New session
+  - id: sessions.row-menu
+    area: sessions
+    title: Session row menu
+    root:
+      none: an instance of `dialog.row-menu`
+    reach:
+      - a session row's kebab
+    holds:
+      - Duplicate · Open folder · Remove from ledger (after a divider)
+    does:
+      - Open folder shows the folder in Explorer on this PC
+    links:
+      - to: sessions.duplicate
+        via: Duplicate
+      - to: sessions.confirm-remove
+        via: Remove from ledger
+  - id: sessions.new-session
+    area: sessions
+    title: New session
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - New session on the Sessions tab, or in the empty state
+    holds:
+      - >-
+          Title, Workshop folder, Session folder (the hint names where it is created), Date and
+          time, Duration
+    does:
+      - Create session folder makes the folder under the session root and opens the session
+  - id: sessions.add-folder
+    area: sessions
+    title: Add an existing session folder
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - Add an existing session folder
+    holds:
+      - one Folder field (the folder that holds session.yaml)
+    does:
+      - Add to ledger opens it
+  - id: sessions.duplicate
+    area: sessions
+    title: Duplicate session
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - a session row's menu → Duplicate
+    holds:
+      - Title ("… (copy)") and Session folder
+    does:
+      - copies the plan, slides, roster and theme, not live data or exports
+  - id: sessions.confirm-remove
+    area: sessions
+    title: Remove from ledger?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - a session row's menu → Remove from ledger
+    holds:
+      - the session's title, and that its folder and files stay where they are
+    why: removing only forgets the folder, so the confirmation says it is reversible
+  - id: sessions.detail
+    area: sessions
+    title: Session detail
+    root: data-surface
+    reach:
+      - a session row
+      - >-
+          `/#sessions/<id>`
+      - Add or New session (opens the one just made)
+    holds:
+      - >-
+          the title, a one-line summary (date, duration planned, language on stage) and a close
+          cross
+      - the Session folder, Plan, Playbook, Analyze, Session settings and Ready cards
+      - Open presenter and Open stage window
+    does:
+      - the cross, Esc or Back returns to the list where it was scrolled
+      - Open presenter goes live with this session; Open stage opens the stage window
+    states:
+      - >-
+          reading: "Reading the session folder…"
+      - >-
+          the folder could not be read: an error with Retry
+    why: >-
+      a session takes the whole pane so its own settings, readiness and go-live buttons sit together
+    links:
+      - to: sessions.playbook
+        via: Playbook
+      - to: sessions.analyze
+        via: Analyze session
+      - to: sessions.settings
+        via: Session settings
+      - to: sessions.readiness
+        via: Ready for the live session
+      - to: import.deck
+        via: Import PowerPoint
+      - to: plan.tab
+        via: Edit plan
+      - to: presenter.picker
+        via: Open presenter
+      - to: stage.live
+        via: Open stage window
+  - id: sessions.playbook
+    area: sessions
+    title: Playbook card
+    root: data-surface
+    reach:
+      - inside the open session
+    holds:
+      - the session folder's playbook.md rendered by the server
+      - Edit, Reload and Show all / Show less
+    does:
+      - Edit opens playbook.md in the default editor
+      - Reload reads it again
+      - Create playbook makes one
+    states:
+      - >-
+          empty: "No playbook for this session yet" and Create playbook
+      - loading, and an error with Retry
+      - a long playbook is collapsed until Show all
+    why: the app shows the playbook; it never edits it
+  - id: sessions.analyze
+    area: sessions
+    title: Analyze session card
+    root: data-surface
+    reach:
+      - inside the open session
+      - at the foot of the Results tab (the same card)
+    holds:
+      - >-
+          chips for what the analysis will find: playbook.md, notes.md, report/
+      - a note, the draft when one exists
+      - Run analysis
+      - the command to paste into an agent session and Copy command
+    does:
+      - Run analysis asks the hub for the report and polls while it runs
+      - Copy command copies the analyze-session command
+    states:
+      - >-
+          nothing captured yet: the buttons are disabled and the note says why
+      - running, failed (hub down, timed out, no report, not saved) and a saved draft
+    links:
+      - to: results.tab
+        via: the same card
+  - id: sessions.settings
+    area: sessions
+    title: Session settings card
+    root: data-surface
+    reach:
+      - inside the open session
+    holds:
+      - Title, Date and time, Duration, Stage language, Stage hint, Capture scope (a switch)
+      - >-
+          the Stage look: Using the default or Overridden, Reset all to defaults, the colour set,
+          then the lettering editor
+    does:
+      - >-
+          each field saves on blur, Enter or a select change, one at a time, and a refused save
+          undoes it
+      - the switch decides whether a capture stops when its activity is left
+    states:
+      - Reset all to defaults only shows while the look differs from Settings → Stage defaults
+    links:
+      - to: sessions.stage-font
+        via: the lettering editor
+      - to: sessions.confirm-look-reset
+        via: Reset all to defaults
+      - to: settings.stage-defaults
+        via: Stage defaults
+  - id: sessions.stage-font
+    area: sessions
+    title: Lettering editor
+    root:
+      none: >-
+        markup `font-editor.js` returns, drawn inside `sessions.settings` and the Settings lettering
+        sheet
+    reach:
+      - Session settings → Stage look
+      - >-
+          Settings → Stage defaults → Lettering and timers (the same editor on a sample of its own)
+    holds:
+      - a live sample of the stage
+      - >-
+          Title font: font, weight, line thickness, colour, size
+      - >-
+          Text font: font, weight
+      - >-
+          Each kind of text: which font, capitals or as typed
+      - Timer colours for the four states
+    does:
+      - every change saves at once; the sample follows as you pick
+      - >-
+          a session shows "Differs from global" with Reset to global for a title size, capitals or
+          font that departs from the default
+    links:
+      - to: settings.lettering
+        via: the defaults editor
+  - id: sessions.confirm-look-reset
+    area: sessions
+    title: Reset all to defaults?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - Session settings → Reset all to defaults
+    holds:
+      - >-
+          says the colour set and lettering go back to Settings → Stage defaults, and that items
+          with their own value keep it
+  - id: sessions.readiness
+    area: sessions
+    title: Ready for the live session
+    root: data-surface
+    reach:
+      - inside the open session
+    holds:
+      - >-
+          "n of m" ready
+      - >-
+          one row per check (Slides, Activities, Roster, Groups, Files offline, Chat reader, OBS,
+          Zoom auto-update, Copilot consent, and the quiz's public link when the plan has a quiz),
+          each with an icon for ok, warn, to do or unknown and its detail
+    does:
+      - Import, Keep on PC, Test, Mark done and Check run the fix the row names
+    states:
+      - a check that could not be established shows as unknown, never as ready
+    links:
+      - to: import.deck
+        via: Import
+
+  # --- Plan --------------------------------------------------------------------------------------------
+
+  - id: plan.tab
+    area: plan
+    title: Plan tab
+    root: data-surface
+    reach:
+      - the Plan tab
+      - Sessions → the plan card's Edit plan
+      - the Groups tab's Add reveal slide stages an item here
+    holds:
+      - the header
+      - the toolbar
+      - the outline (left)
+      - the item editor (right)
+      - the re-import review, which replaces both while it is open
+    does:
+      - edits are staged in memory; Save to session.yaml is the one persistence boundary
+    states:
+      - >-
+          no session picked: "Pick or create a session first." with a Sessions action
+      - reading the plan, and an error with Retry
+    phone: the outline stacks above the editor
+    desktop: >-
+      a split pane from 1100px: outline left, editor right
+    links:
+      - to: plan.toolbar
+      - to: plan.outline
+      - to: plan.editor
+      - to: plan.reimport-review
+        via: Review
+      - to: sessions.tab
+        via: no session
+  - id: plan.toolbar
+    area: plan
+    title: Plan toolbar
+    root: data-surface
+    reach:
+      - the top of the Plan tab
+    holds:
+      - Re-import PowerPoint (or Import PowerPoint with no deck yet)
+      - Re-import selected, only while the selection holds a slide
+      - Add section
+      - Import Kahoot
+      - Collapse all · Expand all
+      - >-
+          "Planned h:mm of h:mm" and minutes on timers, in the warn colour when over
+      - Unsaved changes with Discard and Save, while there are edits
+    does:
+      - Discard reloads the saved plan; Save writes session.yaml
+    links:
+      - to: import.deck
+        via: Re-import PowerPoint
+      - to: plan.new-section
+        via: Add section
+      - to: plan.kahoot
+        via: Import Kahoot
+      - to: plan.confirm-unsaved
+        via: an import with unsaved edits
+  - id: plan.outline
+    area: plan
+    title: Plan outline
+    root: data-surface
+    reach:
+      - inside the Plan tab
+    holds:
+      - >-
+          a header row per section: a grip, a fold chevron, the name, a rename pencil, the item
+          count, the planned minutes (an inline number field) and a kebab
+      - >-
+          an item row per slide, activity, break or breakout: a number, a thumbnail, the title,
+          chips (type, round, timer, music, lettering, "Pick profile") and a kebab
+      - Add slide or activity under each open section
+    does:
+      - click selects one item, Ctrl or Cmd+click adds or removes, Shift+click selects a range
+      - drag moves an item (or the whole selection) or a section
+      - a hidden item is dimmed with an eye-off mark
+    states:
+      - >-
+          no sections: "Import the PowerPoint to start the plan." with an Import action
+      - a collapsed section shows only its header
+    why: >-
+      selection works as in a file manager so a bulk move or delete is the gesture people already
+      know
+    links:
+      - to: plan.editor
+        via: an item
+      - to: plan.multiselect
+        via: several selected
+      - to: plan.section-menu
+        via: a section's kebab
+      - to: plan.item-menu
+        via: an item's kebab
+      - to: plan.add-menu
+        via: Add slide or activity
+      - to: plan.rename-section
+        via: the pencil
+      - to: plan.empty
+        via: no sections
+      - to: plan.drag
+        via: a drag
+      - to: plan.keys
+        via: the keyboard
+  - id: plan.empty
+    area: plan
+    title: Plan empty state
+    root:
+      none: a state of the outline card, drawn inside `plan.outline`
+    reach:
+      - a session with no sections yet
+    holds:
+      - >-
+          "Import the PowerPoint to start the plan." and Import PowerPoint
+    links:
+      - to: import.deck
+        via: Import PowerPoint
+  - id: plan.drag
+    area: plan
+    title: Drag and drop
+    root:
+      none: a gesture, with no element of its own
+    reach:
+      - >-
+          mouse only: drag an item row, a selection or a section header in the outline
+    holds:
+      - >-
+          a drop target highlights; a drop on a section header moves to its end; a section dropped
+          on another section's header moves it
+    does:
+      - dragging one selected row carries the whole selection
+    why: the row menus (Move up, Move down) and Alt+arrows do the same moves for touch and keyboard
+  - id: plan.keys
+    area: plan
+    title: Outline keys
+    root:
+      none: keyboard paths, with no element of their own
+    reach:
+      - a focused item row
+    holds:
+      - >-
+          Enter or Space selects · Up and Down move the focus · Shift+Up/Down extend the selection ·
+          Alt+Up/Down move the item · Ctrl+A selects all · Ctrl+D duplicates · H hides or shows ·
+          Delete or Backspace deletes · Esc keeps one
+    links:
+      - to: plan.confirm-delete
+        via: Delete
+  - id: plan.section-menu
+    area: plan
+    title: Section menu
+    root:
+      none: an instance of `dialog.row-menu`
+    reach:
+      - a section header's kebab
+    holds:
+      - Rename · Add an activity here · Move up · Move down · Delete section (after a divider)
+    links:
+      - to: plan.rename-section
+        via: Rename
+      - to: plan.confirm-delete-section
+        via: Delete section
+  - id: plan.item-menu
+    area: plan
+    title: Item menu
+    root:
+      none: an instance of `dialog.row-menu`
+    reach:
+      - an item row's kebab
+    holds:
+      - Hide slide / Show slide (by kind), or Hide 3 items for a selection
+    does:
+      - hiding skips the item with Next and Previous; the presenter can still open it
+  - id: plan.add-menu
+    area: plan
+    title: Add menu
+    root:
+      none: an instance of `dialog.row-menu`
+    reach:
+      - Add slide or activity under a section
+    holds:
+      - Activity · Break · Breakout · Slide from the deck · Section after this one
+    links:
+      - to: plan.add-slide
+        via: Slide from the deck
+      - to: plan.new-section
+        via: Section after this one
+  - id: plan.rename-section
+    area: plan
+    title: Rename section
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - a section's pencil or menu → Rename
+    holds:
+      - Name
+  - id: plan.new-section
+    area: plan
+    title: Add section
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - the toolbar's Add section
+      - the add menu's Section after this one
+    holds:
+      - Name and Planned minutes
+  - id: plan.add-slide
+    area: plan
+    title: Add a slide
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - the add menu's Slide from the deck
+    holds:
+      - a Slide select listing the deck, marking slides already in the plan
+  - id: plan.kahoot
+    area: plan
+    title: Import Kahoot quiz
+    root:
+      none: an instance of `dialog.form`, after the native file picker
+    reach:
+      - the toolbar's Import Kahoot, after an .xlsx is picked
+    holds:
+      - Quiz name (the file's name by default)
+    does:
+      - >-
+          adds a section with the lobby, one question per row and the podium, saved, then reloads
+          the plan
+  - id: plan.confirm-unsaved
+    area: plan
+    title: Unsaved changes
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - an import or re-import while the plan has unsaved edits
+    holds:
+      - says to save or discard the edits before importing; Discard edits and continue
+  - id: plan.confirm-delete
+    area: plan
+    title: Delete items?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - Delete in the editor, Delete or Backspace on a row, Delete n items in the bulk editor
+    holds:
+      - names the item (or the count) and what it removes
+  - id: plan.confirm-delete-section
+    area: plan
+    title: Delete section?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - a section menu → Delete section
+    holds:
+      - says the section's items move to the neighbouring section, or that it is empty
+    states:
+      - >-
+          the last section cannot be deleted while it holds items: a toast says so
+  - id: plan.editor
+    area: plan
+    title: Item editor
+    root: data-surface
+    reach:
+      - selecting one item in the outline
+    holds:
+      - the title (the item's name, its section and position, what it follows)
+      - the stage preview
+      - >-
+          an editor card: for an activity Type, Title, Question, Question font, lettering per kind
+          of text, Prompt for chat; for a slide, break or breakout Title, lettering, Rooms
+          (breakout) and Slide text (slide); then Camera layout, Timer, Music, In this session,
+          Answers (an activity's own options), Notes
+      - Move up · Move down · Duplicate · Delete, and Save to session.yaml
+    does:
+      - every field edits the staged plan and redraws the preview; Save writes it
+      - >-
+          Camera layout picks the OBS profile (Camera strip, Camera PiP, Screen only) and where the
+          stage keeps the camera zone clear
+    states:
+      - a slide with no detected layout shows "Pick profile" and a warning hint
+      - >-
+          no item selected, or an empty plan: a card says so
+      - Save reads "Saved" and is disabled while nothing is unsaved
+    links:
+      - to: plan.preview
+        via: the stage preview
+      - to: plan.music-editor
+        via: Music
+      - to: plan.quiz-editor
+        via: a quiz question's Answers
+      - to: plan.breakout
+        via: a breakout
+      - to: sessions.stage-font
+        via: the lettering rows
+      - to: plan.confirm-delete
+        via: Delete
+      - to: plan.editor-empty
+        via: no item
+  - id: plan.editor-empty
+    area: plan
+    title: Item editor empty state
+    root:
+      none: a state of the editor column, drawn inside `plan.editor`
+    reach:
+      - no item selected, or a plan with no items
+    holds:
+      - >-
+          "Select an item to edit it." or "The plan is empty."
+  - id: plan.preview
+    area: plan
+    title: Stage preview
+    root: data-surface
+    reach:
+      - the top of the item editor
+    holds:
+      - the selected item drawn by the real stage renderer at the size Zoom will see it
+      - a dashed box where the camera goes for the chosen layout
+      - sample answers for a capture activity, the Groups tab's rooms for a reveal or breakout
+    does:
+      - follows every edit
+    why: the preview is the stage's own renderer, so it cannot drift from what the audience sees
+  - id: plan.breakout
+    area: plan
+    title: Breakout editor
+    root:
+      none: fields of `plan.editor` for a breakout item
+    reach:
+      - selecting a breakout item
+    holds:
+      - >-
+          Title, Title font, the sub-line's lettering, Rooms: Pairs · Groups of 4 · A · Groups of 4
+          · B · No rooms shown
+    does:
+      - the round names which of the Groups tab's rounds the stage says is in the rooms
+  - id: plan.music-editor
+    area: plan
+    title: Music editor
+    root:
+      none: the Music field of `plan.editor`
+    reach:
+      - the editor's Music field
+    holds:
+      - a switch ("No music on this item" while off)
+      - >-
+          Source: a Spotify link or a file
+      - >-
+          the file, with Choose file… (copied into the session's audio folder: mp3, wav, ogg, flac)
+      - Volume, fades, When the timer ends, When leaving the item
+    states:
+      - an item with music but no timer warns that the music starts with the item
+  - id: plan.quiz-editor
+    area: plan
+    title: Quiz question editor
+    root:
+      none: the Answers field of `plan.editor` for a quiz item
+    reach:
+      - selecting a Quiz question, Quiz lobby or Quiz podium activity
+    holds:
+      - >-
+          a question's four answers, which is correct, the time limit and the points; a lobby's
+          title, whether chat answers are accepted and whether it closes when everyone answered
+  - id: plan.multiselect
+    area: plan
+    title: Bulk editor
+    root: data-surface
+    reach:
+      - selecting two or more items (Ctrl or Shift+click, Ctrl+A)
+    holds:
+      - >-
+          "n items selected" with the kinds counted and the selection keys
+      - the selected items as a strip
+      - Camera layout for all
+      - In this session for all
+      - Keep one selected · Duplicate n items · Delete n items
+      - Save to session.yaml
+    states:
+      - >-
+          the layouts differ: a hint says a pick sets all of them
+    links:
+      - to: plan.confirm-delete
+        via: Delete n items
+  - id: plan.selection
+    area: plan
+    title: Selection
+    root:
+      none: a state shared by the outline and the editor
+    reach:
+      - a click, Ctrl or Cmd+click, Shift+click, Ctrl+Shift, Shift+Up/Down, Ctrl+A
+    holds:
+      - >-
+          the focused item drives the editor; every selected item is highlighted; a focused item
+          among several is ringed
+  - id: plan.reimport-review
+    area: plan
+    title: Re-import review
+    root: data-surface
+    reach:
+      - a re-import that finished its export (the dialog hands over to the review)
+      - the Plan tab's Review banner
+    holds:
+      - a Back chevron and the deck's name with when it was exported
+      - tiles counting Identical, Modified, New, Removed, Moved
+      - >-
+          one row per change: a pill, old → new thumbnails, its text and a switch that accepts or
+          declines it
+      - an "n identical slides" card that folds
+      - the camera layout detected from the slide images
+      - Apply n changes and Cancel
+    does:
+      - >-
+          Back leaves the review waiting; Apply applies only the accepted changes; Cancel throws the
+          staged export away
+    states:
+      - >-
+          comparing: "Comparing the slides…"
+      - an error with Back
+    why: nothing changes until the person reviews it, so a re-import never rewrites a plan silently
+    links:
+      - to: plan.reimport-empty
+        via: nothing changed
+      - to: plan.confirm-cancel-reimport
+        via: Cancel
+  - id: plan.reimport-empty
+    area: plan
+    title: Re-import with no changes
+    root:
+      none: a state of the review's list
+    reach:
+      - a re-import where the deck did not change
+    holds:
+      - >-
+          "Nothing changed in the deck — Apply refreshes the slide images."
+  - id: plan.confirm-cancel-reimport
+    area: plan
+    title: Cancel the re-import?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - the review's Cancel
+    holds:
+      - says the exported slides are thrown away and the plan and slides stay as they are
+  - id: plan.reimport-banner
+    area: plan
+    title: Re-import and deck banners
+    root:
+      none: banners drawn above the outline
+    reach:
+      - a re-import is waiting for review
+      - the PowerPoint file is newer than the import, or missing
+    holds:
+      - >-
+          "A re-import is waiting for your review — nothing has changed yet." and Review
+      - >-
+          "This PowerPoint is newer than the import." or "The PowerPoint file is missing."
+    links:
+      - to: plan.reimport-review
+        via: Review
+
+  # --- Groups ------------------------------------------------------------------------------------------
+
+  - id: groups.tab
+    area: groups
+    title: Groups tab
+    root: data-surface
+    reach:
+      - the Groups tab
+    holds:
+      - the header with "n of m present"
+      - the roster (left)
+      - the breakout rounds (right)
+    states:
+      - >-
+          no session picked: "Pick a session in the Sessions tab first." with a Sessions action
+      - an error with Retry
+    phone: the roster stacks above the rounds
+    desktop: a split pane from 1100px
+    links:
+      - to: groups.roster
+      - to: groups.rooms
+      - to: sessions.tab
+        via: no session
+  - id: groups.roster
+    area: groups
+    title: Roster
+    root: data-surface
+    reach:
+      - inside the Groups tab
+    holds:
+      - Import roster and a Filter participants field
+      - >-
+          one row per person: a presence switch, the name, role · country, and "no email" when there
+          is none
+    does:
+      - Import roster picks an .xlsx with a name column on this PC
+      - a switch marks the person present or absent and the rounds go stale until shuffled again
+      - the filter matches name, role, company and country
+    states:
+      - >-
+          no roster: "No roster yet. Import an .xlsx with a name column …" with an Import action
+      - >-
+          no match: "Nobody matches the filter."
+      - an absent person is dimmed
+    links:
+      - to: groups.empty
+        via: no roster
+  - id: groups.empty
+    area: groups
+    title: Groups empty state
+    root:
+      none: a state of `groups.roster`, drawn inside the roster card
+    reach:
+      - a session with no roster yet
+      - no session picked (the card then points at the Sessions tab)
+    holds:
+      - >-
+          "No roster yet. Import an .xlsx with a name column (role, company, country, present and
+          email are optional)." with Import roster
+      - the rounds pane then shows only its title
+    links:
+      - to: groups.roster
+        via: Import roster
+  - id: groups.rooms
+    area: groups
+    title: Breakout rounds
+    root: data-surface
+    reach:
+      - inside the Groups tab
+    holds:
+      - >-
+          "Breakout rounds" with when it was shuffled
+      - >-
+          a Round control: Pairs · Groups of 4 · A · Groups of 4 · B
+      - >-
+          a banner: the rooms and a note (pairs are random, round A keeps pairs together, round B
+          names how many share a room with their round-A group), or a warning that presence changed
+          since the shuffle
+      - a card per room with its people
+      - Shuffle again · Copy rooms for Zoom · Export Zoom pre-assign CSV · Add reveal slide
+    does:
+      - Copy rooms puts the round's text on the clipboard to paste while assigning Zoom rooms
+      - Export downloads the pre-assign CSV
+      - Add reveal slide stages a "Who are you with?" item in the Plan tab, not saved yet
+    states:
+      - >-
+          not shuffled: "n present. Shuffle to make pairs and two rounds of four with as few repeats
+          as possible." with a Shuffle action
+      - the CSV is disabled, and says whose email is missing, when anyone present has none
+    links:
+      - to: plan.editor
+        via: Add reveal slide
+
+  # --- Results -----------------------------------------------------------------------------------------
+
+  - id: results.tab
+    area: results
+    title: Results tab
+    root: data-surface
+    reach:
+      - the Results tab
+    holds:
+      - the header with the session's title and date
+      - the check against Zoom's saved chat
+      - People under several names
+      - the activity list
+      - Rebuild results
+      - the selected result and the session's exports (right)
+    states:
+      - >-
+          no session picked: "Pick a session in the Sessions tab first." with a Sessions action
+      - an error with Retry
+    phone: the list stacks above the detail; choosing a result scrolls the detail into view
+    desktop: a split pane from 1100px
+    links:
+      - to: results.reconcile
+      - to: results.people
+      - to: results.list
+      - to: results.rebuild
+      - to: results.detail
+      - to: sessions.tab
+        via: no session
+  - id: results.reconcile
+    area: results
+    title: Check against Zoom's saved chat
+    root: data-surface
+    reach:
+      - inside the Results tab, once the session went live
+    holds:
+      - >-
+          before a check: a card with Choose file
+      - >-
+          after one: a banner "n of m messages matched" (green) or with how many are missing (warn),
+          and Check again
+      - a "Messages that differ" fold listing Missing and Only-in-the-app messages
+      - >-
+          notes: reactions not counted, simulated left out
+    does:
+      - Choose file picks Zoom's saved chat on this PC and compares it with the app's record
+    states:
+      - nothing is shown for a session that never went live
+    links:
+      - to: results.reconcile-warning
+        via: missing messages
+  - id: results.reconcile-warning
+    area: results
+    title: Messages missing from the record
+    root:
+      none: a state of `results.reconcile`
+    reach:
+      - a check that found messages Zoom saved and the app did not
+    holds:
+      - the warn banner and the "Messages that differ" fold, folded until opened
+  - id: results.people
+    area: results
+    title: People under several names
+    root: data-surface
+    reach:
+      - inside the Results tab, when names look alike or were merged
+    holds:
+      - a fold with "n suggested · n merged"
+      - a row per Suggested group with Merge, a row per Merged group with Undo
+      - >-
+          Merge by hand: two name selects and Merge
+    does:
+      - nothing merges on its own; a merge is saved as aliases.yaml in the session folder
+    states:
+      - the fold opens by itself while there are suggestions
+      - hidden when there is nothing to merge
+  - id: results.list
+    area: results
+    title: Result list
+    root: data-surface
+    reach:
+      - inside the Results tab
+    holds:
+      - >-
+          each captured activity and quiz game in the order it happened: a number (a crown for a
+          quiz), the title and a summary
+    does:
+      - a row selects it and shows its detail
+    states:
+      - >-
+          no capture yet: "No activity was captured in this session yet. Press Space on an activity
+          during the session to capture answers."
+      - >-
+          before the session ran: "Results appear after a live session."
+    links:
+      - to: results.detail
+        via: a row
+  - id: results.detail
+    area: results
+    title: Result detail
+    root: data-surface
+    reach:
+      - a result list row
+      - a live tile in the PDF strip
+    holds:
+      - >-
+          for an activity: its title and counts, the visual exactly as the stage showed it at the
+          stop, the top items and every answer with the person's name
+      - >-
+          for a quiz: its podium, leaderboard and each question's distribution
+      - >-
+          Finish session, the Session PDF strip, Export session PDF, Excel report and the Open links
+      - the Conversation card and the Analyze session card
+    states:
+      - a capture with no saved image says the answers below are complete
+      - a hidden or excluded answer is dimmed with a chip
+    links:
+      - to: results.quiz
+        via: a quiz
+      - to: results.wrap-up
+      - to: results.pdf
+      - to: results.exports
+      - to: results.conversation
+      - to: sessions.analyze
+  - id: results.quiz
+    area: results
+    title: Quiz result
+    root:
+      none: a rendering of `results.detail` for a quiz game
+    reach:
+      - a crown row in the result list
+    holds:
+      - >-
+          Podium and Leaderboard cards (rank, name, source chip, correct of asked, average time,
+          score)
+      - >-
+          one card per question with a bar per answer, the correct one marked, and how many players
+          answered
+    states:
+      - >-
+          nobody played: "Nobody played." and "No players."
+  - id: results.wrap-up
+    area: results
+    title: Finish session card
+    root: data-surface
+    reach:
+      - inside the result detail, once something was captured
+    holds:
+      - >-
+          "Finish session" with a status line and a Finish session button
+    does:
+      - >-
+          rebuilds the results when the rules changed, exports the PDFs and the Excel report, then
+          starts the analysis, and reports each step
+    states:
+      - >-
+          running: the button reads "Finishing…"
+      - the last run's line is kept across the redraw
+  - id: results.pdf
+    area: results
+    title: Session PDF card
+    root: data-surface
+    reach:
+      - inside the result detail
+    holds:
+      - >-
+          "Session PDF" with slides + live results, when it was exported and its page count
+      - >-
+          a strip of tiles: a thumbnail per slide, a tile per live result, an Answers appendix
+    does:
+      - a live tile selects that result
+  - id: results.exports
+    area: results
+    title: Exports
+    root: data-surface
+    reach:
+      - inside the result detail
+    holds:
+      - Export session PDF and Excel report
+      - >-
+          Open links for each file that exists: full PDF, share PDF, participants' PDF, Excel report
+    does:
+      - >-
+          the files stay in the session folder's exports/; the links open them in a new tab (inline,
+          never a download) for a device that cannot reach that folder
+    states:
+      - Excel report is disabled with nothing captured
+      - a button reads "Exporting…" while it runs
+  - id: results.conversation
+    area: results
+    title: Conversation card
+    root: data-surface
+    reach:
+      - >-
+          inside the result detail, for a session the copilot ran in or whose consent was confirmed
+    holds:
+      - a fold with the transcript's size
+      - a Transcript control when two transcripts exist (the recorder's and the live one)
+      - the transcript under the item each line belongs to, with the hints the copilot gave
+      - >-
+          Recorder tracks: the episode folder, Transcribe, Summarise again and the run's state
+      - Summary of the call
+    does:
+      - Transcribe runs the after-call transcription through the hub and polls while it runs
+    states:
+      - a session the copilot never ran in, with no consent, shows no card
+      - >-
+          an error with Retry; the recorder section is extra, so the conversation still shows when
+          its state cannot be read
+  - id: results.rebuild
+    area: results
+    title: Rebuild results card
+    root: data-surface
+    reach:
+      - inside the Results tab, once something was frozen
+    holds:
+      - >-
+          "Rebuild results" with Preview and Undo last rebuild
+      - >-
+          after Preview: what would change and Rebuild n activities, Cancel
+    does:
+      - Preview writes nothing; Rebuild backs up first; Undo restores the backup
+    states:
+      - idle, loading, preview, busy and error
+      - >-
+          a session that is live cannot be rebuilt: the server says so
+      - Rebuild is disabled when nothing would change
+    links:
+      - to: results.rebuild-preview
+        via: Preview
+  - id: results.rebuild-preview
+    area: results
+    title: Rebuild preview
+    root:
+      none: a step of `results.rebuild`
+    reach:
+      - Preview
+    holds:
+      - how many captured activities would change and what each change is
+
+  # --- Settings ----------------------------------------------------------------------------------------
+
+  - id: settings.pane
+    area: settings
+    title: Settings page
+    root: data-surface
+    reach:
+      - the header gear on any tab
+      - >-
+          `/#settings` and `/#settings/<section>`
+      - >-
+          the presenter's music chip (`/#settings/music`) and the Copilot panel's Overlay settings
+          link (`/#settings/live`)
+    holds:
+      - a sticky header with the title "Settings" and a close cross
+      - >-
+          five sections: Appearance · Stage defaults · Music · Live tools · About
+    does:
+      - the cross or Esc closes it; the tab behind keeps its place
+      - a deep link scrolls to its section under the sticky header
+    states:
+      - >-
+          the settings could not be read: a toast says why and the page stays empty
+    why: >-
+      Settings is a full page over the current tab (a modal `<dialog>`), not a tab: it is one tap
+      from every tab and leaves the tab where it was
+    phone: full screen
+    desktop: a page with the 772px measure
+    links:
+      - to: settings.appearance
+      - to: settings.stage-defaults
+      - to: settings.music
+      - to: settings.obs
+      - to: settings.reader
+      - to: settings.stage-click
+      - to: settings.overlay
+      - to: settings.recording-retention
+      - to: settings.remote-control
+      - to: settings.about
+  - id: settings.appearance
+    area: settings
+    title: Appearance group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Appearance
+    holds:
+      - >-
+          Light and dark: System · Light · Dark
+      - >-
+          Text size: Small · Default · Large
+    does:
+      - >-
+          light and dark covers the app, the presenter and the phone remote on every device at once;
+          System follows each device
+      - text size is for this device only
+    why: the stage keeps the session's look; only the cockpit and the app follow the appearance
+  - id: settings.stage-defaults
+    area: settings
+    title: Stage defaults group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Stage defaults
+    holds:
+      - Colour set (a select)
+      - Lettering and timers (opens the lettering sheet)
+      - Stage library (opens the library sheet)
+    does:
+      - a new session copies these; an existing session keeps its own
+    links:
+      - to: settings.lettering
+        via: Lettering and timers
+      - to: settings.library
+        via: Stage library
+  - id: settings.lettering
+    area: settings
+    title: Lettering sheet
+    root: data-surface
+    reach:
+      - Settings → Stage defaults → Lettering and timers
+    holds:
+      - >-
+          a note, then the lettering editor on a sample of its own: Title font, Text font, Each kind
+          of text, Timer colours
+    does:
+      - >-
+          each change saves as the default new sessions start from; the row's value redraws behind
+          the sheet
+    phone: a bottom sheet that fits the screen and scrolls its body; Done stays pinned
+    desktop: a wide dialog
+    links:
+      - to: sessions.stage-font
+        via: the editor
+  - id: settings.library
+    area: settings
+    title: Stage library sheet
+    root: data-surface
+    reach:
+      - Settings → Stage defaults → Stage library
+    holds:
+      - the library's fonts and colour sets, one row each
+      - the folder the files live in (next to the sessions, never in the app's folder)
+      - Add font… and Add colour set…
+    does:
+      - each Add opens the native file picker and copies the file into the library
+    states:
+      - >-
+          empty: "Nothing here yet. Add a font file or a colour set to offer it to every session."
+  - id: settings.music
+    area: settings
+    title: Music group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Music
+    holds:
+      - >-
+          Spotify (its state as the value: Connected, Not set up, Login expired, Desktop app not
+          open, Not playing, Command refused, Premium needed, Checking…)
+      - Fade in and Fade out, in seconds
+    does:
+      - the fades are what an item's music starts with when it is switched on in the Plan tab
+    links:
+      - to: settings.spotify
+        via: Spotify
+  - id: settings.spotify
+    area: settings
+    title: Spotify sheet
+    root: data-surface
+    reach:
+      - Settings → Music → Spotify
+    holds:
+      - Account, Plays on and Last check
+      - a line while the browser login is open (the sheet updates by itself), or why it failed
+      - a note when the client id is not set up
+      - Connect Spotify (Reconnect when logged in) and Check now
+    does:
+      - Connect Spotify opens Spotify's login in the browser; the login is saved on this PC only
+      - Check now asks Spotify again
+    states:
+      - Connect is disabled while a login is open or the client id is missing
+      - music plays on the Spotify desktop app of this PC, never a web player
+  - id: settings.obs
+    area: settings
+    title: OBS group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Live tools → OBS
+    holds:
+      - >-
+          Connection (the state as the value: OBS connected, Connecting…, OBS not reachable,
+          Switching off)
+      - one row per camera profile with its scene
+      - Test connection
+    does:
+      - >-
+          each plan item has a profile; the app switches OBS to that profile's scene when the item
+          goes on stage
+    links:
+      - to: settings.obs-connection
+        via: Connection
+      - to: settings.obs-profile
+        via: a profile
+  - id: settings.obs-connection
+    area: settings
+    title: OBS connection
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - OBS group → Connection
+    holds:
+      - Scene switching (On or Off), Host, Port, Password (empty keeps the current one)
+  - id: settings.obs-profile
+    area: settings
+    title: Camera profile
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - OBS group → a profile row
+    holds:
+      - OBS scene (a select of OBS's scenes, or a text field when OBS is not connected)
+      - Camera zone left, top, right, bottom as fractions of the canvas
+  - id: settings.reader
+    area: settings
+    title: Chat reader group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Live tools → Chat reader
+    holds:
+      - >-
+          "<Zoom, Teams or Meet> chat reader": a switch, "Starts when a session goes live"
+    does:
+      - the source is chosen on the presenter, under the chat
+  - id: settings.stage-click
+    area: settings
+    title: Clicking the stage group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Live tools → Clicking the stage
+    holds:
+      - Next item on click · Camera layout on click (two switches)
+    why: >-
+      going to the next item on a click is off by default, so a stray click cannot move the
+      presentation on
+  - id: settings.overlay
+    area: settings
+    title: Copilot overlay group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Live tools → Copilot overlay
+    holds:
+      - Show hints on an overlay (a switch)
+      - Screen · Position · Shows (the hint itself, or only a cue)
+      - Look (opens a form)
+      - Show a sample
+    does:
+      - every save moves an open overlay at once and puts a sample there
+    states:
+      - loading, and the error when the settings cannot be read
+      - a toast says when the overlay is saved but not running
+    links:
+      - to: settings.overlay-look
+        via: Look
+  - id: settings.overlay-look
+    area: settings
+    title: How the overlay looks
+    root:
+      none: an instance of `dialog.form`
+    reach:
+      - Copilot overlay → Look
+    holds:
+      - >-
+          Shape, Width, Font, Text size, Text colour, Background, Background opacity, Distance from
+          the edge, Shown for
+  - id: settings.recording-retention
+    area: settings
+    title: Copilot recordings group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Live tools → Copilot recordings
+    holds:
+      - >-
+          Retention: Keep recordings · Remove after 7 / 14 / 30 / 90 / 365 days
+    does:
+      - >-
+          applies to the audio files in each session's Copilot folder when the session is opened;
+          transcripts and hints are kept
+    states:
+      - loading, and the error when the settings cannot be read
+  - id: settings.remote-control
+    area: settings
+    title: Remote control group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Live tools → Remote control
+    holds:
+      - Phone remote (on, off, needs HTTPS or unavailable as the value)
+      - Stream Deck buttons (how many)
+    links:
+      - to: settings.remote
+        via: Phone remote
+      - to: settings.deck
+        via: Stream Deck buttons
+  - id: settings.remote
+    area: settings
+    title: Phone remote sheet
+    root: data-surface
+    reach:
+      - Remote control → Phone remote
+    holds:
+      - a note on pairing
+      - the pairing link with its token hidden
+      - Copy the link · New link (unpairs phones) · Turn off, or Make the phone link while off
+    states:
+      - >-
+          the server only accepts local connections: says to set host to 0.0.0.0 and restart the
+          tray
+      - >-
+          HTTPS is not set up: says to run the certificate script and restart the tray
+    why: other devices never get in without the link; this PC never needs it
+  - id: settings.deck
+    area: settings
+    title: Stream Deck buttons sheet
+    root: data-surface
+    reach:
+      - Remote control → Stream Deck buttons
+    holds:
+      - a note on the POST pattern
+      - >-
+          one row per action the deck can call: its label, its path and Copy
+    does:
+      - Copy puts the full URL on the clipboard
+    states:
+      - loading, and the error text when the actions cannot be read
+  - id: settings.about
+    area: settings
+    title: About group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → About
+    holds:
+      - Build (the build line, "…" while reading, "unknown" when it failed)
+      - Credits (how many sources)
+    links:
+      - to: settings.credits
+        via: Credits
+  - id: settings.credits
+    area: settings
+    title: Credits sheet
+    root: data-surface
+    reach:
+      - About → Credits
+    holds:
+      - >-
+          GeoNames · Natural Earth · world-atlas · Unicode CLDR · Patrick Hand · Lucide, each a link
+          and what it is used for
+
+  # --- Presenter cockpit -------------------------------------------------------------------------------
+
+  - id: presenter.picker
+    area: presenter
+    title: Go live picker
+    root: data-surface
+    reach:
+      - >-
+          `/presenter` with no session live
+    holds:
+      - >-
+          "Go live" and a line saying the stage follows the session
+      - a row per session with Go live
+      - a link back to the app
+    does:
+      - Go live activates the session; the cockpit replaces the picker
+    states:
+      - loading, "No sessions yet — create one in the app."
+      - an error toast when the ledger cannot be read
+    links:
+      - to: presenter.cockpit
+        via: Go live
+  - id: presenter.cockpit
+    area: presenter
+    title: Cockpit
+    root: data-surface
+    reach:
+      - >-
+          `/presenter` with a session live
+      - Open presenter on the open session
+    holds:
+      - >-
+          the header, the chips, then four columns: what is on stage, its notes, Copilot and the
+          clocks · what comes next and the music · the item's controls · the chat
+      - the thumbnail strip
+      - the keys sheet
+    states:
+      - narrower than four columns the cards stack in their own order
+      - >-
+          the server is unreachable: a red "Server · reconnecting" chip
+    why: the facilitator reads the whole state without a click; every action is one tap or one key
+    links:
+      - to: presenter.header
+      - to: presenter.chips
+      - to: presenter.now
+      - to: presenter.notes
+      - to: presenter.copilot
+      - to: presenter.timing
+      - to: presenter.next
+      - to: presenter.music
+      - to: presenter.item
+      - to: presenter.chat
+      - to: presenter.strip
+      - to: presenter.keys
+        via: the keyboard icon
+  - id: presenter.header
+    area: presenter
+    title: Cockpit header
+    root: data-surface
+    reach:
+      - the top of the cockpit
+    holds:
+      - the session's title and a sub-line (Slide n of m, hidden, the item's title)
+      - the chips
+      - >-
+          Keyboard shortcuts · Blackout · Toggle theme · Start the session over · Close the live
+          session
+    does:
+      - Blackout blanks the stage (and shows a flag on the On stage card)
+      - the theme toggle changes every screen at once
+    links:
+      - to: presenter.keys
+        via: Keyboard shortcuts
+      - to: presenter.confirm-reset
+        via: Start the session over
+      - to: presenter.confirm-close
+        via: Close the live session
+  - id: presenter.chips
+    area: presenter
+    title: Status chips
+    root: data-surface
+    reach:
+      - the cockpit header
+    holds:
+      - the chat reader (reading, simulating, starting, pop out the chat, no answer, error, off)
+      - OBS (connected with its profile, a warning, off, connecting, not reachable)
+      - Stage (the window count or size, or not open)
+      - the last Stream Deck or button press
+      - Music (opens Settings → Music)
+      - Quiz (the PIN and players, or why players cannot join)
+      - Counting your messages
+      - Copilot
+    does:
+      - >-
+          an off reader's chip starts it, an unreachable OBS chip tests the connection, a missing
+          stage's chip opens the stage window
+    states:
+      - each chip carries its detail as a tooltip; a failure outranks a warning
+    links:
+      - to: settings.music
+        via: Music
+      - to: stage.live
+        via: Stage · not open
+  - id: presenter.keys
+    area: presenter
+    title: Keys sheet
+    root: data-surface
+    reach:
+      - the keyboard icon in the header
+    holds:
+      - >-
+          → or PageDown next, ← or PageUp previous, B blackout, T timer start or pause, M timer plus
+          one minute, Space capture (else the timer), Home and End first and last item
+    does:
+      - the icon toggles it; the same keys work on the stage window
+  - id: presenter.now
+    area: presenter
+    title: On stage now card
+    root: data-surface
+    reach:
+      - the cockpit's first column
+    holds:
+      - a live preview of what Zoom sees, with the camera guide
+      - a blackout flag while the stage is black
+    does:
+      - a click on the preview goes on to the next item
+  - id: presenter.notes
+    area: presenter
+    title: Notes card
+    root: data-surface
+    reach:
+      - the cockpit's first column
+    holds:
+      - >-
+          the item's notes (from the plan, or the slide's PowerPoint notes, or an activity's
+          question)
+      - Copy prompt, for an activity with a chat prompt
+    states:
+      - >-
+          "No speaker notes on this slide." or "No notes — add them in the Plan tab."
+  - id: presenter.copilot
+    area: presenter
+    title: Copilot card
+    root: data-surface
+    reach:
+      - the cockpit's first column
+    holds:
+      - >-
+          switches: Copilot, Local only, Interview (with the interviewee's name field while on)
+      - a Recording chip and per-channel failures
+      - the hints for the item on stage, newest first
+      - the panel
+    does:
+      - switching Copilot on for a session whose consent was not recorded asks first
+      - Interview saves the mode and asks for the interviewee's name
+    states:
+      - >-
+          off: a sentence on what it records and to tell the participants
+      - listening, with the line count
+      - a hint is labelled Test when it came from the test
+    links:
+      - to: presenter.copilot-panel
+        via: Details
+      - to: presenter.confirm-copilot-consent
+        via: switching on
+  - id: presenter.copilot-hints
+    area: presenter
+    title: Copilot hints
+    root:
+      none: a state of `presenter.copilot`
+    reach:
+      - Copilot on, with a hint for the item on stage
+    holds:
+      - >-
+          each hint with its kind (and Test), newest first; in the overlay's cue mode this is where
+          the flashing icon sends the eye
+  - id: presenter.copilot-interview
+    area: presenter
+    title: Interview mode
+    root:
+      none: a state of `presenter.copilot`
+    reach:
+      - the Interview switch
+    holds:
+      - the interviewee's name field; hints are about the interviewee
+  - id: presenter.copilot-panel
+    area: presenter
+    title: Copilot panel
+    root: data-surface
+    reach:
+      - inside the Copilot card
+    holds:
+      - >-
+          a strip: each channel's live level (Your mic, The call), how the latest check ended, and
+          Details
+      - >-
+          Details: Status per channel, What it reads (the notes with Edit, the playbook with Open or
+          Session), Where hints show with Show a sample, Overlay settings and Test copilot, and "How
+          the copilot works"
+    does:
+      - Test copilot asks for one hint on what was just said and labels it a test
+      - while Copilot is on the levels poll once a second
+    states:
+      - Test copilot is disabled while Copilot is off
+    phone: >-
+      Details opens inline under the strip; the cockpit stacks its cards in one column below 1100px
+    desktop: >-
+      from 1100px with a mouse, Details is a floating card laid exactly over the Next and Music
+      cards (the second column) with a shadow, until the button folds it
+    links:
+      - to: settings.pane
+        via: Overlay settings
+      - to: sessions.detail
+        via: Edit, Session
+  - id: presenter.confirm-copilot-consent
+    area: presenter
+    title: Participants informed?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - switching Copilot on for a session without recorded consent
+    holds:
+      - >-
+          says Copilot records the mic and the call, that staying in the call is not consent, and
+          that the app records the confirmation
+    why: the server refuses to record without it, so a Stream Deck press cannot skip the question
+  - id: presenter.timing
+    area: presenter
+    title: Timing card
+    root: data-surface
+    reach:
+      - the cockpit's first column
+    holds:
+      - >-
+          before the clock starts: 00:00 of the planned length and Start the session clock
+      - >-
+          while it runs: the elapsed time, Reset clock, the section's name, planned minutes and time
+          left or over, a progress bar, the next break and a drift chip
+    links:
+      - to: presenter.confirm-clock-reset
+        via: Reset clock
+  - id: presenter.next
+    area: presenter
+    title: Next card
+    root: data-surface
+    reach:
+      - the cockpit's second column
+    holds:
+      - a preview of the next item and a caption
+      - >-
+          Then: the next four visible items with their kinds
+    states:
+      - >-
+          "end of the session", "Nothing after this."
+  - id: presenter.music
+    area: presenter
+    title: Music card
+    root: data-surface
+    reach:
+      - the cockpit's second column, when the session has music, a Spotify link or music engaged
+    holds:
+      - what is playing and its volume
+      - a track select, a Spotify link field with Play link
+      - Play, Pause or Resume · Previous track · Next track · Stop · Fade out
+      - a hint saying who owns the music
+    states:
+      - previous and next are only for a Spotify track; a file is one track
+      - an error shows the music service's detail
+  - id: presenter.item
+    area: presenter
+    title: Item controls card
+    root: data-surface
+    reach:
+      - the cockpit's third column; titled Timer, Capture or Quiz by the item on stage
+    holds:
+      - >-
+          a timer: the clock and its state, Start timer / Pause / Resume, +1 min, Reset
+      - >-
+          a capture: its status, counts, Start / Stop / Reopen capture
+      - >-
+          a quiz: see Quiz controls
+      - Show names on stage (an activity) and Count my own messages (a capture)
+    does:
+      - Space starts or stops a capture, else the timer; T and M work the timer
+    states:
+      - >-
+          "No timer on this item. Timers are decided item by item in the Plan tab."
+    links:
+      - to: presenter.capture
+        via: a capture
+      - to: presenter.quiz-live
+        via: a quiz
+      - to: presenter.break-timer
+        via: a break
+  - id: presenter.capture
+    area: presenter
+    title: Capture controls
+    root:
+      none: a state of `presenter.item`
+    reach:
+      - an activity that collects chat answers
+    holds:
+      - >-
+          a status dot and "Not started — answers are not counted yet", "Capturing answers" or
+          "Stopped — the result is frozen"
+      - the answer, person, hidden and excluded counts
+      - a note when the word cloud has no room for every entry
+      - Start capture, Stop capture or Reopen capture with the Space key
+      - Not on the map, for a map activity (see below)
+    links:
+      - to: presenter.unplaced
+        via: map answers
+      - to: presenter.map
+        via: a map activity
+  - id: presenter.unplaced
+    area: presenter
+    title: Not on the map
+    root: data-surface
+    reach:
+      - a map activity with answers the gazetteer could not place
+    holds:
+      - >-
+          "Not on the map · n", and per answer: up to three suggested places and a field to type the
+          place
+    does:
+      - a suggestion or Enter places the answer on the map
+    states:
+      - >-
+          "No close match — type the place below."
+  - id: presenter.map
+    area: presenter
+    title: Map activity
+    root:
+      none: a state of `presenter.item` for a map item
+    reach:
+      - a map activity on stage
+    holds:
+      - the capture controls and the unplaced list
+  - id: presenter.break-timer
+    area: presenter
+    title: Break and breakout timer
+    root:
+      none: a state of `presenter.item` for a break or breakout
+    reach:
+      - a break or breakout with a timer on stage
+    holds:
+      - the timer controls; the clock also shows on the stage
+  - id: presenter.quiz-live
+    area: presenter
+    title: Quiz controls
+    root:
+      none: a state of `presenter.item` for a quiz item
+    reach:
+      - a quiz lobby, question or podium on stage
+    holds:
+      - the phase and the time left
+      - >-
+          player counts, sound chip (n of m files, no audio output, unknown), the join PIN and link
+          with Copy link, the public-link reachability chip with Check
+      - >-
+          Next (named for the step: Start the first question, Reveal the answer, Show the
+          leaderboard, Next question, On to the podium, Show 3rd/2nd/1st), Lock answers, New game
+          (lobby only)
+      - Count my own chat answers
+      - Players, each with a remove button
+    does:
+      - Next steps the phases; Lock closes the answers early
+    states:
+      - >-
+          "Nobody has joined yet." in the lobby, "No players." after
+      - no join PIN yet, or the public link is not configured
+    links:
+      - to: presenter.confirm-quiz-new
+        via: New game
+      - to: presenter.confirm-quiz-kick
+        via: remove a player
+  - id: presenter.confirm-quiz-new
+    area: presenter
+    title: Start a new game?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - New game in the quiz lobby
+    holds:
+      - says the quiz starts over with no players and the game so far is kept in Results
+  - id: presenter.confirm-quiz-kick
+    area: presenter
+    title: Remove a player?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - the remove button on a player
+    holds:
+      - >-
+          names the player; they leave the game and the leaderboard, and their phone says so; it
+          cannot be undone
+  - id: presenter.chat
+    area: presenter
+    title: Chat card
+    root: data-surface
+    reach:
+      - the cockpit's fourth column
+    holds:
+      - >-
+          the latest 400 messages, each with the sender, the time and the text, marked as counted,
+          hidden or excluded
+      - a "Not counted" bar of excluded senders
+      - a hint for the reader's state
+      - >-
+          a source control: Zoom · Teams · Meet
+      - Start reader or Stop reader, and Simulate answers
+    does:
+      - a click on a message hides it from the activity, again to count it back
+      - a click on a name stops counting everything that sender writes
+      - Simulate answers sends sample answers through the real chat pipeline
+    states:
+      - >-
+          "updated n s ago" while the reader reads
+      - >-
+          no messages: the hint says to start the reader or simulate answers
+      - your own messages are marked and never counted
+    links:
+      - to: presenter.excluded
+        via: a name
+  - id: presenter.excluded
+    area: presenter
+    title: Not counted bar
+    root: data-surface
+    reach:
+      - above the chat list, once a sender is excluded
+    holds:
+      - one chip per excluded sender with a cross
+    does:
+      - a chip counts that sender again
+  - id: presenter.strip
+    area: presenter
+    title: Item strip
+    root: data-surface
+    reach:
+      - the foot of the cockpit
+    holds:
+      - Previous · a thumbnail per item, numbered, the current one highlighted · Next
+    does:
+      - a thumbnail jumps to that item; the strip scrolls to keep the current one centred
+    states:
+      - a hidden item is marked with an eye-off
+  - id: presenter.confirm-reset
+    area: presenter
+    title: Start the session over?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - the header's reset button
+    holds:
+      - >-
+          says it goes back to the first item with no clocks, timers, captures or chat, and the run
+          so far is kept in the session folder
+  - id: presenter.confirm-close
+    area: presenter
+    title: Close the live session?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - the header's close button
+    holds:
+      - >-
+          says the stage goes blank and position, clocks and timers come back when you go live again
+  - id: presenter.confirm-clock-reset
+    area: presenter
+    title: Reset the session clock?
+    root:
+      none: an instance of `dialog.confirm`
+    reach:
+      - the Timing card's Reset clock
+    holds:
+      - says the session and section clocks go back to zero
+  - id: presenter.opening
+    area: presenter
+    title: Opening state
+    root:
+      none: the cockpit on the first item before anything has run
+    reach:
+      - going live
+    holds:
+      - the first slide on stage, "Start the session clock", a disabled Previous
+
+  # --- Stage -------------------------------------------------------------------------------------------
+
+  - id: stage.live
+    area: stage
+    title: Stage
+    root: data-surface
+    reach:
+      - >-
+          `/stage`, opened from Open stage window or the presenter's Stage chip, captured by OBS
+    holds:
+      - >-
+          the current item drawn on a canvas that scales to the window, centred in a letterbox of
+          the theme's own background
+      - the item's camera zone left clear
+      - a blackout layer
+    does:
+      - the keys and a clicker work (next, previous, first, last, blackout, timer)
+      - a click does what Settings → Clicking the stage says, a double-click toggles full screen
+      - the pointer hides after two quiet seconds
+    states:
+      - the session's theme and lettering, never the fleet design
+      - >-
+          no live session: a blank canvas in the slides' light grey, so the stage never shows a
+          half-loaded frame
+    why: >-
+      the stage is a rendering, not a UI: its only controls are keys and clicks, so Zoom never sees
+      a button
+    links:
+      - to: stage.slide
+      - to: stage.break
+      - to: stage.breakout
+      - to: stage.activity
+      - to: stage.blackout
+      - to: stage.frozen
+        via: a capture's picture
+  - id: stage.slide
+    area: stage
+    title: Slide
+    root:
+      none: a rendering inside `stage.live`
+    reach:
+      - a slide item on stage
+    holds:
+      - >-
+          the slide's picture, or its background with its text boxes drawn in the session's
+          lettering
+      - a timer pill when the item has one
+  - id: stage.break
+    area: stage
+    title: Break
+    root:
+      none: a rendering inside `stage.live`
+    reach:
+      - a break item on stage
+    holds:
+      - the title in the title font and, with a timer, a big clock in the colour of its state
+  - id: stage.breakout
+    area: stage
+    title: Breakout
+    root:
+      none: a rendering inside `stage.live`
+    reach:
+      - a breakout item on stage
+    holds:
+      - the title, a line saying which round is in the rooms and how many, and the clock
+  - id: stage.activity
+    area: stage
+    title: Activity
+    root:
+      none: a rendering inside `stage.live`, one plug-in per type
+    reach:
+      - an activity item on stage
+    holds:
+      - >-
+          the question, a body drawn by the activity's plug-in, a footer with the chat hint, the
+          answer count and the timer pill
+    links:
+      - to: stage.word-cloud
+      - to: stage.map
+      - to: stage.scale
+      - to: stage.cards
+      - to: stage.feed
+      - to: stage.groups-reveal
+      - to: stage.quiz
+  - id: stage.word-cloud
+    area: stage
+    title: Word cloud
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Word cloud item
+    holds:
+      - the most frequent words biggest on a spiral from the centre, each keeping its colour
+    states:
+      - an entry with no room is counted as "+n more" and the presenter hears how many
+  - id: stage.map
+    area: stage
+    title: Map
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Map item
+    holds:
+      - >-
+          the world outline with a pin per placed answer, easing to fit the pins; optionally an
+          inset and names
+  - id: stage.scale
+    area: stage
+    title: Scale
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Scale item
+    holds:
+      - the average on top and one bar per value with its count, the leading bar highlighted
+  - id: stage.cards
+    area: stage
+    title: Cards
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Cards item
+    holds:
+      - >-
+          the latest answers as cards, optionally with the person's name; the oldest leaves when the
+          grid is full
+  - id: stage.feed
+    area: stage
+    title: Feed
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Feed item
+    holds:
+      - answers as bubbles, the newest first and largest; older ones shrink and fade
+  - id: stage.groups-reveal
+    area: stage
+    title: Who are you with?
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Who are you with? item
+    holds:
+      - >-
+          every breakout room of the chosen round as a numbered card, so each person finds their
+          room
+  - id: stage.quiz
+    area: stage
+    title: Quiz
+    root:
+      none: an activity body inside `stage.activity`, one renderer for the three quiz types
+    reach:
+      - a Quiz lobby, Quiz question or Quiz podium item
+    holds:
+      - >-
+          lobby: the QR code, the join link and PIN, the players popping in
+      - >-
+          question: the answers on coloured tiles with shapes and letters, a countdown, the answered
+          count; then the reveal (a bar per answer, the correct one marked with a check and a label)
+          and the leaderboard (top five)
+      - >-
+          podium: 3rd, then 2nd, then 1st
+    why: the correct answer is never shown by colour alone
+  - id: stage.blackout
+    area: stage
+    title: Blackout
+    root:
+      none: a layer inside `stage.live`
+    reach:
+      - B on the stage or the presenter, the presenter's or remote's Blackout
+    holds:
+      - a black layer over the canvas; the presenter flags it
+  - id: stage.frozen
+    area: stage
+    title: Frozen capture
+    root:
+      none: >-
+        `/stage?freeze=<item>`, a rendering of `stage.live`
+    reach:
+      - the server's headless browser, writing a stopped capture's picture
+    holds:
+      - the stopped item rendered once from its frozen result, then marked ready
+    why: Results shows exactly what the audience saw at the stop, from this picture
+
+  # --- Phone remote ------------------------------------------------------------------------------------
+
+  - id: remote.nav
+    area: remote
+    title: Remote navigation
+    root: data-surface
+    reach:
+      - every page of the remote
+    holds:
+      - Live · Chat · Groups
+    does:
+      - a tap switches the pane and remembers it; opening Groups reads the rooms
+    links:
+      - to: remote.live
+        via: Live
+      - to: remote.chat
+        via: Chat
+      - to: remote.groups
+        via: Groups
+  - id: remote.live
+    area: remote
+    title: Remote live
+    root: data-surface
+    reach:
+      - >-
+          `/remote`, the Live tab
+    holds:
+      - a header with the theme toggle and a sub-line (Slide n of m, capturing, blackout)
+      - >-
+          On stage: the preview, the title, the answer count and the item timer
+      - Next, the session clock with its drift, and the section's time left
+      - the Copilot strip
+      - Start, Stop or Reopen capture
+      - the quiz block
+      - Previous and Next
+      - Start or Pause the timer, +1 min, Blackout
+      - the music block
+    does:
+      - each button sends the same intent as the keyboard
+      - the theme toggle changes every screen at once
+    states:
+      - >-
+          "Connecting…" until the first snapshot
+      - the capture, timer and music controls only show when the item has them
+    links:
+      - to: remote.copilot-hints
+      - to: remote.quiz
+      - to: remote.music
+      - to: remote.idle
+        via: no session
+  - id: remote.idle
+    area: remote
+    title: Remote with no live session
+    root:
+      none: a state of `remote.live`
+    reach:
+      - >-
+          `/remote` while no session is live
+    holds:
+      - >-
+          "No session is live. Start it from the presenter on the PC." and "Not live" in the header
+  - id: remote.unpaired
+    area: remote
+    title: Remote not paired
+    root:
+      none: a state of `remote.live`
+    reach:
+      - a device with no valid pairing link
+    holds:
+      - >-
+          no tabs, "Not paired", and either "The phone remote is off" or "This phone is not paired
+          yet" with the Settings path to fix it
+    why: other devices never get in without the link made in Settings on the PC
+  - id: remote.copilot-hints
+    area: remote
+    title: Remote Copilot strip
+    root: data-surface
+    reach:
+      - while Copilot is on
+    holds:
+      - a header with "n hints" or "listening" and a chevron
+      - the fresh hints for the item on stage, as the presenter shows them
+    does:
+      - a tap folds the strip; the choice is remembered on this phone
+    states:
+      - folded shows only how many hints there are
+  - id: remote.quiz
+    area: remote
+    title: Remote quiz block
+    root: data-surface
+    reach:
+      - a quiz lobby, question or podium on stage
+    holds:
+      - >-
+          the phase (Quiz lobby, Answers open, Answers locked, Leaderboard, Podium) with the
+          question number
+      - the time left, the players, how many answered and the PIN
+      - Lock answers
+    states:
+      - >-
+          "Not in a game" or "Cannot be played"
+      - Lock is disabled outside the question phase
+    links:
+      - to: remote.quiz-locked
+        via: after Lock
+  - id: remote.quiz-locked
+    area: remote
+    title: Remote quiz locked
+    root:
+      none: a state of `remote.quiz`
+    reach:
+      - a question's answers locked or revealed
+    holds:
+      - >-
+          "Answers locked" and a disabled Lock answers
+  - id: remote.music
+    area: remote
+    title: Remote music block
+    root: data-surface
+    reach:
+      - when the session has music
+    holds:
+      - what is playing
+      - Play, Pause or Resume music · Previous · Next · Stop music
+      - a volume slider
+    states:
+      - previous and next are only for a Spotify track
+      - an error shows the music service's detail
+  - id: remote.chat
+    area: remote
+    title: Remote chat
+    root: data-surface
+    reach:
+      - >-
+          `/remote`, the Chat tab
+    holds:
+      - a header with the reader's state
+      - the latest 80 messages, newest first
+      - >-
+          a hint: tap a message to hide it from the activity, tap again to count it back
+    states:
+      - >-
+          "No messages yet."
+  - id: remote.groups
+    area: remote
+    title: Remote groups
+    root: data-surface
+    reach:
+      - >-
+          `/remote`, the Groups tab
+    holds:
+      - >-
+          "Breakout rooms"
+      - >-
+          a Round control: Pairs · Groups of 4 · A · Groups of 4 · B
+      - the rooms to read out, each with its people
+    states:
+      - >-
+          "Rooms show here while a session is live."
+      - >-
+          "Not shuffled yet — shuffle in the Groups tab on the PC."
+      - an error
+
+  # --- Quiz player -------------------------------------------------------------------------------------
+
+  - id: player.loading
+    area: player
+    title: Player loading
+    root: data-surface
+    reach:
+      - the quiz page while it waits for the server's ping
+    holds:
+      - >-
+          "Loading…"; the first screen waits a moment so it opens in the game's language
+  - id: player.join
+    area: player
+    title: Join
+    root: data-surface
+    reach:
+      - >-
+          `/play` on the quiz's public port, with no game joined
+    holds:
+      - a header with the connection state, the theme toggle
+      - Game PIN and Nickname fields, an error line and Join
+    does:
+      - >-
+          Join checks the PIN; the screen says in the game's language what went wrong (no game has
+          that PIN, and so on)
+    states:
+      - the connection chip reads Connecting… until it knows
+    links:
+      - to: player.wait
+        via: joined
+  - id: player.wait
+    area: player
+    title: Waiting
+    root: data-surface
+    reach:
+      - joined a lobby, or a phase with nothing to answer
+    holds:
+      - >-
+          the player's name and "You're in! Watch the screen — the quiz starts soon." or "Watch the
+          screen."
+    links:
+      - to: player.question
+        via: a question opens
+  - id: player.question
+    area: player
+    title: Question
+    root: data-surface
+    reach:
+      - a question's phase, while answers are open
+    holds:
+      - the question number and a countdown
+      - the question text
+      - >-
+          four answer tiles, each with a shape and a colour (triangle, diamond, circle, square),
+          never colour alone
+    does:
+      - a tap sends the answer
+    links:
+      - to: player.locked
+        via: after a tap
+  - id: player.locked
+    area: player
+    title: Answer sent
+    root: data-surface
+    reach:
+      - after tapping an answer
+    holds:
+      - the chosen shape
+      - Sent, Sending… or Retrying, with "keep this open"
+      - Too late or Not sent, with the reason in the player's language
+  - id: player.result
+    area: player
+    title: Result
+    root: data-surface
+    reach:
+      - a question's reveal, the leaderboard and the podium
+    holds:
+      - Correct, Not this time, Time's up or No answer, with the points gained and the standing
+      - the right answer(s) after a miss
+      - >-
+          at the leaderboard and podium: the player's rank (a crown for first), score and streak
+    links:
+      - to: player.kicked
+        via: removed by the host
+  - id: player.kicked
+    area: player
+    title: Removed
+    root: data-surface
+    reach:
+      - the host removed the player
+    holds:
+      - >-
+          "Removed" and "The host removed you from this game."
+  - id: player.theme
+    area: player
+    title: Player theme toggle
+    root:
+      none: a button in the header of every player screen
+    reach:
+      - the header of every player screen
+    holds:
+      - a sun or moon button
+    does:
+      - switches light and dark for this phone only (its own choice, else the OS setting)
+    why: >-
+      the player shares nothing with the app: it has its own tokens and its own theme choice

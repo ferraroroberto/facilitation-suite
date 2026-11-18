@@ -53,7 +53,7 @@
 <body>
 <!--SPRITE-->
 
-<nav class="tabs" role="tablist" aria-label="Sections" data-active-tab="sessions">
+<nav class="tabs" data-surface="chrome.nav" role="tablist" aria-label="Sections" data-active-tab="sessions">
   <button id="tabSessions" type="button" class="tab active" data-tab="sessions"
           role="tab" aria-selected="true" aria-controls="paneSessions">
     <svg class="tab-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
@@ -85,22 +85,22 @@
 </nav>
 
 <main class="app">
-  <section id="paneSessions" class="pane" role="tabpanel" aria-labelledby="tabSessions" aria-label="Sessions">
+  <section id="paneSessions" data-surface="sessions.tab" class="pane" role="tabpanel" aria-labelledby="tabSessions" aria-label="Sessions">
     <div class="pane-body" data-view="sessions"></div>
   </section>
-  <section id="panePlan" class="pane" role="tabpanel" aria-labelledby="tabPlan" aria-label="Plan" hidden>
+  <section id="panePlan" data-surface="plan.tab" class="pane" role="tabpanel" aria-labelledby="tabPlan" aria-label="Plan" hidden>
     <div class="pane-body" data-view="plan"></div>
   </section>
-  <section id="paneGroups" class="pane" role="tabpanel" aria-labelledby="tabGroups" aria-label="Groups" hidden>
+  <section id="paneGroups" data-surface="groups.tab" class="pane" role="tabpanel" aria-labelledby="tabGroups" aria-label="Groups" hidden>
     <div class="pane-body" data-view="groups"></div>
   </section>
-  <section id="paneResults" class="pane" role="tabpanel" aria-labelledby="tabResults" aria-label="Results" hidden>
+  <section id="paneResults" data-surface="results.tab" class="pane" role="tabpanel" aria-labelledby="tabResults" aria-label="Results" hidden>
     <div class="pane-body" data-view="results"></div>
   </section>
   <footer class="page-foot"><p id="buildReadout">Build: …</p></footer>
 </main>
 
-<dialog id="paneSettings" class="settings-page" aria-labelledby="settingsTitle" data-track-view="settings">
+<dialog id="paneSettings" data-surface="settings.pane" class="settings-page" aria-labelledby="settingsTitle" data-track-view="settings">
   <header class="settings-page-head">
     <h2 class="settings-page-title" id="settingsTitle">Settings</h2>
     <button type="button" class="icon-button settings-page-close" aria-label="Close settings" data-close-settings data-track="settings.close"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>

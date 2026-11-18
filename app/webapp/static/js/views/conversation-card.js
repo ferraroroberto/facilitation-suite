@@ -70,6 +70,7 @@ function body(c) {
 /** @param {string} sid  the session id */
 export function conversationCard(sid) {
   const card = document.createElement('details');
+  card.dataset.surface = 'results.conversation';
   card.className = 'card card--collapsible conversation-card';
   card.hidden = true; // until the copilot is known to have left something
   const summary = (meta) => `<summary class="collapse-summary" data-track="sessions.conversation-toggle"><span class="collapse-main">${icon('message-square')}` +

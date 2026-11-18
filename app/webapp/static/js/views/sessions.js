@@ -61,6 +61,7 @@ export async function mount(el, context) {
   listWrap.className = 'sessions-list';
   detailEl = document.createElement('div');
   detailEl.className = 'sessions-detail';
+  detailEl.dataset.surface = 'sessions.detail';
   detailEl.hidden = true;
   root.append(head, listWrap, detailEl);
 
@@ -335,6 +336,7 @@ async function renderDetail() {
   // -- readiness
   const ready = document.createElement('div');
   ready.className = 'card ready-card';
+  ready.dataset.surface = 'sessions.readiness';
   const okCount = data.readiness.filter((c) => c.state === 'ok').length;
   ready.innerHTML =
     `<div class="card-head"><h3 class="card-title">${icon('circle-check')} Ready for the live session</h3>` +
@@ -342,13 +344,17 @@ async function renderDetail() {
     `<div class="list">${data.readiness.map((c) => readyRow(c)).join('')}</div>`;
   ready.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => readinessAction(sid, s, b.dataset.action, saveSession)));
   detailEl.appendChild(ready);
+  detailEl.appendChild(goRow(sid));
+}
 
+/** The go-live buttons under the readiness card. */
+function goRow(sid) {
   const go = document.createElement('div');
   go.className = 'go-row';
   go.innerHTML =
     `<a class="button-primary go-primary" href="/presenter?session=${encodeURIComponent(sid)}" target="fs-presenter">${icon('monitor')} Open presenter</a>` +
     `<a class="button-tint go-secondary" href="/stage" target="fs-stage">${icon('presentation')} Open stage window</a>`;
-  detailEl.appendChild(go);
+  return go;
 }
 
 /** The header: the title and the one-line summary (date · duration · language). */
@@ -505,6 +511,7 @@ function settingsCard(sid, s, look, saveSession, onDetails) {
   applySessionTheme(sid, s.theme, JSON.stringify([s.theme, s.font || {}]));
   const card = document.createElement('div');
   card.className = 'card session-settings-card';
+  card.dataset.surface = 'sessions.settings';
   card.innerHTML = settingsHtml(s, look);
 
   wireDetails(card, sid, s, saveSession, onDetails);

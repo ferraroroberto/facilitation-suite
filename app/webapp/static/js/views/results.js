@@ -37,15 +37,20 @@ export async function mount(el, context) {
   list.className = 'split-list';
   detailEl = document.createElement('div');
   detailEl.className = 'split-detail';
+  detailEl.dataset.surface = 'results.detail';
   split.append(list, detailEl);
   root.appendChild(split);
 
   head = pageHead({ glyph: 'chart-column', title: 'Results', status: '' });
   checkEl = document.createElement('div');
+  checkEl.dataset.surface = 'results.reconcile';
   listEl = document.createElement('div');
   listEl.className = 'card list-card action-list';
+  listEl.dataset.surface = 'results.list';
   peopleEl = document.createElement('div');
+  peopleEl.dataset.surface = 'results.people';
   rebuildEl = document.createElement('div');
+  rebuildEl.dataset.surface = 'results.rebuild';
   list.append(head, checkEl, peopleEl, listEl, rebuildEl);
 
   ctx.onSession(() => { selected = null; rebuildSid = null; wrapUpNote = ''; load(); });
@@ -369,6 +374,7 @@ function quizDetail(q) {
 function pdfCard() {
   const card = document.createElement('div');
   card.className = 'card pdf-card';
+  card.dataset.surface = 'results.pdf';
   const pdf = data.exports.pdf;
   const built = pdf ? ` · exported ${stamp(pdf.modified_ms)}${pdf.pages ? ` · ${pdf.pages} pages` : ''}` : '';
   const quizPages = data.quiz_pages ? ` + ${data.quiz_pages} quiz pages` : '';
@@ -399,6 +405,7 @@ const stepLine = (steps) => steps.map((s) => `${STEP_LABELS[s.key] || s.key}: ${
 function wrapUpCard() {
   const card = document.createElement('div');
   card.className = 'card wrapup-card';
+  card.dataset.surface = 'results.wrap-up';
   card.innerHTML = `<div class="grow"><div class="row-title">Finish session</div>` +
     `<div class="row-meta" role="status" data-wrapup-note>${esc(wrapUpNote || 'Rebuilds the results with the current rules when something changed, exports the PDFs and the Excel report, then starts the analysis.')}</div></div>` +
     `<button type="button" class="button-primary" data-wrapup data-track="results.wrap-up">${icon('circle-check')} Finish session</button>`;
@@ -428,6 +435,7 @@ async function wrapUp(e) {
 function exportActions() {
   const row = document.createElement('div');
   row.className = 'row-actions export-actions';
+  row.dataset.surface = 'results.exports';
   row.innerHTML = `<button type="button" class="button-tint" data-pdf data-track="results.export-pdf">${icon('download')} Export session PDF</button>` +
     `<button type="button" class="button-surface" data-xlsx data-track="results.export-xlsx" ${data.activities.length || data.quizzes.length ? '' : 'disabled'}>${icon('file-text')} Excel report</button>`;
   row.querySelector('[data-pdf]').addEventListener('click', exportPdf);
