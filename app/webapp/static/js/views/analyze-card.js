@@ -36,8 +36,8 @@ function jobText(job) {
 
 /** @param {string} sid  the session id */
 export function analyzeCard(sid) {
-  const card = document.createElement('div');
-  card.className = 'card analyze-card';
+  const card = Object.assign(document.createElement('div'), { className: 'card analyze-card' });
+  card.dataset.surface = 'sessions.analyze';
   setCardState(card, CardState.LOADING);
   const head = `<div class="card-head"><h3 class="card-title">${icon('wand-sparkles')} Analyze session</h3></div>`;
   card.innerHTML = head;

@@ -171,6 +171,7 @@ export function toggleTheme() {
 export function pageHead({ glyph, title, status = '', settings = true }) {
   const head = document.createElement('div');
   head.className = 'card home-head';
+  head.dataset.surface = 'chrome.header';
   const themeGlyph = currentTheme() === 'dark' ? 'sun' : 'moon';
   head.innerHTML =
     `<h2 class="home-title">${icon(glyph)}<span class="home-title-text">${esc(title)}</span></h2>` +

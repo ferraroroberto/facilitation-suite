@@ -63,6 +63,7 @@ export function createPreview({ st, getEditor, slideOf, titleOf }) {
   function previewCard(it) {
     const card = document.createElement('div');
     card.className = 'card preview-card';
+    card.dataset.surface = 'plan.preview';
     card.innerHTML =
       `<div class="preview-frame stage-host" data-preview></div>` +
       `<div class="preview-text"><b>Stage preview</b><p class="muted small">${it.kind === 'slide'

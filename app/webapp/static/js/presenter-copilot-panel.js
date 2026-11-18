@@ -58,6 +58,7 @@ const stripChannel = (speaker) =>
 export function buildPanel(body, live) {
   const panel = document.createElement('div');
   panel.className = 'p-cop-panel';
+  panel.dataset.surface = 'presenter.copilot-panel';
   panel.dataset.copPanel = '';
   panel.innerHTML =
     '<div class="p-cop-strip">' +

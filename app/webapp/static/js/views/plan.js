@@ -154,11 +154,13 @@ export async function mount(el, context) {
   split.className = 'split plan-split';
   reviewHost = document.createElement('div');
   reviewHost.className = 'review-host';
+  reviewHost.dataset.surface = 'plan.reimport-review';
   reviewHost.hidden = true;
   const left = document.createElement('div');
   left.className = 'split-list';
   editor = document.createElement('div');
   editor.className = 'split-detail';
+  editor.dataset.surface = 'plan.editor';
   split.append(left, editor);
   el.append(split, reviewHost);
 
@@ -166,11 +168,13 @@ export async function mount(el, context) {
   left.appendChild(head);
   toolbar = document.createElement('div');
   toolbar.className = 'plan-toolbar';
+  toolbar.dataset.surface = 'plan.toolbar';
   left.appendChild(toolbar);
   reviewNote = document.createElement('div');
   left.appendChild(reviewNote);
   listCard = document.createElement('div');
   listCard.className = 'card list-card plan-list';
+  listCard.dataset.surface = 'plan.outline';
   left.appendChild(listCard);
   ctx.onSession(() => { if (!st.dirty) load(); });
   ctx.onGroups(async () => {
@@ -880,6 +884,7 @@ function renderBulk() {
 
   const form = document.createElement('div');
   form.className = 'card ed-card bulk-card';
+  form.dataset.surface = 'plan.multiselect';
   editor.appendChild(form);
   const strip = document.createElement('div');
   strip.className = 'bulk-list';

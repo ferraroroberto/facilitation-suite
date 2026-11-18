@@ -14,6 +14,7 @@ import { isQuiz, buildQuiz, drawQuiz, tickQuiz } from '/static/js/presenter-quiz
 import { senderKey, drawExcluded } from '/static/js/presenter-excluded.js';
 import { drawCopilot, copilotChip } from '/static/js/presenter-copilot.js';
 import { SOURCE_NAMES, sourceOf, sourceName } from '/static/js/chat-source.js';
+import { chime } from '/static/js/presenter-chime.js';
 
 // The cockpit is one view; the stage and the phone remote never load the usage log.
 initUsageLog().trackView('live');
@@ -74,7 +75,7 @@ activateFromUrl();
 async function renderPicker() {
   shellFor = null;
   root.className = 'presenter picker';
-  root.innerHTML = `<div class="card p-picker"><div class="card-head"><h1 class="card-title">${icon('presentation')} Go live</h1></div>` +
+  root.innerHTML = `<div class="card p-picker" data-surface="presenter.picker"><div class="card-head"><h1 class="card-title">${icon('presentation')} Go live</h1></div>` +
     `<p class="muted">Pick the session to present. The stage window follows it.</p><div class="list" data-list><p class="muted small">Loading…</p></div>` +
     `<p class="small"><a href="/">Back to the app</a></p></div>`;
   try {
@@ -106,15 +107,27 @@ function card(cls, label, meta, extra = '') {
     `<span class="p-meta">${meta}</span>${extra}</div><div class="p-body" data-body></div></section>`;
 }
 
+/** The cards come from the one `card` builder, so each gets its constant surface id here. */
+function stampCards() {
+  root.querySelector('.p-now').dataset.surface = 'presenter.now';
+  root.querySelector('.p-notes').dataset.surface = 'presenter.notes';
+  root.querySelector('.p-copilot').dataset.surface = 'presenter.copilot';
+  root.querySelector('.p-timing').dataset.surface = 'presenter.timing';
+  root.querySelector('.p-next').dataset.surface = 'presenter.next';
+  root.querySelector('.p-music').dataset.surface = 'presenter.music';
+  root.querySelector('.p-item').dataset.surface = 'presenter.item';
+  root.querySelector('.p-chat').dataset.surface = 'presenter.chat';
+}
+
 function buildShell() {
   if (shellFor === plan.session.id + ':' + plan.rev && root.querySelector('.p-grid')) return;
   shellFor = plan.session.id + ':' + plan.rev;
   lastIndex = -1;
   root.className = 'presenter';
   root.innerHTML =
-    `<header class="p-top">` +
+    `<header class="p-top" data-surface="presenter.header">` +
       `<div class="p-titles"><div class="p-title">${esc(plan.session.title)}</div><div class="p-sub" data-sub></div></div>` +
-      `<div class="p-chips" data-chips></div>` +
+      `<div class="p-chips" data-chips data-surface="presenter.chips"></div>` +
       `<span class="icon-button-group">` +
       `<button type="button" class="icon-button" data-keys data-track="live.keys" title="Keys" aria-label="Keyboard shortcuts" aria-expanded="false">${icon('keyboard')}</button>` +
       `<button type="button" class="icon-button" data-blackout data-track="live.blackout" title="Blackout (B)" aria-label="Blackout" aria-pressed="false">${icon('eye-off')}</button>` +
@@ -125,7 +138,7 @@ function buildShell() {
     // Four columns on a wide screen: what is on stage, its notes and the session clocks ·
     // what comes next and the music · the item's controls (quiz, capture, timer) · the Zoom chat.
     // Narrower, the columns dissolve (display: contents) and the cards stack in their own order.
-    `<div class="p-grid">` +
+    `<div class="p-grid" data-surface="presenter.cockpit">` +
       `<div class="p-col p-col-stage">` +
         card('p-now', '<span class="live-dot"></span>On stage now', 'what Zoom sees', '<span class="p-flag" data-flag hidden></span>') +
         card('p-notes', 'Notes', '') +
@@ -143,13 +156,14 @@ function buildShell() {
         card('p-chat', 'Zoom chat', '', '<span class="p-age small muted" data-age></span>') +
       `</div>` +
     `</div>` +
-    `<footer class="card p-strip">` +
+    `<footer class="card p-strip" data-surface="presenter.strip">` +
       `<button type="button" class="icon-button" data-prev data-track="live.prev" aria-label="Previous (←)">${icon('chevron-left')}</button>` +
       `<div class="p-thumbs" data-thumbs></div>` +
       `<button type="button" class="icon-button" data-next data-track="live.next" aria-label="Next (→)">${icon('chevron-right')}</button>` +
     `</footer>` +
-    `<div class="card p-keys" data-keypop hidden><p class="overline">Keys · stage or presenter window</p><dl class="p-keylist"></dl></div>`;
+    `<div class="card p-keys" data-keypop hidden data-surface="presenter.keys"><p class="overline">Keys · stage or presenter window</p><dl class="p-keylist"></dl></div>`;
 
+  stampCards();
   const nowHost = document.createElement('div');
   nowHost.className = 'stage-host p-stage';
   root.querySelector('.p-now [data-body]').appendChild(nowHost);
@@ -632,7 +646,7 @@ let chat = [];
 
 function buildChat() {
   const body = root.querySelector('.p-chat [data-body]');
-  body.innerHTML = `<div class="p-excluded" data-excluded hidden></div><ol class="p-msgs" data-msgs></ol><div class="p-chat-foot" data-chatfoot></div>`;
+  body.innerHTML = `<div class="p-excluded" data-excluded hidden data-surface="presenter.excluded"></div><ol class="p-msgs" data-msgs></ol><div class="p-chat-foot" data-chatfoot></div>`;
   body.querySelector('[data-msgs]').addEventListener('click', (e) => {
     const li = e.target.closest('.p-msg');
     if (!li || li.classList.contains('own')) return;
@@ -672,6 +686,7 @@ function drawUnplaced(body, c) {
   if (!box) {
     box = document.createElement('div');
     box.className = 'p-unplaced';
+    box.dataset.surface = 'presenter.unplaced';
     box.dataset.unplaced = '';
     body.querySelector('[data-captoggle]').after(box);
     box.addEventListener('click', async (e) => {
@@ -861,26 +876,6 @@ setInterval(() => {
   drawTiming(cur, s);
   tickChatAge();
 }, CLOCK_TICK_MS);
-
-// ----------------------------------------------------------------------- chime
-
-let audio = null;
-function chime() {
-  try {
-    audio = audio || new AudioContext();
-    [0, 0.18].forEach((delay, i) => {
-      const o = audio.createOscillator();
-      const g = audio.createGain();
-      o.frequency.value = i ? 1320 : 880;
-      g.gain.setValueAtTime(0.0001, audio.currentTime + delay);
-      g.gain.exponentialRampToValueAtTime(0.3, audio.currentTime + delay + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + delay + 0.6);
-      o.connect(g).connect(audio.destination);
-      o.start(audio.currentTime + delay);
-      o.stop(audio.currentTime + delay + 0.65);
-    });
-  } catch (e) { /* no audio device */ }
-}
 
 bindKeys(live);
 

@@ -148,6 +148,7 @@ function remoteGroup() {
 function openRemote() {
   const sheet = sheetDialog({ title: 'Phone remote', track: 'dialog.settings-remote', onClose: () => { remoteSheet = null; } });
   remoteSheet = sheet;
+  sheet.dlg.dataset.surface = 'settings.remote';
   drawRemote();
 }
 
@@ -215,7 +216,8 @@ function deckRows(list) {
 }
 
 function openDeck() {
-  const { body } = sheetDialog({ title: 'Stream Deck buttons', track: 'dialog.settings-deck' });
+  const { dlg, body } = sheetDialog({ title: 'Stream Deck buttons', track: 'dialog.settings-deck' });
+  dlg.dataset.surface = 'settings.deck';
   const base = data.remote.base_url;
   body.classList.add('settings-sheet-stack');
   body.innerHTML =
@@ -400,7 +402,8 @@ function stageGroup() {
 
 /** The default lettering: the session editor on a sample of its own (its CSS never reaches a stage). */
 function openLettering() {
-  const { body } = sheetDialog({ title: 'Stage lettering and timer colours', track: 'dialog.settings-lettering', wide: true });
+  const { dlg, body } = sheetDialog({ title: 'Stage lettering and timer colours', track: 'dialog.settings-lettering', wide: true });
+  dlg.dataset.surface = 'settings.lettering';
   body.classList.add('defaults-font-card');
   const draw = () => {
     const font = defs.stage.font;
@@ -442,7 +445,8 @@ function linkDefaultsFont(font) {
 }
 
 function openLibrary() {
-  const { body } = sheetDialog({ title: 'Stage library', track: 'dialog.settings-library' });
+  const { dlg, body } = sheetDialog({ title: 'Stage library', track: 'dialog.settings-library' });
+  dlg.dataset.surface = 'settings.library';
   body.classList.add('settings-sheet-stack');
   const draw = () => {
     const lib = defs.library;
@@ -537,6 +541,7 @@ function musicGroup() {
 
 function openSpotify() {
   spotifySheet = sheetDialog({ title: 'Spotify', track: 'dialog.settings-spotify', onClose: () => { spotifySheet = null; } });
+  spotifySheet.dlg.dataset.surface = 'settings.spotify';
   drawSpotify();
 }
 
@@ -590,7 +595,8 @@ function paintAbout() {
 }
 
 function openCredits() {
-  const { body } = sheetDialog({ title: 'Credits', track: 'dialog.settings-credits' });
+  const { dlg, body } = sheetDialog({ title: 'Credits', track: 'dialog.settings-credits' });
+  dlg.dataset.surface = 'settings.credits';
   body.classList.add('credits');
   body.innerHTML = `<ul class="credit-list">${CREDITS.map(([name, url, what]) =>
     `<li><a href="${url}" target="_blank" rel="noopener">${name}</a> — ${what}</li>`).join('')}</ul>`;

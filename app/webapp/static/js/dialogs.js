@@ -13,6 +13,7 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog' + (wide ? ' dialog-wide' : '');
     dlg.dataset.trackView = 'dialog.form';
+    dlg.dataset.surface = 'dialog.form';
     const rows = fields.map((f) => {
       const id = 'f-' + f.name;
       let control;
@@ -62,6 +63,7 @@ export function formDialog({ title, fields, saveLabel = 'Save', wide = false }) 
  * (`body`). `onClose` runs once it is dismissed (Escape, ×, backdrop). `track` is its usage view id.
  */
 export function sheetDialog({ title, track, wide = false, onClose = null }) {
+  // unmarked-surface-exempt: a sheet is a different surface per caller, so each caller stamps its own id on the returned dlg
   const dlg = document.createElement('dialog');
   // the vendored settings-group sheet: it fits the screen, only its body scrolls, Done stays pinned
   dlg.className = 'detail-dialog settings-sheet' + (wide ? ' dialog-wide' : '');
@@ -86,6 +88,7 @@ export function confirmDialog({ title, message, actionLabel = 'Confirm', danger 
     const dlg = document.createElement('dialog');
     dlg.className = 'detail-dialog';
     dlg.dataset.trackView = 'dialog.confirm';
+    dlg.dataset.surface = 'dialog.confirm';
     dlg.innerHTML =
       `<div class="detail-card">` +
       `<div class="detail-header"><h2>${esc(title)}</h2>` +
@@ -120,6 +123,7 @@ export function rowMenu(anchor, items) {
   const menu = document.createElement('div');
   menu.className = 'row-menu';
   menu.setAttribute('role', 'menu');
+  menu.dataset.surface = 'dialog.row-menu';
   items.forEach((it) => {
     if (it.danger) {
       const hr = document.createElement('div');

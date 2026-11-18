@@ -51,11 +51,11 @@
     </button>
   </header>
 
-  <section class="card screen" data-for="loading">
+  <section class="card screen" data-for="loading" data-surface="player.loading">
     <p class="play-lead" data-t="loading">Loading…</p>
   </section>
 
-  <section class="card screen" data-for="join">
+  <section class="card screen" data-for="join" data-surface="player.join">
     <form id="joinForm" class="play-form" novalidate>
       <label class="play-label" for="pin" data-t="pin_label">Game PIN</label>
       <input class="play-input play-pin" id="pin" name="pin" inputmode="numeric" autocomplete="off" maxlength="7"
@@ -67,12 +67,12 @@
     </form>
   </section>
 
-  <section class="card screen" data-for="wait">
+  <section class="card screen" data-for="wait" data-surface="player.wait">
     <p class="play-name" data-name></p>
     <p class="play-lead" data-wait-text></p>
   </section>
 
-  <section class="screen play-question" data-for="question">
+  <section class="screen play-question" data-for="question" data-surface="player.question">
     <div class="play-qhead">
       <span data-qindex></span>
       <span class="play-timer" data-timer><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg> <span data-left></span></span>
@@ -81,19 +81,19 @@
     <div class="play-tiles" data-tiles></div>
   </section>
 
-  <section class="card screen play-locked" data-for="locked">
+  <section class="card screen play-locked" data-for="locked" data-surface="player.locked">
     <span class="play-badge" data-locked-shape></span>
     <p class="play-status" data-answer-status></p>
     <p class="play-lead" data-locked-text></p>
   </section>
 
-  <section class="card screen play-result" data-for="result">
+  <section class="card screen play-result" data-for="result" data-surface="player.result">
     <p class="play-result-title" data-result></p>
     <div class="play-right" data-right hidden></div>
     <p class="play-lead" data-result-detail></p>
   </section>
 
-  <section class="card screen" data-for="kicked">
+  <section class="card screen" data-for="kicked" data-surface="player.kicked">
     <p class="play-result-title"><svg class="icon" aria-hidden="true"><use href="#i-triangle-alert"/></svg> <span data-t="removed">Removed</span></p>
     <p class="play-lead" data-t="removed_detail">The host removed you from this game.</p>
   </section>
