@@ -10,10 +10,14 @@ from pathlib import Path
 from PIL import Image
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
+from tests.e2e._geometry import effective_rect
 from tests.e2e._surface import surface
 from tests.e2e.conftest import set_stage_click, shot
 from tests.e2e.timer_states import DEFAULT_STATES, TIMER_STATES, assert_states
 from tests.fixtures.demo import build_demo_session
+
+# The narrowest "On stage now" preview a facilitator can still read, in CSS px.
+PREVIEW_MIN_WIDTH = 320
 
 # #190: draw items with the stage's own renderer into a 1920×1080 host (scale 1, so every number is a
 # canvas pixel), once per case, and report where the title text sits against the camera zone's middle.
@@ -117,6 +121,21 @@ def _check_header_wraps(page: Page) -> None:
         client_width = page.evaluate("document.documentElement.clientWidth")
         assert scroll_width <= client_width, f"presenter scrolls sideways at {width}px ({scroll_width} > {client_width})"
     page.set_viewport_size({"width": 1440, "height": 900})
+
+
+def _check_preview_keeps_size(page: Page) -> None:
+    """The "On stage now" preview is the facilitator's check of what Zoom sees: a short window
+    (a laptop as the second screen) shrinks the cards around it, never the preview."""
+    preview = page.locator(".p-now .p-stage")
+    for width, height in ((1920, 1080), (1440, 900), (1366, 768), (1280, 720)):
+        page.set_viewport_size({"width": width, "height": height})
+        _reflowed(page)
+        box = effective_rect(preview).visual
+        assert box.width >= PREVIEW_MIN_WIDTH, f"the On stage now preview is {box.width:g}x{box.height:g}px at {width}x{height}"
+        assert abs(box.width / box.height - 16 / 9) < 0.02, f"the preview is not 16:9 at {width}x{height}: {box.width:g}x{box.height:g}"
+        assert page.evaluate("() => document.documentElement.scrollHeight <= innerHeight"), f"the page scrolls at {width}x{height}"
+    page.set_viewport_size({"width": 1440, "height": 900})
+    _reflowed(page)
 
 
 def _open_stage(page: Page, browser: Browser, webapp, sid: str, errors: list[str]) -> tuple[BrowserContext, Page]:
@@ -393,6 +412,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     page.on("pageerror", lambda e: errors.append(str(e)))
     _open_presenter(page, webapp, sid)
     _check_header_wraps(page)
+    _check_preview_keeps_size(page)
     stage_ctx, stage = _open_stage(page, browser, webapp, sid, errors)
     _check_camera_centring(page, browser, webapp, stage)
     _check_timer_and_reload(page, stage, stage_ctx, webapp)

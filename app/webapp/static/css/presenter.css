@@ -237,7 +237,7 @@
   .p-side { grid-column: 3; grid-row: 1; }
   .p-col-chat { grid-column: 3; grid-row: 2; }
   .p-now, .p-next, .p-chat { flex: 1 1 0; }
-  .p-notes { flex: 0 1 auto; max-height: 26%; }
+  .p-notes { flex: none; max-height: 26%; }
   .p-copilot { flex: none; max-height: 38%; }
   /* Details open as a popover laid exactly over the Next column (the Next card and the music card under it): nothing in
      the grid moves or shrinks, so the page never scrolls. The grid is the popover's containing block and its placement is
@@ -251,8 +251,13 @@
   .p-timing, .p-music { flex: none; }
   .p-item { flex: 0 1 auto; min-height: 160px; }
   .p-now .p-body, .p-next .p-body { flex: 1; }
-  /* The live preview takes the largest 16:9 box its card body allows. */
-  .p-now .p-body { display: grid; place-items: center; overflow: hidden; container-type: size; }
+  /* The live preview takes the largest 16:9 box its card body allows, but never less than
+     --p-now-min-w wide: the card keeps its content height (head + body floor) instead of
+     shrinking to what the Notes, Copilot and Timing cards leave, and the column scrolls. */
+  .p-now { --p-now-min-w: 320px; min-height: min-content; }
+  .p-now .p-body { display: grid; place-items: center; overflow: hidden; container-type: size;
+    min-height: calc(var(--p-now-min-w) * 9 / 16 + 2 * var(--space-md)); }
+  .p-col-stage { overflow-y: auto; scrollbar-width: thin; }
   .p-now .p-stage { width: min(100cqw, 100cqh * 16 / 9); height: auto; }
   /* "Next" is a glance: its preview takes what the "Then" list leaves, so the list never scrolls. */
   .p-next-view { flex: 1 1 0; min-height: 48px; display: grid; place-items: center; container-type: size; }
