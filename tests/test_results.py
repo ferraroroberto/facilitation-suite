@@ -323,6 +323,7 @@ def test_sheet_titles_are_valid_and_unique() -> None:
 
 # ---- the session PDF (real headless Chromium) ------------------------------------
 
+@pytest.mark.needs_chromium
 def test_session_pdf_prints_every_page_then_the_appendix(client, isolated_env: Path, caplog) -> None:
     sid, folder, _ = _run(isolated_env)
     (folder / "live" / "captures" / "act-ideas.png").unlink()  # a PNG that never rendered still gets a page

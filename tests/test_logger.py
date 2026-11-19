@@ -51,6 +51,7 @@ def _wait_for(path: Path, timeout: float = 10.0) -> None:
     raise AssertionError(f"{path} never appeared")
 
 
+@pytest.mark.windows_only
 def test_records_survive_and_rotation_resumes_when_an_outside_process_holds_the_file_open(
     tmp_path: Path, caplog: pytest.LogCaptureFixture,
 ) -> None:

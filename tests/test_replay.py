@@ -102,6 +102,7 @@ def test_word_cloud_says_whether_an_answer_is_shown_whole(text: str, whole: bool
     assert c is not None and c["whole"] is whole and c["entries"]
 
 
+@pytest.mark.needs_chromium
 def test_render_draws_each_replayed_cloud_through_the_real_stage(recorded: Path, tmp_path: Path) -> None:
     out = tmp_path / "out"
     assert replay.main([str(recorded), "--out", str(out), "--item", "act-kryptonite", "--render"]) == 0
@@ -210,6 +211,7 @@ def _with_font(folder: Path, font: Path) -> None:
     (folder / "session.yaml").write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
 
 
+@pytest.mark.needs_chromium
 def test_the_picture_waits_for_the_session_font_and_is_not_written_when_it_does_not_load(recorded: Path, tmp_path: Path) -> None:
     good = Path(shutil.copy(VENDORED_FONT, tmp_path / "Synthetic-Regular.ttf"))
     _with_font(recorded, good)
@@ -282,6 +284,7 @@ def test_a_rebuild_uses_the_options_the_plan_says_now(old_session: tuple[str, Pa
     assert not row["same_result"] and "agenda" in row["added"] and "meetings without agenda" in row["removed"]
 
 
+@pytest.mark.needs_chromium
 def test_apply_backs_up_rebuilds_records_and_pictures_and_undo_restores_every_byte(client, old_session: tuple[str, Path]) -> None:
     sid, folder = old_session
     before = _captures_digest(folder)

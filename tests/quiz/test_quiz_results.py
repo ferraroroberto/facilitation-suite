@@ -7,6 +7,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+import pytest
 from openpyxl import load_workbook
 
 from src.jsonl import read_jsonl
@@ -239,6 +240,7 @@ def test_quiz_sheet_names_fit_and_keep_their_suffix() -> None:
 
 # ---- the API: a session whose only live activity was a quiz --------------------------
 
+@pytest.mark.needs_chromium
 def test_a_quiz_only_session_exports_its_report_and_pdf(client, isolated_env: Path) -> None:
     sid, folder, _ = _quiz_run(isolated_env, demo=False)
     data = client.get(f"/api/sessions/{sid}/results").json()

@@ -90,6 +90,7 @@ def test_listener_serves_the_player_app_only(player) -> None:
     assert main.get("/play").status_code == 404
 
 
+@pytest.mark.windows_only
 def test_listener_stops_with_the_main_app(isolated_env: Path) -> None:
     from app.webapp.server import create_app
 

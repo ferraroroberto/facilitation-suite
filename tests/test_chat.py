@@ -63,6 +63,7 @@ def test_new_rows_realigns_after_a_deleted_message() -> None:
     assert (fresh, how) == (_rows("d"), "realign")
 
 
+@pytest.mark.windows_only
 def test_message_names_prefers_the_history_list() -> None:
     from src.chat.msaa import Node
 
@@ -295,6 +296,7 @@ def _goto(live: LiveHub, item_id: str) -> None:
     live.goto(live.item_by_id(item_id)["index"])
 
 
+@pytest.mark.windows_only
 def test_a_returning_chat_window_reposts_no_history_into_the_open_capture(
         live_demo, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     """Every breakout round: the chat list empties, the window goes, the facilitator pops it out again."""
@@ -338,6 +340,7 @@ def test_a_returning_chat_window_reposts_no_history_into_the_open_capture(
     assert [m["text"] for m in chat.messages] == [r.text for r in history]  # every row stored once
 
 
+@pytest.mark.windows_only
 def test_an_empty_snapshot_between_two_identical_ones_posts_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     window = _FakeWindow(monkeypatch)
     sink = _Collect()
@@ -376,6 +379,7 @@ def test_a_batch_of_old_rows_leaves_a_warning(live_demo, caplog: pytest.LogCaptu
     assert any("starts at " + two_hours_ago in r.getMessage() and "120 min ago" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.windows_only
 def test_a_snapshot_sharing_nothing_is_history_not_new_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     assert new_rows(_rows("a", "b"), [Row("Q", "elsewhere", "19:00")])[0] == []
     window = _FakeWindow(monkeypatch)
@@ -408,6 +412,7 @@ class _BeatPoster:
         pass
 
 
+@pytest.mark.windows_only
 def test_a_scan_that_never_returns_does_not_silence_the_heartbeat(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from src.chat import msaa
 
@@ -430,6 +435,7 @@ def test_a_scan_that_never_returns_does_not_silence_the_heartbeat(monkeypatch: p
     assert not thread.is_alive() and poster.beats[-1][0] == "stopped"
 
 
+@pytest.mark.windows_only
 def test_a_scan_slower_than_the_poll_is_logged_with_its_size_and_sent_in_the_heartbeat(
         monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     from src.chat import msaa

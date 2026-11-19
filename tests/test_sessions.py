@@ -133,6 +133,7 @@ def test_add_existing_and_remove_keeps_the_folder(tmp_path: Path) -> None:
         st.add_existing(str(tmp_path / "nowhere"))
 
 
+@pytest.mark.windows_only
 def test_offline_check_on_a_local_folder(tmp_path: Path) -> None:
     folder = tmp_path / "session"
     (folder / "sub").mkdir(parents=True)
