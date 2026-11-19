@@ -275,6 +275,20 @@ call   = "os.replace"
 helper = ["src/atomic_write.py"]
 why    = "src/atomic_write.py is the one atomic file writer (unique temp, cleanup on failure, retry while held open)"
 
+# [ci.nightly] -- this repo's settings for the Mac Mini nightly (project-scaffolding docs/mac-runner.md).
+# The unit leg drops `windows_only` tests (the Windows desktop reader, file-lock and OneDrive checks) and
+# `needs_chromium` tests (the Mac installs WebKit only, and the session PDF and frozen capture PNGs render
+# in Chromium); the local gate keeps running all of them. The e2e suite boots its own disposable instance,
+# so there is no autoboot flag; the smoke opens its `[design.review.synthetic]` instance at `/`.
+[ci.nightly]
+python         = "3.14"
+requirements   = ["requirements.txt"]
+samples        = "config"
+unit           = ["tests", "--ignore=tests/e2e"]
+e2e            = ["tests/e2e"]
+views          = ["/"]
+exclude_marker = "not windows_only and not needs_chromium"
+
 # Diff-proportionate e2e routing (project-scaffolding#180): first match wins; an
 # unmatched path, a mixed diff, or an empty diff fails safe to the full suite.
 [e2e]
