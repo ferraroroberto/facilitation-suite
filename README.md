@@ -86,7 +86,7 @@ Where each folder's code goes: [docs/layout.md](docs/layout.md).
 & .\scripts\verify-before-ship.ps1
 ```
 
-Personal-data guard → byte-compile → ruff → static ratchet → docs ratchet → comment ratchet → structure ratchet → instruction ratchet → doc-refs ratchet → dead-code ratchet → conventions ratchet → ux surface ratchet → pytest → diff-routed Playwright e2e against a disposable instance. Details: [docs/verification.md](docs/verification.md).
+The stages, in order, and what each one checks: [docs/verification.md](docs/verification.md) — the one place that lists them, so this page never drifts from the script.
 
 ## Privacy
 
