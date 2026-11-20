@@ -11,6 +11,7 @@ from PIL import Image
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from tests.e2e._geometry import effective_rect
+from tests.e2e._page_errors import record_page_errors
 from tests.e2e._surface import surface
 from tests.e2e.conftest import set_stage_click, shot
 from tests.e2e.timer_states import DEFAULT_STATES, TIMER_STATES, assert_states
@@ -142,7 +143,7 @@ def _open_stage(page: Page, browser: Browser, webapp, sid: str, errors: list[str
     """The stage window opens on the opening divider, in the stage font; returns its context and page."""
     stage_ctx = browser.new_context(viewport={"width": 1280, "height": 720})
     stage = stage_ctx.new_page()
-    stage.on("pageerror", lambda e: errors.append(str(e)))
+    record_page_errors(stage, errors)
     stage.goto(f"{webapp.base_url}/stage")
     # the opening divider: its text-free picture, and its title drawn in the stage font
     expect(stage.locator(".st-slide")).to_have_attribute("src", f"/api/sessions/{sid}/slides/slide-101-bg.png")
@@ -409,7 +410,7 @@ def test_stage_and_presenter_stay_in_sync(page: Page, browser: Browser, webapp, 
     folder = webapp.root / "sessions" / "demo" / "live-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
     errors: list[str] = []
-    page.on("pageerror", lambda e: errors.append(str(e)))
+    record_page_errors(page, errors)
     _open_presenter(page, webapp, sid)
     _check_header_wraps(page)
     _check_preview_keeps_size(page)

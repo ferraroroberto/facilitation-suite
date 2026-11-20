@@ -10,6 +10,7 @@ import socket
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,6 +25,20 @@ def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return int(s.getsockname()[1])
+
+
+def _lan_address() -> Optional[str]:
+    """The address the OS would route outward from, with no DNS lookup (a runner's hostname may not resolve).
+
+    A UDP connect sends no packet; it only makes the OS pick the outbound interface.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            s.connect(("192.0.2.1", 9))  # TEST-NET-1, never routed
+        except OSError:
+            return None
+        address = str(s.getsockname()[0])
+    return None if address.startswith("127.") or address == "0.0.0.0" else address
 
 
 def _get(url: str) -> tuple[int, str]:
@@ -63,8 +78,8 @@ def test_listener_binds_loopback_only(local) -> None:
     sock = main.app.state.local_listener.server.servers[0].sockets[0]
     assert sock.getsockname()[0] == "127.0.0.1"
     # The machine's own LAN address is another interface: nothing listens there.
-    lan = socket.gethostbyname(socket.gethostname())
-    if lan.startswith("127."):
+    lan = _lan_address()
+    if lan is None:
         pytest.skip("this host has no non-loopback IPv4 address")
     with pytest.raises(OSError), socket.create_connection((lan, port), timeout=2):
         pass

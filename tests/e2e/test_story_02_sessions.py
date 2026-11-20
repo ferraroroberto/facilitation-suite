@@ -7,6 +7,7 @@ playbook.md from a template, renders the file safely and reloads it after an edi
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import yaml
@@ -92,7 +93,11 @@ def _create_session(page: Page, webapp, shots) -> tuple[str, Path]:
     assert len(ticks["rows"]) == 9
     for left, width, height in ticks["rows"]:
         assert abs(left - ticks["head"][0]) <= 1 and abs(width - ticks["head"][1]) <= 0.5 and abs(height - ticks["head"][2]) <= 0.5, ticks
-    expect(page.locator(".status-line.ok")).to_contain_text("files on this PC")
+    # the offline line reads Windows file attributes; anywhere else the app says it cannot tell
+    if sys.platform == "win32":
+        expect(page.locator(".status-line.ok")).to_contain_text("files on this PC")
+    else:
+        expect(page.locator(".status-line.unknown")).to_contain_text("Offline status unknown")
     session_yaml = webapp.root / "sessions" / "demo-workshop" / "cohort-a" / "session.yaml"
     assert session_yaml.is_file()
     shot(page, shots / "story-02-sessions-1-desktop.png")

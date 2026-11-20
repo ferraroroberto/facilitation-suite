@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import time
 
+import pytest
 from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e._surface import surface
@@ -87,6 +88,7 @@ def exclude_cohost(page: Page, stage: Page, base_url: str) -> None:
     expect(page.locator("[data-excluded] [data-restore]")).to_have_count(1)
 
 
+@pytest.mark.needs_chromium
 def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "capture-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")

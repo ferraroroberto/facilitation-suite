@@ -13,6 +13,7 @@ import yaml
 from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e._geometry import assert_min_target, assert_no_horizontal_overflow, assert_no_overlap
+from tests.e2e._page_errors import record_page_errors
 from tests.e2e._surface import surface
 from tests.fixtures.demo import build_demo_session
 
@@ -29,7 +30,7 @@ APP_PADDING = """() => {
 
 def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None:
     errors: list[str] = []
-    page.on("pageerror", lambda e: errors.append(str(e)))
+    record_page_errors(page, errors)
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(webapp.base_url + "/")
     expect(page.locator("#paneSessions .home-head")).to_have_count(1)

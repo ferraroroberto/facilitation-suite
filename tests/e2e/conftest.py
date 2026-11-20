@@ -136,6 +136,13 @@ def fake_hub_copilot(hub: FakeHub) -> dict[str, object]:
     return copilot
 
 
+@pytest.fixture(autouse=True)
+def _chromium_only(request: pytest.FixtureRequest, browser_name: str) -> None:
+    """``needs_chromium`` stories wait on a Chromium-rendered file (the frozen capture PNG), so another engine skips them."""
+    if request.node.get_closest_marker("needs_chromium") and browser_name != "chromium":
+        pytest.skip(f"renders in Chromium; this run drives {browser_name}")
+
+
 @pytest.fixture(scope="session")
 def webapp() -> Iterator[Instance]:
     if os.environ.get(LIVE_ENV):
