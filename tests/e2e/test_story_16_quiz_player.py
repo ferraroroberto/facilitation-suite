@@ -26,6 +26,7 @@ import re
 from playwright.sync_api import Browser, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
+from tests.e2e._page_errors import record_page_errors
 from tests.e2e._surface import surface
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import LONG_ANSWERS, LONG_QUESTION, PLAYER_QUIZ, add_quiz_section
@@ -99,7 +100,7 @@ COUNTDOWN_FITS = """() => {
 
 def _phone(browser: Browser, spec: dict, errors: list[str]) -> Page:
     page = browser.new_context(**spec).new_page()
-    page.on("pageerror", lambda e: errors.append(str(e)))
+    record_page_errors(page, errors)
     return page
 
 

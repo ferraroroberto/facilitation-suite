@@ -10,6 +10,7 @@ import time
 import uuid
 from pathlib import Path
 
+import pytest
 from openpyxl import load_workbook
 from playwright.sync_api import Locator, Page, expect
 
@@ -315,6 +316,7 @@ def _check_phone_layout(page: Page, pane: Locator, shots) -> None:
     surface(page, "results.phone")
 
 
+@pytest.mark.needs_chromium
 def test_results_after_the_session(page: Page, webapp, shots, tmp_path) -> None:
     base = webapp.base_url
     folder = webapp.root / "sessions" / "demo" / "results-story"
