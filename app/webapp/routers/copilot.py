@@ -9,12 +9,13 @@ import logging
 from dataclasses import asdict
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.tray.overlay.render import FONT_FILES
 from app.tray.overlay.screens import list_screens
 from app.webapp.errors import require_local
+from app.webapp.feature_gate import require
 from src import settings as settings_file
 from src.config import OVERLAY_MODES, OVERLAY_POSITIONS, OVERLAY_SHAPES
 from src.copilot.service import CopilotService
@@ -22,7 +23,7 @@ from src.sessions.model import INTERVIEWEE_CHARS
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/copilot")
+router = APIRouter(prefix="/api/copilot", dependencies=[Depends(require("copilot"))])
 COLOUR = r"^#[0-9a-fA-F]{6}$"
 
 

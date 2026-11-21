@@ -55,9 +55,11 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.tray.overlay.process import OverlayProcess
+from app.webapp import features_wiring
 from app.webapp.assets import CachingStaticFiles
 from app.webapp.auth import RemoteAuth, redact_server_logs
 from app.webapp.errors import error_response
+from app.webapp.feature_gate import remote_token
 from app.webapp.local_listener import LocalListener
 from app.webapp.player.listener import PlayerListener
 from app.webapp.routers import (
@@ -77,6 +79,7 @@ from app.webapp.routers import (
     slides,
     wrapup,
 )
+from src import features
 from src.activities.registry import ACTIVITIES_DIR
 from src.build_info import build_identity
 from src.certs import cert_paths
@@ -123,7 +126,9 @@ async def _keep_overlay_up(app: FastAPI) -> None:
     """While Copilot is on with the overlay enabled, start the overlay again if it is gone (a crash, a kill)."""
     while True:
         await asyncio.sleep(OVERLAY_WATCH_S)
-        if app.state.copilot.on and app.state.config.copilot.overlay.enabled and not app.state.overlay.running():
+        cfg = app.state.config
+        if (features.enabled(cfg, "copilot") and app.state.copilot.on and cfg.copilot.overlay.enabled
+                and not app.state.overlay.running()):
             await asyncio.to_thread(app.state.overlay.start)
 
 
@@ -135,7 +140,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.obs.start()
     player = PlayerListener(cfg.quiz.public_port, app.state.quiz)
     app.state.player = player
-    await player.start()  # optional: a busy port is logged, never fatal
+    if features.enabled(cfg, "quiz_public"):
+        await player.start()  # optional: a busy port is logged, never fatal
     local = LocalListener(cfg.local_port, app)
     app.state.local_listener = local
     await local.start()  # optional too: the tray falls back to the HTTPS URL
@@ -224,7 +230,8 @@ def _install_chat(app: FastAPI) -> None:
 
     def on_session(sid: Optional[str]) -> None:
         chat_hub.sync_session()
-        if sid and app.state.config.reader.enabled and not proc.running():
+        current = app.state.config  # at call time: Settings may have switched the reader since startup
+        if sid and features.enabled(current, "chat_reader") and current.reader.start_on_live and not proc.running():
             proc.start()
         elif sid is None and proc.running() and live.loop is not None:
             live.loop.run_in_executor(None, proc.stop)
@@ -263,7 +270,7 @@ def _install_copilot(app: FastAPI) -> None:
 
     copilot.listeners.append(follow)
     copilot.on_sample = sample
-    register(Action("copilot_toggle", "Copilot on/off", lambda hub, arg: copilot.toggle()))
+    register(Action("copilot_toggle", "Copilot on/off", lambda hub, arg: copilot.toggle(), feature="copilot"))
     app.state.copilot = copilot
     app.state.overlay = overlay
 
@@ -284,7 +291,7 @@ def _install_obs(app: FastAPI) -> None:
             raise LiveError(404, "unknown_profile", f"No OBS profile {name!r} (camera_strip, camera_pip, screen_only)")
         obs.switch(name)
 
-    register(Action("obs_profile", "Switch the OBS profile", by_hand, arg="name"))
+    register(Action("obs_profile", "Switch the OBS profile", by_hand, arg="name", feature="obs"))
 
 
 def _install_music(app: FastAPI) -> None:
@@ -300,13 +307,16 @@ def _install_quiz(app: FastAPI) -> None:
     and the public-link check (``src/quiz/reach.py``: when a quiz session goes live, then every few
     minutes while it is, and on demand — always in a worker thread)."""
     service = QuizService(app.state.live)
-    service.public_url = lambda: app.state.config.quiz.public_url
+    # With the public quiz link switched off there is no public address to show or put in the QR.
+    service.public_url = lambda: app.state.config.quiz.public_url if features.enabled(app.state.config, "quiz_public") else ""
     service.listener_up = lambda: bool(getattr(app.state, "player", None) and app.state.player.running)
     service.output_device = app.state.music.output_device  # the Sounds chip's device state
     app.state.quiz = service
     live = app.state.live
 
     def quiz_live() -> bool:  # the live session plays a quiz: the public link is checked every few minutes
+        if not features.enabled(app.state.config, "quiz_public"):
+            return False
         return live.session_id is not None and any(it.get("type") in QUIZ_TYPES and not it.get("hidden") for it in live.items)
 
     reach = QuizReach(lambda: (app.state.config.quiz.public_url, app.state.config.quiz.public_port),
@@ -341,11 +351,12 @@ def create_app() -> FastAPI:
     _install_obs(app)
     _install_music(app)
     _install_quiz(app)
+    features_wiring.install(app)
     # The quiz's phase sounds through the music service (after both: it hears the quiz's changes).
     app.state.quiz_cues = QuizCues(app.state.live, app.state.quiz, app.state.music)
     _install_error_handlers(app)
     # Outermost: other devices need the phone-remote token before anything else runs.
-    app.add_middleware(RemoteAuth, get_token=lambda: app.state.config.remote.token)
+    app.add_middleware(RemoteAuth, get_token=lambda: remote_token(app.state.config))
     # Added last, so the outermost layer: gzips the pages, JS/CSS and JSON for a phone on cellular and
     # leaves a 304, an auth refusal and the websocket alone. No route here is SSE or MJPEG, so no bypass.
     app.add_middleware(StreamSafeGZipMiddleware, bypass_paths=())

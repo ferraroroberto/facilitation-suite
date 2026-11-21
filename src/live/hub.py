@@ -164,6 +164,8 @@ class LiveHub:
         self.space_handlers: list[Callable[[], bool]] = []
         # The camera zone of each OBS profile (Settings); the defaults until the server wires it.
         self.zones: Callable[[], dict[str, Any]] = lambda: {}
+        # Whether a feature block (src/features.py) is on; every block is until the server wires the config.
+        self.feature_on: Callable[[str], bool] = lambda key: True
 
     # ------------------------------------------------------------------ setup
 

@@ -80,12 +80,12 @@ def test_config_defaults_on_missing_file(tmp_path: Path, monkeypatch: pytest.Mon
 
 def test_config_wrong_type_falls_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "c.json"
-    path.write_text(json.dumps({"port": "not-a-port", "obs": {"port": 4460, "enabled": "yes"}}), encoding="utf-8")
+    path.write_text(json.dumps({"port": "not-a-port", "obs": {"port": 4460, "host": 7}}), encoding="utf-8")
     monkeypatch.setenv("FS_CONFIG_PATH", str(path))
     cfg = config_mod.load_config()
     assert cfg.port == 8449
     assert cfg.obs.port == 4460
-    assert cfg.obs.enabled is True
+    assert cfg.obs.host == "127.0.0.1"
 
 
 def test_a_saved_config_still_holding_the_retired_stage_display_key_loads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

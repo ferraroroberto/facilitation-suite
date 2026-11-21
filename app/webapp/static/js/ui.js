@@ -116,6 +116,12 @@ function watchOs() {
   osDark.addEventListener('change', () => { if (appearance === 'system') paintAppearance('system'); });
 }
 
+/** The feature blocks switched off on this PC (the live snapshot's `features_off`): app.css hides
+ * every element marked `data-feature="<block>"` while its block is in this list. */
+export function followFeatures(off) {
+  document.documentElement.dataset.featuresOff = (off || []).join(' ');
+}
+
 /** The server's value (page load, live snapshot): follow it, unless it predates our own change. */
 export function followAppearance(value) {
   if (!APPEARANCES.includes(value)) return;

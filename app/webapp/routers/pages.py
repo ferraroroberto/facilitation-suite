@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, Response
+
+from app.webapp.feature_gate import require
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 SCHEMA_VERSION = 1
@@ -64,7 +66,7 @@ def stage(request: Request) -> Response:
     return _page(request, "stage.html")
 
 
-@router.get("/remote", include_in_schema=False)
+@router.get("/remote", include_in_schema=False, dependencies=[Depends(require("remote"))])
 def remote(request: Request) -> Response:
     """The phone remote. The page itself is open (an unpaired phone is told how
     to pair); everything it loads needs the token (``app/webapp/auth.py``)."""

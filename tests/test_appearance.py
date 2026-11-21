@@ -34,7 +34,7 @@ def test_set_is_saved_and_pushed_to_every_open_page(client: TestClient, isolated
             assert msg["type"] == "state" and msg["state"]["appearance"] == "dark"
     saved = json.loads((isolated_env / "config.json").read_text(encoding="utf-8"))
     assert saved["appearance"] == "dark"
-    assert saved["obs"]["enabled"] is False  # the rest of the file is kept
+    assert saved["features"]["obs"] is False  # the rest of the file is kept
     assert client.get("/api/settings/appearance").json() == {"appearance": "dark"}
     assert _state(client)["appearance"] == "dark"
 

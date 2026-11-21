@@ -1,7 +1,7 @@
 """Playwright e2e fixtures — a disposable webapp per session, never the live :8449.
 
 ``webapp`` boots uvicorn on a free loopback port with ``FS_CONFIG_PATH`` → a
-temp copy of the sample config (OBS and the chat reader off),
+temp copy of the sample config (OBS off, the chat reader never started by going live),
 ``FS_LEDGER_PATH`` → a temp ledger, ``FS_DATA_DIR`` → a temp data dir and
 ``FS_ENV_PATH`` → an empty ``.env`` (no Spotify login), so a
 run never reads or writes the real config, ledger or session folders. The copilot
@@ -141,6 +141,29 @@ def _chromium_only(request: pytest.FixtureRequest, browser_name: str) -> None:
     """``needs_chromium`` stories wait on a Chromium-rendered file (the frozen capture PNG), so another engine skips them."""
     if request.node.get_closest_marker("needs_chromium") and browser_name != "chromium":
         pytest.skip(f"renders in Chromium; this run drives {browser_name}")
+
+
+def _git_status() -> list[str]:
+    """``git status`` of this checkout, read without taking the index lock (a read never strands one)."""
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    done = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=REPO_ROOT, capture_output=True,
+                          text=True, encoding="utf-8", env=env, timeout=60, check=True, creationflags=NO_WINDOW)
+    return done.stdout.splitlines()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _leaves_git_status_clean() -> Iterator[None]:
+    """A whole run (sessions, the live cockpit, simulated chat, several app instances started and stopped) adds
+    nothing to ``git status``: every file the app writes is gitignored, so a plain ``git pull`` updates the PC.
+    Compared with the status at the start, so a checkout with work in progress still runs it. A deliberate
+    screenshot re-baseline (``FS_E2E_SHOTS=1``) rewrites tracked files and is left out."""
+    if os.environ.get("FS_E2E_SHOTS") == "1":
+        yield
+        return
+    before = set(_git_status())
+    yield
+    added = sorted(set(_git_status()) - before)
+    assert not added, f"the e2e run left files git sees (gitignore them or write them outside the checkout): {added}"
 
 
 @pytest.fixture(scope="session")

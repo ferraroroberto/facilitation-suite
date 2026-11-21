@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import AppError, require_local
-from src import defaults
+from src import defaults, features
 from src import library as stage_library
 from src.copilot.retention import purge_recordings
 from src.importer.review import read_meta
@@ -97,8 +97,8 @@ def remove(request: Request, sid: str) -> dict[str, Any]:
 
 
 def live_facts(request: Request) -> dict[str, Any]:
-    """Facts other services know (reader test, OBS) for the readiness list."""
-    facts: dict[str, Any] = {}
+    """Facts other services know (reader test, OBS, the blocks switched off here) for the readiness list."""
+    facts: dict[str, Any] = {"off": features.off_keys(request.app.state.config)}
     for key in ("reader", "obs"):
         svc = getattr(request.app.state, key, None)
         if svc is not None and hasattr(svc, "readiness"):
@@ -115,10 +115,10 @@ def session_payload(request: Request, sid: str, *, with_offline: bool = True) ->
     meta = read_meta(folder / "slides" / "slides.json") or {}
     facts = live_facts(request)
     music = getattr(request.app.state, "music", None)
-    if music is not None and library.uses_spotify(session):
+    if music is not None and "music" not in facts["off"] and library.uses_spotify(session):
         facts["spotify"] = music.spotify_status()  # only then: it asks Spotify (cached 30 s)
     reach = getattr(request.app.state, "quiz_reach", None)
-    if reach is not None and readiness.has_quiz(session):
+    if reach is not None and "quiz_public" not in facts["off"] and readiness.has_quiz(session):
         facts["quiz_reach"] = reach.current()  # the last check; a stale one reads "unknown"
         if not reach.fresh():
             reach.kick()  # in a background thread: the page never waits on the network

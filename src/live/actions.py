@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from src.features import OFF_SENTENCE
 from src.live.hub import LiveError, LiveHub
 
 
@@ -22,6 +23,7 @@ class Action:
     run: Callable[[LiveHub, Optional[str]], None]
     arg: Optional[str] = None  # the argument's name when the action takes one
     stream_deck: bool = True
+    feature: Optional[str] = None  # the feature block (src/features.py) the action belongs to, if any
 
 
 def _int(arg: Optional[str], name: str) -> int:
@@ -58,6 +60,8 @@ def run_action(hub: LiveHub, action_id: str, arg: Optional[str] = None) -> dict[
         raise LiveError(404, "unknown_action", f"No action {action_id!r}")
     if action.arg and arg is None:
         raise LiveError(422, "missing_argument", f"{action_id} needs /{action.arg}")
+    if action.feature and not hub.feature_on(action.feature):
+        raise LiveError(404, "feature_off", OFF_SENTENCE)
     if hub.session_id is None:
         raise LiveError(409, "not_live", "No session is live — open the presenter first")
     action.run(hub, arg)

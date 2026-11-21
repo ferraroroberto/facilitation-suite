@@ -1,6 +1,6 @@
-"""Settings shared by every session: OBS connection and profiles, the chat reader, the phone remote,
-the appearance (light/dark) of the facilitator's screens, the defaults new sessions start from with
-the stage library, and the Spotify account (status and the Connect button, this PC only)."""
+"""Settings shared by every session: the available features, OBS connection and profiles, the chat reader,
+the phone remote, the appearance (light/dark) of the facilitator's screens, the defaults new sessions start
+from with the stage library, and the Spotify account (status and the Connect button, this PC only)."""
 
 from __future__ import annotations
 
@@ -9,12 +9,13 @@ import logging
 import secrets
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import LOOPBACK_HOSTS, AppError, is_local, require_local
-from src import defaults, library
+from app.webapp.feature_gate import remote_token, require
+from src import defaults, features, library
 from src import settings as settings_file
 from src.certs import cert_hostname
 from src.config import profiles
@@ -27,10 +28,10 @@ from src.sessions.theme import FONT_TYPES, lettering_css, stage_font_file
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings")
+FeatureKey = Literal["chat_reader", "obs", "copilot", "music", "quiz_public", "remote"]  # src.features.KEYS
 
 
 class ObsPatch(BaseModel):
-    enabled: Optional[bool] = None
     host: Optional[str] = Field(None, min_length=1, max_length=200)
     port: Optional[int] = Field(None, ge=1, le=65535)
     password: Optional[str] = Field(None, max_length=200)  # written, never read back
@@ -40,10 +41,6 @@ class ProfilePatch(BaseModel):
     scene: Optional[str] = Field(None, max_length=200)
     zone: Optional[list[float]] = Field(None, min_length=4, max_length=4)
     clear_zone: bool = False  # "no camera zone"
-
-
-class ReaderPatch(BaseModel):
-    enabled: Optional[bool] = None
 
 
 class AppearanceBody(BaseModel):
@@ -77,7 +74,6 @@ class StageClickPatch(BaseModel):
 class SettingsPatch(BaseModel):
     obs: Optional[ObsPatch] = None
     profiles: Optional[dict[str, ProfilePatch]] = None
-    reader: Optional[ReaderPatch] = None
     stage_click: Optional[StageClickPatch] = None
 
 
@@ -92,7 +88,7 @@ def remote_payload(request: Request) -> dict[str, Any]:
     (plain HTTP on this PC, ``local_port``) still gets the tailnet HTTPS link: it
     is for the phone, not for the page it is shown on."""
     cfg = request.app.state.config
-    token = cfg.remote.token
+    token = remote_token(cfg)
     loopback = cfg.host in LOOPBACK_HOSTS
     server_port = (request.scope.get("server") or ("", cfg.port))[1]
     on_local_listener = bool(cfg.local_port) and server_port == cfg.local_port
@@ -116,11 +112,12 @@ def payload(request: Request) -> dict[str, Any]:
     obs = request.app.state.obs
     return {
         "remote": remote_payload(request),
-        "obs": {"enabled": cfg.obs.enabled, "host": cfg.obs.host, "port": cfg.obs.port, "password_set": bool(cfg.obs.password)},
+        "features": features.status(cfg),
+        "obs": {"host": cfg.obs.host, "port": cfg.obs.port, "password_set": bool(cfg.obs.password)},
         "obs_state": obs.snapshot(),
         "scenes": list(obs.scenes),
         "profiles": profiles(cfg),
-        "reader": {"enabled": cfg.reader.enabled, "source": cfg.reader.source, "window_title": cfg.reader.window_title,
+        "reader": {"source": cfg.reader.source, "window_title": cfg.reader.window_title,
                    "teams_title": cfg.reader.teams_title, "meet_title": cfg.reader.meet_title, "poll_ms": cfg.reader.poll_ms},
         "appearance": cfg.appearance,
         "stage_click": stage_click_state(cfg),
@@ -157,8 +154,6 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
                 entry["zone"] = [round(v, 4) for v in z]
             out[key] = entry
         patch["profiles"] = out
-    if body.reader:
-        patch["reader"] = body.reader.model_dump(exclude_none=True)
     if body.stage_click:
         patch["stage_click"] = body.stage_click.model_dump(exclude_none=True)
     if patch:
@@ -202,7 +197,25 @@ async def test_obs(request: Request) -> dict[str, Any]:
     return payload(request)
 
 
-@router.post("/remote/token")
+@router.get("/features")
+def get_features(request: Request) -> dict[str, Any]:
+    """Every feature block: on or off here, whether it can run on this machine, and why not."""
+    return {"features": features.status(request.app.state.config)}
+
+
+@router.put("/features")
+async def put_features(request: Request, body: dict[FeatureKey, bool]) -> dict[str, Any]:
+    """Switch feature blocks on or off for this machine; a block switched off stops its work at once."""
+    require_local(request, "Features can only be switched on this PC")
+    if not body:
+        raise AppError(422, "no_features", "Name at least one feature: " + ", ".join(features.KEYS))
+    request.app.state.config = await asyncio.to_thread(settings_file.update, {"features": dict(body)})
+    await request.app.state.apply_features()
+    logger.info("ℹ️ features: %s", ", ".join(f"{k} {'on' if v else 'off'}" for k, v in body.items()))
+    return payload(request)
+
+
+@router.post("/remote/token", dependencies=[Depends(require("remote"))])
 def new_remote_token(request: Request) -> dict[str, Any]:
     """A fresh phone-remote token: turns the remote on, or unpairs every phone that had the old one."""
     require_local(request, "The phone link can only be made on this PC")
@@ -211,7 +224,7 @@ def new_remote_token(request: Request) -> dict[str, Any]:
     return payload(request)
 
 
-@router.delete("/remote/token")
+@router.delete("/remote/token", dependencies=[Depends(require("remote"))])
 def remote_off(request: Request) -> dict[str, Any]:
     """Turn the phone remote off: no other device gets in."""
     require_local(request, "The phone remote can only be switched off on this PC")
@@ -296,21 +309,21 @@ def spotify_payload(request: Request, account: dict[str, Any]) -> dict[str, Any]
             "login": request.app.state.spotify_login.snapshot()}
 
 
-@router.get("/spotify")
+@router.get("/spotify", dependencies=[Depends(require("music"))])
 async def get_spotify(request: Request) -> dict[str, Any]:
     """The Spotify account's state (asks Spotify at most every 30 s, in a worker thread)."""
     account = await asyncio.to_thread(request.app.state.music.spotify_account)
     return spotify_payload(request, account)
 
 
-@router.post("/spotify/check")
+@router.post("/spotify/check", dependencies=[Depends(require("music"))])
 async def check_spotify(request: Request) -> dict[str, Any]:
     """Ask Spotify now."""
     account = await asyncio.to_thread(request.app.state.music.spotify_account, fresh=True)
     return spotify_payload(request, account)
 
 
-@router.post("/spotify/connect")
+@router.post("/spotify/connect", dependencies=[Depends(require("music"))])
 async def connect_spotify(request: Request) -> dict[str, Any]:
     """Start the Spotify login on this PC: the browser opens Spotify's consent page; the page
     polls GET /api/settings/spotify until ``login.state`` is ``done`` or ``failed``."""

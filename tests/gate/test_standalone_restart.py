@@ -198,4 +198,4 @@ def test_tray_bat_routes_a_missing_helper_restart_to_the_standalone_restart() ->
     assert "-m scripts.standalone_restart stop" in text
     assert "-m scripts.standalone_restart verify" in text
     # The helper path keeps its own invocation, ahead of both standalone labels.
-    assert text.index('-File "%TRAY_PS%" launch') < text.index("\n:standalone_start")
+    assert text.index("ReadAllText($env:TRAY_PS))) launch @a") < text.index("\n:standalone_start")
