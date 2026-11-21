@@ -29,7 +29,7 @@ def _until(fn, timeout: float = 6.0):  # noqa: ANN001, ANN202
 def obs_env(isolated_env: Path):
     fake = FakeObs(["Slides + camera", "Camera PiP", "Screen only"])
     write_test_config(isolated_env / "config.json", session_root=str(isolated_env / "sessions"),
-                      obs={"enabled": True, "host": "127.0.0.1", "port": fake.port, "password": "s3cret"},
+                      obs={"host": "127.0.0.1", "port": fake.port, "password": "s3cret"}, features={"obs": True},
                       profiles={"camera_strip": {"scene": "Slides + camera"}, "camera_pip": {"scene": "Camera PiP"},
                                 "screen_only": {"scene": "Screen only"}})
     sid, _ = build_demo_session(isolated_env / "sessions" / "demo" / "obs", isolated_env / "sessions.local.yaml")
@@ -85,8 +85,8 @@ def test_settings_edit_profiles_and_never_return_the_password(obs_env, isolated_
     assert saved["obs"]["password"] == "s3cret"  # untouched keys survive
     assert client.put("/api/settings", json={"profiles": {"camera_pip": {"zone": [0.9, 0, 0.1, 1]}}}).status_code == 422
     assert client.put("/api/settings", json={"profiles": {"wide": {"scene": "x"}}}).status_code == 404
-    r = client.put("/api/settings", json={"obs": {"enabled": False}})
-    assert r.json()["obs"]["enabled"] is False
+    r = client.put("/api/settings/features", json={"obs": False})
+    assert next(f for f in r.json()["features"] if f["key"] == "obs")["enabled"] is False
     _until(lambda: client.app.state.obs.state == "off")
 
 
@@ -95,7 +95,7 @@ def test_settings_cannot_be_changed_remotely(isolated_env: Path) -> None:
 
     with paired_remote(create_app(), "10.1.2.3") as remote:
         assert remote.get("/api/settings").status_code == 200
-        assert remote.put("/api/settings", json={"obs": {"enabled": True}}).json()["error"]["code"] == "local_only"
+        assert remote.put("/api/settings", json={"obs": {"host": "127.0.0.1"}}).json()["error"]["code"] == "local_only"
 
 
 def test_corner_zone_follows_the_default_unless_customised() -> None:

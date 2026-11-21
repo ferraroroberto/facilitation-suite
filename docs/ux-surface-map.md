@@ -39,7 +39,7 @@ Walked 2026-11-18 against build `0d935a0`, at widths 390, 1280, themes light, da
 | [Plan](#plan) | 28 |
 | [Groups](#groups) | 4 |
 | [Results](#results) | 13 |
-| [Settings](#settings) | 20 |
+| [Settings](#settings) | 21 |
 | [Presenter cockpit](#presenter-cockpit) | 30 |
 | [Stage](#stage) | 14 |
 | [Phone remote](#phone-remote) | 10 |
@@ -159,9 +159,9 @@ flowchart LR
   s34(["Add section · Plan"])
   s35(["Add a slide · Plan"])
   s36(["Import Kahoot quiz · Plan"])
-  s77(["OBS connection · Settings"])
-  s78(["Camera profile · Settings"])
-  s82(["How the overlay looks · Settings"])
+  s78(["OBS connection · Settings"])
+  s79(["Camera profile · Settings"])
+  s83(["How the overlay looks · Settings"])
   s12(["Session row menu · Sessions"])
   s30(["Section menu · Plan"])
   s31(["Item menu · Plan"])
@@ -173,9 +173,9 @@ flowchart LR
   s6 -->|"Add section"| s34
   s6 -->|"Slide from the deck"| s35
   s6 -->|"Import Kahoot"| s36
-  s6 -->|"Connection"| s77
-  s6 -->|"a camera profile"| s78
-  s6 -->|"Look"| s82
+  s6 -->|"Connection"| s78
+  s6 -->|"a camera profile"| s79
+  s6 -->|"Look"| s83
   s8 -->|"a session's kebab"| s12
   s8 -->|"a section's kebab"| s30
   s8 -->|"an item's kebab"| s31
@@ -298,15 +298,15 @@ flowchart LR
   s1(["Page header · App chrome"])
   s9(["Import PowerPoint dialog · PowerPoint import"])
   s24(["Plan tab · Plan"])
-  s89(["Go live picker · Presenter cockpit"])
-  s119(["Stage · Stage"])
+  s90(["Go live picker · Presenter cockpit"])
+  s120(["Stage · Stage"])
   s56(["Results tab · Results"])
-  s71(["Stage defaults group · Settings"])
-  s72(["Lettering sheet · Settings"])
+  s72(["Stage defaults group · Settings"])
+  s73(["Lettering sheet · Settings"])
   s40(["Item editor · Plan"])
   s52(["Groups tab · Groups"])
   s61(["Result detail · Results"])
-  s99(["Copilot panel · Presenter cockpit"])
+  s100(["Copilot panel · Presenter cockpit"])
   s0 -->|"Sessions"| s10
   s5 -->|"/#sessions/<id>"| s17
   s6 -->|"New session"| s13
@@ -328,21 +328,21 @@ flowchart LR
   s17 -->|"Ready for the live session"| s23
   s17 -->|"Import PowerPoint"| s9
   s17 -->|"Edit plan"| s24
-  s17 -->|"Open presenter"| s89
-  s17 -->|"Open stage window"| s119
+  s17 -->|"Open presenter"| s90
+  s17 -->|"Open stage window"| s120
   s19 -->|"the same card"| s56
   s20 -->|"the lettering editor"| s21
   s20 -->|"Reset all to defaults"| s22
-  s20 -->|"Stage defaults"| s71
-  s21 -->|"the defaults editor"| s72
+  s20 -->|"Stage defaults"| s72
+  s21 -->|"the defaults editor"| s73
   s23 -->|"Import"| s9
   s24 -->|"no session"| s10
   s40 -->|"the lettering rows"| s21
   s52 -->|"no session"| s10
   s56 -->|"no session"| s10
   s61 --> s19
-  s72 -->|"the editor"| s21
-  s99 -->|"Edit, Session"| s17
+  s73 -->|"the editor"| s21
+  s100 -->|"Edit, Session"| s17
 ```
 
 ### `sessions.tab` Sessions tab
@@ -1217,60 +1217,62 @@ A full page over the current tab, opened by the header gear: five sections of in
 flowchart LR
   s69["Settings page"]
   s70["Appearance group"]
-  s71["Stage defaults group"]
-  s72["Lettering sheet"]
-  s73["Stage library sheet"]
-  s74["Music group"]
-  s75["Spotify sheet"]
-  s76["OBS group"]
-  s77["OBS connection"]
-  s78["Camera profile"]
-  s79["Chat reader group"]
-  s80["Clicking the stage group"]
-  s81["Copilot overlay group"]
-  s82["How the overlay looks"]
-  s83["Copilot recordings group"]
-  s84["Remote control group"]
-  s85["Phone remote sheet"]
-  s86["Stream Deck buttons sheet"]
-  s87["About group"]
-  s88["Credits sheet"]
+  s71["Available features group"]
+  s72["Stage defaults group"]
+  s73["Lettering sheet"]
+  s74["Stage library sheet"]
+  s75["Music group"]
+  s76["Spotify sheet"]
+  s77["OBS group"]
+  s78["OBS connection"]
+  s79["Camera profile"]
+  s80["Chat reader group"]
+  s81["Clicking the stage group"]
+  s82["Copilot overlay group"]
+  s83["How the overlay looks"]
+  s84["Copilot recordings group"]
+  s85["Remote control group"]
+  s86["Phone remote sheet"]
+  s87["Stream Deck buttons sheet"]
+  s88["About group"]
+  s89["Credits sheet"]
   s1(["Page header · App chrome"])
   s5(["Deep links · App chrome"])
   s6(["Form dialog · Dialog builders"])
   s20(["Session settings card · Sessions"])
   s21(["Lettering editor · Sessions"])
-  s92(["Status chips · Presenter cockpit"])
-  s99(["Copilot panel · Presenter cockpit"])
+  s93(["Status chips · Presenter cockpit"])
+  s100(["Copilot panel · Presenter cockpit"])
   s1 -->|"the gear"| s69
   s5 -->|"/#settings/<section>"| s69
-  s6 -->|"Connection"| s77
-  s6 -->|"a camera profile"| s78
-  s6 -->|"Look"| s82
-  s20 -->|"Stage defaults"| s71
-  s21 -->|"the defaults editor"| s72
+  s6 -->|"Connection"| s78
+  s6 -->|"a camera profile"| s79
+  s6 -->|"Look"| s83
+  s20 -->|"Stage defaults"| s72
+  s21 -->|"the defaults editor"| s73
   s69 --> s70
   s69 --> s71
-  s69 --> s74
-  s69 --> s76
-  s69 --> s79
+  s69 --> s72
+  s69 --> s75
+  s69 --> s77
   s69 --> s80
   s69 --> s81
-  s69 --> s83
+  s69 --> s82
   s69 --> s84
-  s69 --> s87
-  s71 -->|"Lettering and timers"| s72
-  s71 -->|"Stage library"| s73
-  s72 -->|"the editor"| s21
-  s74 -->|"Spotify"| s75
-  s76 -->|"Connection"| s77
-  s76 -->|"a profile"| s78
-  s81 -->|"Look"| s82
-  s84 -->|"Phone remote"| s85
-  s84 -->|"Stream Deck buttons"| s86
-  s87 -->|"Credits"| s88
-  s92 -->|"Music"| s74
-  s99 -->|"Overlay settings"| s69
+  s69 --> s85
+  s69 --> s88
+  s72 -->|"Lettering and timers"| s73
+  s72 -->|"Stage library"| s74
+  s73 -->|"the editor"| s21
+  s75 -->|"Spotify"| s76
+  s77 -->|"Connection"| s78
+  s77 -->|"a profile"| s79
+  s82 -->|"Look"| s83
+  s85 -->|"Phone remote"| s86
+  s85 -->|"Stream Deck buttons"| s87
+  s88 -->|"Credits"| s89
+  s93 -->|"Music"| s75
+  s100 -->|"Overlay settings"| s69
 ```
 
 ### `settings.pane` Settings page
@@ -1282,7 +1284,7 @@ flowchart LR
   - the presenter's music chip (`/#settings/music`) and the Copilot panel's Overlay settings link (`/#settings/live`)
 - **Holds:**
   - a sticky header with the title "Settings" and a close cross
-  - five sections: Appearance · Stage defaults · Music · Live tools · About
+  - six sections: Appearance · Available features · Stage defaults · Music · Live tools · About; a feature block switched off takes its groups away (Music, OBS, Chat reader, Copilot overlay and recordings, Remote control)
 - **Does:**
   - the cross or Esc closes it; the tab behind keeps its place
   - a deep link scrolls to its section under the sticky header
@@ -1292,6 +1294,7 @@ flowchart LR
 - **Why:** Settings is a full page over the current tab (a modal `<dialog>`), not a tab: it is one tap from every tab and leaves the tab where it was
 - **Leads to:**
   - [Appearance group](#settingsappearance-appearance-group)
+  - [Available features group](#settingsfeatures-available-features-group)
   - [Stage defaults group](#settingsstage-defaults-stage-defaults-group)
   - [Music group](#settingsmusic-music-group)
   - [OBS group](#settingsobs-obs-group)
@@ -1313,6 +1316,15 @@ flowchart LR
   - light and dark covers the app, the presenter and the phone remote on every device at once; System follows each device
   - text size is for this device only
 - **Why:** the stage keeps the session's look; only the cockpit and the app follow the appearance
+
+### `settings.features` Available features group
+
+- **Root:** none — a group built by the vendored settings-group inside `settings.pane`
+- **Reach:** Settings → Available features
+- **Holds:** one switch per feature block: Chat reader · OBS scene switching · Live copilot · Music · Public quiz link · Phone remote, each with what it covers under its name
+- **Does:** a switch saves the block's choice for this PC (`config.json` `features`); a block switched off hides its parts on the app, the presenter and the phone remote and stops its work at once (the public quiz link's tunnel waits for a tray restart, and the toast says so)
+- **States:** a block that cannot run on this PC keeps its switch and says why under its name ("Can't run on this PC: …")
+- **Why:** one checkout serves several PCs; each switches off what it cannot or will not run, without editing code or a tracked file
 
 ### `settings.stage-defaults` Stage defaults group
 
@@ -1391,7 +1403,7 @@ flowchart LR
 
 - **Root:** none — an instance of `dialog.form`
 - **Reach:** OBS group → Connection
-- **Holds:** Scene switching (On or Off), Host, Port, Password (empty keeps the current one)
+- **Holds:** Host, Port, Password (empty keeps the current one); scene switching itself is switched off under Available features
 
 ### `settings.obs-profile` Camera profile
 
@@ -1405,7 +1417,7 @@ flowchart LR
 
 - **Root:** none — a group built by the vendored settings-group inside `settings.pane`
 - **Reach:** Settings → Live tools → Chat reader
-- **Holds:** "<Zoom, Teams or Meet> chat reader": a switch, "Starts when a session goes live"
+- **Holds:** "<Zoom, Teams or Meet> chat reader": "Starts when a session goes live" (switched off under Available features)
 - **Does:** the source is chosen on the presenter, under the chat
 
 ### `settings.stage-click` Clicking the stage group
@@ -1499,72 +1511,72 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s89["Go live picker"]
-  s90["Cockpit"]
-  s91["Cockpit header"]
-  s92["Status chips"]
-  s93["Keys sheet"]
-  s94["On stage now card"]
-  s95["Notes card"]
-  s96["Copilot card"]
-  s97["Copilot hints"]
-  s98["Interview mode"]
-  s99["Copilot panel"]
-  s100["Participants informed?"]
-  s101["Timing card"]
-  s102["Next card"]
-  s103["Music card"]
-  s104["Item controls card"]
-  s105["Capture controls"]
-  s106["Not on the map"]
-  s107["Map activity"]
-  s108["Break and breakout timer"]
-  s109["Quiz controls"]
-  s110["Start a new game?"]
-  s111["Remove a player?"]
-  s112["Chat card"]
-  s113["Not counted bar"]
-  s114["Item strip"]
-  s115["Start the session over?"]
-  s116["Close the live session?"]
-  s117["Reset the session clock?"]
-  s118["Opening state"]
+  s90["Go live picker"]
+  s91["Cockpit"]
+  s92["Cockpit header"]
+  s93["Status chips"]
+  s94["Keys sheet"]
+  s95["On stage now card"]
+  s96["Notes card"]
+  s97["Copilot card"]
+  s98["Copilot hints"]
+  s99["Interview mode"]
+  s100["Copilot panel"]
+  s101["Participants informed?"]
+  s102["Timing card"]
+  s103["Next card"]
+  s104["Music card"]
+  s105["Item controls card"]
+  s106["Capture controls"]
+  s107["Not on the map"]
+  s108["Map activity"]
+  s109["Break and breakout timer"]
+  s110["Quiz controls"]
+  s111["Start a new game?"]
+  s112["Remove a player?"]
+  s113["Chat card"]
+  s114["Not counted bar"]
+  s115["Item strip"]
+  s116["Start the session over?"]
+  s117["Close the live session?"]
+  s118["Reset the session clock?"]
+  s119["Opening state"]
   s17(["Session detail · Sessions"])
-  s74(["Music group · Settings"])
-  s119(["Stage · Stage"])
+  s75(["Music group · Settings"])
+  s120(["Stage · Stage"])
   s69(["Settings page · Settings"])
-  s17 -->|"Open presenter"| s89
-  s89 -->|"Go live"| s90
-  s90 --> s91
-  s90 --> s92
-  s90 --> s94
-  s90 --> s95
-  s90 --> s96
-  s90 --> s101
-  s90 --> s102
-  s90 --> s103
-  s90 --> s104
-  s90 --> s112
-  s90 --> s114
-  s90 -->|"the keyboard icon"| s93
-  s91 -->|"Keyboard shortcuts"| s93
-  s91 -->|"Start the session over"| s115
-  s91 -->|"Close the live session"| s116
-  s92 -->|"Music"| s74
-  s92 -->|"Stage · not open"| s119
-  s96 -->|"Details"| s99
-  s96 -->|"switching on"| s100
-  s99 -->|"Overlay settings"| s69
-  s99 -->|"Edit, Session"| s17
-  s101 -->|"Reset clock"| s117
-  s104 -->|"a capture"| s105
-  s104 -->|"a quiz"| s109
-  s104 -->|"a break"| s108
-  s105 -->|"map answers"| s106
-  s105 -->|"a map activity"| s107
-  s109 -->|"New game"| s110
-  s109 -->|"remove a player"| s111
-  s112 -->|"a name"| s113
+  s17 -->|"Open presenter"| s90
+  s90 -->|"Go live"| s91
+  s91 --> s92
+  s91 --> s93
+  s91 --> s95
+  s91 --> s96
+  s91 --> s97
+  s91 --> s102
+  s91 --> s103
+  s91 --> s104
+  s91 --> s105
+  s91 --> s113
+  s91 --> s115
+  s91 -->|"the keyboard icon"| s94
+  s92 -->|"Keyboard shortcuts"| s94
+  s92 -->|"Start the session over"| s116
+  s92 -->|"Close the live session"| s117
+  s93 -->|"Music"| s75
+  s93 -->|"Stage · not open"| s120
+  s97 -->|"Details"| s100
+  s97 -->|"switching on"| s101
+  s100 -->|"Overlay settings"| s69
+  s100 -->|"Edit, Session"| s17
+  s102 -->|"Reset clock"| s118
+  s105 -->|"a capture"| s106
+  s105 -->|"a quiz"| s110
+  s105 -->|"a break"| s109
+  s106 -->|"map answers"| s107
+  s106 -->|"a map activity"| s108
+  s110 -->|"New game"| s111
+  s110 -->|"remove a player"| s112
+  s113 -->|"a name"| s114
 ```
 
 ### `presenter.picker` Go live picker
@@ -1901,37 +1913,37 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s119["Stage"]
-  s120["Slide"]
-  s121["Break"]
-  s122["Breakout"]
-  s123["Activity"]
-  s124["Word cloud"]
-  s125["Map"]
-  s126["Scale"]
-  s127["Cards"]
-  s128["Feed"]
-  s129["Who are you with?"]
-  s130["Quiz"]
-  s131["Blackout"]
-  s132["Frozen capture"]
+  s120["Stage"]
+  s121["Slide"]
+  s122["Break"]
+  s123["Breakout"]
+  s124["Activity"]
+  s125["Word cloud"]
+  s126["Map"]
+  s127["Scale"]
+  s128["Cards"]
+  s129["Feed"]
+  s130["Who are you with?"]
+  s131["Quiz"]
+  s132["Blackout"]
+  s133["Frozen capture"]
   s17(["Session detail · Sessions"])
-  s92(["Status chips · Presenter cockpit"])
-  s17 -->|"Open stage window"| s119
-  s92 -->|"Stage · not open"| s119
-  s119 --> s120
-  s119 --> s121
-  s119 --> s122
-  s119 --> s123
-  s119 --> s131
-  s119 -->|"a capture's picture"| s132
-  s123 --> s124
-  s123 --> s125
-  s123 --> s126
-  s123 --> s127
-  s123 --> s128
-  s123 --> s129
-  s123 --> s130
+  s93(["Status chips · Presenter cockpit"])
+  s17 -->|"Open stage window"| s120
+  s93 -->|"Stage · not open"| s120
+  s120 --> s121
+  s120 --> s122
+  s120 --> s123
+  s120 --> s124
+  s120 --> s132
+  s120 -->|"a capture's picture"| s133
+  s124 --> s125
+  s124 --> s126
+  s124 --> s127
+  s124 --> s128
+  s124 --> s129
+  s124 --> s130
+  s124 --> s131
 ```
 
 ### `stage.live` Stage
@@ -2058,24 +2070,24 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s133["Remote navigation"]
-  s134["Remote live"]
-  s135["Remote with no live session"]
-  s136["Remote not paired"]
-  s137["Remote Copilot strip"]
-  s138["Remote quiz block"]
-  s139["Remote quiz locked"]
-  s140["Remote music block"]
-  s141["Remote chat"]
-  s142["Remote groups"]
-  s133 -->|"Live"| s134
-  s133 -->|"Chat"| s141
-  s133 -->|"Groups"| s142
-  s134 --> s137
-  s134 --> s138
-  s134 --> s140
-  s134 -->|"no session"| s135
-  s138 -->|"after Lock"| s139
+  s134["Remote navigation"]
+  s135["Remote live"]
+  s136["Remote with no live session"]
+  s137["Remote not paired"]
+  s138["Remote Copilot strip"]
+  s139["Remote quiz block"]
+  s140["Remote quiz locked"]
+  s141["Remote music block"]
+  s142["Remote chat"]
+  s143["Remote groups"]
+  s134 -->|"Live"| s135
+  s134 -->|"Chat"| s142
+  s134 -->|"Groups"| s143
+  s135 --> s138
+  s135 --> s139
+  s135 --> s141
+  s135 -->|"no session"| s136
+  s139 -->|"after Lock"| s140
 ```
 
 ### `remote.nav` Remote navigation
@@ -2198,18 +2210,18 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s143["Player loading"]
-  s144["Join"]
-  s145["Waiting"]
-  s146["Question"]
-  s147["Answer sent"]
-  s148["Result"]
-  s149["Removed"]
-  s150["Player theme toggle"]
-  s144 -->|"joined"| s145
-  s145 -->|"a question opens"| s146
-  s146 -->|"after a tap"| s147
-  s148 -->|"removed by the host"| s149
+  s144["Player loading"]
+  s145["Join"]
+  s146["Waiting"]
+  s147["Question"]
+  s148["Answer sent"]
+  s149["Result"]
+  s150["Removed"]
+  s151["Player theme toggle"]
+  s145 -->|"joined"| s146
+  s146 -->|"a question opens"| s147
+  s147 -->|"after a tap"| s148
+  s149 -->|"removed by the host"| s150
 ```
 
 ### `player.loading` Player loading
@@ -2386,6 +2398,7 @@ flowchart LR
 | [Result detail](#resultsdetail-result-detail) |  | [Analyze session card](#sessionsanalyze-analyze-session-card) |
 | [Rebuild results card](#resultsrebuild-rebuild-results-card) | Preview | [Rebuild preview](#resultsrebuild-preview-rebuild-preview) |
 | [Settings page](#settingspane-settings-page) |  | [Appearance group](#settingsappearance-appearance-group) |
+| [Settings page](#settingspane-settings-page) |  | [Available features group](#settingsfeatures-available-features-group) |
 | [Settings page](#settingspane-settings-page) |  | [Stage defaults group](#settingsstage-defaults-stage-defaults-group) |
 | [Settings page](#settingspane-settings-page) |  | [Music group](#settingsmusic-music-group) |
 | [Settings page](#settingspane-settings-page) |  | [OBS group](#settingsobs-obs-group) |

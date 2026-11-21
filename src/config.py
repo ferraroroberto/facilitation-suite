@@ -22,6 +22,8 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
+from src import features
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -42,9 +44,9 @@ SERVERS = ("hypercorn", "uvicorn")
 @dataclass(frozen=True)
 class ObsConfig:
     """obs-websocket v5 (built into OBS 28+). ``password`` is a secret: it lives
-    in the gitignored config only and is never logged."""
+    in the gitignored config only and is never logged. Whether OBS is used at all is the
+    ``obs`` feature (``src/features.py``)."""
 
-    enabled: bool = True
     host: str = "127.0.0.1"
     port: int = 4455
     password: str = ""
@@ -56,9 +58,11 @@ class ReaderConfig:
     ``"zoom"`` (the popped-out chat: ``window_class`` + ``window_title``),
     ``"teams"`` (a window whose title carries ``teams_title``) or ``"meet"``
     (a window whose title names ``meet_title``, showing the chat panel named
-    ``meet_panel`` — Meet's English labels; another UI language needs its own)."""
+    ``meet_panel`` — Meet's English labels; another UI language needs its own). Whether it
+    runs at all is the ``chat_reader`` feature (``src/features.py``); ``start_on_live`` starts it
+    when a session goes live (off only in the test harnesses, which must not spawn a real reader)."""
 
-    enabled: bool = True
+    start_on_live: bool = True
     source: str = "zoom"
     poll_ms: int = 500
     window_class: str = "ZConfChatPopupContainerWndClass"
@@ -211,6 +215,8 @@ class AppConfig:
     # What every new session starts from — the stage theme and lettering, the music
     # fades; parsed and checked by src/defaults.py.
     defaults: dict[str, Any] = field(default_factory=dict)
+    # Every block's on/off from src/features.py, resolved at load (legacy obs/reader switches included).
+    features: dict[str, bool] = field(default_factory=lambda: dict(features.DEFAULTS))
     source: str = "defaults"
 
 
@@ -308,6 +314,8 @@ def load_config() -> AppConfig:
         if server not in SERVERS:
             logger.warning("⚠️ config: server %r is not one of %s — using hypercorn", server, ", ".join(SERVERS))
             server = SERVERS[0]
-        return AppConfig(**{**cfg.__dict__, "appearance": appearance, "server": server, "source": str(candidate)})
+        resolved = features.resolve(raw if isinstance(raw, dict) else {})
+        return AppConfig(**{**cfg.__dict__, "appearance": appearance, "server": server, "features": resolved,
+                            "source": str(candidate)})
     logger.warning("⚠️ config: no config file found — running on code defaults")
     return AppConfig()

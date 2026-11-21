@@ -83,14 +83,14 @@ def _create_session(page: Page, webapp, shots) -> tuple[str, Path]:
     expect(page.locator("#tabSessions")).to_be_visible()
     expect(page).to_have_url(re.compile(r"/#sessions/[0-9a-f]+$"))
     deep_link = page.url
-    expect(page.locator(".ready-row")).to_have_count(9)
+    expect(page.locator(".ready-row")).to_have_count(8)  # OBS is off in the test config: no OBS check
     # #249: each row's status tick lines up on the left with the heading's tick, at the same rendered size
     ticks = page.evaluate("""() => {
         const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.width, r.height]; };
         return { head: box(document.querySelector('.ready-card .card-title .icon')),
                  rows: [...document.querySelectorAll('.ready-row .ready-icon .icon')].map(box) };
     }""")
-    assert len(ticks["rows"]) == 9
+    assert len(ticks["rows"]) == 8
     for left, width, height in ticks["rows"]:
         assert abs(left - ticks["head"][0]) <= 1 and abs(width - ticks["head"][1]) <= 0.5 and abs(height - ticks["head"][2]) <= 0.5, ticks
     # the offline line reads Windows file attributes; anywhere else the app says it cannot tell
@@ -139,7 +139,7 @@ def _check_open_and_close(page: Page, webapp, deep_link: str) -> None:
     expect(page.locator(".session-row.selected .row-title")).to_have_text("Workshop · cohort A")
     expect(page).to_have_url(webapp.base_url + "/")
     page.locator(".session-row.selected").click()
-    expect(page.locator(".ready-row")).to_have_count(9)
+    expect(page.locator(".ready-row")).to_have_count(8)  # OBS is off in the test config: no OBS check
     page.keyboard.press("Escape")
     expect(page.locator(".sessions-list")).to_be_visible()
     page.locator(".session-row.selected").click()

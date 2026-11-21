@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 import pytest
 
+from src import settings as settings_file
 from src.chat import process, reader
 from src.chat.process import ReaderProcess
 from src.config import load_config
@@ -114,16 +115,18 @@ def test_reader_source_flag_wins_over_the_config(monkeypatch: pytest.MonkeyPatch
     assert seen == ["teams", "zoom"]
 
 
-def test_go_live_follows_the_reader_switch_saved_in_settings(client, fake_popen: list[list[str]], isolated_env: Path) -> None:
+def test_go_live_follows_the_chat_reader_feature_saved_in_settings(client, fake_popen: list[list[str]], isolated_env: Path) -> None:
     from tests.fixtures.demo import build_demo_session
 
     sid, _ = build_demo_session(isolated_env / "sessions" / "demo" / "live", isolated_env / "sessions.local.yaml")
     proc = client.app.state.reader_process
-    assert client.put("/api/settings", json={"reader": {"enabled": False}}).status_code == 200
+    client.app.state.config = settings_file.update({"reader": {"start_on_live": True}})  # as on a real PC
+    assert client.put("/api/settings/features", json={"chat_reader": False}).status_code == 200
     assert client.post("/api/live/activate", json={"session": sid}).status_code == 200
     assert fake_popen == []  # switched off in Settings: going live starts no reader
+    assert client.post("/api/chat/reader/start").json()["error"]["code"] == "feature_off"
     client.post("/api/live/deactivate")
-    assert client.put("/api/settings", json={"reader": {"enabled": True}}).status_code == 200
+    assert client.put("/api/settings/features", json={"chat_reader": True}).status_code == 200
     assert client.post("/api/live/activate", json={"session": sid}).status_code == 200
     assert len(fake_popen) == 1  # switched back on: the next go-live starts it, no restart needed
     proc.stop()

@@ -729,3 +729,11 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .settings-sub-title { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: var(--font-body); font-weight: 700; }
 .settings-sub-title .icon { width: var(--icon-title); height: var(--icon-title); color: var(--muted); }
 .settings-sub .card-head-meta { margin-left: auto; }
+
+/* Available features: a block switched off on this PC (ui.js followFeatures) hides every part marked with it. */
+html[data-features-off~="chat_reader"] [data-feature="chat_reader"],
+html[data-features-off~="obs"] [data-feature="obs"],
+html[data-features-off~="copilot"] [data-feature="copilot"],
+html[data-features-off~="music"] [data-feature="music"],
+html[data-features-off~="quiz_public"] [data-feature="quiz_public"],
+html[data-features-off~="remote"] [data-feature="remote"] { display: none !important; }

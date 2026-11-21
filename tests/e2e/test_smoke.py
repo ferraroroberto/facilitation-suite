@@ -52,9 +52,15 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     page.locator("#panePlan [data-open-settings]").click()
     expect(page.locator("#paneSettings")).to_be_visible()
     expect(page.locator("#paneSettings .settings-group-label")).to_have_text(
-        ["Appearance", "Stage defaults", "Music", "OBS", "Chat reader", "Clicking the stage", "Copilot overlay",
+        ["Appearance", "Available features", "Stage defaults", "Music", "Chat reader", "Clicking the stage", "Copilot overlay",
          "Copilot recordings", "Remote control", "About"])
     surface(page, "settings.pane")
+    # Available features: switching Music off takes its section away at once; on again brings it back
+    music = page.locator('#paneSettings [data-feature-key="music"] [role="switch"]')
+    music.click()
+    expect(page.locator("#paneSettings .settings-group-label", has_text="Music")).to_have_count(0)
+    page.locator('#paneSettings [data-feature-key="music"] [role="switch"]').click()
+    expect(page.locator("#paneSettings .settings-group-label", has_text="Music")).to_have_count(1)
 
     before = page.evaluate("document.documentElement.dataset.theme")
     other = "light" if before == "dark" else "dark"

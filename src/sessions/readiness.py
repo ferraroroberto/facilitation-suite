@@ -71,6 +71,19 @@ def manual_checks(session: Session) -> list[dict[str, Any]]:
     return [zoom, consent]
 
 
+def _reader_check(reader: Optional[dict[str, Any]]) -> dict[str, Any]:
+    if reader and reader.get("tested"):
+        return _check("reader", "Chat reader", "ok", reader["detail"])
+    return _check("reader", "Chat reader", "unknown",
+                  f"Not tested yet — {reader_test_hint((reader or {}).get('source'))} and test", "test_reader")
+
+
+def _obs_check(obs: Optional[dict[str, Any]]) -> dict[str, Any]:
+    if obs and obs.get("connected"):
+        return _check("obs", "OBS", "ok", obs.get("detail", "Connected"))
+    return _check("obs", "OBS", "unknown", (obs or {}).get("detail") or "Not connected")
+
+
 def build(folder: Path, session: Session, offline: OfflineReport, live: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
     live = live or {}
     checks: list[dict[str, Any]] = []
@@ -139,29 +152,20 @@ def build(folder: Path, session: Session, offline: OfflineReport, live: Optional
     from src.music.library import readiness as music_files
     from src.music.library import spotify_check, uses_spotify
 
-    music = music_files(folder, session, offline)
+    off = set(live.get("off") or ())  # blocks switched off on this machine: their checks do not apply
+    music = music_files(folder, session, offline) if "music" not in off else None
     if music:
         checks.append(music)
-    if uses_spotify(session):
+    if "music" not in off and uses_spotify(session):
         checks.append(spotify_check(live.get("spotify")))
 
-    if has_quiz(session):
+    if "quiz_public" not in off and has_quiz(session):
         checks.append(quiz_reach_check(live.get("quiz_reach")))
 
-    reader = live.get("reader")
-    if reader and reader.get("tested"):
-        checks.append(_check("reader", "Chat reader", "ok", reader["detail"]))
-    else:
-        checks.append(_check("reader", "Chat reader", "unknown",
-                             f"Not tested yet — {reader_test_hint((reader or {}).get('source'))} and test", "test_reader"))
-
-    obs = live.get("obs")
-    if obs and obs.get("connected"):
-        checks.append(_check("obs", "OBS", "ok", obs.get("detail", "Connected")))
-    elif obs and obs.get("enabled") is False:
-        checks.append(_check("obs", "OBS", "warn", "Scene switching is off in the config"))
-    else:
-        checks.append(_check("obs", "OBS", "unknown", (obs or {}).get("detail") or "Not connected"))
+    if "chat_reader" not in off:
+        checks.append(_reader_check(live.get("reader")))
+    if "obs" not in off:
+        checks.append(_obs_check(live.get("obs")))
 
     checks.extend(manual_checks(session))
     return checks

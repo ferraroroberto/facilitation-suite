@@ -4,7 +4,7 @@
 
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
-import { api, APP, followAppearance } from '/static/js/ui.js';
+import { api, APP, followAppearance, followFeatures } from '/static/js/ui.js';
 import { connectLive } from '/static/js/live.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 import { initBuildWatch } from '/static/_vendored/build-watch/build-watch.js';
@@ -130,7 +130,7 @@ followHash().then((linked) => { if (!linked) showView(nav.getTab() || 'sessions'
 
 // The live snapshot carries the global light/dark: a toggle on the presenter,
 // the phone or another tab switches this one too.
-connectLive('app', { onState: (s) => followAppearance(s.appearance) });
+connectLive('app', { onState: (s) => { followAppearance(s.appearance); followFeatures(s.features_off); } });
 
 initBuildWatch();
 api('/api/version').then((v) => {

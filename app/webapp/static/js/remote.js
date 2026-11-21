@@ -11,7 +11,7 @@
 import { icon } from '/static/_vendored/icons/icons.js';
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { emptyStateEl } from '/static/_vendored/empty-state/empty-state.js';
-import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, APP } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, followFeatures, APP } from '/static/js/ui.js';
 import { connectLive, neighbour, remaining, timerMode, hms, timing, driftText, liveHints, HINT_LABEL } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { sourceName } from '/static/js/chat-source.js';
@@ -55,7 +55,7 @@ async function start() {
       loadChat();
       loadGroups();
     },
-    onState(s) { followAppearance(s.appearance); drawLive(); drawChat(); },
+    onState(s) { followAppearance(s.appearance); followFeatures(s.features_off); drawLive(); drawChat(); },
     onMessage(msg) {
       if (msg.type === 'error') toast(msg.message, 'error');
       if (msg.type === 'chat') { chat = chat.concat(msg.messages); drawChat(); }
@@ -112,7 +112,7 @@ function buildShell() {
     '<div class="card r-next"><div class="grow"><div class="r-label" data-r-nextlabel></div><div class="r-next-title" data-r-next></div></div>' +
       '<div class="r-clock"><b data-r-elapsed></b><span data-r-drift></span></div>' +
       '<div class="r-sec" data-r-sec hidden><span class="r-sec-name" data-r-secname></span><span class="r-sec-left" data-r-secleft></span></div></div>' +
-    '<div class="card r-hints" data-r-hints hidden data-surface="remote.copilot-hints">' +
+    '<div class="card r-hints" data-r-hints hidden data-feature="copilot" data-surface="remote.copilot-hints">' +
       // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="r-hints-head" data-r-hints-fold aria-controls="rHintList">${icon('wand-sparkles')}` +
         `<b>Copilot</b><span class="r-hints-meta" data-r-hints-meta></span>${icon('chevron-down')}</button>` +
@@ -135,7 +135,7 @@ function buildShell() {
       `<button type="button" class="button-surface" data-r-tplus hidden>${icon('plus')} 1 min</button>` +
       // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)
       `<button type="button" class="button-surface" data-r-blackout>${icon('eye-off')} Blackout</button></div>` +
-    '<div class="card r-music" data-r-music hidden data-surface="remote.music">' +
+    '<div class="card r-music" data-r-music hidden data-feature="music" data-surface="remote.music">' +
       '<div class="r-music-now"><span data-r-mnow></span></div>' +
       '<div class="r-more">' +
         // untracked-control-exempt: the phone remote never loads the usage log (docs/privacy.md)

@@ -44,6 +44,7 @@ from app.tray.watchdog import (
     retry_with_backoff,
 )
 from app.webapp.manager import WebappManager, WebappManagerConfig
+from src import features
 from src.config import AppConfig
 from src.logger import log_path
 from src.no_window import NO_WINDOW
@@ -129,6 +130,13 @@ class TrayApp:
         self.tunnel = Tunnel(log_file=log_path("cloudflared"))
 
     # -- webapp lifecycle ---------------------------------------------------
+
+    def tunnel_wanted(self) -> bool:
+        """Whether this tray runs the quiz's Cloudflare tunnel: not while the public quiz link is switched off."""
+        if features.enabled(self.config, "quiz_public"):
+            return True
+        logger.info("ℹ️ tunnel: the public quiz link is switched off in Settings, Available features — not started")
+        return False
 
     def _on_start_attempt_failed(self, attempt: int, exc: BaseException) -> None:
         self.wd_log(f"webapp start attempt {attempt} failed: {exc}")
@@ -256,7 +264,8 @@ class TrayApp:
         threading.Thread(
             target=self.watchdog.run, args=(self.watchdog_stop,), daemon=True
         ).start()
-        threading.Thread(target=self.tunnel.supervise, name="tunnel", daemon=True).start()
+        if self.tunnel_wanted():
+            threading.Thread(target=self.tunnel.supervise, name="tunnel", daemon=True).start()
 
         menu = Menu(
             MenuItem("Open facilitation-suite", self.open_local, default=True),

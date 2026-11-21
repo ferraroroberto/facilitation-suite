@@ -82,11 +82,11 @@ def _stage_copy(folder: Path, out: Path, item_ids: list[str], root: Path) -> Pat
 
 
 def _boot(root: Path) -> tuple[subprocess.Popen, str]:
-    """A disposable server under ``root``: OBS, the chat reader and the quiz player off."""
+    """A disposable server under ``root``: OBS, the chat reader and the quiz player's public link off."""
     cfg = json.loads(CONFIG_SAMPLE_PATH.read_text(encoding="utf-8"))
     port = _free_port()
     cfg.update(port=port, session_root=str(root / "sessions"))
-    cfg["obs"]["enabled"] = cfg["reader"]["enabled"] = False
+    cfg["features"].update(obs=False, chat_reader=False, quiz_public=False)
     cfg["quiz"]["public_port"] = 0
     outside_code(root / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
     env = dict(os.environ, FS_CONFIG_PATH=str(root / "config.json"), FS_LEDGER_PATH=str(root / "sessions.local.yaml"),

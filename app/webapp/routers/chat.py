@@ -6,10 +6,11 @@ import asyncio
 import logging
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import require_local
+from app.webapp.feature_gate import require
 from src import settings as settings_file
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
@@ -81,21 +82,21 @@ async def get_messages(request: Request, since: int = 0) -> dict[str, Any]:
     return {"messages": msgs, "count": len(chat.messages), "reader": chat.state_fields()["reader"]}
 
 
-@router.post("/reader/start")
+@router.post("/reader/start", dependencies=[Depends(require("chat_reader"))])
 async def reader_start(request: Request) -> dict[str, Any]:
     mode = await asyncio.to_thread(_proc(request).start)
     _chat(request).refresh()
     return {"running": mode, "hint": reader_test_hint(mode)}
 
 
-@router.post("/reader/stop")
+@router.post("/reader/stop", dependencies=[Depends(require("chat_reader"))])
 async def reader_stop(request: Request) -> dict[str, Any]:
     await asyncio.to_thread(_proc(request).stop)
     _chat(request).refresh()
     return {"running": None}
 
 
-@router.put("/reader/source")
+@router.put("/reader/source", dependencies=[Depends(require("chat_reader"))])
 async def reader_source(request: Request, body: SourceChoice) -> dict[str, Any]:
     """The presenter's Zoom · Teams · Meet switch: save the choice; a running
     reader restarts on it (its first read is a baseline, so nothing already in

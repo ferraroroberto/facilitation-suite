@@ -23,8 +23,9 @@ REM
 REM  The full detect -> kill -> reclaim -> start -> verify lifecycle lives in
 REM  the ONE shared, machine-local tray_lifecycle.ps1 owned by fleet-config
 REM  (project-scaffolding#153) -- exposed at %USERPROFILE%\.claude\tray\ by
-REM  fleet-config's install.ps1 junction, shelled to with -File, NOT in
-REM  cmd-side `for /f` output capture or inline `powershell -Command "..."`.
+REM  fleet-config's install.ps1 junction, shelled to once (loaded as a ScriptBlock,
+REM  see below), NOT in cmd-side `for /f` output capture or inline logic in a
+REM  `powershell -Command "..."` string.
 REM  Both cmd shapes have failed under non-interactive nested callers (Git Bash
 REM  -> `cmd /c "tray.bat --restart"`, or a finisher skill's Bash tool): detect
 REM  output came back empty, nothing was killed, and --restart silently degraded
@@ -113,10 +114,13 @@ REM takes its bypass and a public-name leaf's cert is skipped - #147). Set this
 REM only for a non-standard path, e.g. http://127.0.0.1:8000/admin/api/version.
 set "VERSION_URL="
 
-set "RESTART_ARG="
-if defined WANT_RESTART set "RESTART_ARG=-Restart"
-
-%PS% -NoProfile -NonInteractive -File "%TRAY_PS%" launch -AppName "%TRAY_APP_NAME%" -ScriptDir "%SCRIPT_DIR_ARG%" -VenvDir "%TRAY_VENV%" -TrayMatch "launcher\.py\s+tray" -Ports "%OWNED_PORTS%" -TrayLaunch "%TRAY_LAUNCH%" -VersionUrl "%VERSION_URL%" !RESTART_ARG!
+REM  The helper is loaded as text and run as a ScriptBlock, not started with -File: -File refuses
+REM  an unsigned script under an AllSigned (or Restricted) execution policy, and overriding the
+REM  policy on the command line would weaken the machine's own control. The values travel in the
+REM  environment (set above), so no quoting nests inside the -Command string, and the process that
+REM  carries them is powershell.exe, which the helper's tray detection (python processes only)
+REM  can never mistake for the tray. An `exit` inside the helper ends this process with its code.
+%PS% -NoProfile -NonInteractive -Command "$a = @{ AppName = $env:TRAY_APP_NAME; ScriptDir = $env:SCRIPT_DIR_ARG; VenvDir = $env:TRAY_VENV; TrayMatch = 'launcher\.py\s+tray'; Ports = $env:OWNED_PORTS; TrayLaunch = $env:TRAY_LAUNCH; VersionUrl = $env:VERSION_URL }; if ($env:WANT_RESTART) { $a.Restart = $true }; try { & ([scriptblock]::Create([IO.File]::ReadAllText($env:TRAY_PS))) launch @a } catch { [Console]::Error.WriteLine(($_ | Out-String)); exit 1 }; exit 0"
 exit /b %ERRORLEVEL%
 
 REM  Standalone start (project-scaffolding#345): the shared helper is missing,

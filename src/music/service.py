@@ -125,13 +125,13 @@ class MusicService:
         live.item_listeners.append(self._guard(self._on_item))
         live.session_listeners.append(self._guard(self._on_session))
         live.reset_listeners.append(self._guard(lambda: self._halt(RESET_FADE_S)))
-        register(Action("music_toggle", "Music play/pause", lambda h, a: self.toggle()))
-        register(Action("music_stop", "Music stop (fades out)", lambda h, a: self.stop()))
-        register(Action("music_fade_out", "Music slow fade-out", lambda h, a: self.stop(FADE_OUT_LONG_S)))
-        register(Action("music_next", "Music next track", lambda h, a: self.skip("next")))
-        register(Action("music_prev", "Music previous track", lambda h, a: self.skip("previous")))
-        register(Action("music_volume", "Music volume", lambda h, a: self.set_volume(_volume(a)), arg="n"))
-        register(Action("music_play", "Play a track", lambda h, a: self.play_pick(str(a)), arg="track", stream_deck=False))
+        register(Action("music_toggle", "Music play/pause", lambda h, a: self.toggle(), feature="music"))
+        register(Action("music_stop", "Music stop (fades out)", lambda h, a: self.stop(), feature="music"))
+        register(Action("music_fade_out", "Music slow fade-out", lambda h, a: self.stop(FADE_OUT_LONG_S), feature="music"))
+        register(Action("music_next", "Music next track", lambda h, a: self.skip("next"), feature="music"))
+        register(Action("music_prev", "Music previous track", lambda h, a: self.skip("previous"), feature="music"))
+        register(Action("music_volume", "Music volume", lambda h, a: self.set_volume(_volume(a)), arg="n", feature="music"))
+        register(Action("music_play", "Play a track", lambda h, a: self.play_pick(str(a)), arg="track", stream_deck=False, feature="music"))
 
     # ------------------------------------------------------------- queries
 
@@ -245,6 +245,10 @@ class MusicService:
         self._stop(self.fade_out_s if fade_s is None else fade_s)
         self.live.commit()
 
+    def silence(self) -> None:
+        """The music block was switched off: stop at once and forget the track list (no push here)."""
+        self._halt(0)
+
     def skip(self, direction: str) -> None:
         """The next or previous track of the playing Spotify playlist, album or artist.
 
@@ -286,7 +290,7 @@ class MusicService:
         Silent (False) when no session is live, the file is not there, or an item's or the
         presenter's music is playing or paused — a cue never stomps real music. The caller's
         change pushes the state (no push here)."""
-        if self.live.folder is None:
+        if self.live.folder is None or not self.live.feature_on("music"):
             return False
         path = cue_file(self.live.folder, name)
         if path is None:
@@ -308,8 +312,11 @@ class MusicService:
     # --------------------------------------------------------------- hooks
 
     def _guard(self, fn: Callable[..., None]) -> Callable[..., None]:
-        """Hub listeners never raise: a music problem must not stop the deck moving."""
+        """Hub listeners never raise: a music problem must not stop the deck moving. With the music
+        block switched off (Settings, Available features) they do nothing."""
         def run(*args: Any) -> None:
+            if not self.live.feature_on("music"):
+                return
             try:
                 fn(*args)
             except MusicError as exc:

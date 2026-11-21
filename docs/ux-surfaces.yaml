@@ -1389,7 +1389,9 @@ surfaces:
     holds:
       - a sticky header with the title "Settings" and a close cross
       - >-
-          five sections: Appearance · Stage defaults · Music · Live tools · About
+          six sections: Appearance · Available features · Stage defaults · Music · Live tools · About;
+          a feature block switched off takes its groups away (Music, OBS, Chat reader, Copilot
+          overlay and recordings, Remote control)
     does:
       - the cross or Esc closes it; the tab behind keeps its place
       - a deep link scrolls to its section under the sticky header
@@ -1403,6 +1405,7 @@ surfaces:
     desktop: a page with the 772px measure
     links:
       - to: settings.appearance
+      - to: settings.features
       - to: settings.stage-defaults
       - to: settings.music
       - to: settings.obs
@@ -1430,6 +1433,29 @@ surfaces:
           System follows each device
       - text size is for this device only
     why: the stage keeps the session's look; only the cockpit and the app follow the appearance
+  - id: settings.features
+    area: settings
+    title: Available features group
+    root:
+      none: a group built by the vendored settings-group inside `settings.pane`
+    reach:
+      - Settings → Available features
+    holds:
+      - >-
+          one switch per feature block: Chat reader · OBS scene switching · Live copilot · Music ·
+          Public quiz link · Phone remote, each with what it covers under its name
+    does:
+      - >-
+          a switch saves the block's choice for this PC (`config.json` `features`); a block switched
+          off hides its parts on the app, the presenter and the phone remote and stops its work at
+          once (the public quiz link's tunnel waits for a tray restart, and the toast says so)
+    states:
+      - >-
+          a block that cannot run on this PC keeps its switch and says why under its name ("Can't
+          run on this PC: …")
+    why: >-
+      one checkout serves several PCs; each switches off what it cannot or will not run, without
+      editing code or a tracked file
   - id: settings.stage-defaults
     area: settings
     title: Stage defaults group
@@ -1546,7 +1572,7 @@ surfaces:
     reach:
       - OBS group → Connection
     holds:
-      - Scene switching (On or Off), Host, Port, Password (empty keeps the current one)
+      - Host, Port, Password (empty keeps the current one); scene switching itself is switched off under Available features
   - id: settings.obs-profile
     area: settings
     title: Camera profile
@@ -1566,7 +1592,8 @@ surfaces:
       - Settings → Live tools → Chat reader
     holds:
       - >-
-          "<Zoom, Teams or Meet> chat reader": a switch, "Starts when a session goes live"
+          "<Zoom, Teams or Meet> chat reader": "Starts when a session goes live" (switched off under
+          Available features)
     does:
       - the source is chosen on the presenter, under the chat
   - id: settings.stage-click

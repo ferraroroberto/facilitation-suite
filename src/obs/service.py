@@ -23,6 +23,7 @@ import threading
 from collections.abc import Callable
 from typing import Any, Optional
 
+from src import features
 from src.config import AppConfig, profiles
 from src.obs.connection_state import ObsState, advance, is_connected, is_connecting, is_off
 
@@ -106,8 +107,8 @@ class ObsService:
 
     def readiness(self) -> dict[str, Any]:
         cfg = self.config()
-        if not cfg.obs.enabled:
-            return {"enabled": False, "connected": False, "detail": "Scene switching is off in Settings"}
+        if not features.enabled(cfg, "obs"):
+            return {"enabled": False, "connected": False, "detail": features.OFF_SENTENCE}
         mapped = sum(1 for p in profiles(cfg).values() if p["scene"])
         if not is_connected(self.state):
             return {"enabled": True, "connected": False, "detail": self.detail or "Not connected"}
@@ -166,9 +167,9 @@ class ObsService:
     def _run(self) -> None:
         pending: Optional[str] = None  # the profile to apply once connected
         while not self._stop.is_set():
-            if not self.config().obs.enabled:
+            if not features.enabled(self.config(), "obs"):
                 self._disconnect()
-                self._set(ObsState.OFF, "Scene switching is off in Settings")
+                self._set(ObsState.OFF, features.OFF_SENTENCE)
                 self._wake.wait(2.0)
                 self._wake.clear()
                 self._drain(lambda kind, arg: None)

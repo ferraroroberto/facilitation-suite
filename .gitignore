@@ -1,5 +1,6 @@
 # --- private / machine-local (never committed) ------------------------------
-.venv/
+# no trailing slash: a .venv linked in (a worktree junction, a symlink) is not a folder to git
+.venv
 data/
 config/*.json
 !config/*.sample.json
@@ -8,6 +9,8 @@ sessions.local.yaml
 /webapp/*
 !/webapp/cloudflared.sample.yml
 .launcher-tmp/
+# scratch an agent or a tool leaves at the root
+tmp/
 *.log
 # personal rosters and decks: only synthetic fixtures under tests/fixtures/
 *.xlsx

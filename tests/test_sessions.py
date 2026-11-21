@@ -162,7 +162,7 @@ def test_api_create_get_put(client, tmp_path: Path) -> None:
     detail = client.get(f"/api/sessions/{sid}").json()
     assert detail["session"]["title"] == "Cohort A"
     keys = [c["key"] for c in detail["readiness"]]
-    assert keys == ["slides", "activities", "roster", "groups", "offline", "reader", "obs", "zoom_update", "copilot_consent"]
+    assert keys == ["slides", "activities", "roster", "groups", "offline", "reader", "zoom_update", "copilot_consent"]  # OBS off in the test config
     assert {c["state"] for c in detail["readiness"]} <= {"ok", "warn", "todo", "unknown"}
 
     plan = dict(PLAN, title="Cohort A (edited)")

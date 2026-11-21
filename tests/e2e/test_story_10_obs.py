@@ -31,7 +31,7 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
     with tempfile.TemporaryDirectory(prefix="fs-e2e-obs-", ignore_cleanup_errors=True) as tmp:
         proc, inst = boot_instance(
             Path(tmp),
-            obs={"enabled": True, "host": "127.0.0.1", "port": fake.port, "password": ""},
+            obs={"host": "127.0.0.1", "port": fake.port, "password": ""}, features={"obs": True},
             profiles={"camera_strip": {"scene": "Slides + camera"}, "camera_pip": {"scene": "Camera PiP"}},
         )
         try:

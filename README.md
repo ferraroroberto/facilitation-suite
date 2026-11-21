@@ -34,6 +34,10 @@ Never activate the venv; invoke its interpreter directly. Playwright's Chromium 
 
 **What stays on the PC and is carried over by hand** (none of it is in the repo): the session folders (`session_root` in `config/config.json`, default under OneDrive), the ledger `sessions.local.yaml` that lists them (shape: `sessions.example.yaml`; the app creates an empty one), `config/config.json`, `.env`, and the Tailscale certificate and cloudflared config under `webapp/`. Copy the folders and the ledger, fix the paths in the ledger, and the sessions open as they were. Settings: [docs/configuration.md](docs/configuration.md).
 
+**Updating** any PC is `git pull`, then `tray.bat --restart`, with no other step: every file a run writes (config, ledger, `data/`, `tmp/`, logs, the certificate and tunnel config) is gitignored, no tracked file is rewritten at runtime, and the scripts start under any PowerShell execution policy, `AllSigned` included, without a signature or a policy override (under `AllSigned` the gate runs as `& .\.venv\Scripts\python.exe -m src.ps_script scripts\verify-before-ship.ps1`).
+
+**Settings → Available features** switches off, for this PC only (`config.json` `features`), a block it cannot or will not run: the chat reader, OBS scene switching, the live copilot, music, the public quiz link and the phone remote. A block switched off hides its parts and stops its work; one whose dependency is missing on this PC says why. Details: [docs/settings.md](docs/settings.md#available-features).
+
 **Developer-only tools** keep their own needs and are not part of running the app: `scripts/gen_icons.py` needs a project-scaffolding checkout, and the pre-ship gate (`scripts/verify-before-ship.ps1`) needs Node for its duplicate-block check.
 
 ## Run

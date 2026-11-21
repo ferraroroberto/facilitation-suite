@@ -1,6 +1,7 @@
-// Settings — everything common to every presentation, in five sections of inset groups (a group
+// Settings — everything common to every presentation, in six sections of inset groups (a group
 // label over a card of one-line rows; a row that needs room opens a sheet): Appearance (light/dark on
-// every device, this device's text size), Stage defaults (the theme and lettering new sessions start
+// every device, this device's text size), Available features (the blocks this PC runs; a block
+// switched off takes its groups below away), Stage defaults (the theme and lettering new sessions start
 // from, and the stage library of fonts and themes), Music (the Spotify account and the default
 // fades), Live tools (OBS, the chat reader, the Copilot overlay and recordings, the Stream Deck
 // buttons, the phone remote) and About (build, credits). Each section has a deep link,
@@ -15,6 +16,7 @@ import { fontEditorHtml, letteringLabel, themeOptions, wireFontEditor } from '/s
 import { words } from '/static/js/stage-words.js';
 import { overlayGroup } from '/static/js/views/overlay-card.js';
 import { recordingGroup } from '/static/js/views/recording-card.js';
+import { featuresGroup, offKeys } from '/static/js/views/features-card.js';
 import { configuredSourceName } from '/static/js/chat-source.js';
 import { actionRow, controlRow, factRow, numberRow, selectRow, setRowValue, settingsGroup, toggleRow, valueRow } from '/static/js/views/settings-rows.js';
 
@@ -36,6 +38,7 @@ const TONE = { warn: 'attention', bad: 'danger' };
 
 export const SECTIONS = [
   ['appearance', 'sun', 'Appearance'],
+  ['features', 'sliders-horizontal', 'Available features'],
   ['stage', 'palette', 'Stage defaults'],
   ['music', 'music', 'Music'],
   ['live', 'plug', 'Live tools'],
@@ -93,7 +96,7 @@ async function load() {
     return;
   }
   render();
-  loadSpotify();
+  if (!offKeys(data.features).has('music')) loadSpotify();
   if (!build) {
     api('/api/version').then((v) => { build = v; paintAbout(); }).catch(() => { build = { failed: true }; paintAbout(); });
   }
@@ -112,13 +115,30 @@ function section(key, groups) {
 }
 
 function render() {
+  const off = offKeys(data.features);
+  // a block switched off under Available features takes its groups away
+  const liveTools = [];
+  if (!off.has('obs')) liveTools.push(obsGroup());
+  if (!off.has('chat_reader')) liveTools.push(readerGroup());
+  liveTools.push(stageClickGroup());
+  if (!off.has('copilot')) liveTools.push(overlayGroup(), recordingGroup());
+  if (!off.has('remote')) liveTools.push(remoteGroup());
   root.innerHTML = '';
   root.appendChild(section('appearance', [appearanceGroup()]));
+  root.appendChild(section('features', [featuresGroup(data.features, featuresSaved)]));
   root.appendChild(section('stage', [stageGroup()]));
-  root.appendChild(section('music', [musicGroup()]));
-  root.appendChild(section('live', [obsGroup(), readerGroup(), stageClickGroup(), overlayGroup(), recordingGroup(), remoteGroup()]));
+  if (!off.has('music')) root.appendChild(section('music', [musicGroup()]));
+  root.appendChild(section('live', liveTools));
   root.appendChild(section('about', [aboutGroup()]));
   scrollToWanted();
+}
+
+/** A feature switched: redraw with the new payload (a block switched back on fetches what it shows). */
+function featuresSaved(payload) {
+  const wasOff = offKeys(data.features);
+  data = payload;
+  render();
+  if (wasOff.has('music') && !offKeys(data.features).has('music')) loadSpotify();
 }
 
 /** The value of the row that carries `key`, repainted in place (a sheet changed what it shows). */
@@ -255,14 +275,14 @@ function obsGroup() {
     } catch (err) { toast(err.message, 'error'); }
     render();
   } }));
-  const trouble = !st.connected && data.obs.enabled ? ` ${st.detail}` : '';
+  const trouble = !st.connected ? ` ${st.detail}` : '';
   return settingsGroup('obs', 'OBS', rows,
     `Each plan item has a profile: the app switches OBS to that profile’s scene when the item goes on stage, and keeps the profile’s camera zone empty.${trouble}`).frag;
 }
 
 function connectionText() {
   const o = data.obs;
-  return `${o.enabled ? 'Scene switching on' : 'Scene switching off'} · ${o.host}:${o.port} · ${o.password_set ? 'password set' : 'no password'}`;
+  return `${o.host}:${o.port} · ${o.password_set ? 'password set' : 'no password'}`;
 }
 
 async function save(patch) {
@@ -297,14 +317,13 @@ async function editConnection() {
   const v = await formDialog({
     title: 'OBS connection',
     fields: [
-      { name: 'enabled', label: 'Scene switching', type: 'select', value: o.enabled ? '1' : '0', options: [{ value: '1', label: 'On' }, { value: '0', label: 'Off' }] },
       { name: 'host', label: 'Host', value: o.host, required: true },
       { name: 'port', label: 'Port', type: 'number', value: o.port, required: true, hint: 'In OBS, Tools, then WebSocket Server Settings (default 4455).' },
       { name: 'password', label: 'Password', type: 'password', value: '', placeholder: o.password_set ? 'Leave empty to keep the current one' : 'Only if OBS asks for one' },
     ],
   });
   if (!v) return;
-  const obs = { enabled: v.enabled === '1', host: v.host.trim(), port: Number(v.port) };
+  const obs = { host: v.host.trim(), port: Number(v.port) };
   if (v.password) obs.password = v.password;
   await save({ obs });
 }
@@ -316,10 +335,9 @@ function readerGroup() {
     teams: `the Teams chat open in a window titled “… ${data.reader.teams_title}”`,
     meet: `the chat panel of the Meet tab in a window titled “${data.reader.meet_title} …”`,
   }[source] || `the popped-out Zoom window titled “${data.reader.window_title}”`;
-  const row = toggleRow({ glyph: 'message-square', label: `${name} chat reader`, hint: 'Starts when a session goes live', on: data.reader.enabled,
-    track: 'settings.reader-enabled', onToggle: (next) => save({ reader: { enabled: next } }) });
+  const row = factRow({ glyph: 'message-square', label: `${name} chat reader`, value: 'Starts when a session goes live' });
   return settingsGroup('reader', 'Chat reader', [row],
-    `It reads ${what} every ${data.reader.poll_ms} ms. Choose Zoom, Teams or Meet on the presenter, under the chat.`).frag;
+    `It reads ${what} every ${data.reader.poll_ms} ms. Choose Zoom, Teams or Meet on the presenter, under the chat; switch it off under Available features.`).frag;
 }
 
 /** What a click on the stage window does: the next item, only when switched on. */

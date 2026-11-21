@@ -16,12 +16,12 @@ TEST_CLIENT_HOST = "testserver"
 
 
 def write_test_config(path: Path, **overrides: object) -> Path:
-    """A copy of the committed sample with ``overrides`` applied (OBS, the reader and
-    the quiz player and local listeners off — a test never binds the real :8451 or :8456;
+    """A copy of the committed sample with ``overrides`` applied (OBS off, the reader never started by
+    going live, the quiz player and local listeners off — a test never binds the real :8451 or :8456;
     the copilot asks no hub, opens no audio device and draws no overlay window)."""
     cfg = json.loads(SAMPLE_CONFIG.read_text(encoding="utf-8"))
-    cfg["obs"]["enabled"] = False
-    cfg["reader"]["enabled"] = False
+    cfg["features"]["obs"] = False
+    cfg["reader"]["start_on_live"] = False
     cfg["quiz"]["public_port"] = 0
     cfg["local_port"] = 0
     cfg["copilot"].update(hub_url="", capture="off")

@@ -22,7 +22,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 
 | Package | What lives there |
 |---|---|
-| `app/webapp/` | the FastAPI server (`server.py`), `routers/`, and `static/` (the Sessions/Plan/Groups/Results page, `/presenter`, `/stage`, `/remote`) |
+| `app/webapp/` | the FastAPI server (`server.py`), the feature-block guard and wiring (`feature_gate.py`, `features_wiring.py`), `routers/`, and `static/` (the Sessions/Plan/Groups/Results page, `/presenter`, `/stage`, `/remote`) |
 | `app/webapp/static/js/` | ES modules, no bundler; `views/` holds one module per tab |
 | `app/webapp/static/_vendored/` | fleet UI components copied byte-for-byte from project-scaffolding; never edited here (see `.fleet.toml [vendored]`) |
 | `app/webapp/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*`; it mounts nothing from the main app, so what is public stays this folder; its `server.py` makes it a surface package, which the `webapp-tray` shape accepts as a home |
@@ -33,7 +33,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 
 | Module or package | What lives there |
 |---|---|
-| `config.py`, `defaults.py`, `settings.py`, `library.py` | configuration, what new sessions start from, the Settings model, stage fonts and themes |
+| `config.py`, `defaults.py`, `settings.py`, `library.py`, `features.py` | configuration, what new sessions start from, the Settings model, stage fonts and themes, the feature blocks a PC can switch off |
 | `sessions/` | the session folder: model, store, readiness, theme, offline use |
 | `importer/` | PowerPoint import through COM and the re-import review |
 | `live/` | live state: the plan clock, capture, freeze, the hub, actions |
@@ -48,7 +48,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `results/` | collection, reconciliation, PDF and Excel exports, the copilot's conversation read back |
 | `geo/` | the offline gazetteer behind the map |
 | `no_window.py`, `build_info.py`, `usage_log.py` | vendored from project-scaffolding |
-| the other top-level modules | small shared helpers: errors, atomic writes (`atomic_write.py`, the one `os.replace`), stopping a child process (`process_stop.py`), the write guard (`write_target.py`), files, JSONL, text folding, logging, env file, certificates, the tunnel |
+| the other top-level modules | small shared helpers: errors, atomic writes (`atomic_write.py`, the one `os.replace`), stopping a child process (`process_stop.py`), the write guard (`write_target.py`), files, JSONL, text folding, logging, env file, certificates, the tunnel, starting a PowerShell script under any execution policy (`ps_script.py`) |
 
 ## Where new code goes
 

@@ -42,7 +42,7 @@ def test_new_sessions_copy_the_defaults_and_existing_ones_keep_theirs(client: Te
     assert r.status_code == 200, r.text
     assert r.json()["stage"]["font"]["family"] == "Georgia" and r.json()["music"] == {"fade_in_s": 4.0, "fade_out_s": 6.5}
     saved = json.loads((isolated_env / "config.json").read_text(encoding="utf-8"))
-    assert saved["defaults"]["stage"]["font"]["weight"] == 700 and saved["obs"]["enabled"] is False  # the rest is kept
+    assert saved["defaults"]["stage"]["font"]["weight"] == 700 and saved["features"]["obs"] is False  # the rest is kept
 
     # an existing session keeps its own look, and now says it differs from the defaults
     assert "font" not in _yaml(before)

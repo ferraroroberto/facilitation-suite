@@ -94,7 +94,12 @@ flowchart LR
   spotbk --> envfile
   sessr -->|Plan tab picker · readiness| musiclib["src/music/library.py<br/>copy into audio/ · Music files check"]
   musiclib --> audiofiles
-  appv --> settingsr["routers/settings.py<br/>Appearance · Stage defaults · Music · Live tools · About"]
+  appv --> settingsr["routers/settings.py<br/>Appearance · Available features · Stage defaults · Music · Live tools · About"]
+  settingsr -->|PUT /api/settings/features| featwire["app/webapp/features_wiring.py<br/>stops a block's work · live snapshot features_off"]
+  featwire --> features["src/features.py<br/>blocks a PC switches off: chat reader · OBS · copilot · music · public quiz link · phone remote<br/>config.json features (legacy obs/reader enabled)"]
+  featgate["app/webapp/feature_gate.py<br/>404 while a block is off · remote token"] --> features
+  hub -.->|feature_on| features
+  tray -.->|tunnel only while public quiz link is on| features
   settingsr --> settingsf["src/settings.py → config/config.json"]
   settingsr -->|Connect Spotify, this PC| spotlogin
   settingsr --> defaultsm["src/defaults.py<br/>what new sessions start from · Reset to default"]

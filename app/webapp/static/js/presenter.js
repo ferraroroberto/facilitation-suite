@@ -5,7 +5,7 @@
 
 import { icon } from '/static/_vendored/icons/icons.js';
 import { setSwitch } from '/static/_vendored/switch/switch.js';
-import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, fmtMinutes, switchRow } from '/static/js/ui.js';
+import { api, esc, oneLine, toast, currentTheme, toggleTheme, followAppearance, followFeatures, fmtMinutes, switchRow } from '/static/js/ui.js';
 import { confirmDialog } from '/static/js/dialogs.js';
 import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, timerMode, hms, timing, driftText } from '/static/js/live.js';
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
@@ -39,6 +39,7 @@ const live = connectLive('presenter', {
   },
   onState(s) {
     followAppearance(s.appearance);
+    followFeatures(s.features_off);
     if (plan && plan.active) draw();
   },
   onMessage(msg) {
@@ -112,9 +113,11 @@ function stampCards() {
   root.querySelector('.p-now').dataset.surface = 'presenter.now';
   root.querySelector('.p-notes').dataset.surface = 'presenter.notes';
   root.querySelector('.p-copilot').dataset.surface = 'presenter.copilot';
+  root.querySelector('.p-copilot').dataset.feature = 'copilot';
   root.querySelector('.p-timing').dataset.surface = 'presenter.timing';
   root.querySelector('.p-next').dataset.surface = 'presenter.next';
   root.querySelector('.p-music').dataset.surface = 'presenter.music';
+  root.querySelector('.p-music').dataset.feature = 'music';
   root.querySelector('.p-item').dataset.surface = 'presenter.item';
   root.querySelector('.p-chat').dataset.surface = 'presenter.chat';
 }
@@ -481,25 +484,29 @@ const READER_CHIP = {
   error: ['bad', 'error'],
   off: ['', 'off', 'start-reader'],
 };
+
+/** The OBS chip: the profile on stage when connected, else why not (a tap retries). */
+function obsChip(o) {
+  const profileLabel = { camera_strip: 'Camera strip', camera_pip: 'Camera PiP', screen_only: 'Screen only' }[o.profile] || '';
+  if (o.connected) {
+    return o.warning ? ['warn', `OBS · ${profileLabel || 'check scenes'}`, null, o.warning] : ['ok', `OBS · ${profileLabel ? 'profile ' + profileLabel : 'connected'}`, null, o.detail];
+  }
+  if (o.off) return ['', 'OBS · off', null, o.detail];
+  return ['bad', o.connecting ? 'OBS · connecting' : 'OBS · not reachable', 'obs-retry', o.detail];
+}
+
 function drawChips() {
   const box = root.querySelector('[data-chips]');
   if (!box || !live.state) return;
   const s = live.state;
+  const off = new Set(s.features_off || []); // blocks switched off on this PC show no chip
   const chips = [];
   if (!live.online) chips.push(['bad', 'Server · reconnecting']);
   const r = s.reader || { state: 'off' };
   const rc = READER_CHIP[r.state] || ['bad', r.state];
   const what = sourceOf(r) !== 'zoom' && r.state === 'window_not_found' ? 'open the chat' : rc[1];
-  chips.push([rc[0], `${sourceName(r)} chat · ${what}`, rc[2], r.detail]);
-  const o = s.obs || { off: true };
-  const profileLabel = { camera_strip: 'Camera strip', camera_pip: 'Camera PiP', screen_only: 'Screen only' }[o.profile] || '';
-  if (o.connected) {
-    chips.push(o.warning ? ['warn', `OBS · ${profileLabel || 'check scenes'}`, null, o.warning] : ['ok', `OBS · ${profileLabel ? 'profile ' + profileLabel : 'connected'}`, null, o.detail]);
-  } else if (o.off) {
-    chips.push(['', 'OBS · off', null, o.detail]);
-  } else {
-    chips.push(['bad', o.connecting ? 'OBS · connecting' : 'OBS · not reachable', 'obs-retry', o.detail]);
-  }
+  if (!off.has('chat_reader')) chips.push([rc[0], `${sourceName(r)} chat · ${what}`, rc[2], r.detail]);
+  if (!off.has('obs')) chips.push(obsChip(s.obs || { off: true }));
   const st = s.stages || [];
   if (st.length) chips.push(['ok', `Stage · ${st.length > 1 ? st.length + ' windows' : `${st[0].w}×${st[0].h}`}`]);
   else chips.push(['warn', 'Stage · not open', 'open-stage']);
@@ -510,7 +517,7 @@ function drawChips() {
     if (ago < 3600) chips.push(['ok', `${deck ? 'Stream Deck' : 'Buttons'} · ${la.action.replace(/_/g, ' ')}`, null, `Last press ${ago} s ago (${la.source})`]);
   }
   const mu = s.music;
-  if (mu && (mu.tracks.length || mu.spotify || mu.engaged)) {
+  if (mu && !off.has('music') && (mu.tracks.length || mu.spotify || mu.engaged)) {
     const label = mu.track ? mu.track.label : '';
     // Links to Settings → Music (the Spotify account, the default fades) in the app's own window.
     const settings = 'href:/#settings/music';
@@ -522,12 +529,13 @@ function drawChips() {
   if (qz && qz.pin) {
     const pin = `${qz.pin.slice(0, 3)} ${qz.pin.slice(3)}`;
     const players = `${qz.player_count} player${qz.player_count === 1 ? '' : 's'}`;
-    if (!qz.listener) chips.push(['bad', `Quiz · PIN ${pin} · players can't join`, null, 'The quiz player listener is off (quiz.public_port busy or 0) — see the log.']);
+    if (off.has('quiz_public')) chips.push(['', `Quiz · PIN ${pin} · chat answers only`, null, 'The public quiz link is switched off in Settings, Available features.']);
+    else if (!qz.listener) chips.push(['bad', `Quiz · PIN ${pin} · players can't join`, null, 'The quiz player listener is off (quiz.public_port busy or 0) — see the log.']);
     else if (!qz.join_url) chips.push(['warn', `Quiz · PIN ${pin} · public URL not configured`, null, 'Set quiz.public_url in config/config.json (the public player address, e.g. https://quiz.<domain>), then restart.']);
     else chips.push(['ok', `Quiz · PIN ${pin} · ${players}`, null, qz.join_url]);
   }
   if (s.count_own) chips.push(['warn', 'Counting your messages', null, 'Rehearsal: your own chat messages count as answers. Turn it off before a live session.']);
-  chips.push(...[copilotChip(s)].filter(Boolean));
+  if (!off.has('copilot')) chips.push(...[copilotChip(s)].filter(Boolean));
   if (s.write_error) chips.push(['bad', s.write_error]);
   const html = chips.map(([k, t, act, title]) => act && act.startsWith('href:')
     ? `<a class="chip ${k}" href="${esc(act.slice(5))}" target="fs-app" title="${esc(title || '')}"><span class="dot"></span>${esc(t)}</a>`
@@ -793,12 +801,12 @@ function drawChatFoot() {
   if (foot.dataset.key === key) return;
   foot.dataset.key = key;
   foot.innerHTML = (hint ? `<p class="small muted p-chat-hint">${esc(hint)}</p>` : '') +
-    `<div class="segmented" role="group" aria-label="Chat source">${Object.entries(SOURCE_NAMES).map(([v, l]) =>
+    `<div class="segmented" role="group" aria-label="Chat source" data-feature="chat_reader">${Object.entries(SOURCE_NAMES).map(([v, l]) =>
       `<button type="button" class="segmented-item" data-track="live.reader-source" aria-pressed="${v === chosen}" data-source="${v}">${l}</button>`).join('')}</div>` +
     `<div class="row-actions">` +
     (running && r.state !== 'simulating'
-      ? `<button type="button" class="button-surface" data-reader="stop" data-track="live.reader-toggle">${icon('square')} Stop reader</button>`
-      : `<button type="button" class="button-surface" data-reader="start" data-track="live.reader-toggle">${icon('play')} Start reader</button>`) +
+      ? `<button type="button" class="button-surface" data-reader="stop" data-feature="chat_reader" data-track="live.reader-toggle">${icon('square')} Stop reader</button>`
+      : `<button type="button" class="button-surface" data-reader="start" data-feature="chat_reader" data-track="live.reader-toggle">${icon('play')} Start reader</button>`) +
     `<button type="button" class="button-surface" data-sim data-track="live.simulate">${icon('wand-sparkles')} Simulate answers</button></div>`;
   const rb = foot.querySelector('[data-reader]');
   rb.addEventListener('click', () => (rb.dataset.reader === 'stop' ? stopReader() : startReader()));
