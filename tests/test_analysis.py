@@ -138,6 +138,18 @@ def test_a_failing_model_falls_back_and_a_dead_hub_says_so(hub_app, fake: FakeHu
         assert len(list((folder / "report").iterdir())) == 1  # the failed run wrote nothing
 
 
+def test_an_empty_report_moves_on_to_the_next_model_and_ends_as_an_error(hub_app, fake: FakeHub) -> None:
+    sid, folder = hub_app.state.demo
+    fake.answers["strong"] = "  \n"
+    fake.answers["backup"] = REPORT
+    with TestClient(hub_app, client=("127.0.0.1", 50000)) as pc:
+        assert _run(pc, sid)["job"]["model"] == "backup"
+        fake.answers["backup"] = ""
+        failed = _run(pc, sid)["job"]
+        assert (failed["state"], failed["failure"]) == ("failed", "error") and "empty" in failed["detail"]
+        assert len(list((folder / "report").iterdir())) == 1  # the failed run wrote nothing
+
+
 def test_without_a_hub_the_run_is_refused_with_the_reason(client, isolated_env: Path) -> None:
     sid, folder = _demo(isolated_env)
     write_demo_run(folder, pngs=False)
