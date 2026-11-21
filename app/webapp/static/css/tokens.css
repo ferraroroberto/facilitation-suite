@@ -6,6 +6,7 @@
   --bg: #ffffff;
   --card: #ffffff;
   --card-off: #f6f8fa;
+  --card-2: #f6f8fa; /* the pressed row of a settings group */
   --ink: #1f2328;
   --muted: #656d76;
   --line: #d1d9e0;
@@ -83,6 +84,7 @@
   --icon-nav: 20px;
   --icon-feature: 24px;
   --tile-size: 48px;
+  --measure: 772px; /* the desktop column of the Settings page */
   color-scheme: light;
 }
 
@@ -90,6 +92,7 @@
   --bg: #0d1117;
   --card: #161b22;
   --card-off: #010409;
+  --card-2: #21262d;
   --ink: #e6edf3;
   --muted: #7d8590;
   --line: #30363d;
