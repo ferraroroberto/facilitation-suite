@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import logging
 import threading
-import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -27,7 +26,8 @@ from typing import Any, Optional
 from src.atomic_write import atomic_write_text
 from src.config import CopilotConfig
 from src.copilot.after_call_state import AfterCallState, advance, is_failed, is_running
-from src.copilot.hub_client import HubDown, HubError, HubFailure, HubTimeout, complete
+from src.copilot.hints import HintFormatError, ask_chain
+from src.copilot.hub_client import complete
 from src.errors import DomainError
 from src.results.dump import REPORT_DIR, dump
 
@@ -118,33 +118,12 @@ def models(cfg: CopilotConfig) -> list[str]:
     return list(dict.fromkeys(m.strip() for m in cfg.analysis_models if m.strip()))
 
 
-def ask_models(cfg: CopilotConfig, messages: list[dict[str, str]]) -> tuple[str, str]:
-    """Each analysis model in turn within one budget: ``(model, text)``. Raises the last model's ``HubFailure``,
-    or ``HubDown`` at once when nothing answers at the hub."""
-    deadline = time.monotonic() + cfg.analysis_timeout_s
-    last: HubFailure = HubTimeout(f"no report within {cfg.analysis_timeout_s} s")
-    for model in models(cfg):
-        left = deadline - time.monotonic()
-        if left <= 1:
-            break
-        try:
-            text = complete(cfg.hub_url, model, messages, timeout=left, max_tokens=ANALYSIS_MAX_TOKENS).strip()
-        except HubDown:
-            raise
-        except HubFailure as exc:
-            logger.warning("⚠️ analysis: %s gave no report (%s)", model, exc)
-            last = exc
-            continue
-        if text:
-            return model, text
-        last = HubError(f"{model} answered an empty report")
-    raise last
-
-
-def _failure(exc: HubFailure) -> str:
-    if isinstance(exc, HubDown):
-        return "hub_down"
-    return "timeout" if isinstance(exc, HubTimeout) else "error"
+def parse_report(text: str) -> str:
+    """The report in a model's answer; ``HintFormatError`` when it is empty, so the chain asks the next model."""
+    report = text.strip()
+    if not report:
+        raise HintFormatError("the report is empty")
+    return report
 
 
 class AnalysisRuns:
@@ -195,12 +174,13 @@ class AnalysisRuns:
                 setattr(job, key, value)
 
     def _run(self, sid: str, folder: Path, doc: dict[str, Any], cfg: CopilotConfig) -> None:
-        try:
-            model, text = ask_models(cfg, analysis_messages(doc))
-        except HubFailure as exc:
-            logger.warning("⚠️ analysis: session %s got no report (%s)", sid, exc)
-            self._finish(sid, AfterCallState.FAILED, failure=_failure(exc), detail=str(exc))
+        answer = ask_chain(lambda m, msgs, t: complete(cfg.hub_url, m, msgs, timeout=t, max_tokens=ANALYSIS_MAX_TOKENS),
+                           models(cfg), analysis_messages(doc), cfg.analysis_timeout_s, parse=parse_report)
+        if answer.failure:
+            logger.warning("⚠️ analysis: session %s got no report (%s: %s)", sid, answer.failure, answer.detail)
+            self._finish(sid, AfterCallState.FAILED, failure=answer.failure, detail=answer.detail)
             return
+        model, text = answer.model, answer.text
         try:
             with self._lock:  # two runs writing into one report/ never pick the same free name
                 path = report_path(folder / REPORT_DIR, doc["session"].get("date"))
