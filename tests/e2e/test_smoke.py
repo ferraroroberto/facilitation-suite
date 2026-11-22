@@ -59,7 +59,8 @@ def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None
     music = page.locator('#paneSettings [data-feature-key="music"] [role="switch"]')
     music.click()
     expect(page.locator("#paneSettings .settings-group-label", has_text="Music")).to_have_count(0)
-    page.locator('#paneSettings [data-feature-key="music"] [role="switch"]').click()
+    # a tap on the row's caption (not the switch) toggles it too: one click, one save
+    page.locator('#paneSettings [data-feature-key="music"] .settings-row-label').click()
     expect(page.locator("#paneSettings .settings-group-label", has_text="Music")).to_have_count(1)
 
     before = page.evaluate("document.documentElement.dataset.theme")

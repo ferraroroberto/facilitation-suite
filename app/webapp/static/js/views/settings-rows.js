@@ -77,6 +77,9 @@ export function toggleRow({ glyph, label, hint, on, track, onToggle }) {
   const row = el('label', 'settings-row', `${lead(glyph)}${labelHtml(label, hint)}`);
   const sw = switchEl(on, { label, onToggle: (next, btn) => { setSwitch(btn, next); onToggle(next, btn); } });
   sw.dataset.track = track;
+  // WebKit re-dispatches a click on the switch's knob or caption span to the label's control, so the
+  // switch would fire twice; a cancelled click skips that label activation (a button has no default action)
+  sw.addEventListener('click', (e) => e.preventDefault());
   row.appendChild(sw);
   return row;
 }
