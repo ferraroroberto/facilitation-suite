@@ -30,7 +30,7 @@ home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "fe8cc1
 icon-button     = { src = "app/webapp/static/_vendored/icon-button", sha = "0f8bdf6247e79abfa111efd8b3b77a8ce249cda7", dest = "app/webapp/static/_vendored/icon-button" }
 segmented       = { src = "app/webapp/static/_vendored/segmented", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/segmented" }
 text-size       = { src = "app/webapp/static/_vendored/text-size", sha = "5d460bd1d9d44eed955c5357d1c9f622f2550ad8", dest = "app/webapp/static/_vendored/text-size" }
-page-foot = { src = "app/webapp/static/_vendored/page-foot", sha = "3f1dcc76d5ba40c8b3d12a80a99659816ce1dd0e", dest = "app/webapp/static/_vendored/page-foot" }
+page-foot = { src = "app/webapp/static/_vendored/page-foot", sha = "564864cb95a8b416c16d1a1e1e9f31b9d5b2ec8e", dest = "app/webapp/static/_vendored/page-foot" }
 usage-log       = { src = "app/webapp/static/_vendored/usage-log", sha = "bfc660da641a05baf818d6ff7302bdd91b7d9a78", dest = "app/webapp/static/_vendored/usage-log" }
 action-row      = { src = "app/webapp/static/_vendored/action-row", sha = "8f15c49560adbc076d24a8a63dd671868ffa7a4e", dest = "app/webapp/static/_vendored/action-row" }
 usage_log       = { src = "src/usage_log.py", sha = "78635aa74a92b9622326cb53992e0634fbaf6246", dest = "src/usage_log.py" }
@@ -79,7 +79,7 @@ instruction_repeats = { src = "scripts/instruction_repeats.py", sha = "e55de9619
 # Needs Node and ruff in the gate's venv; a detector that cannot run exits 3, which fails
 # the gate. Vendored copies are duplicates by design, so they are excluded. Procedure +
 # limits: project-scaffolding docs/static-ratchet.md.
-self_restart = { src = "src/self_restart.py", sha = "3f1dcc76d5ba40c8b3d12a80a99659816ce1dd0e", dest = "src/self_restart.py" }
+self_restart = { src = "src/self_restart.py", sha = "564864cb95a8b416c16d1a1e1e9f31b9d5b2ec8e", dest = "src/self_restart.py" }
 [static_ratchet]
 enabled  = true
 baseline = ".static-ratchet-baseline.json"
