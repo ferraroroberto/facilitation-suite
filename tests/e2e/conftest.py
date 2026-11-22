@@ -42,6 +42,7 @@ from tests.e2e._shared_context import SharedContexts
 from tests.e2e._shared_context import write_summary as shared_context_summary
 from tests.e2e._surface import pytest_collection_modifyitems  # noqa: F401
 from tests.fixtures.fake_hub import FakeHub
+from tests.host._synthetic_host import synthetic_host_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
@@ -88,7 +89,7 @@ def boot_instance(root: Path, *, port: int = 0, player_port: int = 0,
         player_port = _free_port()
     config.setdefault("quiz", {"public_port": player_port, "public_url": ""})
     write_test_config(root / "config.json", port=port, session_root=str(root / "sessions"), **config)
-    env = os.environ.copy()
+    env = synthetic_host_env(os.environ, root)  # the app under test never sees the real account or home
     env.update(
         FS_CONFIG_PATH=str(root / "config.json"),
         FS_LEDGER_PATH=str(root / "sessions.local.yaml"),

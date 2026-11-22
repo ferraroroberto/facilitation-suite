@@ -22,7 +22,9 @@ from src.no_window import NO_WINDOW
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POWERSHELL = ps_script.POWERSHELL_EXE
-TRAY_HELPER = Path(os.environ.get("USERPROFILE", str(Path.home()))) / ".claude" / "tray" / "tray_lifecycle.ps1"
+# The shared tray helper is installed under the real home on this machine; the test probes that live file,
+# so the synthetic home would hide it.
+TRAY_HELPER = Path(os.environ.get("USERPROFILE", str(Path.home()))) / ".claude" / "tray" / "tray_lifecycle.ps1"  # host-identity-exempt: guard over the live shared tray helper under the real home
 GIT_TIMEOUT_S = 60
 PS_TIMEOUT_S = 120
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="PowerShell execution policies are Windows only")
