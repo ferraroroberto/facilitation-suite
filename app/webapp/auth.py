@@ -29,6 +29,8 @@ from http.cookies import SimpleCookie
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlsplit
 
+from fastapi import HTTPException, Request
+
 from app.webapp.errors import host_header, is_local
 
 logger = logging.getLogger(__name__)
@@ -99,6 +101,18 @@ def presented_token(scope: dict[str, Any]) -> tuple[str, bool]:
     return (cookie[COOKIE].value if COOKIE in cookie else ""), False
 
 
+def require_authenticated(request: Request) -> None:
+    """Route dependency: refuse unless :class:`RemoteAuth` admitted this caller by auth.
+
+    The gate marks a request it let in as this PC or with the paired token; the open
+    paths (``/healthz``, ``/remote``, static files) are admitted without that mark. A
+    route that must never be reachable on an open path, such as the restart, depends on
+    this so it cannot be mounted open, and an app built without the gate refuses it too.
+    """
+    if not getattr(request.state, "auth_passed", False):
+        raise HTTPException(status_code=401, detail="this device is not paired")
+
+
 class RemoteAuth:
     def __init__(self, app: Any, get_token: Callable[[], str]) -> None:
         self.app = app
@@ -112,6 +126,7 @@ class RemoteAuth:
             await self._refuse(scope, send, 403, 4403, "foreign_origin", "Only this app's own pages may do this")
             return
         if is_local(scope):
+            scope.setdefault("state", {})["auth_passed"] = True
             await self.app(scope, receive, send)
             return
         token = (self.get_token() or "").strip()
@@ -119,6 +134,7 @@ class RemoteAuth:
         if token and presented and hmac.compare_digest(presented.encode(), token.encode()):
             if from_query and scope["type"] == "http":
                 send = self._with_cookie(send, token, scope.get("scheme") == "https")
+            scope.setdefault("state", {})["auth_passed"] = True
             await self.app(scope, receive, send)
             return
         path = scope.get("path", "")

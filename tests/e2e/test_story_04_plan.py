@@ -225,7 +225,7 @@ def _add_section_and_breakout(page: Page) -> None:
     page.locator(".row-menu-item", has_text="Section after this one").click()
     page.fill("#f-name", "Energiser")
     surface(page, "plan.new-section")
-    page.locator(".detail-save-btn").click()
+    page.locator('dialog:not([data-surface="app.restart-sheet"]) .detail-save-btn').click()
     expect(page.locator(".sec-row").nth(4)).to_contain_text("Energiser")
     # a breakout card in it: the round under its title, a ten-minute clock
     page.locator(".add-slot .button-tint").nth(4).click()

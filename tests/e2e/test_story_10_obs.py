@@ -62,7 +62,7 @@ def test_obs_follows_the_profile(page: Page, shots) -> None:
             page.locator("[data-profile=camera_pip]").click()
             page.locator("dialog select[name=scene]").select_option("Camera big")
             surface(page, "settings.obs-profile")
-            page.locator("dialog .detail-save-btn").click()
+            page.locator('dialog:not([data-surface="app.restart-sheet"]) .detail-save-btn').click()
             expect(page.locator("[data-profile=camera_pip]")).to_contain_text("Camera big")
             shot(page, shots / "story-10-obs-1-settings.png")
             surface(page, "settings.obs")

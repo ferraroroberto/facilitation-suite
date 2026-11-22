@@ -4,6 +4,7 @@
 
 import { initNavTabs } from '/static/_vendored/nav/nav-tabs.js';
 import { buildReadoutText } from '/static/_vendored/page-foot/page-foot.js';
+import { initRestartSheet } from '/static/_vendored/page-foot/restart-sheet.js';
 import { api, APP, followAppearance, followFeatures } from '/static/js/ui.js';
 import { connectLive } from '/static/js/live.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
@@ -138,3 +139,12 @@ api('/api/version').then((v) => {
 }).catch(() => {
   document.getElementById('buildReadout').textContent = 'Build: unknown';
 });
+
+// The sheet's POST reads the status itself (a refusal is an answer, not an error).
+async function postRestart(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let data = null;
+  try { data = await res.json(); } catch (e) { data = null; }
+  return { status: res.status, body: data };
+}
+initRestartSheet({ fetchJson: api, postJson: postRestart });

@@ -224,7 +224,7 @@ def _check_delete_slides(page: Page) -> None:
     page.locator('[data-item="slide-107"]').press("Shift+ArrowDown")
     expect(page.locator(".item-row.selected")).to_have_count(2)
     page.keyboard.press("Delete")
-    expect(page.locator(".detail-dialog h2")).to_have_text("Delete 2 items?")
+    expect(page.locator('.detail-dialog:not([data-surface="app.restart-sheet"]) h2')).to_have_text("Delete 2 items?")
     page.locator(".dialog-confirm").click()
     expect(page.locator('[data-item="slide-107"], [data-item="slide-108"]')).to_have_count(0)
 

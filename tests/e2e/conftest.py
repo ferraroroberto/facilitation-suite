@@ -250,9 +250,11 @@ _SMALL_TARGETS_JS = """(floor) => {
     if (el.disabled) continue;
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     if (!r.width || !r.height || s.visibility === 'hidden' || s.display === 'none') continue;
-    // an invisible ::before expansion (the shared .hit-target, the vendored segmented) grows the effective box
-    const b = getComputedStyle(el, '::before');
-    const grow = (side) => (b.content !== 'none' && b.position === 'absolute') ? Math.max(0, -parseFloat(b[side]) || 0) : 0;
+    // an invisible ::before expansion (the shared .hit-target, the vendored segmented) or ::after one
+    // (the build readout's restart hit area) grows the effective box
+    const pseudo = ['::before', '::after'].map((p) => getComputedStyle(el, p));
+    const grow = (side) => Math.max(0, ...pseudo.map((b) =>
+      (b.content !== 'none' && b.position === 'absolute') ? Math.max(0, -parseFloat(b[side]) || 0) : 0));
     const w = r.width + grow('left') + grow('right'), h = r.height + grow('top') + grow('bottom');
     if (w < floor - 1 || h < floor - 1)
       out.push(`${el.tagName.toLowerCase()}.${el.className} ${Math.round(w)}x${Math.round(h)}`);
