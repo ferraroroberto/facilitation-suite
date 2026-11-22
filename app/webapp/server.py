@@ -57,7 +57,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.tray.overlay.process import OverlayProcess
 from app.webapp import features_wiring
 from app.webapp.assets import CachingStaticFiles
-from app.webapp.auth import RemoteAuth, redact_server_logs
+from app.webapp.auth import RemoteAuth, redact_server_logs, require_authenticated
 from app.webapp.errors import error_response
 from app.webapp.feature_gate import remote_token
 from app.webapp.local_listener import LocalListener
@@ -103,7 +103,8 @@ from src.quiz.cues import QuizCues
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.results.analysis_run import AnalysisRuns
-from src.runtime_data import runtime_db_path
+from src.runtime_data import runtime_data_dir, runtime_db_path
+from src.self_restart import TRAY_RESTART, RestartTarget, restart_router
 from src.sessions.store import SessionStore
 from src.static_versioning import AssetVersions
 from src.usage_log import usage_router
@@ -384,6 +385,13 @@ def create_app() -> FastAPI:
     # like every route; the quiz player app (app/webapp/player/) never mounts it.
     usage_db = runtime_db_path("facilitation-suite", USAGE_DB_FILE, env_var=USAGE_DB_ENV, create=True)
     app.include_router(usage_router(usage_db))
+    # The build readout's restart sheet runs this repo's own `tray.bat --restart`, for this PC and any
+    # paired phone (the same gate as every route); the quiz player app never mounts it.
+    app.include_router(restart_router(
+        targets=[RestartTarget("app", "Restart app", TRAY_RESTART)],
+        status_dir=runtime_data_dir("facilitation-suite") / "restart",
+        guard=require_authenticated,
+    ))
     return app
 
 
