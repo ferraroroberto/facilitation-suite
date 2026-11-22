@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.host._synthetic_host import synthetic_host  # noqa: F401 -- registers the fixture
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_CONFIG = REPO_ROOT / "config" / "config.sample.json"
 TEST_CLIENT_HOST = "testserver"
