@@ -218,6 +218,7 @@ def test_pick_is_local_only(isolated_env) -> None:
         assert phone.post("/api/pick", json={"kind": "pptx"}).status_code == 403
 
 
+@pytest.mark.windows_only
 @pytest.mark.skipif(os.environ.get("FS_TEST_POWERPOINT") != "1", reason="drives the real PowerPoint; set FS_TEST_POWERPOINT=1")
 def test_real_powerpoint_export(tmp_path: Path) -> None:
     import pythoncom

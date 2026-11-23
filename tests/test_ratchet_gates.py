@@ -64,7 +64,7 @@ repo_stages = pytest.mark.parametrize("stage", [s for s in STAGES if s.file], id
 # Every vendored ratchet the gate runs: the wrapped stages plus the ones called directly.
 RATCHETS = [
     *(s.key for s in STAGES), "conventions_ratchet", "runtime_write_ratchet", "usage_track_ratchet", "ux_surface_ratchet",
-    "request_budget_ratchet",
+    "request_budget_ratchet", "windows_only_ratchet",
 ]
 
 

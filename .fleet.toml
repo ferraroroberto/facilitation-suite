@@ -71,6 +71,7 @@ poll            = { src = "app/webapp/static/_vendored/poll", sha = "2e2a4cca9d3
 request_budget_ratchet = { src = "scripts/request_budget_ratchet.py", sha = "2e2a4cca9d3180980db6f8cd7f03a6f12737b7db", dest = "scripts/request_budget_ratchet.py", requires = ["request_budget_scan"] }
 request_budget_scan = { src = "scripts/request_budget_scan.py", sha = "2e2a4cca9d3180980db6f8cd7f03a6f12737b7db", dest = "scripts/request_budget_scan.py" }
 request_timing  = { src = "src/request_timing.py", sha = "2e2a4cca9d3180980db6f8cd7f03a6f12737b7db", dest = "src/request_timing.py" }
+windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "5ba99b0a04b1b5d7b3689f8f7a59bd3fe625a9bc", dest = "scripts/windows_only_ratchet.py" }
 # Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's
 # (via task-os), code verbatim; src/certs.py and scripts/gen_tailscale_cert.py are
 # copy-to-adapt (project-scaffolding#232), so they carry no [vendored] entry.
@@ -406,6 +407,9 @@ tier = "none"
 path = ".request-budget-ratchet-baseline.json"
 [[e2e.rule]]
 tier = "none"
+path = ".windows-only-ratchet-baseline.json"
+[[e2e.rule]]
+tier = "none"
 path = "LICENSE"
 [[e2e.rule]]
 tier = "none"
@@ -473,6 +477,18 @@ enabled       = true
 baseline      = ".request-budget-ratchet-baseline.json"
 browser_paths = ["app/webapp/static/**", "app/webapp/templates/**", "app/webapp/player/**"]
 handler_dirs  = ["app/webapp/routers"]
+
+# [windows_only_ratchet] -- scripts/windows_only_ratchet.py fails when a file's count of tests that
+# touch a Windows-only API (an import of winreg/win32*, subprocess.CREATE_NO_WINDOW, ctypes.windll,
+# a Windows-only env var read, a planted .exe under a fake install folder) without the `windows_only`
+# marker rises beyond .windows-only-ratchet-baseline.json. The Mac nightly drops that marker
+# ([ci.nightly] exclude_marker), so an unmarked test is a red a day later. Exit 3 is "not confirmed",
+# never clean. Mechanism: project-scaffolding docs/windows-only-ratchet.md.
+[windows_only_ratchet]
+enabled    = true
+baseline   = ".windows-only-ratchet-baseline.json"
+marker     = "windows_only"
+test_paths = ["tests/**"]
 
 # The server loops that run faster than the request budget's 5 s floor on purpose. Each states
 # why it cannot wait longer; a loop that could is fixed instead of declared here.
