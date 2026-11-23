@@ -4,7 +4,6 @@ rehearsal). Copilot on/off is the live action ``copilot_toggle`` (``src/live/act
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import asdict
 from typing import Any, Literal, Optional
@@ -16,6 +15,7 @@ from app.tray.overlay.render import FONT_FILES
 from app.tray.overlay.screens import list_screens
 from app.webapp.errors import require_local
 from app.webapp.feature_gate import require
+from app.webapp.route_pools import PROCESSES, SETTINGS_WRITES, run_on
 from src import settings as settings_file
 from src.config import OVERLAY_MODES, OVERLAY_POSITIONS, OVERLAY_SHAPES
 from src.copilot.service import CopilotService
@@ -98,15 +98,15 @@ async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
     if "font" in patch and patch["font"] not in FONT_FILES:
         patch.pop("font")
     if body.recording_retention_days is not None:
-        request.app.state.config = await asyncio.to_thread(
-            settings_file.update, {"copilot": {"recording_retention_days": body.recording_retention_days}})
+        request.app.state.config = await run_on(
+            SETTINGS_WRITES, settings_file.update, {"copilot": {"recording_retention_days": body.recording_retention_days}})
         logger.info("ℹ️ copilot: recordings are %s", f"removed after {body.recording_retention_days} days"
                     if body.recording_retention_days else "kept")
     if patch:
-        request.app.state.config = await asyncio.to_thread(settings_file.update, {"copilot": {"overlay": patch}})
+        request.app.state.config = await run_on(SETTINGS_WRITES, settings_file.update, {"copilot": {"overlay": patch}})
         if request.app.state.config.copilot.overlay.enabled:
             return {**settings_payload(request), "delivered": await _show_sample(request)}
-        await asyncio.to_thread(request.app.state.overlay.stop)
+        await run_on(PROCESSES, request.app.state.overlay.stop)
         request.app.state.live.push_state()
     return settings_payload(request)
 
@@ -117,7 +117,7 @@ async def _show_sample(request: Request) -> bool:
     _copilot(request).sample()
     if not request.app.state.config.copilot.overlay.enabled:
         return False
-    delivered = await asyncio.to_thread(request.app.state.overlay.start)
+    delivered = await run_on(PROCESSES, request.app.state.overlay.start)
     logger.info("ℹ️ copilot: sample %s", "sent to the overlay" if delivered else "not shown — the overlay is not running")
     return delivered
 

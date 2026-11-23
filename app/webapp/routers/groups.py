@@ -5,7 +5,6 @@ The "who are you with?" reveal is added to the plan by the Plan tab itself
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -15,6 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
+from app.webapp.route_pools import SESSION_WORK, run_on
 from src.atomic_write import atomic_write_text
 from src.groups import roster as rs
 from src.sessions.store import SessionStore
@@ -75,7 +75,7 @@ def presence(request: Request, sid: str, body: PresenceBody) -> dict[str, Any]:
 @router.post("/groups/shuffle")
 async def shuffle(request: Request, sid: str, body: ShuffleBody) -> dict[str, Any]:
     folder = _folder(request, sid)
-    await asyncio.to_thread(rs.shuffle, folder, body.seed)  # up to 120 000 tries: off the event loop
+    await run_on(SESSION_WORK, rs.shuffle, folder, body.seed)  # up to 120 000 tries: off the event loop
     _changed(request, sid)
     return rs.payload(folder)
 

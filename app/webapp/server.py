@@ -62,6 +62,7 @@ from app.webapp.errors import error_response
 from app.webapp.feature_gate import remote_token
 from app.webapp.local_listener import LocalListener
 from app.webapp.player.listener import PlayerListener
+from app.webapp.route_pools import PROCESSES, run_on
 from app.webapp.routers import (
     actions,
     activities,
@@ -131,7 +132,7 @@ async def _keep_overlay_up(app: FastAPI) -> None:
         cfg = app.state.config
         if (features.enabled(cfg, "copilot") and app.state.copilot.on and cfg.copilot.overlay.enabled
                 and not app.state.overlay.running()):
-            await asyncio.to_thread(app.state.overlay.start)
+            await run_on(PROCESSES, app.state.overlay.start)
 
 
 @asynccontextmanager
@@ -163,10 +164,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     await player.stop()
     monitor.cancel()
     app.state.obs.stop()
-    await asyncio.to_thread(app.state.music.close)
-    await asyncio.to_thread(app.state.reader_process.stop)
+    await run_on(PROCESSES, app.state.music.close)
+    await run_on(PROCESSES, app.state.reader_process.stop)
     app.state.copilot.stop()
-    await asyncio.to_thread(app.state.overlay.stop)
+    await run_on(PROCESSES, app.state.overlay.stop)
     logger.info("👋 facilitation-suite stopping")
 
 
@@ -236,7 +237,7 @@ def _install_chat(app: FastAPI) -> None:
         if sid and features.enabled(current, "chat_reader") and current.reader.start_on_live and not proc.running():
             proc.start()
         elif sid is None and proc.running() and live.loop is not None:
-            live.loop.run_in_executor(None, proc.stop)
+            live.loop.run_in_executor(PROCESSES, proc.stop)
 
     live.session_listeners.append(on_session)
 
@@ -251,7 +252,7 @@ def _install_copilot(app: FastAPI) -> None:
 
     def in_background(fn: Callable[[], None]) -> None:
         if live.loop is not None:
-            live.loop.run_in_executor(None, fn)
+            live.loop.run_in_executor(PROCESSES, fn)
         else:
             fn()
 

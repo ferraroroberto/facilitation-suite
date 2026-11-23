@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.webapp.errors import LOOPBACK_HOSTS, AppError, is_local, require_local
 from app.webapp.feature_gate import remote_token, require
+from app.webapp.route_pools import OUTBOUND, PROCESSES, SETTINGS_WRITES, run_on
 from src import defaults, features, library
 from src import settings as settings_file
 from src.certs import cert_hostname
@@ -179,7 +180,7 @@ def get_appearance(request: Request) -> dict[str, Any]:
 async def put_appearance(request: Request, body: AppearanceBody) -> dict[str, Any]:
     """Light, dark or the OS's choice for the app, the presenter and the phone remote, on every
     device at once. Not PC-only: the paired phone's own sun/moon button sets it too."""
-    request.app.state.config = await asyncio.to_thread(settings_file.update, {"appearance": body.appearance})
+    request.app.state.config = await run_on(SETTINGS_WRITES, settings_file.update, {"appearance": body.appearance})
     request.app.state.live.push_state()  # on the loop: every open page switches now
     return {"appearance": request.app.state.config.appearance}
 
@@ -209,7 +210,7 @@ async def put_features(request: Request, body: dict[FeatureKey, bool]) -> dict[s
     require_local(request, "Features can only be switched on this PC")
     if not body:
         raise AppError(422, "no_features", "Name at least one feature: " + ", ".join(features.KEYS))
-    request.app.state.config = await asyncio.to_thread(settings_file.update, {"features": dict(body)})
+    request.app.state.config = await run_on(SETTINGS_WRITES, settings_file.update, {"features": dict(body)})
     await request.app.state.apply_features()
     logger.info("ℹ️ features: %s", ", ".join(f"{k} {'on' if v else 'off'}" for k, v in body.items()))
     return payload(request)
@@ -312,14 +313,14 @@ def spotify_payload(request: Request, account: dict[str, Any]) -> dict[str, Any]
 @router.get("/spotify", dependencies=[Depends(require("music"))])
 async def get_spotify(request: Request) -> dict[str, Any]:
     """The Spotify account's state (asks Spotify at most every 30 s, in a worker thread)."""
-    account = await asyncio.to_thread(request.app.state.music.spotify_account)
+    account = await run_on(OUTBOUND, request.app.state.music.spotify_account)
     return spotify_payload(request, account)
 
 
 @router.post("/spotify/check", dependencies=[Depends(require("music"))])
 async def check_spotify(request: Request) -> dict[str, Any]:
     """Ask Spotify now."""
-    account = await asyncio.to_thread(request.app.state.music.spotify_account, fresh=True)
+    account = await run_on(OUTBOUND, request.app.state.music.spotify_account, fresh=True)
     return spotify_payload(request, account)
 
 
@@ -328,6 +329,6 @@ async def connect_spotify(request: Request) -> dict[str, Any]:
     """Start the Spotify login on this PC: the browser opens Spotify's consent page; the page
     polls GET /api/settings/spotify until ``login.state`` is ``done`` or ``failed``."""
     require_local(request, "Spotify can only be connected on this PC")
-    await asyncio.to_thread(request.app.state.spotify_login.start)
+    await run_on(PROCESSES, request.app.state.spotify_login.start)
     account = {"state": "unknown", "detail": "Waiting for the Spotify login", "device": "", "checked_at": None}
     return spotify_payload(request, account)

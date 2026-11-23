@@ -22,7 +22,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 
 | Package | What lives there |
 |---|---|
-| `app/webapp/` | the FastAPI server (`server.py`), the feature-block guard and wiring (`feature_gate.py`, `features_wiring.py`), `routers/`, and `static/` (the Sessions/Plan/Groups/Results page, `/presenter`, `/stage`, `/remote`) |
+| `app/webapp/` | the FastAPI server (`server.py`), the feature-block guard and wiring (`feature_gate.py`, `features_wiring.py`), the named thread pools for blocking work (`route_pools.py`: a slow call fills only its own kind's pool, never the event loop's shared default one), `routers/`, and `static/` (the Sessions/Plan/Groups/Results page, `/presenter`, `/stage`, `/remote`) |
 | `app/webapp/static/js/` | ES modules, no bundler; `views/` holds one module per tab |
 | `app/webapp/static/_vendored/` | fleet UI components copied byte-for-byte from project-scaffolding; never edited here (see `.fleet.toml [vendored]`) |
 | `app/webapp/player/` | the public quiz player on `127.0.0.1:8451`, serving only `/play*`; it mounts nothing from the main app, so what is public stays this folder; its `server.py` makes it a surface package, which the `webapp-tray` shape accepts as a home |

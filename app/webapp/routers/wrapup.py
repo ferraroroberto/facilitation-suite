@@ -8,7 +8,6 @@ that fails does not stop the other one.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
@@ -16,6 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
+from app.webapp.route_pools import SESSION_WORK, run_on
 from app.webapp.routers import results
 from src.activities import rebuild
 from src.errors import DomainError
@@ -79,12 +79,12 @@ async def _run(key: str, call: Callable[[], Awaitable[dict[str, str]]]) -> dict[
 @router.post("/wrap-up")
 async def wrap_up(request: Request, sid: str) -> dict[str, Any]:
     request.app.state.store.load(sid)  # an unknown session is a 404, not four failed steps
-    steps = [await _run("rebuild", lambda: asyncio.to_thread(_rebuild, request, sid))]
+    steps = [await _run("rebuild", lambda: run_on(SESSION_WORK, _rebuild, request, sid))]
     if steps[0]["status"] == Step.FAILED:
         steps += [_step(k, Step.SKIPPED, "The rebuild failed") for k in ("pdf", "xlsx", "analysis")]
     else:
         steps.append(await _run("pdf", lambda: _pdf(request, sid)))
-        steps.append(await _run("xlsx", lambda: asyncio.to_thread(_xlsx, request, sid)))
-        steps.append(await _run("analysis", lambda: asyncio.to_thread(_analysis, request, sid)))
+        steps.append(await _run("xlsx", lambda: run_on(SESSION_WORK, _xlsx, request, sid)))
+        steps.append(await _run("analysis", lambda: run_on(SESSION_WORK, _analysis, request, sid)))
     logger.info("✅ wrap-up of %s: %s", sid, ", ".join(f"{s['key']} {s['status']}" for s in steps))
     return {"steps": steps, "failed": any(s["status"] == Step.FAILED for s in steps)}

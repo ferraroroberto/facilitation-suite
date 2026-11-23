@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.assets import versioned_response
 from app.webapp.errors import AppError
+from app.webapp.route_pools import SESSION_WORK, run_on
 from src.activities.registry import ACTIVITIES_DIR, editors
 from src.errors import DomainError
 from src.library import library_theme_css
@@ -72,7 +73,7 @@ async def place(request: Request, body: PlaceBody) -> dict[str, Any]:
     hub = _hub(request)
     if hub.session_id is None:
         raise AppError(409, "not_live", "No session is live")
-    found = await asyncio.to_thread(lambda: gazetteer().by_geonameid(body.geonameid))
+    found = await run_on(SESSION_WORK, lambda: gazetteer().by_geonameid(body.geonameid))
     if found is None:
         raise AppError(404, "unknown_place", "No such place")
     request.app.state.capture.place(body.message_id, body.geonameid)
