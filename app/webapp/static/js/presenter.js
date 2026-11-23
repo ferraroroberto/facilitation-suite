@@ -873,6 +873,7 @@ function tickChatAge() {
 }
 
 // Clocks tick locally between snapshots.
+// request-budget-exempt: an on-screen clock; it redraws from the last snapshot and never calls the server.
 setInterval(() => {
   const s = live.state;
   if (!s || !plan || !plan.active || !nowStage || s.plan_rev !== plan.rev) return;

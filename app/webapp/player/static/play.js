@@ -9,6 +9,7 @@
 //   forces polling (a dev toggle).
 
 import { ConnState, connState } from '/play/static/conn-state.js';
+import { startPoll, singleFlight } from '/play/static/fleet/poll.js';
 
 const STORE = 'facilitation-suite.play';
 const THEME = 'facilitation-suite.play.theme';
@@ -200,12 +201,13 @@ let wsOpen = false;
 let wsRetry = 0;
 let wsTimer = null;
 let drops = [];
-let pollTimer = null;
+let polling = false; // the websocket is down or flaky, so the state is read over HTTP
+let pollHandle = null;
+const poll = singleFlight(readState); // the poll and the unlocked-phone catch-up share one read
 let online = null;
 
 function setConn() {
   const el = $('#conn');
-  const polling = pollTimer !== null;
   const conn = connState({ online, polling, wsOpen, joined: Boolean(me) });
   el.dataset.conn = conn;
   el.textContent = {
@@ -223,17 +225,17 @@ function flaky() {
 
 function updatePolling() {
   const need = me && (forcePoll || !wsOpen || flaky());
-  if (need && pollTimer === null) {
-    pollTimer = setInterval(poll, POLL_MS);
-    poll();
-  } else if (!need && pollTimer !== null) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+  if (need && !polling) {
+    polling = true;
+    if (!pollHandle) pollHandle = startPoll(poll, POLL_MS, { activeWhile: () => polling });
+    pollHandle.kick();
+  } else if (!need && polling) {
+    polling = false;
   }
   setConn();
 }
 
-async function poll() {
+async function readState() {
   if (!me) return updatePolling();
   try {
     const r = await fetch(`/play/api/state?player_id=${encodeURIComponent(me.player_id)}&secret=${encodeURIComponent(me.secret)}`, { cache: 'no-store' });

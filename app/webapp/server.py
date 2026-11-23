@@ -102,6 +102,7 @@ from src.quiz.chat import ChatAnswers
 from src.quiz.cues import QuizCues
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
+from src.request_timing import RequestTimingMiddleware
 from src.results.analysis_run import AnalysisRuns
 from src.runtime_data import runtime_data_dir, runtime_db_path
 from src.self_restart import TRAY_RESTART, RestartTarget, restart_router
@@ -356,6 +357,9 @@ def create_app() -> FastAPI:
     # The quiz's phase sounds through the music service (after both: it hears the quiz's changes).
     app.state.quiz_cues = QuizCues(app.state.live, app.state.quiz, app.state.music)
     _install_error_handlers(app)
+    # Inside the auth layer, so a refused request is not timed: every /api/ answer carries Server-Timing
+    # and a slow one is logged with where its time went.
+    app.add_middleware(RequestTimingMiddleware)
     # Outermost: other devices need the phone-remote token before anything else runs.
     app.add_middleware(RemoteAuth, get_token=lambda: remote_token(app.state.config))
     # Added last, so the outermost layer: gzips the pages, JS/CSS and JSON for a phone on cellular and

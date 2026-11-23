@@ -110,8 +110,8 @@ baseline = ".docs-ratchet-baseline.json"
 [comment_ratchet]
 enabled  = true
 baseline = ".comment-ratchet-baseline.json"
-# The quiz player's copies of the fleet CSS are byte-for-byte copies of the vendored and
-# app files (tests/quiz/test_quiz_player.py holds them equal), so their upstream comments
+# The quiz player's copies of the fleet CSS and poll helper are byte-for-byte copies of the
+# vendored and app files (tests/quiz/test_quiz_player.py holds them equal), so their upstream comments
 # cannot be reworded here.
 exclude  = ["app/webapp/player/static/fleet/**"]
 docstrings      = true
@@ -473,6 +473,62 @@ enabled       = true
 baseline      = ".request-budget-ratchet-baseline.json"
 browser_paths = ["app/webapp/static/**", "app/webapp/templates/**", "app/webapp/player/**"]
 handler_dirs  = ["app/webapp/routers"]
+
+# The server loops that run faster than the request budget's 5 s floor on purpose. Each states
+# why it cannot wait longer; a loop that could is fixed instead of declared here.
+[[request_budget.loops]]
+path       = "src/chat/reader.py"
+function   = "Reader.run"
+interval_s = 0.5
+why        = "the live chat reader: a message typed in the meeting chat must reach the stage within a second"
+
+[[request_budget.loops]]
+path       = "src/chat/reader.py"
+function   = "Reader._beat_loop"
+interval_s = 1
+why        = "the reader's alive signal; the server calls the reader stale after 3 s without one"
+
+[[request_budget.loops]]
+path       = "src/chat/hub.py"
+function   = "ChatHub.monitor"
+interval_s = 1
+why        = "turns a silent reader into 'stale' on the presenter within a second of its 3 s heartbeat limit; it only compares timestamps"
+
+[[request_budget.loops]]
+path       = "src/obs/service.py"
+function   = "ObsService._run"
+interval_s = 1
+why        = "while the OBS feature is on and OBS is not answering, reconnects with a 1-10 s backoff so a scene switch works as soon as OBS opens; while off it waits for the switch"
+
+[[request_budget.loops]]
+path       = "src/tunnel.py"
+function   = "Tunnel.supervise"
+interval_s = 30
+why        = "respawns the quiz tunnel process when it dies, backing off from 30 s to 5 min; a live check starts nothing"
+
+[[request_budget.loops]]
+path       = "app/tray/overlay/__main__.py"
+function   = "listen"
+interval_s = 2
+why        = "the copilot overlay reconnects to the app's own socket after a restart; while connected it blocks on the socket"
+
+[[request_budget.loops]]
+path       = "app/webapp/manager.py"
+function   = "WebappManager._wait_until_ready"
+interval_s = 0.4
+why        = "a bounded start-up wait: polls the freshly started webapp until it answers or the deadline passes, then ends"
+
+[[request_budget.loops]]
+path       = "app/webapp/player/listener.py"
+function   = "EmbeddedListener.start"
+interval_s = 0.02
+why        = "a bounded start-up wait for the embedded server's bind, ended by START_TIMEOUT_S"
+
+[[request_budget.loops]]
+path       = "src/activities/replay_render.py"
+function   = "_boot"
+interval_s = 0.25
+why        = "a bounded boot wait for the disposable render instance, ended by BOOT_TIMEOUT_S"
 
 # The scaffold's verify skill (project-scaffolding#412) boots the suite's own disposable instance and
 # must never set the live opt-in (the suite exits if it is set). /healthz is the default ready path and fits; the data-dir default

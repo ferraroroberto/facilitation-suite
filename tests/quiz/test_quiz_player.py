@@ -498,17 +498,18 @@ def test_the_page_and_its_fleet_copies(game) -> None:
         html = r.read().decode("utf-8")
     assert "<title>Quiz</title>" in html and "/play/static/play.js" in html
     assert not re.search(r'(?:href|src)="/(?!play/)', html)  # nothing from the main app, not even its /static
-    for name in ("play.js", "play.css", "fleet/tokens.css", "fleet/button.css"):
+    for name in ("play.js", "play.css", "fleet/tokens.css", "fleet/button.css", "fleet/poll.js"):
         with urllib.request.urlopen(f"{base}/play/static/{name}", timeout=5) as r:
             assert r.status == 200 and r.headers["Cache-Control"] == "no-cache", name
     assert phone.call("GET", "/play/static/../server.py")[0] == 404
 
 
-def test_the_player_copies_of_the_fleet_css_match_the_app() -> None:
+def test_the_player_copies_of_the_fleet_files_match_the_app() -> None:
     main_static = REPO_ROOT / "app" / "webapp" / "static"
     pairs = {"tokens.css": main_static / "css" / "tokens.css", "base.css": main_static / "_vendored" / "base" / "base.css",
              "card.css": main_static / "_vendored" / "card" / "card.css",
-             "button.css": main_static / "_vendored" / "button" / "button.css"}
+             "button.css": main_static / "_vendored" / "button" / "button.css",
+             "poll.js": main_static / "_vendored" / "poll" / "poll.js"}
     for name, source in pairs.items():
         assert (PLAYER_STATIC / "fleet" / name).read_bytes() == source.read_bytes(), (
             f"app/webapp/player/static/fleet/{name} drifted — copy {source.relative_to(REPO_ROOT)} over it")

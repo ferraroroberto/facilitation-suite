@@ -65,6 +65,7 @@ from src.errors import DomainError
 from src.live.hub import now_ms
 from src.quiz.engine import JOINED, RESUMED
 from src.quiz.service import WRONG_PIN, QuizService
+from src.request_timing import RequestTimingMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,8 @@ class AnswerBody(PlayerBody):
 def create_player_app(quiz: QuizService) -> FastAPI:
     """The public player app over the main app's ``quiz`` service: ``/play`` routes only, no docs."""
     app = FastAPI(title="facilitation-suite player", docs_url=None, redoc_url=None, openapi_url=None)
+    # A room of phones on one game: each answer carries Server-Timing and a slow one is logged.
+    app.add_middleware(RequestTimingMiddleware, timed_prefix=f"{PREFIX}/api/")
     limiter = ratelimit.RateLimiter()
     refused_logged: dict[tuple[str, str], float] = {}
 

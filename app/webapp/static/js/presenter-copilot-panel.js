@@ -6,6 +6,7 @@
 // than the snapshots do.
 
 import { api, esc, toast } from '/static/js/ui.js';
+import { startPoll } from '/static/_vendored/poll/poll.js';
 import { icon } from '/static/_vendored/icons/icons.js';
 import { MODE_LABEL, POSITION_LABEL, screenName, showOverlaySample } from '/static/js/views/overlay-card.js';
 
@@ -115,7 +116,7 @@ export function buildPanel(body, live) {
   });
   panel.screens = [];
   api('/api/copilot/settings').then((d) => { panel.screens = d.screens; }).catch(() => {}); // names the overlay's screen
-  startPoll(panel, live);
+  pollCopilot(panel, live);
   return panel;
 }
 
@@ -158,7 +159,9 @@ function overlayText(o, screens) {
 
 /** Redraw the panel for this snapshot. `cur` is the item on stage, `sid` the live session's id. */
 export function drawPanel(panel, c, { cur, sid, now }) {
+  const wasOn = !!panel.dataset.on;
   panel.dataset.on = c.on ? '1' : '';
+  if (c.on && !wasOn && panel.poll) panel.poll.kick();
   panel.dataset.sid = sid;
   panel.classList.toggle('is-on', !!c.on);
   drawStatus(panel, c, now);
@@ -174,22 +177,18 @@ export function drawPanel(panel, c, { cur, sid, now }) {
   panel.querySelector('[data-cop-test]').disabled = !c.on;
 }
 
-/** While Copilot is on, ask for the copilot block every second and redraw the status from it. */
-function startPoll(panel, live) {
-  let busy = false;
-  const timer = setInterval(async () => {
+/** While Copilot is on and the page is visible, ask for the copilot block every second and redraw the status from it. */
+function pollCopilot(panel, live) {
+  const poll = startPoll(async () => {
     if (!panel.isConnected) { // the presenter rebuilt its shell: this panel is gone, so is its loop
-      clearInterval(timer);
+      poll.stop();
       return;
     }
-    if (busy || !panel.dataset.on || document.hidden) return;
-    busy = true;
     try {
       drawStatus(panel, await api('/api/copilot/state'), live.now());
     } catch (e) {
       /* the next snapshot draws it again */
-    } finally {
-      busy = false;
     }
-  }, POLL_MS);
+  }, POLL_MS, { activeWhile: () => !panel.isConnected || !!panel.dataset.on });
+  panel.poll = poll;
 }
