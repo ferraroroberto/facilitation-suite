@@ -52,6 +52,7 @@
 /src/compression.py
 /src/no_window.py
 /src/request_timing.py
+/src/restart_check.py
 /src/runtime_data.py
 /src/self_restart.py
 /src/usage_log.py
