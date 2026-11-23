@@ -342,9 +342,9 @@ class QuizReach:
         threading.Thread(target=self.check_now, name="quiz-reach", daemon=True).start()
         return True
 
-    async def run_periodic(self, interval: float = INTERVAL_S) -> None:
-        """Every ``interval`` while ``wanted()``: the check, in a worker thread (the lifespan runs this)."""
+    async def run_periodic(self) -> None:
+        """Every ``INTERVAL_S`` while ``wanted()``: the check, in a worker thread (the lifespan runs this)."""
         while True:
             if self.wanted():
                 await asyncio.to_thread(self.check_now)
-            await asyncio.sleep(interval)
+            await asyncio.sleep(INTERVAL_S)

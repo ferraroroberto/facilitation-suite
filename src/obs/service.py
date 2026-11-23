@@ -170,7 +170,8 @@ class ObsService:
             if not features.enabled(self.config(), "obs"):
                 self._disconnect()
                 self._set(ObsState.OFF, features.OFF_SENTENCE)
-                self._wake.wait(2.0)
+                # Off costs nothing: the feature switch and stop() both set the wake event.
+                self._wake.wait()
                 self._wake.clear()
                 self._drain(lambda kind, arg: None)
                 continue

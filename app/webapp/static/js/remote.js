@@ -65,6 +65,7 @@ async function start() {
       if (online) loadChat();
     },
   });
+  // request-budget-exempt: an on-screen clock; tick() redraws from the last snapshot and never calls the server.
   setInterval(tick, TICK_MS);
 }
 
