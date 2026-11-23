@@ -27,7 +27,7 @@ DNS with A records directly; a CNAME chain in an answer is followed to its A
 records all the same.
 
 The check blocks for up to a few seconds, so it never runs on the event loop:
-``QuizReach.check_now`` runs in a thread (``asyncio.to_thread``, a readiness
+``QuizReach.check_now`` runs in a thread (this module's own one-thread pool, a readiness
 request's worker thread, or ``kick``), and every reader gets the last result
 (``current``), which turns ``unknown`` once it is older than ``STALE_S``.
 """
@@ -51,6 +51,7 @@ from typing import Any, Optional
 from urllib.parse import urlsplit
 
 import src.tunnel as src_tunnel
+from src.request_timing import TimedExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,9 @@ EDGE_TIMEOUT_S = 5.0
 EDGE_TRIES = 2  # edge addresses tried before calling it unreachable
 INTERVAL_S = 120.0  # the periodic check while a live session has quiz items
 STALE_S = 300.0  # an older result is "unknown", never a stale "ok"
+# The periodic check's own thread: a check stalled on DNS or the edge holds this one, never a
+# thread of the loop's shared default pool that request handlers need.
+_PERIODIC_POOL = TimedExecutor("quiz-reach", max_workers=1)
 
 
 class DnsError(Exception):
@@ -346,5 +350,5 @@ class QuizReach:
         """Every ``INTERVAL_S`` while ``wanted()``: the check, in a worker thread (the lifespan runs this)."""
         while True:
             if self.wanted():
-                await asyncio.to_thread(self.check_now)
+                await asyncio.get_running_loop().run_in_executor(_PERIODIC_POOL, self.check_now)
             await asyncio.sleep(INTERVAL_S)

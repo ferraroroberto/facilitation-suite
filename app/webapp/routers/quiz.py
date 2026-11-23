@@ -11,13 +11,13 @@ app (``app/webapp/player/``) never serves it.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
 from app.webapp.feature_gate import require
+from app.webapp.route_pools import OUTBOUND, run_on
 from src.quiz.model import QuizError
 from src.quiz.qr import not_configured_svg, qr_svg
 
@@ -46,4 +46,4 @@ async def reach_state(request: Request) -> dict[str, Any]:
 @router.post("/reach", dependencies=[Depends(require("quiz_public"))])
 async def reach_check(request: Request) -> dict[str, Any]:
     """The readiness "Check" and the presenter's chip: blocking network calls, so never on the loop."""
-    return await asyncio.to_thread(request.app.state.quiz_reach.check_now)
+    return await run_on(OUTBOUND, request.app.state.quiz_reach.check_now)

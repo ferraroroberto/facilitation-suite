@@ -7,7 +7,6 @@ works without being live. Exports land in the folder's ``exports/`` and are serv
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import subprocess
@@ -21,6 +20,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.webapp.errors import AppError
+from app.webapp.route_pools import SESSION_WORK, run_on
 from src.activities.rebuild import backups
 from src.atomic_write import atomic_write_text
 from src.config import data_dir
@@ -220,12 +220,12 @@ async def export_pdf(request: Request, sid: str) -> dict[str, Any]:
     if not data["pages"] and not data["activities"]:
         raise AppError(409, "nothing_to_export", "Nothing was shown live in this session yet")
     out = folder / "exports" / PDF_FILE
-    pages = await asyncio.to_thread(_print, session_html(folder, data, _participation(folder, session, data)), out)
+    pages = await run_on(SESSION_WORK, _print, session_html(folder, data, _participation(folder, session, data)), out)
     # each copy prints in its own process; a copy with no page to print leaves an older one as it was
     share_out = folder / "exports" / SHARE_FILE
-    share_count = (await asyncio.to_thread(_print, share_html(folder, data), share_out) if share_pages(data) else None)
+    share_count = (await run_on(SESSION_WORK, _print, share_html(folder, data), share_out) if share_pages(data) else None)
     shared_out = folder / "exports" / ACTIVITIES_FILE
-    shared_pages = (await asyncio.to_thread(_print, activities_html(folder, data), shared_out)
+    shared_pages = (await run_on(SESSION_WORK, _print, activities_html(folder, data), shared_out)
                     if activities_pages(data) else None)
     missing = [a["title"] for a in data["activities"] if not a["has_png"]]
     logger.info("✅ session PDFs for %s: %d slides + %d live results + %d quiz pages, %d pages full, %s share, %s participants'", sid,

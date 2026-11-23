@@ -1,16 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    {"key": "app/webapp/features_wiring.py", "counts": {"default-pool": 2}},
-    {"key": "app/webapp/routers/chat.py", "counts": {"default-pool": 5}},
-    {"key": "app/webapp/routers/copilot.py", "counts": {"default-pool": 4}},
-    {"key": "app/webapp/routers/groups.py", "counts": {"default-pool": 1}},
-    {"key": "app/webapp/routers/live.py", "counts": {"default-pool": 1}},
-    {"key": "app/webapp/routers/quiz.py", "counts": {"default-pool": 1}},
-    {"key": "app/webapp/routers/results.py", "counts": {"default-pool": 3}},
-    {"key": "app/webapp/routers/settings.py", "counts": {"default-pool": 5}},
-    {"key": "app/webapp/routers/wrapup.py", "counts": {"default-pool": 3}},
-    {"key": "app/webapp/server.py", "counts": {"default-pool": 6}},
-    {"key": "src/quiz/reach.py", "counts": {"default-pool": 1}}
-  ]
+  "entries": []
 }

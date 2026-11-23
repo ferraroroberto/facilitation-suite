@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, Literal, Optional
 
@@ -11,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.webapp.errors import require_local
 from app.webapp.feature_gate import require
+from app.webapp.route_pools import PROCESSES, SETTINGS_WRITES, run_on
 from src import settings as settings_file
 from src.chat.hub import ChatHub
 from src.chat.process import ReaderProcess
@@ -84,14 +84,14 @@ async def get_messages(request: Request, since: int = 0) -> dict[str, Any]:
 
 @router.post("/reader/start", dependencies=[Depends(require("chat_reader"))])
 async def reader_start(request: Request) -> dict[str, Any]:
-    mode = await asyncio.to_thread(_proc(request).start)
+    mode = await run_on(PROCESSES, _proc(request).start)
     _chat(request).refresh()
     return {"running": mode, "hint": reader_test_hint(mode)}
 
 
 @router.post("/reader/stop", dependencies=[Depends(require("chat_reader"))])
 async def reader_stop(request: Request) -> dict[str, Any]:
-    await asyncio.to_thread(_proc(request).stop)
+    await run_on(PROCESSES, _proc(request).stop)
     _chat(request).refresh()
     return {"running": None}
 
@@ -102,11 +102,11 @@ async def reader_source(request: Request, body: SourceChoice) -> dict[str, Any]:
     reader restarts on it (its first read is a baseline, so nothing already in
     the chat is posted again). A stopped reader or a simulation only saves it."""
     require_local(request, "The chat source can only be changed on this PC")
-    request.app.state.config = await asyncio.to_thread(settings_file.update, {"reader": {"source": body.source}})
+    request.app.state.config = await run_on(SETTINGS_WRITES, settings_file.update, {"reader": {"source": body.source}})
     proc = _proc(request)
     restarted = proc.running() and proc.mode != "simulator" and proc.mode != body.source
     if restarted:
-        await asyncio.to_thread(proc.start)
+        await run_on(PROCESSES, proc.start)
     logger.info("ℹ️ chat source: %s%s", body.source, " — reader restarted" if restarted else "")
     _chat(request).refresh()
     request.app.state.live.push_state()  # every open presenter shows the choice now
@@ -118,6 +118,6 @@ async def simulate(request: Request, body: Simulate) -> dict[str, Any]:
     """Rehearse alone: replay fake answers through the same POST as the reader."""
     spec = {"burst": f"burst:{body.count}", "list": f"list:{body.every_ms}"}.get(body.kind, f"random:{body.count}:{body.every_ms}")
     answers = [a for a in body.answers if a.strip()] or None
-    await asyncio.to_thread(_proc(request).start, spec, answers)
+    await run_on(PROCESSES, _proc(request).start, spec, answers)
     _chat(request).refresh()
     return {"running": "simulator", "script": spec}

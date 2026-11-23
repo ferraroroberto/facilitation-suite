@@ -7,12 +7,12 @@ it off — or starts what only runs while it is on (the quiz player's public lis
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI
 
+from app.webapp.route_pools import PROCESSES, run_on
 from src import features
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,12 @@ def _applier(app: FastAPI) -> Callable[[], Awaitable[None]]:
     async def apply() -> None:
         on = app.state.live.feature_on
         if not on("chat_reader") and app.state.reader_process.running():
-            await asyncio.to_thread(app.state.reader_process.stop)
+            await run_on(PROCESSES, app.state.reader_process.stop)
             app.state.chat.refresh()
         app.state.obs.reconnect()  # its worker reads the switch again: off disconnects, on connects
         if not on("copilot"):
             app.state.copilot.stop()
-            await asyncio.to_thread(app.state.overlay.stop)
+            await run_on(PROCESSES, app.state.overlay.stop)
         if not on("music"):
             app.state.music.silence()
         player = getattr(app.state, "player", None)  # set by the lifespan
