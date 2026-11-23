@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "entries": [
+    {"key": "app/tray/overlay/__main__.py", "counts": {"unwatched-loop": 1}},
+    {"key": "app/webapp/features_wiring.py", "counts": {"default-pool": 2}},
+    {"key": "app/webapp/manager.py", "counts": {"unwatched-loop": 1}},
+    {"key": "app/webapp/player/listener.py", "counts": {"unwatched-loop": 1}},
+    {"key": "app/webapp/player/server.py", "counts": {"timing-middleware": 1}},
+    {"key": "app/webapp/player/static/play.js", "counts": {"fixed-rate-poll": 1, "poll-floor": 1}},
+    {"key": "app/webapp/routers/chat.py", "counts": {"default-pool": 5}},
+    {"key": "app/webapp/routers/copilot.py", "counts": {"default-pool": 4}},
+    {"key": "app/webapp/routers/groups.py", "counts": {"default-pool": 1}},
+    {"key": "app/webapp/routers/live.py", "counts": {"default-pool": 1}},
+    {"key": "app/webapp/routers/quiz.py", "counts": {"default-pool": 1}},
+    {"key": "app/webapp/routers/results.py", "counts": {"default-pool": 3}},
+    {"key": "app/webapp/routers/settings.py", "counts": {"default-pool": 5}},
+    {"key": "app/webapp/routers/wrapup.py", "counts": {"default-pool": 3}},
+    {"key": "app/webapp/server.py", "counts": {"default-pool": 6}},
+    {"key": "app/webapp/static/js/presenter-copilot-panel.js", "counts": {"fixed-rate-poll": 1, "poll-floor": 1}},
+    {"key": "app/webapp/static/js/presenter.js", "counts": {"fixed-rate-poll": 1, "poll-floor": 1}},
+    {"key": "app/webapp/static/js/remote.js", "counts": {"fixed-rate-poll": 1, "poll-floor": 1}},
+    {"key": "src/activities/replay_render.py", "counts": {"unwatched-loop": 1}},
+    {"key": "src/chat/hub.py", "counts": {"unwatched-loop": 1}},
+    {"key": "src/chat/reader.py", "counts": {"unwatched-loop": 2}},
+    {"key": "src/obs/service.py", "counts": {"unwatched-loop": 1}},
+    {"key": "src/quiz/reach.py", "counts": {"unwatched-loop": 1, "default-pool": 1}},
+    {"key": "src/tunnel.py", "counts": {"unwatched-loop": 1}}
+  ]
+}

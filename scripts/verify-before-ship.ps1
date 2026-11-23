@@ -75,7 +75,14 @@
                                map generates, beyond .ux-surface-ratchet-baseline.json.
                                Whole tree, never routed; exit 3 (a file that cannot be
                                read or closed) is NOT CONFIRMED and fails.
-     12. pytest (unit)       - hermetic suite, tests/e2e excluded; stages 12-13 run
+     11e. request budget ratchet - no file's count of fixed-rate browser polls that
+                               reach the server, polls under the 2 s floor, undeclared
+                               fast server loops, directory scans in a request handler,
+                               shared default-pool submits or a missing request-timing
+                               middleware rises beyond
+                               .request-budget-ratchet-baseline.json. Whole tree, never
+                               routed; exit 3 is NOT CONFIRMED and fails.
+     12. pytest (unit)      - hermetic suite, tests/e2e excluded; stages 12-13 run
                                inside the runtime write probe (--snapshot before,
                                --probe after), which fails on any untracked or
                                ignored file they leave under a code folder
@@ -198,6 +205,8 @@ Invoke-Stage "runtime write ratchet"   { & $py "scripts/runtime_write_ratchet.py
 Invoke-Stage "usage track ratchet"     { & $py "scripts/usage_track_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "ux surface ratchet"      { & $py "scripts/ux_surface_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "request budget ratchet"  { & $py "scripts/request_budget_ratchet.py" }
 # Runtime write probe, first half: what already sits untracked or ignored under
 # the code folders, so the probe after the tests names only what they wrote.
 $runtimeSnapshot = Join-Path ([IO.Path]::GetTempPath()) "runtime-write-snapshot-$PID.json"
