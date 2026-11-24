@@ -69,18 +69,29 @@ function trackView(id) {
   lastView = id;
 }
 
+// The nav's first onChange and showView() both activate the tab being restored; its show()
+// (a refresh) runs once per real change, not once per caller. Opening Settings clears it, so
+// returning to the tab underneath refreshes that tab again.
+let shownTab = null;
+function activate(name, mod) {
+  if (name === shownTab) return;
+  shownTab = name;
+  if (mod.show) mod.show();
+}
+
 // Settings is a full page over the current tab (a modal <dialog>): opening it leaves the
 // tab where it was, and its own data-track-view records the visit.
 async function showView(name) {
   leaveSessionHash(name);
   if (name === 'settings') {
+    shownTab = null;
     if (!settingsPane.open) settingsPane.showModal();
   } else {
     closeSettings();
     nav.setTab(name);
   }
   const mod = await ensureView(name);
-  if (mod.show) mod.show();
+  if (name === 'settings') { if (mod.show) mod.show(); } else activate(name, mod);
 }
 
 function closeSettings() {
@@ -96,7 +107,7 @@ const nav = initNavTabs({
     trackView(tab);
     if (navReady) leaveSessionHash(tab);
     closeSettings();
-    ensureView(tab).then((mod) => { if (mod.show) mod.show(); });
+    ensureView(tab).then((mod) => activate(tab, mod));
   },
 });
 navReady = true;

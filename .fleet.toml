@@ -497,7 +497,7 @@ test_paths = ["tests/**"]
 # sessions list is read three times as the page boots and the usage log flushes once. The only
 # poll, the build check, ticks every five minutes, so a longer visit adds almost nothing.
 [request_budget]
-visible_requests_per_minute = 4
+visible_requests_per_minute = 2
 
 # The server loops that run faster than the request budget's 5 s floor on purpose. Each states
 # why it cannot wait longer; a loop that could is fixed instead of declared here.
