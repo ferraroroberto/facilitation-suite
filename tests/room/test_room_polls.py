@@ -1,4 +1,4 @@
-"""Room polls: phones in the session room answer the word cloud or scale on stage through the player
+"""Room polls: phones in the session room answer the activity on stage through the player
 API, into the same capture as the chat — counted together, the split on the stage, a retry never
 counted twice, a changed answer replacing the old one until the poll closes."""
 
@@ -15,12 +15,19 @@ from src.live.capture import select_messages
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import add_quiz_section
 
+POLL_TYPES = {"id": "sec-polls", "name": "Polls", "minutes": 5, "items": [
+    {"kind": "activity", "id": "act-where", "type": "choice", "question": "Where do you work best?",
+     "options": {"choices": "Office, Remote, Hybrid", "multiple": True}},
+    {"kind": "activity", "id": "act-nps", "type": "nps", "question": "Would you recommend this workshop?"},
+]}
+
 
 @pytest.fixture
 def rig(client: TestClient, isolated_env) -> Iterator[tuple[TestClient, TestClient, str]]:
     """The main app live on the demo session, the player app over its services, and the room's PIN."""
     sid, folder = build_demo_session(isolated_env / "sessions" / "demo" / "polls", isolated_env / "sessions.local.yaml")
     add_quiz_section(folder)
+    add_quiz_section(folder, POLL_TYPES, at=99)  # last, so the session opens on its first slide
     assert client.post("/api/live/activate", json={"session": sid}).status_code == 200
     app = create_player_app(client.app.state.quiz, client.app.state.polls)
     with TestClient(app, client=("127.0.0.1", 50001)) as phone:
@@ -166,3 +173,25 @@ def test_a_room_member_joins_a_quiz_later_as_the_same_phone(rig) -> None:
     assert view(phone, me)["phase"] == "lobby"
     resumed = phone.post("/play/api/resume", json={"player_id": me["player_id"], "secret": me["secret"]}).json()
     assert resumed["state"] == "resumed"
+
+
+def test_phones_and_chat_answer_a_multiple_choice_and_an_nps_together(rig) -> None:
+    client, phone, pin = rig
+    goto(client, "act-where")
+    ana = join(phone, pin, "Ana")
+    v = view(phone, ana)
+    assert (v["control"], v["multiple"], [c["key"] for c in v["choices"]]) == ("choice", True, ["A", "B", "C"])
+    client.post("/api/actions/capture_toggle")
+    assert send(phone, ana, "act-where", "C,B", key="w1")["answer"] == "B,C"
+    assert send(phone, ana, "act-where", "D", key="w2")["status"] == 422  # no such choice
+    chat(client, ("Sam", "b"), ("Jo", "office and hybrid"), batch="w")
+    result = capture(client)["result"]
+    assert {b["key"]: b["count"] for b in result["bars"]} == {"A": 1, "B": 2, "C": 2}
+    assert result["sources"] == {"room": 1, "chat": 2}
+    client.post("/api/actions/capture_toggle")
+    goto(client, "act-nps")
+    assert {k: view(phone, ana)[k] for k in ("control", "min", "max")} == {"control": "scale", "min": 0, "max": 10}
+    client.post("/api/actions/capture_toggle")
+    assert send(phone, ana, "act-nps", 10, key="n1")["state"] == "accepted"
+    chat(client, ("Sam", "6"), batch="n")
+    assert capture(client)["result"]["score"] == 0

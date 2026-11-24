@@ -2293,6 +2293,10 @@ surfaces:
       - to: stage.scale
       - to: stage.cards
       - to: stage.feed
+      - to: stage.choice
+      - to: stage.stars
+      - to: stage.nps
+      - to: stage.number
       - to: stage.groups-reveal
       - to: stage.quiz
   - id: stage.word-cloud
@@ -2346,6 +2350,47 @@ surfaces:
       - a Feed item
     holds:
       - answers as bubbles, the newest first and largest; older ones shrink and fade
+  - id: stage.choice
+    area: stage
+    title: Choice
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Choice item
+    holds:
+      - >-
+          one row per lettered choice: its letter, its words and a bar with the count and share, the
+          leader in full colour; optionally the names under each bar
+  - id: stage.stars
+    area: stage
+    title: Stars
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Stars item
+    holds:
+      - the average as a number and as five stars filled to it, the spread under it
+      - one bar per rating, 5 stars down to 1
+  - id: stage.nps
+    area: stage
+    title: NPS
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - an NPS item
+    holds:
+      - the score from -100 to 100, green above zero and red below
+      - one bar split by the shares of detractors, passives and promoters, with each group's count
+  - id: stage.number
+    area: stage
+    title: Number
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Number item
+    holds:
+      - the median with the unit and the range of the answers
+      - a histogram, one bar per whole number or per range
   - id: stage.groups-reveal
     area: stage
     title: Who are you with?
@@ -2607,18 +2652,23 @@ surfaces:
       - to: player.question
         via: a question opens
       - to: player.poll
-        via: a word cloud or scale goes on stage
+        via: an activity a phone can answer goes on stage
   - id: player.poll
     area: player
     title: Room poll
     root: data-surface
     reach:
-      - a word cloud or scale on stage, for every phone in the session room
+      - >-
+          a word cloud, cards, feed, scale, choice, stars, NPS or number on stage, for every phone in
+          the session room
     holds:
       - the activity's question
       - >-
-          one control while its capture runs: a text answer with Send (word cloud), or one button
-          per number of the scale, with its keyword under it when the scale has one per number
+          one control while its capture runs: a text answer with Send (word cloud, cards, feed); one
+          button per number (scale, with its keyword under it when the scale has one per number;
+          NPS, 0 to 10); five star buttons (stars); a lettered button per choice, toggled then sent
+          with Send when more than one is allowed (choice); or a number box with its unit and Send
+          (number)
       - >-
           Sent with the answer counted and "You can change it until the poll closes", Sending… or
           Retrying, or Not sent; once the capture stops, "The poll is closed"

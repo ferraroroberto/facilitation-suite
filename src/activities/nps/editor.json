@@ -1,0 +1,22 @@
+{
+  "type": "nps",
+  "label": "NPS",
+  "icon": "thumbs-up",
+  "order": 12,
+  "description": "How likely to recommend, 0 to 10, one vote per person: the score from -100 to 100 with promoters, passives and detractors.",
+  "chat_prompt_hint": "A number from 0 to 10",
+  "options": [],
+  "samples": [
+    "9",
+    "10",
+    "8",
+    "7",
+    "9",
+    "6",
+    "10",
+    "8 maybe",
+    "3",
+    "9",
+    "10"
+  ]
+}

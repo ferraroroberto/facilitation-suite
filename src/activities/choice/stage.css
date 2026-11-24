@@ -1,0 +1,21 @@
+/* Choice: one row per lettered choice, a bar in one accent colour with the leader in full. */
+.stage-canvas .ch { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.stage-canvas .ch-row { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 24px; }
+.stage-canvas .ch-key {
+  width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 44px; font-weight: 700; color: #ffffff;
+  background: color-mix(in srgb, var(--st-c3) 45%, #ffffff);
+}
+.stage-canvas .ch-row.lead .ch-key { background: var(--st-c3); }
+.stage-canvas .ch-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stage-canvas .ch-label { font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-weight: var(--st-font-weight); font-size: 40px; line-height: 1.1; overflow-wrap: anywhere; }
+.stage-canvas .ch-track { display: block; height: 30px; border-radius: 15px; background: color-mix(in srgb, var(--st-muted) 15%, transparent); overflow: hidden; }
+.stage-canvas .ch-fill {
+  display: block; height: 100%; width: 0; border-radius: 15px;
+  background: color-mix(in srgb, var(--st-c3) 45%, #ffffff);
+  transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1), background 300ms;
+}
+.stage-canvas .ch-row.lead .ch-fill { background: var(--st-c3); }
+.stage-canvas .ch-names { font-size: 20px; color: var(--st-muted); min-height: 1.2em; }
+.stage-canvas .ch-count { min-width: 180px; text-align: right; font-size: 44px; font-weight: 700; }
+.stage-canvas .ch[data-n="6"] .ch-label, .stage-canvas .ch[data-n="7"] .ch-label, .stage-canvas .ch[data-n="8"] .ch-label { font-size: 32px; }

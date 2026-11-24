@@ -1,0 +1,42 @@
+{
+  "type": "number",
+  "label": "Number",
+  "icon": "hash",
+  "order": 13,
+  "description": "The first number in range counts, one vote per person: a histogram and the median.",
+  "chat_prompt_hint": "A number",
+  "options": [
+    {
+      "key": "min",
+      "label": "Lowest (optional)",
+      "kind": "number",
+      "default": null
+    },
+    {
+      "key": "max",
+      "label": "Highest (optional)",
+      "kind": "number",
+      "default": null
+    },
+    {
+      "key": "unit",
+      "label": "Unit (optional)",
+      "kind": "text",
+      "default": "",
+      "placeholder": "years"
+    }
+  ],
+  "samples": [
+    "12",
+    "8",
+    "15",
+    "about 10",
+    "20",
+    "5",
+    "10",
+    "12",
+    "7,5",
+    "25",
+    "10"
+  ]
+}

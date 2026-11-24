@@ -1,0 +1,21 @@
+{
+  "type": "stars",
+  "label": "Stars",
+  "icon": "star",
+  "order": 11,
+  "description": "A rating from 1 to 5 stars, one vote per person: the average and how the votes spread.",
+  "chat_prompt_hint": "1 to 5 stars",
+  "options": [],
+  "samples": [
+    "4",
+    "5",
+    "****",
+    "3",
+    "4 stars",
+    "5",
+    "2",
+    "4/5",
+    "4",
+    "5"
+  ]
+}

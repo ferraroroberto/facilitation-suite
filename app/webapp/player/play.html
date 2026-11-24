@@ -101,6 +101,13 @@
       <button type="submit" class="button-primary play-wide" data-poll-send data-t="send">Send</button>
     </form>
     <div class="play-scale" data-poll-scale role="group"></div>
+    <div class="play-choices" data-poll-choices role="group"></div>
+    <button type="button" class="button-primary play-wide" data-poll-choice-send data-t="send">Send</button>
+    <form class="play-form" data-poll-number novalidate>
+      <label class="play-label" for="pollNumber" data-t="your_number">Your number</label>
+      <span class="play-number"><input class="play-input" id="pollNumber" name="number" inputmode="decimal" autocomplete="off"><span class="play-unit" data-poll-unit></span></span>
+      <button type="submit" class="button-primary play-wide" data-poll-number-send data-t="send">Send</button>
+    </form>
     <p class="play-status" data-poll-status role="status"></p>
     <p class="play-lead" data-poll-note></p>
   </section>
