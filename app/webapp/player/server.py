@@ -78,7 +78,7 @@ import os
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
@@ -152,7 +152,7 @@ class PollBody(PlayerBody):
 class FormBody(BaseModel):
     t: str = Field(min_length=1, max_length=40)
     name: str = Field(default="", max_length=60)
-    answers: dict[str, Union[str, int, float, list[str]]] = Field(default_factory=dict, max_length=MAX_QUESTIONS)
+    answers: dict[str, str | int | float | list[str]] = Field(default_factory=dict, max_length=MAX_QUESTIONS)
     key: Optional[str] = Field(default=None, max_length=64)  # the phone's retry key
     phone: Optional[str] = Field(default=None, max_length=64)  # the phone's own id, for its rate limit
 

@@ -26,7 +26,7 @@ from __future__ import annotations
 import csv
 import io
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from src.errors import DomainError
@@ -203,7 +203,7 @@ def results(qs: list[dict[str, Any]], responses: list[dict[str, Any]]) -> dict[s
 
 def _when(at: Any) -> str:
     try:
-        return datetime.fromtimestamp(int(at) / 1000, tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.fromtimestamp(int(at) / 1000, tz=UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
     except (TypeError, ValueError, OSError):
         return ""
 
