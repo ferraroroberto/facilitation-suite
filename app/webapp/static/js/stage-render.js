@@ -6,7 +6,7 @@
 
 import { esc, lines } from '/static/js/ui.js';
 import { remaining, timerMode } from '/static/js/live.js';
-import { words, roundLine } from '/static/js/stage-words.js';
+import { words, roundLine, spacedPin, shortUrl } from '/static/js/stage-words.js';
 import { roleStyle } from '/static/js/lettering.js';
 import { ownFamily } from '/static/js/font-source.js';
 import { icon } from '/static/_vendored/icons/icons.js';
@@ -16,11 +16,12 @@ export const H = 1080;
 
 // Activity plug-ins: /activities/<type>/stage.js exports render(body, result, ctx)
 // (ctx.lang: the session's language; ctx.quiz: the live quiz snapshot when it is
-// about this item, else null; ctx.now: the server's clock in ms; ctx.preview: a
+// about this item, else null; ctx.join: the room's join state when it is about
+// this item, else null — src/room/polls.py; ctx.now: the server's clock in ms; ctx.preview: a
 // presenter or Plan-tab preview, never the stage itself) and optionally
 // subtitle(item, lang) — a line under the title; an optional stage.css is
 // linked once. render runs again only when the result, the names switch or the
-// quiz snapshot change. Loaded on first use, then cached.
+// quiz snapshot or the join state change. Loaded on first use, then cached.
 // The server stamps this module's own URL with the asset hash (?v=…) and every literal import in it, but
 // not a template one: the plug-in URLs reuse this module's stamp so they cache and invalidate with it.
 const VERSION = new URL(import.meta.url).search;
@@ -202,6 +203,10 @@ function activityHtml(it, lang, hint) {
     `<p class="st-sub" data-sub hidden></p></div>` +
     `<div class="st-body" data-body></div>` +
     `<div class="st-foot">` +
+    // the room's join badge: shown on a poll slide while phones can reach the join link (syncJoin)
+    (it.capture ? `<div class="st-join" data-join hidden><img class="st-join-qr" alt="" data-join-qr>` +
+      `<span class="st-join-text"><span class="st-join-label">${esc(words(lang).join_scan)}</span>` +
+      `<span class="st-join-url" data-join-url></span><span class="st-join-pin" data-join-pin></span></span></div>` : '') +
     (it.capture ? `<span class="st-hint">${icon('message-square')}${esc(hint)}</span>` : '') +
     // a quiz question takes chat answers too while its lobby accepts them: shown while it is open
     (it.type === 'quiz' ? `<span class="st-hint" data-quizhint hidden>${icon('message-square')}${esc(words(lang).quiz_hint)}</span>` : '') +
@@ -248,6 +253,26 @@ function syncTimers(canvas, item, t, ctx, opts) {
     const q = (ctx.state || {}).quiz;
     quizHint.hidden = !(q && q.accept_chat && q.item_id === item.id && q.phase === 'question');
   }
+}
+
+/** The room's join state when it is about `item` (src/room/polls.py → join), else null. */
+function joinFor(item, ctx) {
+  const j = ctx.state && ctx.state.join;
+  return j && j.item_id === item.id ? j : null;
+}
+
+/** A poll slide's corner badge: the QR, the link and the PIN while phones can join, hidden otherwise. */
+function syncJoin(canvas, item, ctx) {
+  const badge = canvas.querySelector('[data-join]');
+  if (!badge) return;
+  const j = joinFor(item, ctx);
+  badge.hidden = !(j && j.ok);
+  if (badge.hidden) return;
+  const src = `/api/quiz/qr.svg?pin=${encodeURIComponent(j.pin)}`;
+  const qr = badge.querySelector('[data-join-qr]');
+  if (qr.getAttribute('src') !== src) qr.setAttribute('src', src);
+  badge.querySelector('[data-join-url]').textContent = shortUrl(j.url);
+  badge.querySelector('[data-join-pin]').textContent = `PIN ${spacedPin(j.pin)}`;
 }
 
 /** The timer of `it` that the stage shows (none when it is presenter-only), from the live state. */
@@ -397,6 +422,7 @@ export function createStage(host, opts = {}) {
     if (blk) blk.hidden = !(opts.blackout !== false && state.blackout);
     if (!item) return;
     syncTimers(canvas, item, stageTimer(item, state), ctx, opts);
+    syncJoin(canvas, item, ctx);
     if (item.kind === 'activity') drawResult(ctx);
   }
 
@@ -408,10 +434,11 @@ export function createStage(host, opts = {}) {
     if (!plugin || !body) return;
     drawSubtitle(canvas, item, plugin, lang);
     const quiz = quizFor(item, ctx);
-    const sig = JSON.stringify([result, names, quiz]);
+    const join = joinFor(item, ctx);
+    const sig = JSON.stringify([result, names, quiz, join]);
     if (sig === lastResult) return; // nothing new: the plug-in keeps its DOM (and its animations)
     lastResult = sig;
-    renderPlugin(plugin, body, result, { item, names, options: item.options || {}, lang, quiz, now: ctx.now, preview: !!opts.guides });
+    renderPlugin(plugin, body, result, { item, names, options: item.options || {}, lang, quiz, join, now: ctx.now, preview: !!opts.guides });
   }
 
   return {

@@ -40,7 +40,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `chat/` | the chat reader (Zoom through MSAA, Teams and Meet through UI Automation) and answer parsing |
 | `copilot/` | the live copilot: audio capture, chunking, the hub client, hints, the rolling summary and call caps, and the service that runs them |
 | `activities/` | the activity registry and the answer handling the plug-ins share |
-| `activities/<type>/` | one folder per activity plug-in (word cloud, scale, map, cards, feed, choice, stars, NPS, number, quiz screens): editor definition, parser, stage renderer, served to the stage at `/activities/<type>/` |
+| `activities/<type>/` | one folder per activity plug-in (word cloud, scale, map, cards, feed, choice, stars, NPS, number, the Join slide, quiz screens): editor definition, parser, stage renderer, served to the stage at `/activities/<type>/` |
 | `groups/` | roster and shuffle |
 | `obs/` | obs-websocket scene switching |
 | `music/` | files and Spotify per item |

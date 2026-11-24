@@ -16,6 +16,7 @@
       "src/activities/quiz": 2,
       "src/activities/quiz_lobby": 2,
       "src/activities/quiz_podium": 2,
+      "src/activities/room_join": 2,
       "src/activities/scale": 2,
       "src/activities/stars": 2,
       "src/activities/word_cloud": 4

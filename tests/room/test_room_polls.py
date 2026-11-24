@@ -1,9 +1,11 @@
 """Room polls: phones in the session room answer the activity on stage through the player
 API, into the same capture as the chat — counted together, the split on the stage, a retry never
-counted twice, a changed answer replacing the old one until the poll closes."""
+counted twice, a changed answer replacing the old one until the poll closes; and the stage shows
+how to join (the badge on a poll slide, the Join slide) only while phones can reach the link."""
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from typing import Any
 
@@ -12,12 +14,16 @@ from fastapi.testclient import TestClient
 
 from app.webapp.player.server import create_player_app
 from src.live.capture import select_messages
+from src.quiz.reach import OK, PUBLIC_UNREACHABLE, Reach
+from src.quiz.service import QUIZ_TYPES
+from src.room.controls import control_of
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.quiz_plan import add_quiz_section
 
 POLL_TYPES = {"id": "sec-polls", "name": "Polls", "minutes": 5, "items": [
     {"kind": "activity", "id": "act-where", "type": "choice", "question": "Where do you work best?",
      "options": {"choices": "Office, Remote, Hybrid", "multiple": True}},
+    {"kind": "activity", "id": "act-join", "type": "room_join"},
     {"kind": "activity", "id": "act-nps", "type": "nps", "question": "Would you recommend this workshop?"},
 ]}
 
@@ -195,3 +201,53 @@ def test_phones_and_chat_answer_a_multiple_choice_and_an_nps_together(rig) -> No
     assert send(phone, ana, "act-nps", 10, key="n1")["state"] == "accepted"
     chat(client, ("Sam", "6"), batch="n")
     assert capture(client)["result"]["score"] == 0
+
+
+JOIN_BASE = "https://join.example.org"
+
+
+def join_state(client: TestClient) -> dict[str, Any] | None:
+    return client.get("/api/live").json()["state"]["join"]
+
+
+def test_the_join_badge_shows_only_while_the_room_is_open_and_the_link_is_reachable(rig) -> None:
+    client, phone, pin = rig
+    app = client.app
+    assert join_state(client) is None  # a slide: nothing to join for
+    goto(client, "act-map")
+    assert join_state(client) is None  # a capture phones cannot answer: no badge
+    goto(client, "act-where")
+    # no public URL yet: the stage knows the PIN but shows no QR
+    assert join_state(client) == {"item_id": "act-where", "pin": pin, "url": None, "member_count": 0, "ok": False}
+    app.state.quiz.public_url = lambda: JOIN_BASE
+    app.state.quiz_reach.last = Reach(PUBLIC_UNREACHABLE, "the edge does not answer", time.time())
+    state = join_state(client)
+    assert (state["url"], state["ok"]) == (f"{JOIN_BASE}/play?pin={pin}", False)  # configured, not reachable
+    app.state.quiz_reach.last = Reach(OK, "fine", time.time())
+    join(phone, pin, "Ada")
+    assert join_state(client) == {"item_id": "act-where", "pin": pin, "url": f"{JOIN_BASE}/play?pin={pin}",
+                                  "member_count": 1, "ok": True}
+    qr = client.get(f"/api/quiz/qr.svg?pin={pin}")  # the badge's picture
+    assert qr.status_code == 200 and qr.headers["x-quiz-qr"] == "ok" and qr.text.startswith("<svg")
+    app.state.quiz_reach.last = Reach(OK, "fine", time.time() - 3600)  # a stale "ok" reads unknown: hidden
+    assert join_state(client)["ok"] is False
+    app.state.quiz_reach.last = Reach(OK, "fine", time.time())
+    goto(client, "act-join")  # the Join slide gets the same state, for its large QR
+    assert join_state(client)["item_id"] == "act-join" and join_state(client)["ok"] is True
+    app.state.room.close()  # the closed room's PIN dies; the live session's new room takes over the QR
+    state = join_state(client)
+    assert state["pin"] not in ("", pin) and state["url"] == f"{JOIN_BASE}/play?pin={state['pin']}"
+    assert state["member_count"] == 0
+
+
+def test_a_poll_slide_keeps_the_public_link_checked(rig) -> None:
+    client, _phone, _pin = rig
+    live = client.app.state.live
+    for it in live.items:  # no quiz: only the polls and the Join slide need the link
+        if it.get("type") in QUIZ_TYPES:
+            it["hidden"] = True
+    assert client.app.state.quiz_reach.wanted() is True
+    for it in live.items:
+        if it.get("type") == "room_join" or control_of(it) is not None:
+            it["hidden"] = True
+    assert client.app.state.quiz_reach.wanted() is False

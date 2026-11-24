@@ -46,7 +46,7 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -101,11 +101,13 @@ from src.music.spotify_login import Login as SpotifyLogin
 from src.obs.service import ObsService
 from src.quiz.chat import ChatAnswers
 from src.quiz.cues import QuizCues
+from src.quiz.reach import OK as REACH_OK
 from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.request_timing import RequestTimingMiddleware
 from src.results.analysis_run import AnalysisRuns
-from src.room.polls import RoomPolls
+from src.room.controls import control_of
+from src.room.polls import JOIN_TYPE, RoomPolls
 from src.room.service import RoomService
 from src.runtime_data import runtime_data_dir, runtime_db_path
 from src.self_restart import TRAY_RESTART, RestartTarget, restart_router
@@ -309,8 +311,8 @@ def _install_music(app: FastAPI) -> None:
 def _install_quiz(app: FastAPI) -> None:
     """The live quiz game: players, phases, answers and scores (``src/quiz/service.py``), its
     Zoom-chat fallback (``src/quiz/chat.py``; own messages count only in the capture's rehearsal mode)
-    and the public-link check (``src/quiz/reach.py``: when a quiz session goes live, then every few
-    minutes while it is, and on demand — always in a worker thread)."""
+    and the public-link check (``src/quiz/reach.py``: when a session phones join (a quiz, a poll or a
+    Join slide) goes live, then every few minutes while it does, and on demand — always in a worker thread)."""
     # The session room (one PIN and QR per live session) the quiz and every later activity join through.
     app.state.room = RoomService(app.state.live)
     service = QuizService(app.state.live, room=app.state.room)
@@ -323,15 +325,21 @@ def _install_quiz(app: FastAPI) -> None:
     # Phones in the room answer the poll on stage into the same capture as the chat (src/room/polls.py).
     app.state.polls = RoomPolls(live, app.state.room, app.state.chat, app.state.capture)
 
-    def quiz_live() -> bool:  # the live session plays a quiz: the public link is checked every few minutes
+    def phones_join(it: dict[str, Any]) -> bool:  # a quiz, a poll slide or a Join slide: phones join through the link
+        return it.get("type") in QUIZ_TYPES or it.get("type") == JOIN_TYPE or control_of(it) is not None
+
+    def public_live() -> bool:  # the live session has an item phones join: the public link is checked every few minutes
         if not features.enabled(app.state.config, "quiz_public"):
             return False
-        return live.session_id is not None and any(it.get("type") in QUIZ_TYPES and not it.get("hidden") for it in live.items)
+        return live.session_id is not None and any(phones_join(it) and not it.get("hidden") for it in live.items)
 
     reach = QuizReach(lambda: (app.state.config.quiz.public_url, app.state.config.quiz.public_port),
-                      wanted=quiz_live, on_change=live.push_state_threadsafe)
+                      wanted=public_live, on_change=live.push_state_threadsafe)
     service.reach = reach.current
-    live.session_listeners.append(lambda sid: reach.kick() if sid and quiz_live() else None)
+    # The stage's join badge and Join slide show the QR only while the link is reachable (src/room/polls.py).
+    app.state.polls.join_url = service.join_url
+    app.state.polls.reachable = lambda: reach.current()["state"] == REACH_OK
+    live.session_listeners.append(lambda sid: reach.kick() if sid and public_live() else None)
     app.state.quiz_reach = reach
     app.state.quiz_chat = ChatAnswers(service, app.state.chat, count_own=lambda: app.state.capture.count_own,
                                        is_excluded=lambda sender: sender in app.state.capture.excluded())
