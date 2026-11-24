@@ -3,11 +3,14 @@ sections and the presenter's music chip deep-links to Settings → Music (#110),
 and on a phone the vendored nav owns `.app`'s padding (safe area on top, the
 floating tab bar's reserve at the bottom) on both nav pages, where the rendered geometry also
 holds: no sideways scroll, tabs that reach 44px and never overlap (#224). The quiz player
-page answers beside it on its own port."""
+page answers beside it on its own port. The main page also keeps its request budget on a fake
+clock: a visible minute within the `.fleet.toml` budget, a hidden minute that reads nothing but
+the usage log's one flush, and one catch-up read per path on the return."""
 
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import yaml
 from playwright.sync_api import Browser, Page, expect
@@ -15,7 +18,15 @@ from playwright.sync_api import Browser, Page, expect
 from tests.e2e._geometry import assert_min_target, assert_no_horizontal_overflow, assert_no_overlap
 from tests.e2e._page_errors import record_page_errors
 from tests.e2e._surface import surface
+from tests.e2e.budget._request_budget import assert_request_budget, measure_request_budget, visible_budget
 from tests.fixtures.demo import build_demo_session
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# The probe's own context: its fake clock and hidden-state script outlive a test, so no other test leases these arguments.
+BUDGET_CONTEXT = {"viewport": {"width": 1366, "height": 768}}
+# The one request a hidden page may make: the usage log sends its queue as a beacon on the switch
+# to hidden so a visit's events are not lost, and arms nothing after that.
+HIDING_FLUSH = "/api/usage/events"
 
 # A touch phone (coarse pointer, <=520px): the vendored nav-tabs.css phone rule applies.
 PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
@@ -28,7 +39,19 @@ APP_PADDING = """() => {
 }"""
 
 
+def check_main_page_request_budget(browser: Browser, base_url: str) -> None:
+    """The main page reads within its visible budget, nothing hidden but the usage flush, once per path on return."""
+    context = browser.new_context(**BUDGET_CONTEXT)
+    try:
+        reading = measure_request_budget(context.new_page(), f"{base_url}/")
+    finally:
+        context.close()
+    assert reading.hidden.pop(HIDING_FLUSH, 0) <= 1, f"more than the one flush on hiding: {reading.summary()}"
+    assert_request_budget(reading, visible_budget(REPO_ROOT))
+
+
 def test_shell_loads_and_navigates(page: Page, browser: Browser, webapp) -> None:
+    check_main_page_request_budget(browser, webapp.base_url)  # first: the instance holds no session yet
     errors: list[str] = []
     record_page_errors(page, errors)
     page.set_viewport_size({"width": 1440, "height": 900})
