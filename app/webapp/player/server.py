@@ -63,6 +63,7 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Optional
 
@@ -85,6 +86,7 @@ from src.quiz.service import WRONG_PIN, QuizService
 from src.request_timing import RequestTimingMiddleware
 from src.room.model import RESUMED as ROOM_RESUMED
 from src.room.polls import RoomPolls
+from src.room.service import RoomJoin
 
 logger = logging.getLogger(__name__)
 
@@ -144,34 +146,11 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
     app.add_middleware(RequestTimingMiddleware, timed_prefix=f"{PREFIX}/api/")
     limiter = ratelimit.RateLimiter()
     refused_logged: dict[tuple[str, str], float] = {}
-
-    def view_message(player_id: str, secret: str) -> dict[str, Any]:
-        if quiz.live.session_id is None:
-            return {"type": "view", "state": "no_game", "view": None}
-        view = polls.view(player_id, secret) if polls is not None else None
-        if view is None:
-            view = quiz.player_view(player_id, secret)
-        if view is None and polls is not None and not polls.refused(player_id, secret):
-            game = quiz.game_on_stage()
-            view = {"kind": "room", "lang": quiz.language(),
-                    "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
-        return {"type": "view", "state": "ok" if view is not None else "unknown_player", "view": view}
-
-    push = PlayerPush(view_message)
-    app.state.push = push
+    view_message = _view_messages(quiz, polls)
+    push = _attach_push(app, quiz, polls, view_message)
     sockets: set[WebSocket] = set()  # every accepted socket, said hello or not
     app.state.sockets = sockets
     app.state.limiter = limiter
-
-    def detach() -> None:  # the listener calls it on stop
-        quiz.change_listeners.remove(push.notify)
-        if polls is not None:
-            quiz.live.push_listeners.remove(push.notify)
-
-    app.state.detach = detach
-    quiz.change_listeners.append(push.notify)
-    if polls is not None:  # a poll opens, closes or leaves the stage with the live state
-        quiz.live.push_listeners.append(push.notify)
 
     def client_ip(request: Request) -> str:
         return request.client.host if request.client else "?"
@@ -188,17 +167,7 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
             logger.warning("⚠️ quiz player: %s rate limit reached for %s (logged once a minute)", name, ip)
         raise PlayerError(429, "slow_down", "Too many tries — wait a moment", {"retry_after_s": round(wait, 1)})
 
-    @app.exception_handler(DomainError)
-    async def _domain_error(request: Request, exc: DomainError) -> Response:
-        return error_response(exc.status, exc.code, str(exc), exc.detail)
-
-    @app.exception_handler(RequestValidationError)
-    async def _validation_error(request: Request, exc: RequestValidationError) -> Response:
-        return error_response(422, "validation_error", "invalid request")
-
-    @app.exception_handler(StarletteHTTPException)
-    async def _http_error(request: Request, exc: StarletteHTTPException) -> Response:
-        return error_response(exc.status_code, "not_found" if exc.status_code == 404 else "http_error", str(exc.detail))
+    _install_error_handlers(app)
 
     @app.get(PREFIX, include_in_schema=False)
     async def play() -> FileResponse:
@@ -217,12 +186,7 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
         limit("wrong_pin", ip, ratelimit.WRONG_PIN, take=False)
         limit("join", ip, ratelimit.JOIN)
         if polls is not None and quiz.game_on_stage() is None and quiz.pin_matches(body.pin):
-            member = quiz.room.join(body.nickname, body.key)  # no quiz on stage: the room only, a name optional
-            out = {"state": member.state, "game_id": None, "player_id": member.player_id, "secret": member.secret,
-                   "name": member.name}
-            if member.state == JOINED:
-                out["view"] = view_message(str(member.player_id), str(member.secret))
-            return {**out, "now_ms": now_ms()}
+            return _join_room(quiz, body, view_message)  # no quiz on stage: the room only, a name optional
         res = quiz.join_pin(body.pin, body.nickname, body.key)
         if res.state == WRONG_PIN:
             limiter.allow("wrong_pin", ip, ratelimit.WRONG_PIN)
@@ -240,8 +204,8 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
         if res.state == UNKNOWN_PLAYER and polls is not None:  # a room member who plays no quiz
             member = quiz.room.resume(body.player_id, body.secret)
             if member.state == ROOM_RESUMED:
-                return {"state": RESUMED, "game_id": None, "player_id": member.player_id, "secret": member.secret,
-                        "name": member.name, "view": view_message(body.player_id, body.secret), "now_ms": now_ms()}
+                return {**_member_dict(member, RESUMED), "view": view_message(body.player_id, body.secret),
+                        "now_ms": now_ms()}
         out = res.as_dict()
         if res.state == RESUMED:
             out["view"] = view_message(body.player_id, body.secret)
@@ -274,6 +238,75 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
         await _serve_socket(ws, push, sockets)
 
     return app
+
+
+ViewMessage = Callable[[str, str], dict[str, Any]]
+
+
+def _view_messages(quiz: QuizService, polls: Optional[RoomPolls]) -> ViewMessage:
+    """(player_id, secret) → that phone's view message (see the module docstring)."""
+
+    def view_message(player_id: str, secret: str) -> dict[str, Any]:
+        if quiz.live.session_id is None:
+            return {"type": "view", "state": "no_game", "view": None}
+        view = polls.view(player_id, secret) if polls is not None else None
+        if view is None:
+            view = quiz.player_view(player_id, secret)
+        if view is None and polls is not None and not polls.refused(player_id, secret):
+            game = quiz.game_on_stage()
+            view = {"kind": "room", "lang": quiz.language(),
+                    "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
+        return {"type": "view", "state": "ok" if view is not None else "unknown_player", "view": view}
+
+    return view_message
+
+
+def _attach_push(app: FastAPI, quiz: QuizService, polls: Optional[RoomPolls], view_message: ViewMessage) -> PlayerPush:
+    """The phones' push, run on every quiz change and, with room polls, on every live-state push
+    (a poll opens, closes or leaves the stage); ``app.state.detach`` undoes both (the listener calls it on stop)."""
+    push = PlayerPush(view_message)
+    app.state.push = push
+    quiz.change_listeners.append(push.notify)
+    if polls is not None:
+        quiz.live.push_listeners.append(push.notify)
+
+    def detach() -> None:
+        quiz.change_listeners.remove(push.notify)
+        if polls is not None:
+            quiz.live.push_listeners.remove(push.notify)
+
+    app.state.detach = detach
+    return push
+
+
+def _install_error_handlers(app: FastAPI) -> None:
+    """Every refusal in the one JSON error envelope the phone reads."""
+
+    @app.exception_handler(DomainError)
+    async def _domain_error(request: Request, exc: DomainError) -> Response:
+        return error_response(exc.status, exc.code, str(exc), exc.detail)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(request: Request, exc: RequestValidationError) -> Response:
+        return error_response(422, "validation_error", "invalid request")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(request: Request, exc: StarletteHTTPException) -> Response:
+        return error_response(exc.status_code, "not_found" if exc.status_code == 404 else "http_error", str(exc.detail))
+
+
+def _member_dict(member: RoomJoin, state: str) -> dict[str, Any]:
+    """A room member's join or resume answer, shaped like the quiz's (no game)."""
+    return {"state": state, "game_id": None, "player_id": member.player_id, "secret": member.secret, "name": member.name}
+
+
+def _join_room(quiz: QuizService, body: JoinBody, view_message: ViewMessage) -> dict[str, Any]:
+    """Join the session room only (no quiz on stage): the name may be empty."""
+    member = quiz.room.join(body.nickname, body.key)
+    out = _member_dict(member, member.state)
+    if member.state == JOINED:
+        out["view"] = view_message(str(member.player_id), str(member.secret))
+    return {**out, "now_ms": now_ms()}
 
 
 async def _serve_socket(ws: WebSocket, push: PlayerPush, sockets: set[WebSocket]) -> None:
