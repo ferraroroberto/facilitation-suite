@@ -2287,6 +2287,13 @@ surfaces:
       - >-
           the question, a body drawn by the activity's plug-in, a footer with the chat hint, the
           answer count and the timer pill
+      - >-
+          on a poll slide (an activity a phone can answer), a join badge first in the footer: the
+          room's QR code, the join link and the PIN
+    states:
+      - >-
+          the join badge shows only while the room is open and the public join link checks
+          reachable; otherwise it is hidden and the chat hint stays, so the chat is the fallback
     links:
       - to: stage.word-cloud
       - to: stage.map
@@ -2298,6 +2305,7 @@ surfaces:
       - to: stage.nps
       - to: stage.number
       - to: stage.groups-reveal
+      - to: stage.join
       - to: stage.quiz
   - id: stage.word-cloud
     area: stage
@@ -2402,6 +2410,23 @@ surfaces:
       - >-
           every breakout room of the chosen round as a numbered card, so each person finds their
           room
+  - id: stage.join
+    area: stage
+    title: Join slide
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Join slide item
+    holds:
+      - >-
+          the session room's QR code, large, with the join link, the PIN and how many phones have
+          joined
+    states:
+      - >-
+          phones cannot join (the room closed, no public URL, the link not checked reachable): a
+          note that sends people to the chat in place of the QR
+      - a preview shows placeholders for the QR, the link and the PIN
+    why: a QR that leads nowhere is never put on the screen
   - id: stage.quiz
     area: stage
     title: Quiz

@@ -41,7 +41,7 @@ Walked 2026-11-18 against build `0d935a0`, at widths 390, 1280, themes light, da
 | [Results](#results) | 13 |
 | [Settings](#settings) | 21 |
 | [Presenter cockpit](#presenter-cockpit) | 30 |
-| [Stage](#stage) | 18 |
+| [Stage](#stage) | 19 |
 | [Phone remote](#phone-remote) | 10 |
 | [Quiz player](#quiz-player) | 9 |
 
@@ -1928,9 +1928,10 @@ flowchart LR
   s132["NPS"]
   s133["Number"]
   s134["Who are you with?"]
-  s135["Quiz"]
-  s136["Blackout"]
-  s137["Frozen capture"]
+  s135["Join slide"]
+  s136["Quiz"]
+  s137["Blackout"]
+  s138["Frozen capture"]
   s17(["Session detail · Sessions"])
   s93(["Status chips · Presenter cockpit"])
   s17 -->|"Open stage window"| s120
@@ -1939,8 +1940,8 @@ flowchart LR
   s120 --> s122
   s120 --> s123
   s120 --> s124
-  s120 --> s136
-  s120 -->|"a capture's picture"| s137
+  s120 --> s137
+  s120 -->|"a capture's picture"| s138
   s124 --> s125
   s124 --> s126
   s124 --> s127
@@ -1952,6 +1953,7 @@ flowchart LR
   s124 --> s133
   s124 --> s134
   s124 --> s135
+  s124 --> s136
 ```
 
 ### `stage.live` Stage
@@ -2002,7 +2004,10 @@ flowchart LR
 
 - **Root:** none — a rendering inside `stage.live`, one plug-in per type
 - **Reach:** an activity item on stage
-- **Holds:** the question, a body drawn by the activity's plug-in, a footer with the chat hint, the answer count and the timer pill
+- **Holds:**
+  - the question, a body drawn by the activity's plug-in, a footer with the chat hint, the answer count and the timer pill
+  - on a poll slide (an activity a phone can answer), a join badge first in the footer: the room's QR code, the join link and the PIN
+- **States:** the join badge shows only while the room is open and the public join link checks reachable; otherwise it is hidden and the chat hint stays, so the chat is the fallback
 - **Leads to:**
   - [Word cloud](#stageword-cloud-word-cloud)
   - [Map](#stagemap-map)
@@ -2014,6 +2019,7 @@ flowchart LR
   - [NPS](#stagenps-nps)
   - [Number](#stagenumber-number)
   - [Who are you with?](#stagegroups-reveal-who-are-you-with)
+  - [Join slide](#stagejoin-join-slide)
   - [Quiz](#stagequiz-quiz)
 
 ### `stage.word-cloud` Word cloud
@@ -2083,6 +2089,16 @@ flowchart LR
 - **Reach:** a Who are you with? item
 - **Holds:** every breakout room of the chosen round as a numbered card, so each person finds their room
 
+### `stage.join` Join slide
+
+- **Root:** none — an activity body inside `stage.activity`
+- **Reach:** a Join slide item
+- **Holds:** the session room's QR code, large, with the join link, the PIN and how many phones have joined
+- **States:**
+  - phones cannot join (the room closed, no public URL, the link not checked reachable): a note that sends people to the chat in place of the QR
+  - a preview shows placeholders for the QR, the link and the PIN
+- **Why:** a QR that leads nowhere is never put on the screen
+
 ### `stage.quiz` Quiz
 
 - **Root:** none — an activity body inside `stage.activity`, one renderer for the three quiz types
@@ -2112,24 +2128,24 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s138["Remote navigation"]
-  s139["Remote live"]
-  s140["Remote with no live session"]
-  s141["Remote not paired"]
-  s142["Remote Copilot strip"]
-  s143["Remote quiz block"]
-  s144["Remote quiz locked"]
-  s145["Remote music block"]
-  s146["Remote chat"]
-  s147["Remote groups"]
-  s138 -->|"Live"| s139
-  s138 -->|"Chat"| s146
-  s138 -->|"Groups"| s147
-  s139 --> s142
-  s139 --> s143
-  s139 --> s145
-  s139 -->|"no session"| s140
-  s143 -->|"after Lock"| s144
+  s139["Remote navigation"]
+  s140["Remote live"]
+  s141["Remote with no live session"]
+  s142["Remote not paired"]
+  s143["Remote Copilot strip"]
+  s144["Remote quiz block"]
+  s145["Remote quiz locked"]
+  s146["Remote music block"]
+  s147["Remote chat"]
+  s148["Remote groups"]
+  s139 -->|"Live"| s140
+  s139 -->|"Chat"| s147
+  s139 -->|"Groups"| s148
+  s140 --> s143
+  s140 --> s144
+  s140 --> s146
+  s140 -->|"no session"| s141
+  s144 -->|"after Lock"| s145
 ```
 
 ### `remote.nav` Remote navigation
@@ -2252,20 +2268,20 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s148["Player loading"]
-  s149["Join"]
-  s150["Waiting"]
-  s151["Room poll"]
-  s152["Question"]
-  s153["Answer sent"]
-  s154["Result"]
-  s155["Removed"]
-  s156["Player theme toggle"]
-  s149 -->|"joined"| s150
-  s150 -->|"a question opens"| s152
-  s150 -->|"an activity a phone can answer goes on stage"| s151
-  s152 -->|"after a tap"| s153
-  s154 -->|"removed by the host"| s155
+  s149["Player loading"]
+  s150["Join"]
+  s151["Waiting"]
+  s152["Room poll"]
+  s153["Question"]
+  s154["Answer sent"]
+  s155["Result"]
+  s156["Removed"]
+  s157["Player theme toggle"]
+  s150 -->|"joined"| s151
+  s151 -->|"a question opens"| s153
+  s151 -->|"an activity a phone can answer goes on stage"| s152
+  s153 -->|"after a tap"| s154
+  s155 -->|"removed by the host"| s156
 ```
 
 ### `player.loading` Player loading
@@ -2524,6 +2540,7 @@ flowchart LR
 | [Activity](#stageactivity-activity) |  | [NPS](#stagenps-nps) |
 | [Activity](#stageactivity-activity) |  | [Number](#stagenumber-number) |
 | [Activity](#stageactivity-activity) |  | [Who are you with?](#stagegroups-reveal-who-are-you-with) |
+| [Activity](#stageactivity-activity) |  | [Join slide](#stagejoin-join-slide) |
 | [Activity](#stageactivity-activity) |  | [Quiz](#stagequiz-quiz) |
 | [Remote navigation](#remotenav-remote-navigation) | Live | [Remote live](#remotelive-remote-live) |
 | [Remote navigation](#remotenav-remote-navigation) | Chat | [Remote chat](#remotechat-remote-chat) |

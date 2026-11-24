@@ -39,9 +39,9 @@ def one_line(text: str) -> str:
 # lobby or podium is headed in the session's language too.
 DEFAULT_TITLES: dict[str, dict[str, str]] = {
     "en": {"break": "Break", "breakout": "Breakout rooms", "groups_reveal": "Who are you with?",
-           "quiz_lobby": "Quiz lobby", "quiz_podium": "Quiz podium"},
+           "room_join": "Join on your phone", "quiz_lobby": "Quiz lobby", "quiz_podium": "Quiz podium"},
     "es": {"break": "Descanso", "breakout": "Salas de grupos", "groups_reveal": "¿Con quién estás?",
-           "quiz_lobby": "Quiz", "quiz_podium": "Podio"},
+           "room_join": "Únete desde tu móvil", "quiz_lobby": "Quiz", "quiz_podium": "Podio"},
 }
 
 

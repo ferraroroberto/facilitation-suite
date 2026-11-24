@@ -35,11 +35,23 @@ Any other item shows the phone a "watch the screen" view.
   ``unknown_player`` or ``closed`` (the room closed). Raises ``controls.PollError`` 422
   ``bad_value`` for an answer its control cannot send (an empty text, a number
   out of range, an unknown choice, two choices where one is allowed).
+- ``join_state() -> Optional[dict]`` — the live snapshot's ``join`` field (below).
+
+**Joining from the stage.** A poll slide (an item a phone can answer) shows a
+corner QR badge, and a Join slide (``room_join``) a large QR code, each with
+the join link and the room's PIN. ``join`` is ``None`` off those items; on
+them it is ``item_id``, ``pin``, ``url`` (the public join link, ``None`` while
+it is not configured), ``member_count`` and ``ok``. ``ok`` is true only while
+the room is open, the link is configured and the last public-link check
+(``src/quiz/reach.py``) says ``ok``, so a QR that leads nowhere is never
+shown; the chat prompt stays on the slide either way, so the chat is the
+fallback. The server sets ``join_url`` and ``reachable``.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -54,6 +66,7 @@ logger = logging.getLogger(__name__)
 
 ACCEPTED = "accepted"
 NOT_OPEN = "not_open"  # no live capture on that item: the poll has not started or is closed
+JOIN_TYPE = "room_join"  # the Join slide: a large QR code, the join link and the PIN
 
 
 @dataclass
@@ -72,8 +85,11 @@ class RoomPolls:
         self._session: Optional[str] = None
         self._latest: dict[tuple[str, str], str] = {}  # (item id, player id) → the phone's newest answer
         self._keys: dict[str, str] = {}  # a phone's answer key → the answer it carried
+        self.join_url: Callable[[str], Optional[str]] = lambda pin: None  # the public join link (set by the server)
+        self.reachable: Callable[[], bool] = lambda: False  # the last public-link check said ok (set by the server)
         chat.listeners.append(self._on_messages)
         live.reset_listeners.append(self._forget)
+        live.extra_state.append(lambda: {"join": self.join_state()})
 
     # ------------------------------------------------------------ queries
 
@@ -89,6 +105,18 @@ class RoomPolls:
         }
         out.update(fields(cur))
         return out
+
+    def join_state(self) -> Optional[dict[str, Any]]:
+        """How a phone joins from the item on stage (see **Joining from the stage**)."""
+        cur = self.live.current()
+        if cur is None or (control_of(cur) is None and cur.get("type") != JOIN_TYPE):
+            return None
+        room = self.room.current()
+        pin = room.pin if room is not None and room.open else ""
+        url = self.join_url(pin) if pin else None
+        return {"item_id": cur["id"], "pin": pin, "url": url,
+                "member_count": len(room.members) if room is not None else 0,
+                "ok": bool(url) and self.reachable()}
 
     def answer_of(self, item_id: str, player_id: str) -> Optional[str]:
         self._sync()

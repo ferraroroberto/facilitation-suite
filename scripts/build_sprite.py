@@ -43,6 +43,8 @@ GLYPHS = [
     "music", "volume-2", "volume-x",
     # quiz
     "rocket", "circle-help", "crown",
+    # session room
+    "qr-code",
     # settings sections
     "palette", "plug", "book-open", "link",
 ]

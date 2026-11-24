@@ -203,7 +203,7 @@ def test_session_model_default_is_valid() -> None:
 def test_activity_types_come_from_the_plugin_folders(client) -> None:
     types = client.get("/api/activities").json()["types"]
     assert [t["type"] for t in types] == ["word_cloud", "map", "scale", "cards", "feed", "groups_reveal",
-                                           "quiz_lobby", "quiz", "quiz_podium", "choice", "stars", "nps", "number"]
+                                           "quiz_lobby", "quiz", "quiz_podium", "choice", "stars", "nps", "number", "room_join"]
     wc = types[0]
     assert {o["key"] for o in wc["options"]} >= {"merge_variants", "stopwords"}
     assert next(t for t in types if t["type"] == "quiz_podium")["capture"] is False

@@ -1,0 +1,27 @@
+/* The Join slide: the QR as large as the body allows, the link and PIN beside it. */
+.stage-canvas .rj { position: absolute; inset: 0; display: flex; gap: 72px; align-items: center; justify-content: center; }
+.stage-canvas .rj-qr {
+  flex: none;
+  height: 100%;
+  max-height: 640px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  padding: 18px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  display: grid;
+  place-items: center;
+}
+.stage-canvas .rj-qr img { width: 100%; height: 100%; display: block; }
+.stage-canvas .rj-qr.off { background: var(--st-chip-bg); border: 4px dashed var(--st-chip-line); box-shadow: none; color: var(--st-muted); }
+.stage-canvas .rj-qr.off .icon { width: 160px; height: 160px; }
+.stage-canvas .rj-qr-sample { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 128px; font-weight: 800; }
+.stage-canvas .rj-side { flex: 0 1 720px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.stage-canvas .rj-side p { margin: 0; }
+.stage-canvas .rj-label { font-family: var(--st-font); font-size: 36px; color: var(--st-muted); }
+.stage-canvas .rj-url { margin-bottom: 24px; font-family: var(--st-font); font-weight: 700; font-size: 52px; line-height: 1.15; overflow-wrap: anywhere; }
+.stage-canvas .rj-pin { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 140px; font-weight: 800; letter-spacing: 0.04em; line-height: 1; }
+.stage-canvas .rj-note, .stage-canvas .rj-count { display: flex; align-items: center; gap: 16px; font-family: var(--st-font); font-size: 40px; line-height: 1.2; }
+.stage-canvas .rj-count { margin-top: 24px; color: var(--st-muted); }
+.stage-canvas .rj-note .icon, .stage-canvas .rj-count .icon { flex: none; width: 44px; height: 44px; }

@@ -189,6 +189,22 @@
 .stage-canvas .st-count { display: inline-flex; align-items: center; gap: 8px; font-size: 30px; color: var(--st-muted); }
 .stage-canvas .st-count svg { width: 28px; height: 28px; }
 .stage-canvas .st-count b { color: var(--st-ink); }
+/* A poll slide's join badge, first in the footer: the room's QR, the link and the PIN. */
+.stage-canvas .st-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 26px 10px 10px;
+  border-radius: 20px;
+  background: var(--st-chip-bg);
+  border: 2px solid var(--st-chip-line);
+}
+.stage-canvas .st-join[hidden] { display: none; }
+.stage-canvas .st-join-qr { width: 150px; height: 150px; display: block; border-radius: 10px; background: #ffffff; }
+.stage-canvas .st-join-text { display: flex; flex-direction: column; gap: 4px; font-family: var(--st-hint-font); line-height: 1.15; }
+.stage-canvas .st-join-label { font-size: 24px; color: var(--st-muted); }
+.stage-canvas .st-join-url { font-size: 28px; font-weight: 700; }
+.stage-canvas .st-join-pin { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 40px; font-weight: 800; letter-spacing: 0.04em; }
 .stage-canvas .st-pill {
   display: inline-flex;
   align-items: center;

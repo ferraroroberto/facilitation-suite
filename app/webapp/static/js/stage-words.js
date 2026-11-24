@@ -1,7 +1,7 @@
 // The words the stage says by itself — not the facilitator's own questions and
 // titles — in the session's language (session.yaml → language). The app, the
 // presenter and the remote stay in English. src/live/plan.py keeps the default
-// titles (break, breakout, "who are you with?") in step; a unit test checks.
+// titles (break, breakout, "who are you with?", the Join slide) in step; a unit test checks.
 
 const WORDS = {
   en: {
@@ -10,6 +10,11 @@ const WORDS = {
     break: 'Break',
     breakout: 'Breakout rooms',
     reveal: 'Who are you with?',
+    join: 'Join on your phone',
+    join_scan: 'Scan to answer',
+    join_link: 'Go to',
+    join_off: 'Phones cannot join right now: answer in the chat',
+    joined: (n) => `${n} joined`,
     question: 'Your question here',
     rounds: { pairs: 'Pairs', g4a: 'Groups of 4 · A', g4b: 'Groups of 4 · B' },
     rooms: (n) => `${n} room${n === 1 ? '' : 's'}`,
@@ -22,6 +27,11 @@ const WORDS = {
     break: 'Descanso',
     breakout: 'Salas de grupos',
     reveal: '¿Con quién estás?',
+    join: 'Únete desde tu móvil',
+    join_scan: 'Escanea para responder',
+    join_link: 'Entra en',
+    join_off: 'Ahora no se puede entrar desde el móvil: responde en el chat',
+    joined: (n) => `${n} dentro`,
     question: 'Tu pregunta aquí',
     rounds: { pairs: 'Parejas', g4a: 'Grupos de 4 · A', g4b: 'Grupos de 4 · B' },
     rooms: (n) => `${n} sala${n === 1 ? '' : 's'}`,
@@ -43,4 +53,15 @@ export function roundLine(lang, round, rooms) {
   if (!round) return '';
   const n = (rooms || []).length;
   return `${w.rounds[round] || round}${n ? ` · ${w.rooms(n)}` : ''}`;
+}
+
+/** "123 456": a 6-digit PIN in two groups, easier to read off the screen. */
+export function spacedPin(pin) {
+  const p = String(pin || '');
+  return p.length === 6 ? `${p.slice(0, 3)} ${p.slice(3)}` : p;
+}
+
+/** The join link without its scheme and query: what a person types if they do not scan. */
+export function shortUrl(url) {
+  return String(url || '').replace(/^https?:\/\//, '').replace(/\?.*$/, '');
 }

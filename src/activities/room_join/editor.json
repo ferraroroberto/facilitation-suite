@@ -1,0 +1,10 @@
+{
+  "type": "room_join",
+  "label": "Join slide",
+  "icon": "qr-code",
+  "order": 14,
+  "description": "A large QR code, the join link and the PIN, so phones in the room join before the polls. No chat capture.",
+  "capture": false,
+  "needs_question": false,
+  "options": []
+}
