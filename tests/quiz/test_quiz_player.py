@@ -416,34 +416,24 @@ def test_the_default_limits_let_60_players_behind_one_nat_play() -> None:
 
 # ---- the PIN (engine + service) ----
 
-def test_every_game_has_its_own_pin_and_it_survives_a_restart(quiz_session, clock: Clock) -> None:
+def test_every_game_joins_with_the_room_pin_and_a_phone_keeps_its_identity(quiz_session, clock: Clock) -> None:
     sid, folder = quiz_session
     hub, quiz = make_rig(sid, clock)
     goto_id(hub, "qz-lobby")
-    first = quiz.game_on_stage()
-    assert len(first.pin) == 6 and hub.snapshot()["state"]["quiz"]["pin"] == first.pin
-    assert quiz.join_pin(first.pin, "Ana").state == "joined"
-    assert quiz.join_pin("999999" if first.pin != "999999" else "111111", "Bo").state == "wrong_pin"
-    quiz.new_game()
-    second = quiz.game_on_stage()
-    assert second.game_id != first.game_id and second.pin and second.pin != first.pin
-    assert quiz.join_pin(first.pin, "Cy").state == "no_game"  # an old game's PIN: not the game on stage
-    recs = [r for r in read_jsonl(folder / "live" / QUIZ_FILE) if r["op"] == "pin"]
-    assert [r["pin"] for r in recs] == [first.pin, second.pin]
+    pin = quiz.room.pin()
+    assert len(pin) == 6 and hub.snapshot()["state"]["quiz"]["pin"] == pin == hub.snapshot()["state"]["room"]["pin"]
+    ana = quiz.join_pin(pin, "Ana", key="phone-a")
+    assert ana.state == "joined" and quiz.room.member(ana.player_id).secret == ana.secret
+    assert quiz.join_pin("999999" if pin != "999999" else "111111", "Bo").state == "wrong_pin"
+    quiz.new_game()  # play again: the same room PIN, and the same phone is the same player
+    assert hub.snapshot()["state"]["quiz"]["pin"] == pin
+    again = quiz.join_pin(pin, "Ana", key="phone-a")
+    assert again.game_id == quiz.game_on_stage().game_id != ana.game_id
+    assert (again.player_id, again.secret) == (ana.player_id, ana.secret)
+    assert not [r for r in read_jsonl(folder / "live" / QUIZ_FILE) if r["op"] == "pin"]  # games write no PIN
 
     _, quiz2 = make_rig(sid, clock)  # a fresh server on the same folder
-    assert {g.game_id: g.pin for g in quiz2.games.values()} == {first.game_id: first.pin, second.game_id: second.pin}
-
-
-def test_a_game_from_before_pins_gets_one(quiz_session, clock: Clock) -> None:
-    sid, folder = quiz_session
-    hub, quiz = make_rig(sid, clock)
-    goto_id(hub, "qz-lobby")
-    path = folder / "live" / QUIZ_FILE
-    path.write_text("".join(json.dumps(r) + "\n" for r in read_jsonl(path) if r["op"] != "pin"), encoding="utf-8")
-    hub2, quiz2 = make_rig(sid, clock)
-    pin = quiz2.game_on_stage().pin
-    assert len(pin) == 6 and [r["pin"] for r in read_jsonl(path) if r["op"] == "pin"] == [pin]
+    assert quiz2.room.pin() == pin and quiz2.resume(ana.player_id, ana.secret).state == "resumed"
 
 
 def test_change_listeners_hear_every_record(rig) -> None:

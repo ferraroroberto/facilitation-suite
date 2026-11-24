@@ -13,7 +13,7 @@ playbook.md       this session's instructions for the analysis afterwards (optio
 notes.md          the facilitator's own notes from the session, read by the analysis (optional)
 theme.css         per-session stage theme override (optional; applied after the stage lettering)
                   (session.yaml `theme:` names the base: a repo theme or `library/<name>` from the stage library)
-live/             chat.jsonl, events.jsonl, quiz.jsonl, captures/ — append-only during the session
+live/             chat.jsonl, events.jsonl, quiz.jsonl, room.jsonl, captures/ — append-only during the session
                   copilot/: the live copilot's recordings (me-*.wav, them-*.wav), transcript.jsonl and hints.jsonl (see copilot.md)
 exports/          session-full.pdf (the facilitator: slides, results, appendix), session-share.pdf (the client and the participants: no stats),
                   session-activities.pdf (the participants: live results only), report.xlsx, zoom-reconciliation.json, zoom-rooms-*.csv

@@ -148,7 +148,10 @@ flowchart LR
   quizsvc["src/quiz/service.py<br/>QuizService · game scope · next steps phases · Space locks · in-process player API"] --> hub
   quizsvc --> quizeng["src/quiz/engine.py<br/>pure event-sourced game · Kahoot scoring · standings"]
   quizeng --> quizmodel
-  quizsvc --> quizfile[("live/quiz.jsonl<br/>PINs · joins · answers · phases, replayed on activate")]
+  quizsvc --> quizfile[("live/quiz.jsonl<br/>joins · answers · phases, replayed on activate")]
+  quizsvc -->|PIN · phone identity| roomsvc["src/room/service.py<br/>RoomService · one room per live session · PIN · members · close kills the PIN"]
+  roomsvc --> hub
+  roomsvc --> roomfile[("live/room.jsonl<br/>open · joins · close, replayed on activate")]
   stage -->|img| quizr["routers/quiz.py<br/>GET /api/quiz/qr.svg (RemoteAuth)"]
   quizr --> quizsvc
   quizr --> qr["src/quiz/qr.py<br/>join QR SVG (public_url + /play?pin=)"]
