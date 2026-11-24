@@ -480,6 +480,19 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 10px; resize: vert
 .opt-list { display: grid; gap: 8px; }
 .opt-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-sm); align-items: center; }
 .opt-line .input, .opt-line .select-native { width: 100%; }
+/* The Plan tab's form builder: one card per question, its tools on its head row. */
+.fb { display: contents; }
+.fb-list { display: grid; gap: var(--space-sm); }
+.fb-q { display: grid; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--card); }
+.fb-q-head { display: flex; align-items: center; gap: var(--space-sm); }
+.fb-q-n { flex: none; min-width: 24px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fb-q-type { flex: 1 1 auto; min-width: 0; }
+.fb-q-type .select-native { width: 100%; }
+.fb-q-tools { display: inline-flex; gap: 2px; }
+.fb-q > .input { width: 100%; }
+.fb-tools { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.fb-library { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-sm); }
+.fb-pick { width: 100%; height: auto; min-height: var(--row-sm); padding: var(--space-sm) var(--space-md); display: grid; justify-items: start; gap: 2px; text-align: left; }
 .timer-box, .music-box { display: grid; gap: 8px; }
 .timer-grid { display: grid; gap: 8px; }
 .dur-input { width: 90px; font-family: var(--mono); }

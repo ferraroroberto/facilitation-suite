@@ -42,6 +42,10 @@ JOIN = Limit(burst=200, per_s=5)
 WRONG_PIN = Limit(burst=30, per_s=0.5)
 # answers: 60 players, each retrying a few times, every question.
 ANSWER = Limit(burst=600, per_s=20)
+# form submissions from one address: a room behind one NAT, each person sending one or two.
+FORM = Limit(burst=200, per_s=2)
+# form submissions from one phone (its own id): a resend or a second response is fine, a flood is not.
+FORM_PHONE = Limit(burst=6, per_s=0.1)
 
 
 class RateLimiter:

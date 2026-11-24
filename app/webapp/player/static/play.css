@@ -63,7 +63,10 @@ body {
 .play[data-screen="question"] [data-for="question"],
 .play[data-screen="locked"] [data-for="locked"],
 .play[data-screen="result"] [data-for="result"],
-.play[data-screen="kicked"] [data-for="kicked"] { display: block; }
+.play[data-screen="kicked"] [data-for="kicked"],
+.play[data-screen="formlink"] [data-for="formlink"] { display: block; }
+/* A link that looks like the primary button (the room view's "Open the form"). */
+.play-link-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .play[data-screen="poll"] [data-for="poll"] { display: grid; }
 .play[data-screen="question"] [data-for="question"] { display: flex; }
 

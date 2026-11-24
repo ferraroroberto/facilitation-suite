@@ -16,6 +16,8 @@ from tests.conftest import REPO_ROOT
 STAGE = REPO_ROOT / "src" / "activities" / "quiz" / "stage.js"
 PHONE = REPO_ROOT / "app" / "webapp" / "player" / "static" / "play.js"
 PAGE = REPO_ROOT / "app" / "webapp" / "player" / "play.html"
+FORM_PHONE = REPO_ROOT / "app" / "webapp" / "player" / "static" / "form.js"
+FORM_PAGE = REPO_ROOT / "app" / "webapp" / "player" / "form.html"
 LANGS = ("en", "es")
 
 # A table entry, one per line at 4 spaces: ``key: 'text',`` or ``key: (a, b) => …``.
@@ -36,7 +38,7 @@ def table(path: Path, name: str) -> dict[str, dict[str, tuple[str, ...] | None]]
     return out
 
 
-@pytest.mark.parametrize(("path", "name", "prefix"), [(STAGE, "WORDS", "w"), (PHONE, "TEXT", "T")])
+@pytest.mark.parametrize(("path", "name", "prefix"), [(STAGE, "WORDS", "w"), (PHONE, "TEXT", "T"), (FORM_PHONE, "TEXT", "T")])
 def test_both_languages_have_every_key_the_code_uses(path: Path, name: str, prefix: str) -> None:
     words = table(path, name)
     assert words["en"], f"no English {name} in {path.name}"
@@ -50,10 +52,14 @@ def test_both_languages_have_every_key_the_code_uses(path: Path, name: str, pref
     assert used <= set(words["en"]), f"{path.name} asks for missing keys {sorted(used - set(words['en']))}"
 
 
-def test_the_player_page_words_are_in_the_phone_table() -> None:
-    words = table(PHONE, "TEXT")["en"]
-    html = PAGE.read_text(encoding="utf-8")
+@pytest.mark.parametrize(("page", "code", "expected"), [
+    (PAGE, PHONE, {"title", "join", "nickname_placeholder", "theme", "removed"}),
+    (FORM_PAGE, FORM_PHONE, {"title", "send", "name_placeholder", "theme", "closed", "again"}),
+])
+def test_the_player_page_words_are_in_the_phone_table(page: Path, code: Path, expected: set[str]) -> None:
+    words = table(code, "TEXT")["en"]
+    html = page.read_text(encoding="utf-8")
     keys = set(re.findall(r'data-t(?:-placeholder|-label)?="(\w+)"', html))
-    assert {"title", "join", "nickname_placeholder", "theme", "removed"} <= keys
+    assert expected <= keys
     assert keys <= set(words), sorted(keys - set(words))
     assert all(words[k] is None for k in keys)  # the page's words are texts, not functions

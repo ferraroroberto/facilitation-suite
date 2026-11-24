@@ -385,7 +385,8 @@ def test_default_titles_match_the_stage_words() -> None:
     js = (Path(__file__).resolve().parents[1] / "app" / "webapp" / "static" / "js" / "stage-words.js").read_text(encoding="utf-8")
     for lang, titles in DEFAULT_TITLES.items():
         block = js.split(f"  {lang}: {{", 1)[1].split("\n  },", 1)[0]
-        for key, js_key in (("break", "break"), ("breakout", "breakout"), ("groups_reveal", "reveal"), ("room_join", "join")):
+        for key, js_key in (("break", "break"), ("breakout", "breakout"), ("groups_reveal", "reveal"), ("room_join", "join"),
+                             ("form", "feedback")):
             assert f"{js_key}: '{titles[key]}'" in block, (lang, key)
 
 

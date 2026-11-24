@@ -11,6 +11,7 @@ import { connectLive, bindKeys, clickToAdvance, neighbour, remaining, timerMode,
 import { createStage, applyTheme, clock } from '/static/js/stage-render.js';
 import { initUsageLog } from '/static/_vendored/usage-log/usage-log.js';
 import { isQuiz, buildQuiz, drawQuiz, tickQuiz } from '/static/js/presenter-quiz.js';
+import { isForm, buildForm } from '/static/js/presenter-form.js';
 import { senderKey, drawExcluded } from '/static/js/presenter-excluded.js';
 import { drawCopilot, copilotChip } from '/static/js/presenter-copilot.js';
 import { SOURCE_NAMES, sourceOf, sourceName } from '/static/js/chat-source.js';
@@ -319,7 +320,8 @@ function drawItemCard(cur, s) {
   const t = cur && cur.timer;
   const cap = !!(cur && cur.capture);
   const quiz = isQuiz(cur);
-  card.querySelector('.p-label').textContent = cap ? 'Capture' : quiz ? 'Quiz' : 'Timer';
+  const form = isForm(cur);
+  card.querySelector('.p-label').textContent = cap ? 'Capture' : quiz ? 'Quiz' : form ? 'Feedback form' : 'Timer';
   card.querySelector('.p-meta').textContent = cur ? oneLine(cur.title) : '';
   const key = `${cur ? cur.id : ''}|${t ? 1 : 0}|${cur && cur.kind === 'activity' ? 1 : 0}`;
   if (body.dataset.key !== key) {
@@ -334,7 +336,8 @@ function drawItemCard(cur, s) {
       body.querySelector('[data-captoggle]').addEventListener('click', () => live.send('capture_toggle'));
     }
     if (quiz) buildQuiz(body, quizHost);
-    if (!t && !cap && !quiz) {
+    if (form) buildForm(body, cur, { copyText });
+    if (!t && !cap && !quiz && !form) {
       body.innerHTML = `<p class="muted">No timer on this item. Timers are decided item by item in the Plan tab.</p>`;
     } else if (t) {
       const starts = { manual: 'you start it', on_enter: 'starts when the item opens', with_capture: 'starts with the capture' }[t.start];
@@ -350,7 +353,7 @@ function drawItemCard(cur, s) {
       body.querySelector('[data-tadd]').addEventListener('click', () => live.send('timer_add_minute'));
       body.querySelector('[data-treset]').addEventListener('click', () => live.send('timer_reset'));
     }
-    if (cur && cur.kind === 'activity') {
+    if (cur && cur.kind === 'activity' && !form) { // a form shows no answers on stage, so no names either
       const row = switchRow(!!s.names, 'Show names on stage', () => live.send('names_toggle'));
       row.className += ' p-switch';
       row.firstElementChild.dataset.names = '';

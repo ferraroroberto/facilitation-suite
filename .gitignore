@@ -19,7 +19,7 @@ tmp/
 !tests/fixtures/**/*.pptx
 *.docx
 !tests/fixtures/**/*.docx
-# session event/log streams (chat.jsonl, events.jsonl, quiz.jsonl, room.jsonl): only synthetic fixtures
+# session event/log streams (chat.jsonl, events.jsonl, quiz.jsonl, room.jsonl, forms.jsonl): only synthetic fixtures
 *.jsonl
 !tests/fixtures/**/*.jsonl
 # a session's playbook.md lives in its session folder, outside the repo: only synthetic fixtures

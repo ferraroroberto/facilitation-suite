@@ -68,6 +68,7 @@ from app.webapp.routers import (
     activities,
     chat,
     copilot,
+    forms,
     groups,
     live,
     pages,
@@ -91,6 +92,8 @@ from src.config import data_dir, load_config, profiles
 from src.copilot.after_call import AfterCall
 from src.copilot.service import CopilotService
 from src.errors import DomainError
+from src.forms.model import FORM_TYPE
+from src.forms.service import FormsService
 from src.importer.service import Importer
 from src.live.actions import Action, register
 from src.live.capture import CaptureService
@@ -145,7 +148,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.live.bind(asyncio.get_running_loop())
     monitor = asyncio.create_task(app.state.chat.monitor())
     app.state.obs.start()
-    player = PlayerListener(cfg.quiz.public_port, app.state.quiz, app.state.polls)
+    player = PlayerListener(cfg.quiz.public_port, app.state.quiz, app.state.polls, app.state.forms)
     app.state.player = player
     if features.enabled(cfg, "quiz_public"):
         await player.start()  # optional: a busy port is logged, never fatal
@@ -325,8 +328,8 @@ def _install_quiz(app: FastAPI) -> None:
     # Phones in the room answer the poll on stage into the same capture as the chat (src/room/polls.py).
     app.state.polls = RoomPolls(live, app.state.room, app.state.chat, app.state.capture)
 
-    def phones_join(it: dict[str, Any]) -> bool:  # a quiz, a poll slide or a Join slide: phones join through the link
-        return it.get("type") in QUIZ_TYPES or it.get("type") == JOIN_TYPE or control_of(it) is not None
+    def phones_join(it: dict[str, Any]) -> bool:  # a quiz, a poll slide, a Join slide or a form: phones use the link
+        return it.get("type") in QUIZ_TYPES or it.get("type") in (JOIN_TYPE, FORM_TYPE) or control_of(it) is not None
 
     def public_live() -> bool:  # the live session has an item phones join: the public link is checked every few minutes
         if not features.enabled(app.state.config, "quiz_public"):
@@ -341,6 +344,11 @@ def _install_quiz(app: FastAPI) -> None:
     app.state.polls.reachable = lambda: reach.current()["state"] == REACH_OK
     live.session_listeners.append(lambda sid: reach.kick() if sid and public_live() else None)
     app.state.quiz_reach = reach
+    # Private feedback forms: answers only backstage and in a CSV, never on a socket (src/forms/service.py).
+    app.state.forms = FormsService(live, app.state.room)
+    app.state.forms.public_url = lambda: service.public_url()  # the quiz's public address, read on each call
+    app.state.forms.reachable = lambda: app.state.polls.reachable()
+    app.state.polls.form_join = app.state.forms.join_state
     app.state.quiz_chat = ChatAnswers(service, app.state.chat, count_own=lambda: app.state.capture.count_own,
                                        is_excluded=lambda sender: sender in app.state.capture.excluded())
 
@@ -399,6 +407,7 @@ def create_app() -> FastAPI:
     app.include_router(settings.router)
     app.include_router(actions.router)
     app.include_router(quiz.router)
+    app.include_router(forms.router)
     # Records which views and controls the owner uses: the vendored usage log, an fsync-heavy
     # SQLite file that lives under the fleet runtime-data root, not the repo. Behind RemoteAuth
     # like every route; the quiz player app (app/webapp/player/) never mounts it.

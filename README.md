@@ -6,6 +6,7 @@ One local app for running a live online workshop:
 - a **presenter** cockpit on the second monitor (on stage now, what comes next by title, notes, clocks, the live Zoom chat),
 - **activities fed by the Zoom chat**: participants just type in the chat and the stage comes alive (word cloud, map, scale, cards, feed, choice, stars, NPS, number), read locally through Windows accessibility, with **no bot joining the meeting**,
 - **phones in the room** answer the same polls: a QR badge with the PIN sits on each poll slide while the public link is reachable, and a Join slide shows it large,
+- **private feedback forms** (a builder in the Plan tab, one phone screen of questions reached by QR or a link pasted in the chat), whose answers only the presenter and a CSV see ([Feedback forms](docs/feedback-forms.md)),
 - **breakout groups** (pairs, then two rounds of four with no repeats), per-item **timers**, and **results** after the session.
 
 Slides stay authored in PowerPoint and are imported as images. Everything runs on one Windows PC; nothing leaves it except Zoom itself (and, while the optional live copilot is on, what the local LLM hub sends to the model it routes hints to).
