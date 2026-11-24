@@ -105,6 +105,7 @@ from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.request_timing import RequestTimingMiddleware
 from src.results.analysis_run import AnalysisRuns
+from src.room.polls import RoomPolls
 from src.room.service import RoomService
 from src.runtime_data import runtime_data_dir, runtime_db_path
 from src.self_restart import TRAY_RESTART, RestartTarget, restart_router
@@ -142,7 +143,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.live.bind(asyncio.get_running_loop())
     monitor = asyncio.create_task(app.state.chat.monitor())
     app.state.obs.start()
-    player = PlayerListener(cfg.quiz.public_port, app.state.quiz)
+    player = PlayerListener(cfg.quiz.public_port, app.state.quiz, app.state.polls)
     app.state.player = player
     if features.enabled(cfg, "quiz_public"):
         await player.start()  # optional: a busy port is logged, never fatal
@@ -319,6 +320,8 @@ def _install_quiz(app: FastAPI) -> None:
     service.output_device = app.state.music.output_device  # the Sounds chip's device state
     app.state.quiz = service
     live = app.state.live
+    # Phones in the room answer the poll on stage into the same capture as the chat (src/room/polls.py).
+    app.state.polls = RoomPolls(live, app.state.room, app.state.chat, app.state.capture)
 
     def quiz_live() -> bool:  # the live session plays a quiz: the public link is checked every few minutes
         if not features.enabled(app.state.config, "quiz_public"):

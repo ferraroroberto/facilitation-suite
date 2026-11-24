@@ -392,7 +392,7 @@ function drawCapture(body, c) {
   drawUnplaced(body, c);
   drawLeftOut(body);
   body.querySelector('[data-capcounts]').textContent = c && (c.answers || c.hidden || c.excluded)
-    ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.hidden ? ` · ${c.hidden} hidden` : ''}${c.excluded ? ` · ${c.excluded} not counted` : ''}`
+    ? `${c.answers} answer${c.answers === 1 ? '' : 's'} from ${c.people} ${c.people === 1 ? 'person' : 'people'}${c.room ? ` · ${c.room} by phone` : ''}${c.hidden ? ` · ${c.hidden} hidden` : ''}${c.excluded ? ` · ${c.excluded} not counted` : ''}`
     : idle ? 'Press Space when the question is on stage.' : 'No answers yet.';
 }
 

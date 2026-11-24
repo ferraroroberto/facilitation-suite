@@ -144,6 +144,8 @@ class LiveHub:
         # ("start" | "pause" | "reset", item): a timer began running, was paused, or was reset.
         self.timer_listeners: list[Callable[[str, dict[str, Any]], None]] = []
         self.extra_state: list[Callable[[], dict[str, Any]]] = []
+        # Run after every snapshot push: views outside ``/ws`` (the room's phones) follow the live state.
+        self.push_listeners: list[Callable[[], None]] = []
         # Sections of state.json other services own: name → what to write now (the music).
         self.persisted: dict[str, Callable[[], Any]] = {}
         # Those sections as a session going live finds them — only while its session listeners
@@ -246,6 +248,11 @@ class LiveHub:
 
     def _broadcast_state(self) -> None:
         self.broadcast(self.snapshot())
+        for fn in self.push_listeners:
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 — a phone view's bug must never stop the presenter's push
+                logger.exception("❌ live: a push listener failed")
 
     def push_state(self) -> None:
         """Bump the revision and push a fresh snapshot without saving ``state.json`` —

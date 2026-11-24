@@ -43,7 +43,7 @@ Walked 2026-11-18 against build `0d935a0`, at widths 390, 1280, themes light, da
 | [Presenter cockpit](#presenter-cockpit) | 30 |
 | [Stage](#stage) | 14 |
 | [Phone remote](#phone-remote) | 10 |
-| [Quiz player](#quiz-player) | 8 |
+| [Quiz player](#quiz-player) | 9 |
 
 ## App chrome
 
@@ -2213,15 +2213,17 @@ flowchart LR
   s144["Player loading"]
   s145["Join"]
   s146["Waiting"]
-  s147["Question"]
-  s148["Answer sent"]
-  s149["Result"]
-  s150["Removed"]
-  s151["Player theme toggle"]
+  s147["Room poll"]
+  s148["Question"]
+  s149["Answer sent"]
+  s150["Result"]
+  s151["Removed"]
+  s152["Player theme toggle"]
   s145 -->|"joined"| s146
-  s146 -->|"a question opens"| s147
-  s147 -->|"after a tap"| s148
-  s149 -->|"removed by the host"| s150
+  s146 -->|"a question opens"| s148
+  s146 -->|"a word cloud or scale goes on stage"| s147
+  s148 -->|"after a tap"| s149
+  s150 -->|"removed by the host"| s151
 ```
 
 ### `player.loading` Player loading
@@ -2236,17 +2238,32 @@ flowchart LR
 - **Reach:** `/play` on the quiz's public port, with no game joined
 - **Holds:**
   - a header with the connection state, the theme toggle
-  - Game PIN and Nickname fields, an error line and Join
-- **Does:** Join checks the PIN; the screen says in the game's language what went wrong (no game has that PIN, and so on)
+  - Game PIN and Nickname fields, an error line and Join; the name reads "Your name (optional)" while no quiz is on stage
+- **Does:**
+  - Join checks the PIN; the screen says in the game's language what went wrong (no game has that PIN, and so on)
+  - with no quiz on stage it joins the session room only, a name optional; a room member sees this form again when a quiz opens, its nickname now required
 - **States:** the connection chip reads Connecting… until it knows
 - **Leads to:** [Waiting](#playerwait-waiting) (joined)
 
 ### `player.wait` Waiting
 
 - **Root:** `data-surface`
-- **Reach:** joined a lobby, or a phase with nothing to answer
+- **Reach:** joined a lobby, the room with nothing on stage to answer, or a phase with nothing to answer
 - **Holds:** the player's name and "You're in! Watch the screen — the quiz starts soon." or "Watch the screen."
-- **Leads to:** [Question](#playerquestion-question) (a question opens)
+- **Leads to:**
+  - [Question](#playerquestion-question) (a question opens)
+  - [Room poll](#playerpoll-room-poll) (a word cloud or scale goes on stage)
+
+### `player.poll` Room poll
+
+- **Root:** `data-surface`
+- **Reach:** a word cloud or scale on stage, for every phone in the session room
+- **Holds:**
+  - the activity's question
+  - one control while its capture runs: a text answer with Send (word cloud), or one button per number of the scale, with its keyword under it when the scale has one per number
+  - Sent with the answer counted and "You can change it until the poll closes", Sending… or Retrying, or Not sent; once the capture stops, "The poll is closed"
+- **Does:** Send or a number sends the answer, retried with one key until the server acks it; a new answer replaces this phone's earlier one
+- **Why:** people in the room answer on their phones while people online type in the chat, and one capture counts both
 
 ### `player.question` Question
 
@@ -2472,5 +2489,6 @@ flowchart LR
 | [Remote quiz block](#remotequiz-remote-quiz-block) | after Lock | [Remote quiz locked](#remotequiz-locked-remote-quiz-locked) |
 | [Join](#playerjoin-join) | joined | [Waiting](#playerwait-waiting) |
 | [Waiting](#playerwait-waiting) | a question opens | [Question](#playerquestion-question) |
+| [Waiting](#playerwait-waiting) | a word cloud or scale goes on stage | [Room poll](#playerpoll-room-poll) |
 | [Question](#playerquestion-question) | after a tap | [Answer sent](#playerlocked-answer-sent) |
 | [Result](#playerresult-result) | removed by the host | [Removed](#playerkicked-removed) |

@@ -7,6 +7,11 @@ as ``{"type": "chat", "messages": [...]}``; the full list is loaded back from
 the file when the session goes live again, so a restart loses nothing. A
 failed append keeps its messages and writes them first with the next one.
 
+A phone's poll answer from the session room (``src/room/polls.py``) is stored
+the same way, as a message with ``source: room`` and the phone's
+``player_id``, so captures, hiding, excluded senders and the offline replay
+treat it like a chat line.
+
 Reader health is its own small state machine, reported on the presenter as
 one chip: ``off`` (no reader), ``reading``, ``window_not_found``, ``error``,
 ``simulating`` — as the reader reports them — and ``stale``, decided here
@@ -29,6 +34,7 @@ from typing import Any, Optional
 from src.chat.parse import Row, new_rows
 from src.jsonl import JsonlAppender, read_jsonl
 from src.live.hub import LiveHub, now_ms
+from src.room.model import ROOM_SOURCE
 
 logger = logging.getLogger(__name__)
 
@@ -146,15 +152,33 @@ class ChatHub:
                    "received_at": received, "at": datetime.now(UTC).isoformat(timespec="milliseconds"), "source": source,
                    # Zoom shows the facilitator's own messages as "You"; they are never answers.
                    "own": r.sender == "You"}
-            self.messages.append(rec)
             records.append(rec)
         if records:
             self.last_read_ms = now_ms()
-            self._append_file(records)
-            for fn in self.listeners:
-                fn(records)
-            self.live.broadcast({"type": "chat", "messages": records, "count": len(self.messages)})
+            self._store(records)
         return records
+
+    def add_room(self, sender: str, text: str, *, player_id: str, item_id: str, key: Optional[str]) -> dict[str, Any]:
+        """A phone's answer from the session room, stored as one more message (``source: room``), so
+        every capture parser counts it next to the chat. ``player_id`` lets a later answer of the same
+        phone replace this one (``select_messages``); ``key`` is the phone's retry key."""
+        self.sync_session()
+        self._last_id += 1
+        received = now_ms()
+        rec = {"id": self._last_id, "sender": sender, "text": text,
+               "time": datetime.now().strftime("%H:%M"), "received_at": received,
+               "at": datetime.now(UTC).isoformat(timespec="milliseconds"), "source": ROOM_SOURCE, "own": False,
+               "player_id": player_id, "item_id": item_id, **({"key": key} if key else {})}
+        self._store([rec])
+        return rec
+
+    def _store(self, records: list[dict[str, Any]]) -> None:
+        """Keep new records, append them to ``chat.jsonl``, tell the listeners and push them to every view."""
+        self.messages.extend(records)
+        self._append_file(records)
+        for fn in self.listeners:
+            fn(records)
+        self.live.broadcast({"type": "chat", "messages": records, "count": len(self.messages)})
 
     def since(self, after_id: int = 0) -> list[dict[str, Any]]:
         self.sync_session()

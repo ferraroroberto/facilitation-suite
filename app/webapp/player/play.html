@@ -93,6 +93,18 @@
     <p class="play-lead" data-result-detail></p>
   </section>
 
+  <section class="card screen play-poll" data-for="poll" data-surface="player.poll">
+    <h2 class="play-qtext" data-poll-question data-size="m"></h2>
+    <form class="play-form" data-poll-text novalidate>
+      <label class="play-label" for="pollText" data-t="your_answer">Your answer</label>
+      <input class="play-input" id="pollText" name="answer" autocomplete="off" maxlength="80">
+      <button type="submit" class="button-primary play-wide" data-poll-send data-t="send">Send</button>
+    </form>
+    <div class="play-scale" data-poll-scale role="group"></div>
+    <p class="play-status" data-poll-status role="status"></p>
+    <p class="play-lead" data-poll-note></p>
+  </section>
+
   <section class="card screen" data-for="kicked" data-surface="player.kicked">
     <p class="play-result-title"><svg class="icon" aria-hidden="true"><use href="#i-triangle-alert"/></svg> <span data-t="removed">Removed</span></p>
     <p class="play-lead" data-t="removed_detail">The host removed you from this game.</p>

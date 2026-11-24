@@ -22,6 +22,8 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# A capture message that is a phone's answer from the room (``ChatHub.add_room``), not a chat line.
+ROOM_SOURCE = "room"
 MAX_NAME = 20  # characters in a member's name, the same cap as a quiz nickname
 
 # Join and resume results — each one a distinct state the phone can say something different for.
