@@ -4,7 +4,11 @@ messages" chip on and off), a message is hidden, two phones in the room answer
 the same cloud (one changes its answer, the stage shows chat and phones apart),
 Space stops it and freezes it;
 then the timer drives it: resuming reopens it, paused shows yellow, a reset
-stops it; on a slide with a timer, Space starts the timer over the slide."""
+stops it; on a slide with a timer, Space starts the timer over the slide;
+last, a private feedback form: two phones send three responses (one from the
+room view, one through the plain link, one a second response), the backstage
+adds them up, the CSV has a row each, the stage shows no answer, and a closed
+form says so."""
 
 from __future__ import annotations
 
@@ -17,6 +21,8 @@ from playwright.sync_api import Browser, Page, expect
 from tests.e2e._surface import surface
 from tests.e2e.conftest import shot
 from tests.fixtures.demo import build_demo_session
+from tests.fixtures.forms import FORM_SECTION
+from tests.fixtures.quiz_plan import add_quiz_section
 
 # A crowded cloud drawn into a live body with the stage's own renderer: `entries` is the
 # result's word list, `names` the show-names switch. Resolves once the words settled.
@@ -120,10 +126,63 @@ def phones_answer_the_cloud(page: Page, browser: Browser, stage: Page, webapp) -
             phone.context.close()
 
 
+def _send_form(phone: Page, name: str, text: str, taps: list[str]) -> None:
+    """Fill the form page: the text answer, the buttons in ``taps`` (``q3=8``, ``q6=A``), the name; Send."""
+    phone.locator('[data-q="q1"] textarea').fill(text)
+    for tap in taps:
+        q, value = tap.split("=")
+        phone.locator(f'[data-q="{q}"] [data-pick="{value}"]').click()
+    phone.fill("#fmName", name)
+    phone.click("#formSend")
+    expect(phone.locator("[data-for=thanks]")).to_be_visible()
+
+
+def phones_send_the_feedback_form(page: Page, browser: Browser, stage: Page, webapp, folder) -> None:
+    """A private form: Ana opens it from the room view and sends twice, an anonymous phone opens the plain
+    link once; the presenter's panel adds the three up, the CSV has a row each, the stage shows none."""
+    run = page.request.get(f"{webapp.base_url}/api/live").json()
+    form = next(it for it in run["plan"]["run"]["items"] if it["id"] == "act-form")
+    page.request.post(f"{webapp.base_url}/api/actions/goto/{form['index'] + 1}")
+    expect(page.locator(".p-item .p-label")).to_have_text("Feedback form")
+    expect(page.locator("[data-fstate]")).to_have_text("Open — taking responses")  # opened by coming on stage
+    expect(stage.locator("[data-form-slide]")).to_be_visible()
+    link = page.request.get(f"{webapp.base_url}/api/forms/act-form/results").json()["link"]
+    spec = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
+    ana, anon = browser.new_context(**spec).new_page(), browser.new_context(**spec).new_page()
+    try:
+        ana.goto(f"{webapp.player_url}/play?pin={run['state']['room']['pin']}")
+        ana.click("#joinBtn")  # the room needs no name
+        surface(ana, "player.form-link")
+        ana.click("[data-form-link]")
+        surface(ana, "player.form")
+        _send_form(ana, "Ana", "the games", ["q3=8", "q4=5", "q5=10", "q6=A", "q6=B"])
+        ana.click("[data-again]")
+        _send_form(ana, "Ana", "more breaks", ["q5=9"])
+        anon.goto(f"{webapp.player_url}{link}")  # the link pasted in the chat: no PIN, no join
+        anon.click("#formSend")  # empty: the required questions say so, nothing is stored
+        expect(anon.locator('[data-q="q5"] [data-q-error]')).to_be_visible()
+        _send_form(anon, "", "the venue", ["q5=6", "q6=A"])
+        expect(page.locator("[data-fcounts]")).to_contain_text("3 responses")
+        expect(page.locator(".p-form-results")).to_contain_text("NPS +33")
+        expect(page.locator(".p-form-texts li")).to_have_count(3)
+        surface(page, "presenter.form")
+        rows = (folder / "live" / "captures" / "act-form.csv").read_text(encoding="utf-8-sig").strip().splitlines()
+        assert len(rows) == 4 and "Talks; Games" in rows[1]
+        expect(stage.locator("[data-form-slide]")).not_to_contain_text("the games")
+        page.locator("[data-ftoggle]").click()
+        expect(page.locator("[data-fstate]")).to_contain_text("Closed")
+        anon.reload()
+        expect(anon.locator("[data-for=closed]")).to_contain_text("This form is closed")
+    finally:
+        ana.context.close()
+        anon.context.close()
+
+
 @pytest.mark.needs_chromium
 def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "capture-story"
     sid, _ = build_demo_session(folder, webapp.root / "sessions.local.yaml")
+    add_quiz_section(folder, FORM_SECTION, at=99)  # a feedback form, last
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto(f"{webapp.base_url}/presenter?session={sid}")
     page.locator(".p-thumb", has_text="kryptonite").click()
@@ -209,4 +268,5 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     expect(stage.locator(".st-slide-pill")).to_be_visible()
     expect(stage.locator(".st-slide-pill")).to_contain_text("04:")
     shot(stage, shots / "story-07-capture-3-slide-timer.png")
+    phones_send_the_feedback_form(page, browser, stage, webapp, folder)
     stage_ctx.close()

@@ -40,6 +40,17 @@ is ``async``:
                               or ``no_game`` while no session is live (after a
                               restart, until the presenter goes live): retry it
     GET  /play/api/state      ?player_id&secret → the view message (polling)
+    GET  /play/form?t=        → the feedback form's page (``form.html``): 200 while
+                              the form is open, 410 with the same page (which
+                              says "this form is closed") otherwise
+    GET  /play/api/form?t=    → {state: open, form: {title, intro, questions},
+                              lang} or {state: closed, lang}
+    POST /play/api/form       {t, name, answers: {question id: value}, key?,
+                              phone?} → {state: accepted, response_id}; 410
+                              ``closed``; 422 ``bad_answers`` with
+                              ``detail.errors`` per question
+                              (``src/forms/service.py``). No answer is ever
+                              sent back out, to this phone or any other.
     WS   /play/ws             → {"op": "hello", player_id, secret} in, the same
                               view message pushed on every change; {"op":
                               "ping"} → {"type": "pong"}
@@ -48,12 +59,14 @@ The **view message** is ``{"type": "view", "state": ok | unknown_player |
 no_game, "view": …, "now_ms"}`` — a phone's own view only: never the plan's
 options (they hold the correct answers), never other players' answers. The
 view is the room poll on stage (``RoomPolls.view``, ``kind: poll``), else the
-phone's quiz (``QuizService.player_view``), else ``{"kind": "room",
-"quiz_join", "lang"}`` for a room member with nothing to answer
+phone's quiz (``QuizService.player_view``), else an open feedback form on
+stage (``FormsService.room_view``, ``kind: form``: its title and the form
+page's link), else ``{"kind": "room", "quiz_join", "lang"}`` for a room member with nothing to answer
 (``quiz_join``: a quiz on stage that this member has not joined yet).
 ``answer_trusted`` is not reachable from here.
 
-Join, resume, answers and poll answers are rate-limited per client IP (``ratelimit.py``).
+Join, resume, answers and poll answers are rate-limited per client IP, form
+submissions per client IP and per phone (``ratelimit.py``).
 """
 
 from __future__ import annotations
@@ -80,6 +93,8 @@ from app.webapp.errors import error_response
 from app.webapp.player import ratelimit
 from app.webapp.player.push import Conn, PlayerPush
 from src.errors import DomainError
+from src.forms.model import MAX_QUESTIONS, FormError
+from src.forms.service import FormsService
 from src.live.hub import now_ms
 from src.quiz.engine import JOINED, RESUMED, UNKNOWN_PLAYER
 from src.quiz.service import WRONG_PIN, QuizService
@@ -92,6 +107,7 @@ logger = logging.getLogger(__name__)
 
 HERE = Path(__file__).resolve().parent
 PAGE = HERE / "play.html"
+FORM_PAGE = HERE / "form.html"
 STATIC_DIR = HERE / "static"
 PREFIX = "/play"
 HELLO_TIMEOUT_S = 10.0  # a socket that does not say who it is by then is closed
@@ -133,39 +149,34 @@ class PollBody(PlayerBody):
     key: Optional[str] = Field(default=None, max_length=64)  # the phone's retry key
 
 
+class FormBody(BaseModel):
+    t: str = Field(min_length=1, max_length=40)
+    name: str = Field(default="", max_length=60)
+    answers: dict[str, str | int | float | list[str]] = Field(default_factory=dict, max_length=MAX_QUESTIONS)
+    key: Optional[str] = Field(default=None, max_length=64)  # the phone's retry key
+    phone: Optional[str] = Field(default=None, max_length=64)  # the phone's own id, for its rate limit
+
+
 class AnswerBody(PlayerBody):
     item_id: str = Field(min_length=1, max_length=80)
     choice: int = Field(ge=1, le=4)
     elapsed_ms: Optional[int] = Field(default=None, ge=0, le=3_600_000)
 
 
-def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> FastAPI:
-    """The public player app over the main app's ``quiz`` and room ``polls``: ``/play`` routes only, no docs."""
+def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None,
+                      forms: Optional[FormsService] = None) -> FastAPI:
+    """The public player app over the main app's ``quiz``, room ``polls`` and feedback ``forms``:
+    ``/play`` routes only, no docs."""
     app = FastAPI(title="facilitation-suite player", docs_url=None, redoc_url=None, openapi_url=None)
     # A room of phones on one game: each answer carries Server-Timing and a slow one is logged.
     app.add_middleware(RequestTimingMiddleware, timed_prefix=f"{PREFIX}/api/")
     limiter = ratelimit.RateLimiter()
-    refused_logged: dict[tuple[str, str], float] = {}
-    view_message = _view_messages(quiz, polls)
+    limit = _limit_with(limiter)
+    view_message = _view_messages(quiz, polls, forms)
     push = _attach_push(app, quiz, polls, view_message)
     sockets: set[WebSocket] = set()  # every accepted socket, said hello or not
     app.state.sockets = sockets
     app.state.limiter = limiter
-
-    def client_ip(request: Request) -> str:
-        return request.client.host if request.client else "?"
-
-    def limit(name: str, ip: str, rule: ratelimit.Limit, *, take: bool = True) -> None:
-        wait = limiter.allow(name, ip, rule) if take else limiter.peek(name, ip, rule)
-        if not wait:
-            return
-        now = time.monotonic()
-        if now - refused_logged.get((name, ip), -LOG_REFUSALS_EVERY_S) >= LOG_REFUSALS_EVERY_S:
-            if len(refused_logged) > 1000:
-                refused_logged.clear()
-            refused_logged[(name, ip)] = now
-            logger.warning("⚠️ quiz player: %s rate limit reached for %s (logged once a minute)", name, ip)
-        raise PlayerError(429, "slow_down", "Too many tries — wait a moment", {"retry_after_s": round(wait, 1)})
 
     _install_error_handlers(app)
 
@@ -233,6 +244,9 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
     async def state(player_id: str = "", secret: str = "") -> dict[str, Any]:
         return {**view_message(player_id[:40], secret[:64]), "now_ms": now_ms()}
 
+    if forms is not None:
+        _form_routes(app, quiz, forms, client_ip, limit)
+
     @app.websocket(f"{PREFIX}/ws")
     async def socket(ws: WebSocket) -> None:
         await _serve_socket(ws, push, sockets)
@@ -243,7 +257,30 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> F
 ViewMessage = Callable[[str, str], dict[str, Any]]
 
 
-def _view_messages(quiz: QuizService, polls: Optional[RoomPolls]) -> ViewMessage:
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
+def _limit_with(limiter: ratelimit.RateLimiter) -> Callable[..., None]:
+    """``limit(name, key, rule, take=True)``: take a token or raise 429, logging a refusal once a minute per key."""
+    refused_logged: dict[tuple[str, str], float] = {}
+
+    def limit(name: str, ip: str, rule: ratelimit.Limit, *, take: bool = True) -> None:
+        wait = limiter.allow(name, ip, rule) if take else limiter.peek(name, ip, rule)
+        if not wait:
+            return
+        now = time.monotonic()
+        if now - refused_logged.get((name, ip), -LOG_REFUSALS_EVERY_S) >= LOG_REFUSALS_EVERY_S:
+            if len(refused_logged) > 1000:
+                refused_logged.clear()
+            refused_logged[(name, ip)] = now
+            logger.warning("⚠️ quiz player: %s rate limit reached for %s (logged once a minute)", name, ip)
+        raise PlayerError(429, "slow_down", "Too many tries — wait a moment", {"retry_after_s": round(wait, 1)})
+
+    return limit
+
+
+def _view_messages(quiz: QuizService, polls: Optional[RoomPolls], forms: Optional[FormsService] = None) -> ViewMessage:
     """(player_id, secret) → that phone's view message (see the module docstring)."""
 
     def view_message(player_id: str, secret: str) -> dict[str, Any]:
@@ -254,8 +291,9 @@ def _view_messages(quiz: QuizService, polls: Optional[RoomPolls]) -> ViewMessage
             view = quiz.player_view(player_id, secret)
         if view is None and polls is not None and not polls.refused(player_id, secret):
             game = quiz.game_on_stage()
-            view = {"kind": "room", "lang": quiz.language(),
-                    "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
+            view = (forms.room_view() if forms is not None else None) or {
+                "kind": "room", "lang": quiz.language(),
+                "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
         return {"type": "view", "state": "ok" if view is not None else "unknown_player", "view": view}
 
     return view_message
@@ -277,6 +315,38 @@ def _attach_push(app: FastAPI, quiz: QuizService, polls: Optional[RoomPolls], vi
 
     app.state.detach = detach
     return push
+
+
+Limiter = Callable[..., None]
+
+
+def _form_routes(app: FastAPI, quiz: QuizService, forms: FormsService, client_ip: Callable[[Request], str],
+                 limit: Limiter) -> None:
+    """The feedback form's page, its questions and its submit (see the module docstring)."""
+
+    @app.get(f"{PREFIX}/form", include_in_schema=False)
+    async def form_page(t: str = "") -> FileResponse:
+        try:
+            forms.form_for(t[:40])
+            status = 200
+        except FormError:
+            status = 410  # the same page, which says the form is closed
+        return FileResponse(FORM_PAGE, status_code=status, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+    @app.get(f"{PREFIX}/api/form")
+    async def form_questions(t: str = "") -> dict[str, Any]:
+        try:
+            _, form = forms.form_for(t[:40])
+        except FormError:
+            return {"state": "closed", "lang": quiz.language()}
+        return {"state": "open", "form": form, "lang": quiz.language()}
+
+    @app.post(f"{PREFIX}/api/form")
+    async def form_submit(request: Request, body: FormBody) -> dict[str, Any]:
+        limit("form", client_ip(request), ratelimit.FORM)
+        if body.phone:
+            limit("form_phone", body.phone, ratelimit.FORM_PHONE)
+        return forms.submit(body.t, body.name, body.answers, body.key)
 
 
 def _install_error_handlers(app: FastAPI) -> None:

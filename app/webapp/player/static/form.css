@@ -1,0 +1,17 @@
+/* The feedback form page: one scroll of question cards, then the name and Send.
+ * The controls are the room poll's (play.css: .play-scale, .play-choices). */
+.play[data-screen="form"] [data-for="form"],
+.play[data-screen="thanks"] [data-for="thanks"],
+.play[data-screen="closed"] [data-for="closed"] { display: block; }
+.fm-intro { margin: 0 0 var(--gap); color: var(--muted); white-space: pre-line; overflow-wrap: anywhere; }
+.fm-intro:empty { display: none; }
+.fm-questions, .fm-list { display: grid; gap: var(--gap); }
+.fm-q { display: grid; gap: var(--space-sm); }
+.fm-q[data-bad] { border-color: var(--danger); }
+.fm-qtext { margin: 0; font-size: var(--font-body); font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.fm-req { color: var(--danger-text); }
+.fm-ends { display: flex; justify-content: space-between; gap: var(--space-sm); color: var(--muted); font-size: var(--font-caption); }
+.fm-text { min-height: 96px; padding: var(--space-sm) var(--space-md); font-size: var(--font-body); resize: vertical; }
+.fm-q .play-error { margin-top: 2px; }
+.fm-private { text-align: center; }
+.play-result { text-align: center; }

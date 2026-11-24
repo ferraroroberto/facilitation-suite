@@ -45,6 +45,8 @@ GLYPHS = [
     "rocket", "circle-help", "crown",
     # session room
     "qr-code",
+    # feedback forms
+    "clipboard-list", "lock",
     # settings sections
     "palette", "plug", "book-open", "link",
 ]

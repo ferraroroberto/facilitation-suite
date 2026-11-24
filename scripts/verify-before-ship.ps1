@@ -172,7 +172,7 @@ Invoke-Stage "personal-data guard" {
         ($_ -match '(^|/)aliases\.yaml$' -and $_ -notmatch '^(tests/fixtures/|src/activities/map/aliases\.yaml$)') -or
         ($_ -match '(^|/)playbook\.md$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)notes\.md$' -and $_ -notmatch '^tests/fixtures/') -or
-        ($_ -match '(^|/)(chat|events|quiz|room|transcript|hints|recorder-transcript)\.jsonl$' -and $_ -notmatch '^tests/fixtures/') -or
+        ($_ -match '(^|/)(chat|events|quiz|room|forms|transcript|hints|recorder-transcript)\.jsonl$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)recorder-summary\.json$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -eq 'sessions.local.yaml') -or
         ($_ -eq 'config/config.json') -or

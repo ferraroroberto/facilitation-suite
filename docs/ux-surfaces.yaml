@@ -872,6 +872,8 @@ surfaces:
         via: Music
       - to: plan.quiz-editor
         via: a quiz question's Answers
+      - to: plan.form-builder
+        via: a Feedback form item
       - to: plan.breakout
         via: a breakout
       - to: sessions.stage-font
@@ -943,6 +945,45 @@ surfaces:
       - >-
           a question's four answers, which is correct, the time limit and the points; a lobby's
           title, whether chat answers are accepted and whether it closes when everyone answered
+  - id: plan.form-builder
+    area: plan
+    title: Form builder
+    root: data-surface
+    reach:
+      - selecting a Feedback form activity (its title is the form's title)
+    holds:
+      - Intro, a text the phone shows under the title
+      - On the stage, "Show how many responses came in (never the answers)", off by default
+      - >-
+          Questions · n, one card per question: its number, a type select (Free text, Number, Scale
+          0–10, Stars 1–5, NPS 0–10, Choice), move up, move down and delete buttons, the question
+          text, Required, and the type's own fields (a choice's choices and "Allow more than one
+          choice"; a number's lowest, highest and unit; a scale's or NPS's words under 0 and 10)
+      - Add question and Copy from another session
+    does:
+      - every edit marks the plan unsaved; Save to session.yaml keeps the form with the plan
+    states:
+      - >-
+          "No questions yet — add the first one."
+    links:
+      - to: plan.form-library
+        via: Copy from another session
+    why: a form is built once and reused, so its questions live in the session like any other item
+  - id: plan.form-library
+    area: plan
+    title: Copy a form from another session
+    root: data-surface
+    reach:
+      - Copy from another session in the form builder
+    holds:
+      - one button per form in the ledger's sessions, with its title, session and question count
+    does:
+      - >-
+          picking one replaces this form's intro and questions (after "Replace this form?" when it
+          has questions) and names the item if it has no title
+    states:
+      - >-
+          "No session has a feedback form yet."
   - id: plan.multiselect
     area: plan
     title: Bulk editor
@@ -2017,6 +2058,8 @@ surfaces:
         via: a capture
       - to: presenter.quiz-live
         via: a quiz
+      - to: presenter.form
+        via: a feedback form
       - to: presenter.break-timer
         via: a break
   - id: presenter.capture
@@ -2101,6 +2144,29 @@ surfaces:
         via: New game
       - to: presenter.confirm-quiz-kick
         via: remove a player
+  - id: presenter.form
+    area: presenter
+    title: Feedback form controls
+    root: data-surface
+    reach:
+      - a Feedback form item on stage (the item card is titled Feedback form)
+    holds:
+      - >-
+          a status dot and "Not opened yet", "Open — taking responses" or "Closed — the link says the
+          form is closed"
+      - the response count and where the CSV is saved (live/captures/<item>.csv)
+      - Open form, Close form or Reopen form; Copy link (the public form link for the meeting chat); CSV
+      - >-
+          the results, read from the server every few seconds: per question its answer count, the
+          NPS score with promoters, passives and detractors, a star or scale average, a number's
+          average and range, each choice's tally, the free-text answers newest first with names
+    does:
+      - the form opens by itself the first time its item comes on stage and stays open after
+    states:
+      - >-
+          "No responses yet. Answers show here only, never on the stage."
+      - the public URL is not configured
+    why: answers are private, so they are shown here and in the CSV and never on a socket the stage reads
   - id: presenter.confirm-quiz-new
     area: presenter
     title: Start a new game?
@@ -2427,6 +2493,25 @@ surfaces:
           note that sends people to the chat in place of the QR
       - a preview shows placeholders for the QR, the link and the PIN
     why: a QR that leads nowhere is never put on the screen
+  - id: stage.form
+    area: stage
+    title: Feedback form slide
+    root:
+      none: an activity body inside `stage.activity`
+    reach:
+      - a Feedback form item
+    holds:
+      - >-
+          "Scan to give your feedback", the form's QR code, large, and its link; the response count
+          when the form shows it
+    states:
+      - >-
+          the form is open but its link is not reachable: a note that sends people to the link in
+          the chat
+      - >-
+          the form is closed: "The feedback form is closed. Thank you!"
+      - a preview shows placeholders for the QR and the link
+    why: the room scans the form's own link, and the screen never shows an answer
   - id: stage.quiz
     area: stage
     title: Quiz
@@ -2678,6 +2763,8 @@ surfaces:
         via: a question opens
       - to: player.poll
         via: an activity a phone can answer goes on stage
+      - to: player.form-link
+        via: an open feedback form goes on stage
   - id: player.poll
     area: player
     title: Room poll
@@ -2754,6 +2841,80 @@ surfaces:
     holds:
       - >-
           "Removed" and "The host removed you from this game."
+  - id: player.form-link
+    area: player
+    title: Feedback form is open
+    root: data-surface
+    reach:
+      - an open feedback form on stage, for every phone in the session room
+    holds:
+      - >-
+          the form's title, "A feedback form is open. Your answers go only to the host." and Open
+          the form
+    links:
+      - to: player.form
+        via: Open the form
+  - id: player.form-loading
+    area: player
+    title: Form loading
+    root: data-surface
+    reach:
+      - the form page (/play/form?t=…) before its questions arrive
+    holds:
+      - >-
+          "Loading…", or "Can't reach the form — check your connection and try again."
+  - id: player.form
+    area: player
+    title: Feedback form
+    root: data-surface
+    reach:
+      - the form's QR code on the stage, the form link pasted in the meeting chat, or Open the form
+    holds:
+      - the form's title and intro
+      - >-
+          one card per question with its number and a red star when it is required: a text box
+          (free text), a number box with its unit, a button per number from 0 to 10 with the end
+          words under them (scale, NPS), five star buttons (stars), a lettered button per choice
+          (choice, several when allowed)
+      - >-
+          Your name (optional), Send, and "Your answers go only to the host. They are never shown
+          on the screen."
+    does:
+      - >-
+          Send sends every answer at once, retried with one key; a second tap on a button takes its
+          answer back
+    states:
+      - a question that needs a look is outlined and says why; a message on top
+      - >-
+          "Too many tries — wait a moment and try again." or "Can't reach the form…"
+    links:
+      - to: player.form-thanks
+        via: sent
+      - to: player.form-closed
+        via: the form closed meanwhile
+    why: a private form, one scroll, for end-of-session feedback; no PIN and no room join needed
+  - id: player.form-thanks
+    area: player
+    title: Form sent
+    root: data-surface
+    reach:
+      - a form sent
+    holds:
+      - >-
+          "Thank you!", "Your answers were sent." and Send another response
+    links:
+      - to: player.form
+        via: Send another response, a fresh copy of the form
+  - id: player.form-closed
+    area: player
+    title: Form closed
+    root: data-surface
+    reach:
+      - the form link while the form or the session room is closed, or an unknown link
+    holds:
+      - >-
+          "This form is closed" and "The host is not taking responses right now. Thank you for your
+          time."
   - id: player.theme
     area: player
     title: Player theme toggle

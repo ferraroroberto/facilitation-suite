@@ -36,14 +36,14 @@ Walked 2026-11-18 against build `0d935a0`, at widths 390, 1280, themes light, da
 | [Dialog builders](#dialog-builders) | 3 |
 | [PowerPoint import](#powerpoint-import) | 1 |
 | [Sessions](#sessions) | 14 |
-| [Plan](#plan) | 28 |
+| [Plan](#plan) | 30 |
 | [Groups](#groups) | 4 |
 | [Results](#results) | 13 |
 | [Settings](#settings) | 21 |
-| [Presenter cockpit](#presenter-cockpit) | 30 |
-| [Stage](#stage) | 19 |
+| [Presenter cockpit](#presenter-cockpit) | 31 |
+| [Stage](#stage) | 20 |
 | [Phone remote](#phone-remote) | 10 |
-| [Quiz player](#quiz-player) | 9 |
+| [Quiz player](#quiz-player) | 14 |
 
 ## App chrome
 
@@ -59,17 +59,17 @@ flowchart LR
   s5["Deep links"]
   s10(["Sessions tab · Sessions"])
   s24(["Plan tab · Plan"])
-  s52(["Groups tab · Groups"])
-  s56(["Results tab · Results"])
-  s69(["Settings page · Settings"])
+  s54(["Groups tab · Groups"])
+  s58(["Results tab · Results"])
+  s71(["Settings page · Settings"])
   s17(["Session detail · Sessions"])
   s0 -->|"Sessions"| s10
   s0 -->|"Plan"| s24
-  s0 -->|"Groups"| s52
-  s0 -->|"Results"| s56
-  s1 -->|"the gear"| s69
+  s0 -->|"Groups"| s54
+  s0 -->|"Results"| s58
+  s1 -->|"the gear"| s71
   s5 -->|"/#sessions/<id>"| s17
-  s5 -->|"/#settings/<section>"| s69
+  s5 -->|"/#settings/<section>"| s71
   s10 --> s1
 ```
 
@@ -159,9 +159,9 @@ flowchart LR
   s34(["Add section · Plan"])
   s35(["Add a slide · Plan"])
   s36(["Import Kahoot quiz · Plan"])
-  s78(["OBS connection · Settings"])
-  s79(["Camera profile · Settings"])
-  s83(["How the overlay looks · Settings"])
+  s80(["OBS connection · Settings"])
+  s81(["Camera profile · Settings"])
+  s85(["How the overlay looks · Settings"])
   s12(["Session row menu · Sessions"])
   s30(["Section menu · Plan"])
   s31(["Item menu · Plan"])
@@ -173,9 +173,9 @@ flowchart LR
   s6 -->|"Add section"| s34
   s6 -->|"Slide from the deck"| s35
   s6 -->|"Import Kahoot"| s36
-  s6 -->|"Connection"| s78
-  s6 -->|"a camera profile"| s79
-  s6 -->|"Look"| s83
+  s6 -->|"Connection"| s80
+  s6 -->|"a camera profile"| s81
+  s6 -->|"Look"| s85
   s8 -->|"a session's kebab"| s12
   s8 -->|"a section's kebab"| s30
   s8 -->|"an item's kebab"| s31
@@ -238,12 +238,12 @@ The import dialog, shared by the Sessions tab and the Plan tab.
 ```mermaid
 flowchart LR
   s9["Import PowerPoint dialog"]
-  s48(["Re-import review · Plan"])
+  s50(["Re-import review · Plan"])
   s17(["Session detail · Sessions"])
   s23(["Ready for the live session · Sessions"])
   s25(["Plan toolbar · Plan"])
   s27(["Plan empty state · Plan"])
-  s9 -->|"a re-import that waits for review"| s48
+  s9 -->|"a re-import that waits for review"| s50
   s17 -->|"Import PowerPoint"| s9
   s23 -->|"Import"| s9
   s25 -->|"Re-import PowerPoint"| s9
@@ -298,15 +298,15 @@ flowchart LR
   s1(["Page header · App chrome"])
   s9(["Import PowerPoint dialog · PowerPoint import"])
   s24(["Plan tab · Plan"])
-  s90(["Go live picker · Presenter cockpit"])
-  s120(["Stage · Stage"])
-  s56(["Results tab · Results"])
-  s72(["Stage defaults group · Settings"])
-  s73(["Lettering sheet · Settings"])
+  s92(["Go live picker · Presenter cockpit"])
+  s123(["Stage · Stage"])
+  s58(["Results tab · Results"])
+  s74(["Stage defaults group · Settings"])
+  s75(["Lettering sheet · Settings"])
   s40(["Item editor · Plan"])
-  s52(["Groups tab · Groups"])
-  s61(["Result detail · Results"])
-  s100(["Copilot panel · Presenter cockpit"])
+  s54(["Groups tab · Groups"])
+  s63(["Result detail · Results"])
+  s102(["Copilot panel · Presenter cockpit"])
   s0 -->|"Sessions"| s10
   s5 -->|"/#sessions/<id>"| s17
   s6 -->|"New session"| s13
@@ -328,21 +328,21 @@ flowchart LR
   s17 -->|"Ready for the live session"| s23
   s17 -->|"Import PowerPoint"| s9
   s17 -->|"Edit plan"| s24
-  s17 -->|"Open presenter"| s90
-  s17 -->|"Open stage window"| s120
-  s19 -->|"the same card"| s56
+  s17 -->|"Open presenter"| s92
+  s17 -->|"Open stage window"| s123
+  s19 -->|"the same card"| s58
   s20 -->|"the lettering editor"| s21
   s20 -->|"Reset all to defaults"| s22
-  s20 -->|"Stage defaults"| s72
-  s21 -->|"the defaults editor"| s73
+  s20 -->|"Stage defaults"| s74
+  s21 -->|"the defaults editor"| s75
   s23 -->|"Import"| s9
   s24 -->|"no session"| s10
   s40 -->|"the lettering rows"| s21
-  s52 -->|"no session"| s10
-  s56 -->|"no session"| s10
-  s61 --> s19
-  s73 -->|"the editor"| s21
-  s100 -->|"Edit, Session"| s17
+  s54 -->|"no session"| s10
+  s58 -->|"no session"| s10
+  s63 --> s19
+  s75 -->|"the editor"| s21
+  s102 -->|"Edit, Session"| s17
 ```
 
 ### `sessions.tab` Sessions tab
@@ -559,12 +559,14 @@ flowchart LR
   s43["Breakout editor"]
   s44["Music editor"]
   s45["Quiz question editor"]
-  s46["Bulk editor"]
-  s47["Selection"]
-  s48["Re-import review"]
-  s49["Re-import with no changes"]
-  s50["Cancel the re-import?"]
-  s51["Re-import and deck banners"]
+  s46["Form builder"]
+  s47["Copy a form from another session"]
+  s48["Bulk editor"]
+  s49["Selection"]
+  s50["Re-import review"]
+  s51["Re-import with no changes"]
+  s52["Cancel the re-import?"]
+  s53["Re-import and deck banners"]
   s0(["Primary navigation · App chrome"])
   s6(["Form dialog · Dialog builders"])
   s8(["Row menu · Dialog builders"])
@@ -572,7 +574,7 @@ flowchart LR
   s17(["Session detail · Sessions"])
   s10(["Sessions tab · Sessions"])
   s21(["Lettering editor · Sessions"])
-  s55(["Breakout rounds · Groups"])
+  s57(["Breakout rounds · Groups"])
   s0 -->|"Plan"| s24
   s6 -->|"Rename"| s33
   s6 -->|"Add section"| s34
@@ -581,19 +583,19 @@ flowchart LR
   s8 -->|"a section's kebab"| s30
   s8 -->|"an item's kebab"| s31
   s8 -->|"Add slide or activity"| s32
-  s9 -->|"a re-import that waits for review"| s48
+  s9 -->|"a re-import that waits for review"| s50
   s17 -->|"Edit plan"| s24
   s24 --> s25
   s24 --> s26
   s24 --> s40
-  s24 -->|"Review"| s48
+  s24 -->|"Review"| s50
   s24 -->|"no session"| s10
   s25 -->|"Re-import PowerPoint"| s9
   s25 -->|"Add section"| s34
   s25 -->|"Import Kahoot"| s36
   s25 -->|"an import with unsaved edits"| s37
   s26 -->|"an item"| s40
-  s26 -->|"several selected"| s46
+  s26 -->|"several selected"| s48
   s26 -->|"a section's kebab"| s30
   s26 -->|"an item's kebab"| s31
   s26 -->|"Add slide or activity"| s32
@@ -610,15 +612,17 @@ flowchart LR
   s40 -->|"the stage preview"| s42
   s40 -->|"Music"| s44
   s40 -->|"a quiz question's Answers"| s45
+  s40 -->|"a Feedback form item"| s46
   s40 -->|"a breakout"| s43
   s40 -->|"the lettering rows"| s21
   s40 -->|"Delete"| s38
   s40 -->|"no item"| s41
-  s46 -->|"Delete n items"| s38
-  s48 -->|"nothing changed"| s49
-  s48 -->|"Cancel"| s50
-  s51 -->|"Review"| s48
-  s55 -->|"Add reveal slide"| s40
+  s46 -->|"Copy from another session"| s47
+  s48 -->|"Delete n items"| s38
+  s50 -->|"nothing changed"| s51
+  s50 -->|"Cancel"| s52
+  s53 -->|"Review"| s50
+  s57 -->|"Add reveal slide"| s40
 ```
 
 ### `plan.tab` Plan tab
@@ -806,6 +810,7 @@ flowchart LR
   - [Stage preview](#planpreview-stage-preview) (the stage preview)
   - [Music editor](#planmusic-editor-music-editor) (Music)
   - [Quiz question editor](#planquiz-editor-quiz-question-editor) (a quiz question's Answers)
+  - [Form builder](#planform-builder-form-builder) (a Feedback form item)
   - [Breakout editor](#planbreakout-breakout-editor) (a breakout)
   - [Lettering editor](#sessionsstage-font-lettering-editor) (the lettering rows)
   - [Delete items?](#planconfirm-delete-delete-items) (Delete)
@@ -851,6 +856,28 @@ flowchart LR
 - **Root:** none — the Answers field of `plan.editor` for a quiz item
 - **Reach:** selecting a Quiz question, Quiz lobby or Quiz podium activity
 - **Holds:** a question's four answers, which is correct, the time limit and the points; a lobby's title, whether chat answers are accepted and whether it closes when everyone answered
+
+### `plan.form-builder` Form builder
+
+- **Root:** `data-surface`
+- **Reach:** selecting a Feedback form activity (its title is the form's title)
+- **Holds:**
+  - Intro, a text the phone shows under the title
+  - On the stage, "Show how many responses came in (never the answers)", off by default
+  - Questions · n, one card per question: its number, a type select (Free text, Number, Scale 0–10, Stars 1–5, NPS 0–10, Choice), move up, move down and delete buttons, the question text, Required, and the type's own fields (a choice's choices and "Allow more than one choice"; a number's lowest, highest and unit; a scale's or NPS's words under 0 and 10)
+  - Add question and Copy from another session
+- **Does:** every edit marks the plan unsaved; Save to session.yaml keeps the form with the plan
+- **States:** "No questions yet — add the first one."
+- **Why:** a form is built once and reused, so its questions live in the session like any other item
+- **Leads to:** [Copy a form from another session](#planform-library-copy-a-form-from-another-session) (Copy from another session)
+
+### `plan.form-library` Copy a form from another session
+
+- **Root:** `data-surface`
+- **Reach:** Copy from another session in the form builder
+- **Holds:** one button per form in the ledger's sessions, with its title, session and question count
+- **Does:** picking one replaces this form's intro and questions (after "Replace this form?" when it has questions) and names the item if it has no title
+- **States:** "No session has a feedback form yet."
 
 ### `plan.multiselect` Bulk editor
 
@@ -923,20 +950,20 @@ The roster with presence switches and the breakout rounds.
 
 ```mermaid
 flowchart LR
-  s52["Groups tab"]
-  s53["Roster"]
-  s54["Groups empty state"]
-  s55["Breakout rounds"]
+  s54["Groups tab"]
+  s55["Roster"]
+  s56["Groups empty state"]
+  s57["Breakout rounds"]
   s0(["Primary navigation · App chrome"])
   s10(["Sessions tab · Sessions"])
   s40(["Item editor · Plan"])
-  s0 -->|"Groups"| s52
-  s52 --> s53
-  s52 --> s55
-  s52 -->|"no session"| s10
-  s53 -->|"no roster"| s54
-  s54 -->|"Import roster"| s53
-  s55 -->|"Add reveal slide"| s40
+  s0 -->|"Groups"| s54
+  s54 --> s55
+  s54 --> s57
+  s54 -->|"no session"| s10
+  s55 -->|"no roster"| s56
+  s56 -->|"Import roster"| s55
+  s57 -->|"Add reveal slide"| s40
 ```
 
 ### `groups.tab` Groups tab
@@ -1010,39 +1037,39 @@ Every captured activity and quiz game in the order it happened, and the session'
 
 ```mermaid
 flowchart LR
-  s56["Results tab"]
-  s57["Check against Zoom's saved chat"]
-  s58["Messages missing from the record"]
-  s59["People under several names"]
-  s60["Result list"]
-  s61["Result detail"]
-  s62["Quiz result"]
-  s63["Finish session card"]
-  s64["Session PDF card"]
-  s65["Exports"]
-  s66["Conversation card"]
-  s67["Rebuild results card"]
-  s68["Rebuild preview"]
+  s58["Results tab"]
+  s59["Check against Zoom's saved chat"]
+  s60["Messages missing from the record"]
+  s61["People under several names"]
+  s62["Result list"]
+  s63["Result detail"]
+  s64["Quiz result"]
+  s65["Finish session card"]
+  s66["Session PDF card"]
+  s67["Exports"]
+  s68["Conversation card"]
+  s69["Rebuild results card"]
+  s70["Rebuild preview"]
   s0(["Primary navigation · App chrome"])
   s19(["Analyze session card · Sessions"])
   s10(["Sessions tab · Sessions"])
-  s0 -->|"Results"| s56
-  s19 -->|"the same card"| s56
-  s56 --> s57
-  s56 --> s59
-  s56 --> s60
-  s56 --> s67
-  s56 --> s61
-  s56 -->|"no session"| s10
-  s57 -->|"missing messages"| s58
-  s60 -->|"a row"| s61
-  s61 -->|"a quiz"| s62
-  s61 --> s63
-  s61 --> s64
-  s61 --> s65
-  s61 --> s66
-  s61 --> s19
-  s67 -->|"Preview"| s68
+  s0 -->|"Results"| s58
+  s19 -->|"the same card"| s58
+  s58 --> s59
+  s58 --> s61
+  s58 --> s62
+  s58 --> s69
+  s58 --> s63
+  s58 -->|"no session"| s10
+  s59 -->|"missing messages"| s60
+  s62 -->|"a row"| s63
+  s63 -->|"a quiz"| s64
+  s63 --> s65
+  s63 --> s66
+  s63 --> s67
+  s63 --> s68
+  s63 --> s19
+  s69 -->|"Preview"| s70
 ```
 
 ### `results.tab` Results tab
@@ -1215,64 +1242,64 @@ A full page over the current tab, opened by the header gear: five sections of in
 
 ```mermaid
 flowchart LR
-  s69["Settings page"]
-  s70["Appearance group"]
-  s71["Available features group"]
-  s72["Stage defaults group"]
-  s73["Lettering sheet"]
-  s74["Stage library sheet"]
-  s75["Music group"]
-  s76["Spotify sheet"]
-  s77["OBS group"]
-  s78["OBS connection"]
-  s79["Camera profile"]
-  s80["Chat reader group"]
-  s81["Clicking the stage group"]
-  s82["Copilot overlay group"]
-  s83["How the overlay looks"]
-  s84["Copilot recordings group"]
-  s85["Remote control group"]
-  s86["Phone remote sheet"]
-  s87["Stream Deck buttons sheet"]
-  s88["About group"]
-  s89["Credits sheet"]
+  s71["Settings page"]
+  s72["Appearance group"]
+  s73["Available features group"]
+  s74["Stage defaults group"]
+  s75["Lettering sheet"]
+  s76["Stage library sheet"]
+  s77["Music group"]
+  s78["Spotify sheet"]
+  s79["OBS group"]
+  s80["OBS connection"]
+  s81["Camera profile"]
+  s82["Chat reader group"]
+  s83["Clicking the stage group"]
+  s84["Copilot overlay group"]
+  s85["How the overlay looks"]
+  s86["Copilot recordings group"]
+  s87["Remote control group"]
+  s88["Phone remote sheet"]
+  s89["Stream Deck buttons sheet"]
+  s90["About group"]
+  s91["Credits sheet"]
   s1(["Page header · App chrome"])
   s5(["Deep links · App chrome"])
   s6(["Form dialog · Dialog builders"])
   s20(["Session settings card · Sessions"])
   s21(["Lettering editor · Sessions"])
-  s93(["Status chips · Presenter cockpit"])
-  s100(["Copilot panel · Presenter cockpit"])
-  s1 -->|"the gear"| s69
-  s5 -->|"/#settings/<section>"| s69
-  s6 -->|"Connection"| s78
-  s6 -->|"a camera profile"| s79
-  s6 -->|"Look"| s83
-  s20 -->|"Stage defaults"| s72
-  s21 -->|"the defaults editor"| s73
-  s69 --> s70
-  s69 --> s71
-  s69 --> s72
-  s69 --> s75
-  s69 --> s77
-  s69 --> s80
-  s69 --> s81
-  s69 --> s82
-  s69 --> s84
-  s69 --> s85
-  s69 --> s88
-  s72 -->|"Lettering and timers"| s73
-  s72 -->|"Stage library"| s74
-  s73 -->|"the editor"| s21
-  s75 -->|"Spotify"| s76
-  s77 -->|"Connection"| s78
-  s77 -->|"a profile"| s79
-  s82 -->|"Look"| s83
-  s85 -->|"Phone remote"| s86
-  s85 -->|"Stream Deck buttons"| s87
-  s88 -->|"Credits"| s89
-  s93 -->|"Music"| s75
-  s100 -->|"Overlay settings"| s69
+  s95(["Status chips · Presenter cockpit"])
+  s102(["Copilot panel · Presenter cockpit"])
+  s1 -->|"the gear"| s71
+  s5 -->|"/#settings/<section>"| s71
+  s6 -->|"Connection"| s80
+  s6 -->|"a camera profile"| s81
+  s6 -->|"Look"| s85
+  s20 -->|"Stage defaults"| s74
+  s21 -->|"the defaults editor"| s75
+  s71 --> s72
+  s71 --> s73
+  s71 --> s74
+  s71 --> s77
+  s71 --> s79
+  s71 --> s82
+  s71 --> s83
+  s71 --> s84
+  s71 --> s86
+  s71 --> s87
+  s71 --> s90
+  s74 -->|"Lettering and timers"| s75
+  s74 -->|"Stage library"| s76
+  s75 -->|"the editor"| s21
+  s77 -->|"Spotify"| s78
+  s79 -->|"Connection"| s80
+  s79 -->|"a profile"| s81
+  s84 -->|"Look"| s85
+  s87 -->|"Phone remote"| s88
+  s87 -->|"Stream Deck buttons"| s89
+  s90 -->|"Credits"| s91
+  s95 -->|"Music"| s77
+  s102 -->|"Overlay settings"| s71
 ```
 
 ### `settings.pane` Settings page
@@ -1511,72 +1538,74 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s90["Go live picker"]
-  s91["Cockpit"]
-  s92["Cockpit header"]
-  s93["Status chips"]
-  s94["Keys sheet"]
-  s95["On stage now card"]
-  s96["Notes card"]
-  s97["Copilot card"]
-  s98["Copilot hints"]
-  s99["Interview mode"]
-  s100["Copilot panel"]
-  s101["Participants informed?"]
-  s102["Timing card"]
-  s103["Next card"]
-  s104["Music card"]
-  s105["Item controls card"]
-  s106["Capture controls"]
-  s107["Not on the map"]
-  s108["Map activity"]
-  s109["Break and breakout timer"]
-  s110["Quiz controls"]
-  s111["Start a new game?"]
-  s112["Remove a player?"]
-  s113["Chat card"]
-  s114["Not counted bar"]
-  s115["Item strip"]
-  s116["Start the session over?"]
-  s117["Close the live session?"]
-  s118["Reset the session clock?"]
-  s119["Opening state"]
+  s92["Go live picker"]
+  s93["Cockpit"]
+  s94["Cockpit header"]
+  s95["Status chips"]
+  s96["Keys sheet"]
+  s97["On stage now card"]
+  s98["Notes card"]
+  s99["Copilot card"]
+  s100["Copilot hints"]
+  s101["Interview mode"]
+  s102["Copilot panel"]
+  s103["Participants informed?"]
+  s104["Timing card"]
+  s105["Next card"]
+  s106["Music card"]
+  s107["Item controls card"]
+  s108["Capture controls"]
+  s109["Not on the map"]
+  s110["Map activity"]
+  s111["Break and breakout timer"]
+  s112["Quiz controls"]
+  s113["Feedback form controls"]
+  s114["Start a new game?"]
+  s115["Remove a player?"]
+  s116["Chat card"]
+  s117["Not counted bar"]
+  s118["Item strip"]
+  s119["Start the session over?"]
+  s120["Close the live session?"]
+  s121["Reset the session clock?"]
+  s122["Opening state"]
   s17(["Session detail · Sessions"])
-  s75(["Music group · Settings"])
-  s120(["Stage · Stage"])
-  s69(["Settings page · Settings"])
-  s17 -->|"Open presenter"| s90
-  s90 -->|"Go live"| s91
-  s91 --> s92
-  s91 --> s93
-  s91 --> s95
-  s91 --> s96
-  s91 --> s97
-  s91 --> s102
-  s91 --> s103
-  s91 --> s104
-  s91 --> s105
-  s91 --> s113
-  s91 --> s115
-  s91 -->|"the keyboard icon"| s94
-  s92 -->|"Keyboard shortcuts"| s94
-  s92 -->|"Start the session over"| s116
-  s92 -->|"Close the live session"| s117
-  s93 -->|"Music"| s75
-  s93 -->|"Stage · not open"| s120
-  s97 -->|"Details"| s100
-  s97 -->|"switching on"| s101
-  s100 -->|"Overlay settings"| s69
-  s100 -->|"Edit, Session"| s17
-  s102 -->|"Reset clock"| s118
-  s105 -->|"a capture"| s106
-  s105 -->|"a quiz"| s110
-  s105 -->|"a break"| s109
-  s106 -->|"map answers"| s107
-  s106 -->|"a map activity"| s108
-  s110 -->|"New game"| s111
-  s110 -->|"remove a player"| s112
-  s113 -->|"a name"| s114
+  s77(["Music group · Settings"])
+  s123(["Stage · Stage"])
+  s71(["Settings page · Settings"])
+  s17 -->|"Open presenter"| s92
+  s92 -->|"Go live"| s93
+  s93 --> s94
+  s93 --> s95
+  s93 --> s97
+  s93 --> s98
+  s93 --> s99
+  s93 --> s104
+  s93 --> s105
+  s93 --> s106
+  s93 --> s107
+  s93 --> s116
+  s93 --> s118
+  s93 -->|"the keyboard icon"| s96
+  s94 -->|"Keyboard shortcuts"| s96
+  s94 -->|"Start the session over"| s119
+  s94 -->|"Close the live session"| s120
+  s95 -->|"Music"| s77
+  s95 -->|"Stage · not open"| s123
+  s99 -->|"Details"| s102
+  s99 -->|"switching on"| s103
+  s102 -->|"Overlay settings"| s71
+  s102 -->|"Edit, Session"| s17
+  s104 -->|"Reset clock"| s121
+  s107 -->|"a capture"| s108
+  s107 -->|"a quiz"| s112
+  s107 -->|"a feedback form"| s113
+  s107 -->|"a break"| s111
+  s108 -->|"map answers"| s109
+  s108 -->|"a map activity"| s110
+  s112 -->|"New game"| s114
+  s112 -->|"remove a player"| s115
+  s116 -->|"a name"| s117
 ```
 
 ### `presenter.picker` Go live picker
@@ -1782,6 +1811,7 @@ flowchart LR
 - **Leads to:**
   - [Capture controls](#presentercapture-capture-controls) (a capture)
   - [Quiz controls](#presenterquiz-live-quiz-controls) (a quiz)
+  - [Feedback form controls](#presenterform-feedback-form-controls) (a feedback form)
   - [Break and breakout timer](#presenterbreak-timer-break-and-breakout-timer) (a break)
 
 ### `presenter.capture` Capture controls
@@ -1835,6 +1865,21 @@ flowchart LR
 - **Leads to:**
   - [Start a new game?](#presenterconfirm-quiz-new-start-a-new-game) (New game)
   - [Remove a player?](#presenterconfirm-quiz-kick-remove-a-player) (remove a player)
+
+### `presenter.form` Feedback form controls
+
+- **Root:** `data-surface`
+- **Reach:** a Feedback form item on stage (the item card is titled Feedback form)
+- **Holds:**
+  - a status dot and "Not opened yet", "Open — taking responses" or "Closed — the link says the form is closed"
+  - the response count and where the CSV is saved (live/captures/<item>.csv)
+  - Open form, Close form or Reopen form; Copy link (the public form link for the meeting chat); CSV
+  - the results, read from the server every few seconds: per question its answer count, the NPS score with promoters, passives and detractors, a star or scale average, a number's average and range, each choice's tally, the free-text answers newest first with names
+- **Does:** the form opens by itself the first time its item comes on stage and stays open after
+- **States:**
+  - "No responses yet. Answers show here only, never on the stage."
+  - the public URL is not configured
+- **Why:** answers are private, so they are shown here and in the CSV and never on a socket the stage reads
 
 ### `presenter.confirm-quiz-new` Start a new game?
 
@@ -1913,47 +1958,48 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s120["Stage"]
-  s121["Slide"]
-  s122["Break"]
-  s123["Breakout"]
-  s124["Activity"]
-  s125["Word cloud"]
-  s126["Map"]
-  s127["Scale"]
-  s128["Cards"]
-  s129["Feed"]
-  s130["Choice"]
-  s131["Stars"]
-  s132["NPS"]
-  s133["Number"]
-  s134["Who are you with?"]
-  s135["Join slide"]
-  s136["Quiz"]
-  s137["Blackout"]
-  s138["Frozen capture"]
+  s123["Stage"]
+  s124["Slide"]
+  s125["Break"]
+  s126["Breakout"]
+  s127["Activity"]
+  s128["Word cloud"]
+  s129["Map"]
+  s130["Scale"]
+  s131["Cards"]
+  s132["Feed"]
+  s133["Choice"]
+  s134["Stars"]
+  s135["NPS"]
+  s136["Number"]
+  s137["Who are you with?"]
+  s138["Join slide"]
+  s139["Feedback form slide"]
+  s140["Quiz"]
+  s141["Blackout"]
+  s142["Frozen capture"]
   s17(["Session detail · Sessions"])
-  s93(["Status chips · Presenter cockpit"])
-  s17 -->|"Open stage window"| s120
-  s93 -->|"Stage · not open"| s120
-  s120 --> s121
-  s120 --> s122
-  s120 --> s123
-  s120 --> s124
-  s120 --> s137
-  s120 -->|"a capture's picture"| s138
-  s124 --> s125
-  s124 --> s126
-  s124 --> s127
-  s124 --> s128
-  s124 --> s129
-  s124 --> s130
-  s124 --> s131
-  s124 --> s132
-  s124 --> s133
-  s124 --> s134
-  s124 --> s135
-  s124 --> s136
+  s95(["Status chips · Presenter cockpit"])
+  s17 -->|"Open stage window"| s123
+  s95 -->|"Stage · not open"| s123
+  s123 --> s124
+  s123 --> s125
+  s123 --> s126
+  s123 --> s127
+  s123 --> s141
+  s123 -->|"a capture's picture"| s142
+  s127 --> s128
+  s127 --> s129
+  s127 --> s130
+  s127 --> s131
+  s127 --> s132
+  s127 --> s133
+  s127 --> s134
+  s127 --> s135
+  s127 --> s136
+  s127 --> s137
+  s127 --> s138
+  s127 --> s140
 ```
 
 ### `stage.live` Stage
@@ -2099,6 +2145,17 @@ flowchart LR
   - a preview shows placeholders for the QR, the link and the PIN
 - **Why:** a QR that leads nowhere is never put on the screen
 
+### `stage.form` Feedback form slide
+
+- **Root:** none — an activity body inside `stage.activity`
+- **Reach:** a Feedback form item
+- **Holds:** "Scan to give your feedback", the form's QR code, large, and its link; the response count when the form shows it
+- **States:**
+  - the form is open but its link is not reachable: a note that sends people to the link in the chat
+  - the form is closed: "The feedback form is closed. Thank you!"
+  - a preview shows placeholders for the QR and the link
+- **Why:** the room scans the form's own link, and the screen never shows an answer
+
 ### `stage.quiz` Quiz
 
 - **Root:** none — an activity body inside `stage.activity`, one renderer for the three quiz types
@@ -2128,24 +2185,24 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s139["Remote navigation"]
-  s140["Remote live"]
-  s141["Remote with no live session"]
-  s142["Remote not paired"]
-  s143["Remote Copilot strip"]
-  s144["Remote quiz block"]
-  s145["Remote quiz locked"]
-  s146["Remote music block"]
-  s147["Remote chat"]
-  s148["Remote groups"]
-  s139 -->|"Live"| s140
-  s139 -->|"Chat"| s147
-  s139 -->|"Groups"| s148
-  s140 --> s143
-  s140 --> s144
-  s140 --> s146
-  s140 -->|"no session"| s141
-  s144 -->|"after Lock"| s145
+  s143["Remote navigation"]
+  s144["Remote live"]
+  s145["Remote with no live session"]
+  s146["Remote not paired"]
+  s147["Remote Copilot strip"]
+  s148["Remote quiz block"]
+  s149["Remote quiz locked"]
+  s150["Remote music block"]
+  s151["Remote chat"]
+  s152["Remote groups"]
+  s143 -->|"Live"| s144
+  s143 -->|"Chat"| s151
+  s143 -->|"Groups"| s152
+  s144 --> s147
+  s144 --> s148
+  s144 --> s150
+  s144 -->|"no session"| s145
+  s148 -->|"after Lock"| s149
 ```
 
 ### `remote.nav` Remote navigation
@@ -2268,20 +2325,30 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s149["Player loading"]
-  s150["Join"]
-  s151["Waiting"]
-  s152["Room poll"]
-  s153["Question"]
-  s154["Answer sent"]
-  s155["Result"]
-  s156["Removed"]
-  s157["Player theme toggle"]
-  s150 -->|"joined"| s151
-  s151 -->|"a question opens"| s153
-  s151 -->|"an activity a phone can answer goes on stage"| s152
-  s153 -->|"after a tap"| s154
-  s155 -->|"removed by the host"| s156
+  s153["Player loading"]
+  s154["Join"]
+  s155["Waiting"]
+  s156["Room poll"]
+  s157["Question"]
+  s158["Answer sent"]
+  s159["Result"]
+  s160["Removed"]
+  s161["Feedback form is open"]
+  s162["Form loading"]
+  s163["Feedback form"]
+  s164["Form sent"]
+  s165["Form closed"]
+  s166["Player theme toggle"]
+  s154 -->|"joined"| s155
+  s155 -->|"a question opens"| s157
+  s155 -->|"an activity a phone can answer goes on stage"| s156
+  s155 -->|"an open feedback form goes on stage"| s161
+  s157 -->|"after a tap"| s158
+  s159 -->|"removed by the host"| s160
+  s161 -->|"Open the form"| s163
+  s163 -->|"sent"| s164
+  s163 -->|"the form closed meanwhile"| s165
+  s164 -->|"Send another response, a fresh copy of the form"| s163
 ```
 
 ### `player.loading` Player loading
@@ -2311,6 +2378,7 @@ flowchart LR
 - **Leads to:**
   - [Question](#playerquestion-question) (a question opens)
   - [Room poll](#playerpoll-room-poll) (an activity a phone can answer goes on stage)
+  - [Feedback form is open](#playerform-link-feedback-form-is-open) (an open feedback form goes on stage)
 
 ### `player.poll` Room poll
 
@@ -2358,6 +2426,49 @@ flowchart LR
 - **Root:** `data-surface`
 - **Reach:** the host removed the player
 - **Holds:** "Removed" and "The host removed you from this game."
+
+### `player.form-link` Feedback form is open
+
+- **Root:** `data-surface`
+- **Reach:** an open feedback form on stage, for every phone in the session room
+- **Holds:** the form's title, "A feedback form is open. Your answers go only to the host." and Open the form
+- **Leads to:** [Feedback form](#playerform-feedback-form) (Open the form)
+
+### `player.form-loading` Form loading
+
+- **Root:** `data-surface`
+- **Reach:** the form page (/play/form?t=…) before its questions arrive
+- **Holds:** "Loading…", or "Can't reach the form — check your connection and try again."
+
+### `player.form` Feedback form
+
+- **Root:** `data-surface`
+- **Reach:** the form's QR code on the stage, the form link pasted in the meeting chat, or Open the form
+- **Holds:**
+  - the form's title and intro
+  - one card per question with its number and a red star when it is required: a text box (free text), a number box with its unit, a button per number from 0 to 10 with the end words under them (scale, NPS), five star buttons (stars), a lettered button per choice (choice, several when allowed)
+  - Your name (optional), Send, and "Your answers go only to the host. They are never shown on the screen."
+- **Does:** Send sends every answer at once, retried with one key; a second tap on a button takes its answer back
+- **States:**
+  - a question that needs a look is outlined and says why; a message on top
+  - "Too many tries — wait a moment and try again." or "Can't reach the form…"
+- **Why:** a private form, one scroll, for end-of-session feedback; no PIN and no room join needed
+- **Leads to:**
+  - [Form sent](#playerform-thanks-form-sent) (sent)
+  - [Form closed](#playerform-closed-form-closed) (the form closed meanwhile)
+
+### `player.form-thanks` Form sent
+
+- **Root:** `data-surface`
+- **Reach:** a form sent
+- **Holds:** "Thank you!", "Your answers were sent." and Send another response
+- **Leads to:** [Feedback form](#playerform-feedback-form) (Send another response, a fresh copy of the form)
+
+### `player.form-closed` Form closed
+
+- **Root:** `data-surface`
+- **Reach:** the form link while the form or the session room is closed, or an unknown link
+- **Holds:** "This form is closed" and "The host is not taking responses right now. Thank you for your time."
 
 ### `player.theme` Player theme toggle
 
@@ -2443,10 +2554,12 @@ flowchart LR
 | [Item editor](#planeditor-item-editor) | the stage preview | [Stage preview](#planpreview-stage-preview) |
 | [Item editor](#planeditor-item-editor) | Music | [Music editor](#planmusic-editor-music-editor) |
 | [Item editor](#planeditor-item-editor) | a quiz question's Answers | [Quiz question editor](#planquiz-editor-quiz-question-editor) |
+| [Item editor](#planeditor-item-editor) | a Feedback form item | [Form builder](#planform-builder-form-builder) |
 | [Item editor](#planeditor-item-editor) | a breakout | [Breakout editor](#planbreakout-breakout-editor) |
 | [Item editor](#planeditor-item-editor) | the lettering rows | [Lettering editor](#sessionsstage-font-lettering-editor) |
 | [Item editor](#planeditor-item-editor) | Delete | [Delete items?](#planconfirm-delete-delete-items) |
 | [Item editor](#planeditor-item-editor) | no item | [Item editor empty state](#planeditor-empty-item-editor-empty-state) |
+| [Form builder](#planform-builder-form-builder) | Copy from another session | [Copy a form from another session](#planform-library-copy-a-form-from-another-session) |
 | [Bulk editor](#planmultiselect-bulk-editor) | Delete n items | [Delete items?](#planconfirm-delete-delete-items) |
 | [Re-import review](#planreimport-review-re-import-review) | nothing changed | [Re-import with no changes](#planreimport-empty-re-import-with-no-changes) |
 | [Re-import review](#planreimport-review-re-import-review) | Cancel | [Cancel the re-import?](#planconfirm-cancel-reimport-cancel-the-re-import) |
@@ -2518,6 +2631,7 @@ flowchart LR
 | [Timing card](#presentertiming-timing-card) | Reset clock | [Reset the session clock?](#presenterconfirm-clock-reset-reset-the-session-clock) |
 | [Item controls card](#presenteritem-item-controls-card) | a capture | [Capture controls](#presentercapture-capture-controls) |
 | [Item controls card](#presenteritem-item-controls-card) | a quiz | [Quiz controls](#presenterquiz-live-quiz-controls) |
+| [Item controls card](#presenteritem-item-controls-card) | a feedback form | [Feedback form controls](#presenterform-feedback-form-controls) |
 | [Item controls card](#presenteritem-item-controls-card) | a break | [Break and breakout timer](#presenterbreak-timer-break-and-breakout-timer) |
 | [Capture controls](#presentercapture-capture-controls) | map answers | [Not on the map](#presenterunplaced-not-on-the-map) |
 | [Capture controls](#presentercapture-capture-controls) | a map activity | [Map activity](#presentermap-map-activity) |
@@ -2553,5 +2667,10 @@ flowchart LR
 | [Join](#playerjoin-join) | joined | [Waiting](#playerwait-waiting) |
 | [Waiting](#playerwait-waiting) | a question opens | [Question](#playerquestion-question) |
 | [Waiting](#playerwait-waiting) | an activity a phone can answer goes on stage | [Room poll](#playerpoll-room-poll) |
+| [Waiting](#playerwait-waiting) | an open feedback form goes on stage | [Feedback form is open](#playerform-link-feedback-form-is-open) |
 | [Question](#playerquestion-question) | after a tap | [Answer sent](#playerlocked-answer-sent) |
 | [Result](#playerresult-result) | removed by the host | [Removed](#playerkicked-removed) |
+| [Feedback form is open](#playerform-link-feedback-form-is-open) | Open the form | [Feedback form](#playerform-feedback-form) |
+| [Feedback form](#playerform-feedback-form) | sent | [Form sent](#playerform-thanks-form-sent) |
+| [Feedback form](#playerform-feedback-form) | the form closed meanwhile | [Form closed](#playerform-closed-form-closed) |
+| [Form sent](#playerform-thanks-form-sent) | Send another response, a fresh copy of the form | [Feedback form](#playerform-feedback-form) |

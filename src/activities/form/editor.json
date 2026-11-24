@@ -1,0 +1,10 @@
+{
+  "type": "form",
+  "label": "Feedback form",
+  "icon": "clipboard-list",
+  "order": 15,
+  "description": "A private form, one phone screen of questions: answers go only to the presenter and a CSV, never to the stage. The stage shows its QR code and link.",
+  "capture": false,
+  "needs_question": false,
+  "options": []
+}

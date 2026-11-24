@@ -44,6 +44,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `groups/` | roster and shuffle |
 | `obs/` | obs-websocket scene switching |
 | `music/` | files and Spotify per item |
+| `forms/` | private feedback forms: the questions, the answer checks, the aggregates and the CSV (`model.py`), the live open/close and submissions in `live/forms.jsonl` (`service.py`) |
 | `room/` | the session room: one PIN per live session and the phones that joined it, which the quiz and the room polls share; `controls.py` holds each poll type's phone control |
 | `quiz/` | the quiz engine, importer, scoring, cues, reachability |
 | `results/` | collection, reconciliation, PDF and Excel exports, the copilot's conversation read back |

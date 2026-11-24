@@ -18,6 +18,7 @@ import { formDialog, confirmDialog, rowMenu } from '/static/js/dialogs.js';
 import { applySessionTheme } from '/static/js/stage-render.js';
 import { renderReviewNote, syncSelectedImport, showReview, reimportSelected, reimport, importKahoot } from '/static/js/views/plan-import.js';
 import { words } from '/static/js/stage-words.js';
+import { formBuilder } from '/static/js/views/form-builder.js';
 import { field, segmentedChoice, input, selectField, fmtTimer, planFields } from '/static/js/views/plan-fields.js';
 import { createPreview } from '/static/js/views/plan-preview.js';
 
@@ -760,6 +761,7 @@ function renderEditor() {
 
   const answers = it.kind === 'activity' ? answersField(it, st.types[it.type] || {}) : null;
   if (answers) form.appendChild(answers);
+  if (it.kind === 'activity' && it.type === 'form') form.appendChild(formBuilder(it, { markDirty, renderEditor }));
 
   form.appendChild(notesField(it));
   form.appendChild(editorTools(it));

@@ -13,13 +13,14 @@ flowchart LR
   cfedge -->|tunnel| cloudflared
   cloudflared -->|"http://127.0.0.1:8451"| playerapp
   subgraph player[Quiz player listener 127.0.0.1:8451 — app/webapp/player/ · same process + loop]
-    playerapp["app/webapp/player/server.py<br/>/play page · /play/api/join · resume · answer · poll · state · WS /play/ws — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
+    playerapp["app/webapp/player/server.py<br/>/play page · /play/api/join · resume · answer · poll · state · WS /play/ws<br/>/play/form page · /play/api/form — nothing else<br/>per-IP rate limits (ratelimit.py) · own static/ (fleet CSS copies)"]
     playerpush["app/webapp/player/push.py<br/>PlayerPush — each phone's own view on every change"]
   playerconn["app/webapp/player/static/conn-state.js<br/>ConnState · connState — the dot and label"]
   end
   playerapp -->|same QuizService, async routes| quizsvc
   playerpush -->|player_view only| quizsvc
   playerapp -->|room poll view · answers| roompolls
+  playerapp -->|form questions · submissions| formsvc
   server -.->|lifespan starts / stops| listener["app/webapp/player/listener.py<br/>PlayerListener · busy port = ❌ log, main app keeps serving"]
   listener --> playerapp
   playerapp -->|page's module script| playerconn
@@ -155,6 +156,10 @@ flowchart LR
   roomsvc --> roomfile[("live/room.jsonl<br/>open · joins · close, replayed on activate")]
   roompolls["src/room/polls.py<br/>RoomPolls · poll answers from phones<br/>src/room/controls.py · each type's phone control"] -->|members| roomsvc
   roompolls -->|"add_room · source: room"| chathub
+  formsvc["src/forms/service.py<br/>FormsService · open/close · submissions · never on a socket<br/>src/forms/model.py · questions · checks · aggregates · CSV"] -->|room open| roomsvc
+  formsvc --> formsfile[("live/forms.jsonl · live/captures/&lt;item&gt;.csv<br/>open · close · responses, replayed on activate")]
+  roompolls -->|"a form's join state"| formsvc
+  formsr["routers/forms.py<br/>results · open · close · CSV · QR · library (RemoteAuth)"] --> formsvc
   stage -->|img| quizr["routers/quiz.py<br/>GET /api/quiz/qr.svg (RemoteAuth)"]
   quizr --> quizsvc
   quizr --> qr["src/quiz/qr.py<br/>join QR SVG (public_url + /play?pin=)"]

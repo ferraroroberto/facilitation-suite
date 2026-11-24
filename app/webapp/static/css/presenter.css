@@ -266,6 +266,8 @@
   .p-item .p-body { display: flex; flex-direction: column; }
   .p-item .p-body > * { flex: none; }
   .p-item .p-quiz-players { flex: 0 1 auto; min-height: 88px; overflow-y: auto; }
+  .p-item .p-form { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .p-item .p-form-results { flex: 0 1 auto; min-height: 88px; overflow-y: auto; }
 }
 /* 1500px and wider (a 1920×1080 second monitor): four columns, the Zoom chat on its own, full height. */
 @media (min-width: 1500px) and (pointer: fine) {
@@ -290,6 +292,19 @@
 /* "Next phase" keeps one line; Lock answers (and New game) sit beside it, or wrap under it. */
 .p-quiz-actions .p-cap-btn { width: auto; flex: 1 1 auto; white-space: nowrap; }
 .p-quiz-join .button-surface { padding: 0 12px; min-height: var(--control-h); }
+/* A feedback form's backstage panel: its controls, then the results only this screen shows. */
+.p-form { display: grid; gap: var(--space-sm); }
+.p-form .p-timer-actions a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.p-form .p-timer-actions a[hidden] { display: none; }
+.p-form-results { display: grid; gap: var(--space-sm); border-top: 1px solid var(--line); padding-top: var(--space-sm); }
+.p-form-results p { margin: 0; }
+.p-form-q { overflow-wrap: anywhere; }
+.p-form-stat b { font-variant-numeric: tabular-nums; }
+.p-form-tally, .p-form-texts { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: var(--font-body-sm); }
+.p-form-tally li { display: flex; justify-content: space-between; gap: var(--space-sm); }
+.p-form-tally b { font-variant-numeric: tabular-nums; }
+.p-form-texts li { padding: 4px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; white-space: pre-line; }
+.p-form-texts li:last-child { border-bottom: 0; }
 .p-quiz-head { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-xs); }
 .p-quiz-players { list-style: none; margin: 0; padding: 0; }
 .p-quiz-players li { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; border-bottom: 1px solid var(--line-muted); }

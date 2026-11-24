@@ -91,6 +91,8 @@ const TEXT = {
     removed_detail: 'The host removed you from this game.',
     name_optional: 'Your name (optional)',
     room_wait: "You're in! Watch the screen.",
+    form_ready: 'A feedback form is open. Your answers go only to the host.',
+    open_form: 'Open the form',
     your_answer: 'Your answer',
     send: 'Send',
     sent: 'Sent',
@@ -160,6 +162,8 @@ const TEXT = {
     removed_detail: 'Te han sacado de este juego.',
     name_optional: 'Tu nombre (opcional)',
     room_wait: '¡Ya estás dentro! Mira la pantalla.',
+    form_ready: 'Hay un formulario de opinión abierto. Tus respuestas solo las ve quien presenta.',
+    open_form: 'Abrir el formulario',
     your_answer: 'Tu respuesta',
     send: 'Enviar',
     sent: 'Enviada',
@@ -443,6 +447,7 @@ function draw() {
   if (!v) return;
   if (v.kind === 'poll') { stopTick(); return drawPoll(v); }
   if (v.kind === 'room') { stopTick(); return v.quiz_join ? showJoin('', true) : showWait(T.room_wait); }
+  if (v.kind === 'form') { stopTick(); return drawFormLink(v); }
   if (v.kicked) { stopTick(); return render('kicked'); }
   const question = v.item_id && Array.isArray(v.tiles);
   if (pending && pending.item_id !== v.item_id && pending.state !== 'sending') pending = null;
@@ -624,6 +629,13 @@ async function answer(itemId, choice) {
 // A room poll on stage: its question and one control (a text answer, a button per scale number or
 // star, a lettered button per choice, or a number box). The phone's counted answer comes from the
 // server; it can be changed until the poll closes.
+// An open feedback form on stage: its title and a link to the form page (form.html), the same page its QR opens.
+function drawFormLink(v) {
+  $('[data-form-title]').textContent = v.title || '';
+  $('[data-form-link]').href = v.link || '#';
+  render('formlink');
+}
+
 function drawPoll(v) {
   if (pollPending && pollPending.item_id !== v.item_id) pollPending = null;
   const p = pollPending;

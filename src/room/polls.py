@@ -45,7 +45,9 @@ it is not configured), ``member_count`` and ``ok``. ``ok`` is true only while
 the room is open, the link is configured and the last public-link check
 (``src/quiz/reach.py``) says ``ok``, so a QR that leads nowhere is never
 shown; the chat prompt stays on the slide either way, so the chat is the
-fallback. The server sets ``join_url`` and ``reachable``.
+fallback. The server sets ``join_url`` and ``reachable``. On a feedback form
+(type ``form``) ``join`` is the form's own (``FormsService.join_state``: its
+link, open state and optional count), set through ``form_join``.
 """
 
 from __future__ import annotations
@@ -56,6 +58,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from src.chat.hub import ChatHub
+from src.forms.model import FORM_TYPE
 from src.live.capture import CaptureService
 from src.live.hub import LiveHub
 from src.room.controls import clean_value, control_of, fields
@@ -87,6 +90,8 @@ class RoomPolls:
         self._keys: dict[str, str] = {}  # a phone's answer key → the answer it carried
         self.join_url: Callable[[str], Optional[str]] = lambda pin: None  # the public join link (set by the server)
         self.reachable: Callable[[], bool] = lambda: False  # the last public-link check said ok (set by the server)
+        # A feedback form's own join state: its link, not the room's PIN (``src/forms/service.py``, set by the server).
+        self.form_join: Callable[[dict[str, Any]], Optional[dict[str, Any]]] = lambda item: None
         chat.listeners.append(self._on_messages)
         live.reset_listeners.append(self._forget)
         live.extra_state.append(lambda: {"join": self.join_state()})
@@ -109,6 +114,8 @@ class RoomPolls:
     def join_state(self) -> Optional[dict[str, Any]]:
         """How a phone joins from the item on stage (see **Joining from the stage**)."""
         cur = self.live.current()
+        if cur is not None and cur.get("type") == FORM_TYPE:
+            return self.form_join(cur)
         if cur is None or (control_of(cur) is None and cur.get("type") != JOIN_TYPE):
             return None
         room = self.room.current()
