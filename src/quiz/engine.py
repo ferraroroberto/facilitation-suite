@@ -12,8 +12,9 @@ Records (every one also carries ``game`` and ``at``, epoch ms):
 
 - ``{"op": "game", "lobby_id", "run"}`` — a game opens (``game_id`` =
   ``<lobby item id>-<run>``; a replay of the same quiz is run 2, 3, …).
-- ``{"op": "pin", "pin"}`` — the game's 6-digit join PIN (written right after
-  ``game``; a game from an older file gets one the next time it is shown).
+- ``{"op": "pin", "pin"}`` — a per-game join PIN, found only in older files:
+  games are now joined with the session room's PIN (``src/room/``), which
+  the service puts in the snapshot instead.
 - ``{"op": "join", "player_id", "name", "secret", "key", "source"}`` — ``key``
   is the caller's optional idempotency key (a retried join returns the same
   player); ``source`` is ``phone`` or ``chat`` (absent in older files: ``phone``).

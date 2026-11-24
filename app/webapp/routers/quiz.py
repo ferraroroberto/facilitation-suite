@@ -4,7 +4,8 @@ Behind ``RemoteAuth`` like every other ``/api/*`` route — the public player
 app (``app/webapp/player/``) never serves it.
 
     GET /api/quiz/qr.svg[?pin=]  → the QR of ``quiz.public_url`` + ``/play?pin=…``
-                                   for the game on stage (or the game with ``pin``)
+                                   with the session room's PIN, for the game on
+                                   stage (or, given ``pin``, when it is the room's)
     GET  /api/quiz/reach         → the last public-link check (``src/quiz/reach.py``)
     POST /api/quiz/reach         → check now (in a worker thread) and return it
 """
@@ -30,10 +31,11 @@ QR_STATE_HEADER = "X-Quiz-QR"  # "ok" | "not-configured" (the placeholder while 
 async def join_qr(request: Request, pin: Optional[str] = None) -> Response:
     """The join QR (async: the quiz engine runs on the live hub's loop)."""
     quiz = request.app.state.quiz
-    game = quiz.game_by_pin(pin) if pin else quiz.game_on_stage()
-    if game is None:
-        raise QuizError(404, "no_game", "No quiz game on stage" if not pin else "No game with that PIN")
-    url = quiz.join_url(game.pin)
+    if pin and not quiz.pin_matches(pin):
+        raise QuizError(404, "no_game", "No game with that PIN")
+    if not pin and quiz.game_on_stage() is None:
+        raise QuizError(404, "no_game", "No quiz game on stage")
+    url = quiz.join_url(quiz.room.pin())
     svg, state = (qr_svg(url), "ok") if url else (not_configured_svg(), "not-configured")
     return Response(svg, media_type="image/svg+xml", headers={"Cache-Control": "no-store", QR_STATE_HEADER: state})
 

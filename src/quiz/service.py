@@ -83,17 +83,21 @@ route, or ``loop.call_soon_threadsafe``) — the engine takes no lock:
   everything in it, as the stage does.
 - ``language() -> str`` — the live session's language (``en`` with none
   live); the player page asks it before joining (``/play/api/ping``).
-- ``join_pin(pin, nickname, key=None) -> JoinResult`` — ``join`` into the
-  game with that PIN: ``wrong_pin`` when no game of the live session has it,
-  else ``join``'s own states (``no_game`` when that game is not on stage).
+- ``join_pin(pin, nickname, key=None) -> JoinResult`` — join the session
+  room (``src/room/``) with that PIN and the game on stage with that
+  nickname: ``wrong_pin`` when the PIN is not the open room's, else
+  ``join``'s own states. The player's id and secret are the room member's,
+  so the same phone keeps one identity across every game of the run.
 - ``change_listeners`` — callables run after every change to a game (every
   record: a join, an answer, a phase…) and when the live session changes, so
   a player socket can push.
 - ``open_question()`` — the game, scope and question taking answers on
   stage now; the chat fallback (``chat.py``) reads it.
 
-**Join PIN.** Every game gets a 6-digit PIN (a ``pin`` record right after
-its ``game`` record, so it survives a restart); ``state.quiz`` carries it
+**Join PIN.** The PIN is the session room's (``src/room/service.py``, kept in
+``live/room.jsonl``, so it survives a restart): every game of the run, a
+replay included, is joined with it. ``pin`` records in an older ``quiz.jsonl``
+are replayed but no longer join. ``state.quiz`` carries the PIN
 with ``join_url`` (``quiz.public_url`` + ``/play?pin=…``, ``None`` while the
 public URL is not configured), ``listener`` (the player listener is up) and
 ``reach`` (the last public-link check, ``reach.py``: ``state`` ok |
@@ -138,16 +142,18 @@ from src.quiz.engine import (
     UNKNOWN_PLAYER,
     AnswerResult,
     Game,
+    clean_name,
 )
 from src.quiz.model import QuizError, QuizQuestion, question_from_item
+from src.room.model import JOINED as ROOM_JOINED
+from src.room.service import RoomJoin, RoomService
 
 logger = logging.getLogger(__name__)
 
 QUIZ_FILE = "quiz.jsonl"
 LOBBY, QUESTION, PODIUM = "quiz_lobby", "quiz", "quiz_podium"
 QUIZ_TYPES = (LOBBY, QUESTION, PODIUM)
-WRONG_PIN = "wrong_pin"  # join_pin: no game of the live session has that PIN
-PIN_DIGITS = 6
+WRONG_PIN = "wrong_pin"  # join_pin: the PIN is not the open session room's
 EARLY_CLOSE_MS = 1000  # grace after the last active player answers, before an early reveal
 
 
@@ -239,8 +245,10 @@ def replay(records: list[dict[str, Any]]) -> dict[str, Game]:
 
 
 class QuizService:
-    def __init__(self, live: LiveHub, clock: Callable[[], int] = now_ms) -> None:
+    def __init__(self, live: LiveHub, clock: Callable[[], int] = now_ms, room: Optional[RoomService] = None) -> None:
         self.live, self.clock = live, clock
+        self.room = room if room is not None else RoomService(live, clock)
+        self.room.id_taken = lambda pid: self._game_of(pid) is not None  # the chat players' ids
         self.games: dict[str, Game] = {}
         self.latest: dict[str, str] = {}  # lobby id → its newest game id
         self.change_listeners: list[Callable[[], None]] = []
@@ -308,7 +316,8 @@ class QuizService:
                              "error": scope.invalid[cur["id"]], "sounds": self.sound_cues()}}
         if game is None:
             return {"quiz": None}
-        return {"quiz": {**game.snapshot(scope.order, scope.questions), "join_url": self.join_url(game.pin),
+        pin = self.room.pin()
+        return {"quiz": {**game.snapshot(scope.order, scope.questions), "pin": pin, "join_url": self.join_url(pin),
                          "podium_follows": scope.podium_follows,
                          "listener": self.listener_up(), "accept_chat": self.accepts_chat(scope),
                          "reach": self.reach(), "sounds": self.sound_cues()}}
@@ -349,11 +358,9 @@ class QuizService:
         base = (self.public_url() or "").strip().rstrip("/")
         return f"{base}/play?pin={pin}" if base and pin else None
 
-    def game_by_pin(self, pin: Any) -> Optional[Game]:
-        """The live session's game with that join PIN (any run, on stage or not)."""
-        self._load()
-        pin = "".join(str(pin or "").split())
-        return next((g for g in self.games.values() if g.pin == pin), None) if pin else None
+    def pin_matches(self, pin: Any) -> bool:
+        """The PIN typed is the open session room's, which joins every game of the run."""
+        return self.room.pin_matches(pin)
 
     def player_view(self, player_id: str, secret: str) -> Optional[dict[str, Any]]:
         """What one phone shows now; ``None`` for an unknown player or a wrong secret."""
@@ -370,26 +377,33 @@ class QuizService:
         return str(self.live.run.get("language") or "en")
 
     def _game_of(self, player_id: str) -> Optional[Game]:
+        """The game this player is in: the one on stage, else the newest (a room member can be in several)."""
         self._load()
-        return next((g for g in self.games.values() if player_id in g.players), None)
+        on_stage = self._current()[2]
+        if on_stage is not None and player_id in on_stage.players:
+            return on_stage
+        return next((g for g in reversed(self.games.values()) if player_id in g.players), None)
 
     # ---------------------------------------------------------- players
 
     def join(self, nickname: Any, game_id: Optional[str] = None, key: Optional[str] = None, *,
-             source: str = PHONE) -> JoinResult:
+             source: str = PHONE, member: Optional[RoomJoin] = None) -> JoinResult:
         """A new player in the game on stage (see the module docstring). ``source`` is ``phone``
-        (the player page) or ``chat`` (the Zoom-chat fallback) — the results' leaderboard shows it."""
+        (the player page) or ``chat`` (the Zoom-chat fallback) — the results' leaderboard shows it.
+        ``member`` is the room member joining (``join_pin``): the player takes its id and secret."""
         _, scope, game = self._current()
         if game is None or scope is None or (game_id and game_id != game.game_id):
             return JoinResult(NO_GAME, game_id)
-        known = game.by_key(key)
-        if known is not None:
+        known = game.players.get(str(member.player_id)) if member is not None else game.by_key(key)
+        if known is not None and not known.kicked:
             return JoinResult(JOINED, game.game_id, known.id, known.secret, known.name)
         if game.phase == "podium":
             return JoinResult(CLOSED, game.game_id)
         name = game.unique_name(nickname)
-        player_id = self._new_player_id()
-        secret = secrets.token_urlsafe(16)
+        if member is not None and known is None:
+            player_id, secret = str(member.player_id), str(member.secret)
+        else:  # a chat player, or a member the host removed from this game: a fresh player
+            player_id, secret = self._new_player_id(), secrets.token_urlsafe(16)
         self._record(game, {"op": "join", "player_id": player_id, "name": name, "secret": secret, "key": key,
                             "source": source})
         logger.info("ℹ️ quiz %s: %s joined (%d players)", game.game_id, player_id, len(game.active()))
@@ -397,11 +411,17 @@ class QuizService:
         return JoinResult(JOINED, game.game_id, player_id, secret, name)
 
     def join_pin(self, pin: Any, nickname: Any, key: Optional[str] = None) -> JoinResult:
-        """``join`` into the game with that PIN (see the module docstring)."""
-        game = self.game_by_pin(pin)
-        if game is None:
+        """Join the room with that PIN, then the game on stage (see the module docstring)."""
+        if not self.room.pin_matches(pin):
             return JoinResult(WRONG_PIN)
-        return self.join(nickname, game.game_id, key)
+        game = self.game_on_stage()
+        if game is None:
+            return JoinResult(NO_GAME)
+        clean_name(nickname)  # the quiz needs a nickname: refused before the room gains a member
+        member = self.room.join(nickname, key)
+        if member.state != ROOM_JOINED:
+            return JoinResult(WRONG_PIN)
+        return self.join(nickname, game.game_id, key, member=member)
 
     def resume(self, player_id: str, secret: str) -> JoinResult:
         """The same player again (a reopened tab, a locked phone, a network switch)."""
@@ -411,6 +431,8 @@ class QuizService:
         refused = game.check_player(player_id, secret)
         if refused:
             return JoinResult(refused, game.game_id, player_id)
+        if self.room.member(player_id) is not None:
+            self.room.resume(player_id, secret)
         self._record(game, {"op": "resume", "player_id": player_id})
         p = game.players[player_id]
         return JoinResult(RESUMED, game.game_id, p.id, p.secret, p.name)
@@ -425,18 +447,10 @@ class QuizService:
             self._maybe_close_early(game, game.item_id)
         self._changed()
 
-    def _new_pin(self) -> str:
-        """A 6-digit PIN (no leading zero) no other game of the live session has."""
-        taken = {g.pin for g in self.games.values()}
-        while True:
-            pin = str(10 ** (PIN_DIGITS - 1) + secrets.randbelow(9 * 10 ** (PIN_DIGITS - 1)))
-            if pin not in taken:
-                return pin
-
     def _new_player_id(self) -> str:
         while True:
             pid = "p" + secrets.token_hex(4)
-            if self._game_of(pid) is None:
+            if self._game_of(pid) is None and self.room.member(pid) is None:
                 return pid
 
     # ---------------------------------------------------------- answers
@@ -565,8 +579,6 @@ class QuizService:
             self._schedule_reveal(game, cur["id"], run.deadline_ms)
 
     def _phase(self, game: Game, phase: str, item_id: str, **extra: Any) -> None:
-        if not game.pin:  # a new game, or one from a file written before PINs
-            self._record(game, {"op": "pin", "pin": self._new_pin()})
         if (game.phase, game.item_id) == (phase, item_id):
             return  # already there (a session going live again)
         self._record(game, {"op": "phase", "phase": phase, "item_id": item_id, **extra})

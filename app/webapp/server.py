@@ -105,6 +105,7 @@ from src.quiz.reach import QuizReach
 from src.quiz.service import QUIZ_TYPES, QuizService
 from src.request_timing import RequestTimingMiddleware
 from src.results.analysis_run import AnalysisRuns
+from src.room.service import RoomService
 from src.runtime_data import runtime_data_dir, runtime_db_path
 from src.self_restart import TRAY_RESTART, RestartTarget, restart_router
 from src.sessions.store import SessionStore
@@ -309,7 +310,9 @@ def _install_quiz(app: FastAPI) -> None:
     Zoom-chat fallback (``src/quiz/chat.py``; own messages count only in the capture's rehearsal mode)
     and the public-link check (``src/quiz/reach.py``: when a quiz session goes live, then every few
     minutes while it is, and on demand — always in a worker thread)."""
-    service = QuizService(app.state.live)
+    # The session room (one PIN and QR per live session) the quiz and every later activity join through.
+    app.state.room = RoomService(app.state.live)
+    service = QuizService(app.state.live, room=app.state.room)
     # With the public quiz link switched off there is no public address to show or put in the QR.
     service.public_url = lambda: app.state.config.quiz.public_url if features.enabled(app.state.config, "quiz_public") else ""
     service.listener_up = lambda: bool(getattr(app.state, "player", None) and app.state.player.running)
