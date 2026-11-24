@@ -171,27 +171,12 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None,
     # A room of phones on one game: each answer carries Server-Timing and a slow one is logged.
     app.add_middleware(RequestTimingMiddleware, timed_prefix=f"{PREFIX}/api/")
     limiter = ratelimit.RateLimiter()
-    refused_logged: dict[tuple[str, str], float] = {}
+    limit = _limit_with(limiter)
     view_message = _view_messages(quiz, polls, forms)
     push = _attach_push(app, quiz, polls, view_message)
     sockets: set[WebSocket] = set()  # every accepted socket, said hello or not
     app.state.sockets = sockets
     app.state.limiter = limiter
-
-    def client_ip(request: Request) -> str:
-        return request.client.host if request.client else "?"
-
-    def limit(name: str, ip: str, rule: ratelimit.Limit, *, take: bool = True) -> None:
-        wait = limiter.allow(name, ip, rule) if take else limiter.peek(name, ip, rule)
-        if not wait:
-            return
-        now = time.monotonic()
-        if now - refused_logged.get((name, ip), -LOG_REFUSALS_EVERY_S) >= LOG_REFUSALS_EVERY_S:
-            if len(refused_logged) > 1000:
-                refused_logged.clear()
-            refused_logged[(name, ip)] = now
-            logger.warning("⚠️ quiz player: %s rate limit reached for %s (logged once a minute)", name, ip)
-        raise PlayerError(429, "slow_down", "Too many tries — wait a moment", {"retry_after_s": round(wait, 1)})
 
     _install_error_handlers(app)
 
@@ -270,6 +255,29 @@ def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None,
 
 
 ViewMessage = Callable[[str, str], dict[str, Any]]
+
+
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
+def _limit_with(limiter: ratelimit.RateLimiter) -> Callable[..., None]:
+    """``limit(name, key, rule, take=True)``: take a token or raise 429, logging a refusal once a minute per key."""
+    refused_logged: dict[tuple[str, str], float] = {}
+
+    def limit(name: str, ip: str, rule: ratelimit.Limit, *, take: bool = True) -> None:
+        wait = limiter.allow(name, ip, rule) if take else limiter.peek(name, ip, rule)
+        if not wait:
+            return
+        now = time.monotonic()
+        if now - refused_logged.get((name, ip), -LOG_REFUSALS_EVERY_S) >= LOG_REFUSALS_EVERY_S:
+            if len(refused_logged) > 1000:
+                refused_logged.clear()
+            refused_logged[(name, ip)] = now
+            logger.warning("⚠️ quiz player: %s rate limit reached for %s (logged once a minute)", name, ip)
+        raise PlayerError(429, "slow_down", "Too many tries — wait a moment", {"retry_after_s": round(wait, 1)})
+
+    return limit
 
 
 def _view_messages(quiz: QuizService, polls: Optional[RoomPolls], forms: Optional[FormsService] = None) -> ViewMessage:
