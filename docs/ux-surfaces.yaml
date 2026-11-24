@@ -2578,11 +2578,16 @@ surfaces:
           `/play` on the quiz's public port, with no game joined
     holds:
       - a header with the connection state, the theme toggle
-      - Game PIN and Nickname fields, an error line and Join
+      - >-
+          Game PIN and Nickname fields, an error line and Join; the name reads "Your name
+          (optional)" while no quiz is on stage
     does:
       - >-
           Join checks the PIN; the screen says in the game's language what went wrong (no game has
           that PIN, and so on)
+      - >-
+          with no quiz on stage it joins the session room only, a name optional; a room member
+          sees this form again when a quiz opens, its nickname now required
     states:
       - the connection chip reads Connecting… until it knows
     links:
@@ -2593,7 +2598,7 @@ surfaces:
     title: Waiting
     root: data-surface
     reach:
-      - joined a lobby, or a phase with nothing to answer
+      - joined a lobby, the room with nothing on stage to answer, or a phase with nothing to answer
     holds:
       - >-
           the player's name and "You're in! Watch the screen — the quiz starts soon." or "Watch the
@@ -2601,6 +2606,29 @@ surfaces:
     links:
       - to: player.question
         via: a question opens
+      - to: player.poll
+        via: a word cloud or scale goes on stage
+  - id: player.poll
+    area: player
+    title: Room poll
+    root: data-surface
+    reach:
+      - a word cloud or scale on stage, for every phone in the session room
+    holds:
+      - the activity's question
+      - >-
+          one control while its capture runs: a text answer with Send (word cloud), or one button
+          per number of the scale, with its keyword under it when the scale has one per number
+      - >-
+          Sent with the answer counted and "You can change it until the poll closes", Sending… or
+          Retrying, or Not sent; once the capture stops, "The poll is closed"
+    does:
+      - >-
+          Send or a number sends the answer, retried with one key until the server acks it; a new
+          answer replaces this phone's earlier one
+    why: >-
+      people in the room answer on their phones while people online type in the chat, and one
+      capture counts both
   - id: player.question
     area: player
     title: Question

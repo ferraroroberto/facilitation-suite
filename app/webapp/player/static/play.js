@@ -89,6 +89,15 @@ const TEXT = {
     wait_podium: 'Wait for the podium…',
     removed: 'Removed',
     removed_detail: 'The host removed you from this game.',
+    name_optional: 'Your name (optional)',
+    room_wait: "You're in! Watch the screen.",
+    your_answer: 'Your answer',
+    send: 'Send',
+    sent: 'Sent',
+    answer_is: (a) => `Your answer: ${a}`,
+    can_change: 'You can change it until the poll closes.',
+    poll_closed: 'The poll is closed.',
+    poll_not_open: 'This poll is not open — watch the screen.',
   },
   es: {
     title: 'Quiz',
@@ -147,6 +156,15 @@ const TEXT = {
     wait_podium: 'Espera al podio…',
     removed: 'Fuera del juego',
     removed_detail: 'Te han sacado de este juego.',
+    name_optional: 'Tu nombre (opcional)',
+    room_wait: '¡Ya estás dentro! Mira la pantalla.',
+    your_answer: 'Tu respuesta',
+    send: 'Enviar',
+    sent: 'Enviada',
+    answer_is: (a) => `Tu respuesta: ${a}`,
+    can_change: 'Puedes cambiarla hasta que se cierre la votación.',
+    poll_closed: 'La votación está cerrada.',
+    poll_not_open: 'Esta votación no está abierta: mira la pantalla.',
   },
 };
 let lang = 'en';
@@ -162,10 +180,13 @@ const params = new URLSearchParams(location.search);
 const urlPin = (params.get('pin') || '').replace(/\D/g, '');
 const forcePoll = params.get('transport') === 'poll';
 
-let me = load(); // {player_id, secret, pin, name, game_id}
+let me = load(); // {player_id, secret, pin, name, game_id, key}
 let msg = null; // the last view message
 let offset = 0; // server clock − Date.now()
 let pending = null; // {item_id, choice, state: 'sending' | ack state, message?}
+let pollPending = null; // a poll answer on its way: {item_id, value, state: 'sending' | 'error', retrying?}
+let nameRequired = true; // a quiz is on stage (/play/api/ping): its players need a nickname
+const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
 const shownAt = {}; // item_id → performance.now() when its tiles appeared on this phone
 let tick = null;
 
@@ -298,13 +319,18 @@ document.addEventListener('visibilitychange', () => {
 
 // ------------------------------------------------------------------ join
 
-function showJoin(error) {
-  main.dataset.screen = 'join';
-  const pin = $('#pin');
-  if (!pin.value && (urlPin || (me && me.pin))) pin.value = urlPin || me.pin;
+// The join form. A room member asked into a quiz on stage (`forQuiz`) sees it again with the
+// nickname now required; a phone on the form already (a poll tick) keeps its focus and typing.
+function showJoin(error, forQuiz = false) {
+  if (forQuiz) nameRequired = true;
+  $('#nickname').placeholder = nameRequired ? T.nickname_placeholder : T.name_optional;
   const box = $('#joinError');
   box.hidden = !error;
   box.textContent = error || '';
+  if (main.dataset.screen === 'join' && !error) return;
+  main.dataset.screen = 'join';
+  const pin = $('#pin');
+  if (!pin.value && (urlPin || (me && me.pin))) pin.value = urlPin || me.pin;
   (pin.value ? $('#nickname') : pin).focus({ preventScroll: true });
 }
 
@@ -313,11 +339,12 @@ async function join(ev) {
   const pin = $('#pin').value.replace(/\D/g, '');
   const nickname = $('#nickname').value.trim();
   if (pin.length !== 6) return showJoin(T.pin_digits);
-  if (!nickname) return showJoin(T.pick_nickname);
+  if (!nickname && nameRequired) return showJoin(T.pick_nickname);
   const btn = $('#joinBtn');
   btn.disabled = true;
   btn.textContent = T.joining;
-  const key = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2); // the same key on every retry
+  // The same key on every retry; a room member keeps its own, so joining a quiz later stays the same phone.
+  const key = (me && me.key) || newKey();
   try {
     for (let attempt = 0; ; attempt++) {
       let r = null;
@@ -329,10 +356,14 @@ async function join(ev) {
       }
       clock(r.data);
       if (r.status === 429) return showJoin(T.too_many);
-      if (!r.ok) return showJoin(r.data?.error?.code === 'bad_nickname' ? T.pick_nickname : T.failed);
+      if (!r.ok) {
+        if (r.data?.error?.code === 'bad_nickname') { nameRequired = true; return showJoin(T.pick_nickname); }
+        return showJoin(T.failed);
+      }
       const d = r.data;
       if (d.state !== 'joined') return showJoin({ wrong_pin: T.wrong_pin, no_game: T.no_game, closed: T.closed }[d.state] || T.failed);
-      save({ player_id: d.player_id, secret: d.secret, pin, name: d.name, game_id: d.game_id });
+      save({ player_id: d.player_id, secret: d.secret, pin, name: d.name, game_id: d.game_id, key });
+      main.dataset.screen = 'wait'; // off the form, so a later quiz invitation shows it fresh
       if (d.view) onView(d.view);
       startTransport();
       return;
@@ -405,6 +436,8 @@ function answerText(v, n) {
 function draw() {
   const v = msg && msg.view;
   if (!v) return;
+  if (v.kind === 'poll') { stopTick(); return drawPoll(v); }
+  if (v.kind === 'room') { stopTick(); return v.quiz_join ? showJoin('', true) : showWait(T.room_wait); }
   if (v.kicked) { stopTick(); return render('kicked'); }
   const question = v.item_id && Array.isArray(v.tiles);
   if (pending && pending.item_id !== v.item_id && pending.state !== 'sending') pending = null;
@@ -581,6 +614,110 @@ async function answer(itemId, choice) {
   }
 }
 
+// ------------------------------------------------------------------ polls
+
+// A room poll on stage: its question and one control (a text answer, or a button per scale number).
+// The phone's counted answer comes from the server; it can be changed until the poll closes.
+function drawPoll(v) {
+  if (pollPending && pollPending.item_id !== v.item_id) pollPending = null;
+  const p = pollPending;
+  const busy = Boolean(p && p.state === 'sending');
+  const q = $('[data-poll-question]');
+  q.textContent = v.question || '';
+  q.hidden = !v.question;
+  const form = $('[data-poll-text]');
+  const input = $('#pollText');
+  form.hidden = v.control !== 'text' || !v.open;
+  if (input.dataset.item !== v.item_id) { // a new poll: start from what this phone already sent
+    input.dataset.item = v.item_id;
+    input.value = v.answer || '';
+  }
+  input.maxLength = v.max_length || 80;
+  input.disabled = busy;
+  $('[data-poll-send]').disabled = busy;
+  const scale = $('[data-poll-scale]');
+  scale.hidden = v.control !== 'scale' || !v.open;
+  if (v.control === 'scale') drawScale(scale, v, p ? p.value : v.answer, busy);
+  const st = $('[data-poll-status]');
+  const note = $('[data-poll-note]');
+  if (busy) {
+    st.dataset.kind = 'wait';
+    st.textContent = p.retrying ? T.retrying : T.sending;
+    note.textContent = T.keep_open;
+  } else if (p && p.state === 'error') {
+    st.dataset.kind = 'bad';
+    st.textContent = T.not_sent;
+    note.textContent = T.refused;
+  } else if (v.answer) {
+    st.dataset.kind = 'ok';
+    st.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> ${esc(T.sent)}`;
+    note.textContent = `${T.answer_is(v.answer)} · ${v.open ? T.can_change : T.poll_closed}`;
+  } else {
+    st.dataset.kind = '';
+    st.textContent = '';
+    note.textContent = v.open ? '' : T.poll_not_open;
+  }
+  render('poll');
+}
+
+function drawScale(box, v, chosen, busy) {
+  const nums = [];
+  for (let n = v.min; n <= v.max; n++) nums.push(n);
+  const sig = JSON.stringify([v.item_id, nums, v.labels]);
+  if (box.dataset.sig !== sig) {
+    box.dataset.sig = sig;
+    box.innerHTML = nums.map((n, i) => `<button type="button" class="play-scale-btn" data-value="${n}" aria-pressed="false">${n}`
+      + `${v.labels && v.labels[i] ? `<small>${esc(v.labels[i])}</small>` : ''}</button>`).join('');
+    box.querySelectorAll('.play-scale-btn').forEach((b) => b.addEventListener('click', () => sendPoll(v.item_id, b.dataset.value)));
+  }
+  box.querySelectorAll('.play-scale-btn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.value === String(chosen ?? '')));
+    b.disabled = busy;
+  });
+}
+
+// Send a poll answer until the server acks it: one key for every retry, so it is never counted twice.
+async function sendPoll(itemId, value) {
+  if (!me || (pollPending && pollPending.state === 'sending')) return;
+  const mine = { item_id: itemId, value, state: 'sending' };
+  pollPending = mine;
+  draw();
+  const body = { player_id: me.player_id, secret: me.secret, item_id: itemId, value, key: newKey() };
+  for (let attempt = 0; ; attempt++) {
+    let r = null;
+    try { r = await post('/play/api/poll', body); } catch { r = null; }
+    const paused = r && r.ok && r.data.state === 'no_game'; // the server restarted and is not live yet: keep trying
+    if (r && r.ok && !paused) {
+      clock(r.data);
+      online = true;
+      if (pollPending === mine) pollPending = null;
+      const st = r.data.state;
+      if (st === 'unknown_player' || st === 'closed') { save(null); return showJoin(T.gone); }
+      const v = msg && msg.view;
+      if (v && v.kind === 'poll' && v.item_id === itemId) {
+        v.answer = r.data.answer ?? v.answer;
+        if (st === 'not_open') v.open = false;
+      }
+      return draw();
+    }
+    if (r && r.status === 422) {
+      mine.state = 'error';
+      return draw();
+    }
+    mine.retrying = true; // offline, a proxy error, 429 or a restart: the same answer, the same key
+    draw();
+    const wait = r && r.status === 429 ? (r.data?.error?.detail?.retry_after_s || 1) * 1000 : 0;
+    await sleep(Math.max(wait, Math.min(ANSWER_MAX_MS, ANSWER_BASE_MS * 2 ** attempt)));
+  }
+}
+
+$('[data-poll-text]').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const v = msg && msg.view;
+  const text = $('#pollText').value.trim();
+  if (v && v.kind === 'poll' && text) sendPoll(v.item_id, text);
+});
+
 // ------------------------------------------------------------------ theme
 
 $('[data-theme-toggle]').addEventListener('click', () => {
@@ -616,6 +753,7 @@ const pinged = fetch('/play/api/ping', { cache: 'no-store' })
     online = r.ok;
     const d = r.ok ? await r.json().catch(() => null) : null;
     if (d && d.lang) setLang(d.lang); // before joining: the language of the game on stage
+    if (d && d.name_required === false) nameRequired = false; // no quiz on stage: joining the room needs no name
   })
   .catch(() => { online = false; })
   .finally(setConn);

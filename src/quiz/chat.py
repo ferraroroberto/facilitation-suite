@@ -43,6 +43,7 @@ from src.chat.hub import ChatHub
 from src.quiz.engine import ACCEPTED, CHAT, Game
 from src.quiz.model import QuizError, QuizQuestion
 from src.quiz.service import QuizService
+from src.room.model import ROOM_SOURCE
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,8 @@ class ChatAnswers:
     def _one(self, game: Game, question: QuizQuestion, rec: dict[str, Any]) -> None:
         if rec.get("own") and not self.count_own():
             return
+        if rec.get("source") == ROOM_SOURCE:
+            return  # a phone's poll answer, not a chat line: the phone plays through the player page
         if self.is_excluded(str(rec.get("sender") or "")):
             return  # a co-host or producer account never plays
         choice = parse_choice(rec.get("text"))

@@ -22,6 +22,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Optional
 
+from src.room.model import ROOM_SOURCE
+
 logger = logging.getLogger(__name__)
 
 ACTIVITIES_DIR = Path(__file__).resolve().parent
@@ -76,12 +78,14 @@ def parser(activity_type: str) -> Optional[ModuleType]:
 
 
 def result_for(activity_type: str, options: dict[str, Any], messages: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
-    """Parse every message and aggregate: the result the stage renders (None: no parser)."""
+    """Parse every message and aggregate: the result the stage renders (None: no parser). With any
+    phone answer among them it also carries ``sources``: ``{"room", "chat"}``, the parsed answers of each."""
     mod = parser(activity_type)
     if mod is None:
         return None
     opts = options_with_defaults(activity_type, options)
     contributions = []
+    from_room = 0
     for m in messages:
         try:
             c = mod.parse(m, opts)
@@ -90,7 +94,11 @@ def result_for(activity_type: str, options: dict[str, Any], messages: list[dict[
             continue
         if c is not None:
             contributions.append(c)
-    return aggregate_for(activity_type, options, contributions)
+            from_room += m.get("source") == ROOM_SOURCE
+    result = aggregate_for(activity_type, options, contributions)
+    if result is not None and from_room:  # the stage shows how many came from phones and how many from the chat
+        result = {**result, "sources": {"room": from_room, "chat": len(contributions) - from_room}}
+    return result
 
 
 def aggregate_for(activity_type: str, options: dict[str, Any], contributions: list[dict[str, Any]]) -> Optional[dict[str, Any]]:

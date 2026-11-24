@@ -2,7 +2,8 @@
 
 **Start** opens a window on the activity; every non-hidden
 participant message received while a window is open belongs to it until
-**Stop**. A stopped capture can be reopened (a new window; what arrived while
+**Stop**. Phones in the session room answer into the same stream
+(``source: room``, ``src/room/polls.py``); only a phone's newest answer counts. A stopped capture can be reopened (a new window; what arrived while
 it was stopped stays out). The facilitator's own messages ("You") never
 count, unless the presenter's rehearsal switch (``count_own``) is on — it is
 never saved, so it starts off after a restart, on every session activation,
@@ -53,6 +54,7 @@ from src.live.push_latch import PushLatch
 from src.logger import relay
 from src.no_window import NO_WINDOW
 from src.results.aliases import ALIASES_FILE, Excluded, ident, read_aliases
+from src.room.model import ROOM_SOURCE
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +142,8 @@ class CaptureService:
             out["capture"] = {
                 "item_id": cur["id"], "status": status.value, "idle": is_idle(status), "live": is_live(status),
                 "stopped": is_stopped(status), "windows": self.windows.get(cur["id"], []),
-                "answers": len(counted), "people": len({m["sender"] for m in counted}), "hidden": len(hidden_in),
+                "answers": len(counted), "people": len({m.get("player_id") or m["sender"] for m in counted}),
+                "room": sum(1 for m in counted if m.get("source") == ROOM_SOURCE), "hidden": len(hidden_in),
                 "excluded": len(left_out),
                 "result": self.result(cur) if parser(cur["type"] or "") else None,
             }
@@ -400,18 +403,26 @@ def select_messages(messages: list[dict[str, Any]], windows: list[list[Optional[
                     places: dict[int, str], count_own: bool = False, include_hidden: bool = False,
                     excluded: Optional[Excluded] = None) -> list[dict[str, Any]]:
     """The messages a capture counts: received inside one of its ``[start, stop)`` windows, not the
-    facilitator's own (unless ``count_own``), not hidden and not from an excluded sender (unless
-    ``include_hidden``, which a freeze uses to keep both for the report), with any place fixed by
-    hand. Pure, so the offline replay (``src.activities.replay``) selects exactly as live did."""
+    facilitator's own (unless ``count_own``), only a phone's newest room answer, not hidden and not
+    from an excluded sender (unless ``include_hidden``, which a freeze uses to keep both for the
+    report), with any place fixed by hand. Pure, so the offline replay (``src.activities.replay``)
+    selects exactly as live did."""
     if not windows:
         return []
-    out = []
+    inside = []
     for m in messages:
         if m.get("own") and not count_own:
             continue
         t = m["received_at"]
-        inside = any(s is not None and t >= s and (e is None or t < e) for s, e in windows)
-        if inside and (include_hidden or (m["id"] not in hidden and not (excluded and m["sender"] in excluded))):
+        if any(s is not None and t >= s and (e is None or t < e) for s, e in windows):
+            inside.append(m)
+    # One answer per phone: a room answer replaces that phone's earlier ones (chat lines carry no player_id).
+    latest = {m["player_id"]: m["id"] for m in inside if m.get("player_id")}
+    out = []
+    for m in inside:
+        if m.get("player_id") and latest[m["player_id"]] != m["id"]:
+            continue
+        if include_hidden or (m["id"] not in hidden and not (excluded and m["sender"] in excluded)):
             out.append(dict(m, place_id=places[m["id"]]) if m["id"] in places else m)
     return out
 

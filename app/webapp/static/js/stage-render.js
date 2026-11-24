@@ -307,12 +307,15 @@ function renderPlugin(plugin, body, result, env) {
   }
 }
 
-/** The answers/people badge of an activity item. */
+/** The answers/people badge of an activity item; with phones in the room answering too, the chat and phone answers apart. */
 function drawCount(canvas, result) {
   const count = canvas.querySelector('[data-count]');
   if (!count) return;
-  count.innerHTML = result && result.answers
-    ? `${icon('message-square')} <b>${result.answers}</b> · ${icon('users')} <b>${result.people}</b>` : '';
+  const split = result && result.sources;
+  const answers = split
+    ? `<span data-count-chat>${icon('message-square')} <b>${split.chat}</b></span> · <span data-count-room>${icon('smartphone')} <b>${split.room}</b></span>`
+    : `${icon('message-square')} <b>${result && result.answers}</b>`;
+  count.innerHTML = result && result.answers ? `${answers} · ${icon('users')} <b>${result.people}</b>` : '';
 }
 
 /** Let the plug-in set the item's subtitle, re-centring on the camera when it changed. */

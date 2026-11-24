@@ -42,6 +42,7 @@ from uvicorn.protocols.http.auto import AutoHTTPProtocol
 
 from app.webapp.player.server import PREFIX, create_player_app
 from src.quiz.service import QuizService
+from src.room.polls import RoomPolls
 
 logger = logging.getLogger(__name__)
 
@@ -223,13 +224,13 @@ class PlayerListener(EmbeddedListener):
     path = "/play"
     note = "public only through the tunnel"
 
-    def __init__(self, port: int, quiz: QuizService) -> None:
+    def __init__(self, port: int, quiz: QuizService, polls: Optional[RoomPolls] = None) -> None:
         super().__init__(port)
-        self.quiz = quiz
+        self.quiz, self.polls = quiz, polls
         self.app: Optional[FastAPI] = None
 
     def _prepare(self) -> None:
-        self.app = create_player_app(self.quiz)
+        self.app = create_player_app(self.quiz, self.polls)
         quiet_player_requests()
 
     def _config(self) -> uvicorn.Config:

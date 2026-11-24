@@ -1,6 +1,8 @@
 """Story 7: capture an activity — Space starts it, simulated answers grow the
 word cloud on the stage (the rehearsal switch flips the "counting your
-messages" chip on and off), a message is hidden, Space stops it and freezes it;
+messages" chip on and off), a message is hidden, two phones in the room answer
+the same cloud (one changes its answer, the stage shows chat and phones apart),
+Space stops it and freezes it;
 then the timer drives it: resuming reopens it, paused shows yellow, a reset
 stops it; on a slide with a timer, Space starts the timer over the slide."""
 
@@ -88,6 +90,36 @@ def exclude_cohost(page: Page, stage: Page, base_url: str) -> None:
     expect(page.locator("[data-excluded] [data-restore]")).to_have_count(1)
 
 
+def phones_answer_the_cloud(page: Page, browser: Browser, stage: Page, webapp) -> None:
+    """Two phones in the room answer the same word cloud as the chat: one named, one anonymous; the
+    named one changes its answer, which replaces the old one; the stage shows chat and phones apart."""
+    pin = page.request.get(f"{webapp.base_url}/api/live").json()["state"]["room"]["pin"]
+    spec = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
+    phones = [browser.new_context(**spec).new_page(), browser.new_context(**spec).new_page()]  # two phones, two storages
+    try:
+        for phone, name in zip(phones, ("Ana", ""), strict=True):
+            phone.goto(f"{webapp.player_url}/play?pin={pin}")
+            expect(phone.locator("#nickname")).to_have_attribute("placeholder", "Your name (optional)")
+            phone.fill("#nickname", name)
+            phone.click("#joinBtn")
+            expect(phone.locator("[data-poll-question]")).to_contain_text("kryptonite")
+        ana, anon = phones
+        surface(ana, "player.poll")
+        for phone, text in ((ana, "deadlines"), (anon, "silence"), (ana, "noise")):
+            phone.fill("#pollText", text)
+            phone.click("[data-poll-send]")
+            expect(phone.locator("[data-poll-note]")).to_contain_text(f"Your answer: {text}")
+        expect(page.locator("[data-capcounts]")).to_contain_text("13 answers from")
+        expect(page.locator("[data-capcounts]")).to_contain_text("2 by phone")
+        expect(stage.locator(".wc-word", has_text="noise")).to_be_visible()
+        expect(stage.locator(".wc-word", has_text="deadlines")).to_have_count(0)  # replaced by Ana's new answer
+        expect(stage.locator("[data-count-chat]")).to_contain_text("11")
+        expect(stage.locator("[data-count-room]")).to_contain_text("2")
+    finally:
+        for phone in phones:
+            phone.context.close()
+
+
 @pytest.mark.needs_chromium
 def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp, shots) -> None:
     folder = webapp.root / "sessions" / "demo" / "capture-story"
@@ -141,11 +173,13 @@ def test_capture_a_word_cloud_and_freeze_it(page: Page, browser: Browser, webapp
     surface(page, "presenter.capture")
 
     check_crowded_clouds(page, stage)
+    phones_answer_the_cloud(page, browser, stage, webapp)
 
     page.keyboard.press("Space")
     expect(page.locator("[data-captoggle]")).to_contain_text("Reopen capture")
     frozen = json.loads((folder / "live" / "captures" / "act-kryptonite.json").read_text(encoding="utf-8"))
-    assert frozen["result"]["answers"] == 11
+    assert frozen["result"]["answers"] == 13
+    assert frozen["result"]["sources"] == {"room": 2, "chat": 11}
     assert sum(a["hidden"] for a in frozen["answers"]) == 1
     png = folder / "live" / "captures" / "act-kryptonite.png"
     deadline = time.time() + 30

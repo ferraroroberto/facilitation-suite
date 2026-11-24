@@ -9,18 +9,31 @@ own page chrome — the fleet tokens and a few vendored stylesheets — is copie
 into ``app/webapp/player/static/``), and no OpenAPI docs. Every route lives under
 ``/play``; anything else is a 404.
 
-It talks to the **same** ``QuizService`` as the main app (passed in by the
-listener, which runs on the main app's loop), so every route is ``async``:
+It talks to the **same** ``QuizService`` and ``RoomPolls`` as the main app
+(passed in by the listener, which runs on the main app's loop), so every route
+is ``async``:
 
     GET  /play                → the phone page (``?pin=`` fills the PIN in)
     GET  /play/static/…       → its CSS and JS (``app/webapp/player/static/``)
     GET  /play/api/ping       → {"ok": true, "time": <server epoch seconds>, "lang":
                               the live session's language, so the join screen
-                              speaks it before the phone has a view}
+                              speaks it before the phone has a view,
+                              "name_required": a quiz is on stage, whose players
+                              need a nickname}
     POST /play/api/join       {pin, nickname, key?} → {state: joined | wrong_pin |
-                              no_game | closed, player_id, secret, name, …, view}
+                              no_game | closed, player_id, secret, name, …, view}.
+                              With a quiz on stage it joins the room and the game
+                              (the nickname is required); with none it joins the
+                              room only, the name optional. The same ``key``
+                              later, with a nickname, takes that member into a
+                              quiz (the room view's ``quiz_join``).
     POST /play/api/resume     {player_id, secret} → {state: resumed |
                               unknown_player | kicked, …, view}
+    POST /play/api/poll       {player_id, secret, item_id, value, key?} → the
+                              room poll's ack {state: accepted | not_open |
+                              unknown_player | closed, item_id, answer}
+                              (``src/room/polls.py``), ``no_game`` while no
+                              session is live: retry it with the same key
     POST /play/api/answer     {player_id, secret, item_id, choice, elapsed_ms}
                               → the engine's ack {state: accepted | duplicate |
                               too_late | not_open | unknown_player | kicked, …},
@@ -32,11 +45,15 @@ listener, which runs on the main app's loop), so every route is ``async``:
                               "ping"} → {"type": "pong"}
 
 The **view message** is ``{"type": "view", "state": ok | unknown_player |
-no_game, "view": QuizService.player_view(…) | null, "now_ms"}`` — a phone's
-own view only: never the plan's options (they hold the correct answers),
-never other players' answers. ``answer_trusted`` is not reachable from here.
+no_game, "view": …, "now_ms"}`` — a phone's own view only: never the plan's
+options (they hold the correct answers), never other players' answers. The
+view is the room poll on stage (``RoomPolls.view``, ``kind: poll``), else the
+phone's quiz (``QuizService.player_view``), else ``{"kind": "room",
+"quiz_join", "lang"}`` for a room member with nothing to answer
+(``quiz_join``: a quiz on stage that this member has not joined yet).
+``answer_trusted`` is not reachable from here.
 
-Join, resume and answers are rate-limited per client IP (``ratelimit.py``).
+Join, resume, answers and poll answers are rate-limited per client IP (``ratelimit.py``).
 """
 
 from __future__ import annotations
@@ -46,6 +63,7 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Optional
 
@@ -63,9 +81,12 @@ from app.webapp.player import ratelimit
 from app.webapp.player.push import Conn, PlayerPush
 from src.errors import DomainError
 from src.live.hub import now_ms
-from src.quiz.engine import JOINED, RESUMED
+from src.quiz.engine import JOINED, RESUMED, UNKNOWN_PLAYER
 from src.quiz.service import WRONG_PIN, QuizService
 from src.request_timing import RequestTimingMiddleware
+from src.room.model import RESUMED as ROOM_RESUMED
+from src.room.polls import RoomPolls
+from src.room.service import RoomJoin
 
 logger = logging.getLogger(__name__)
 
@@ -106,33 +127,30 @@ class PlayerBody(BaseModel):
     secret: str = Field(min_length=1, max_length=64)
 
 
+class PollBody(PlayerBody):
+    item_id: str = Field(min_length=1, max_length=80)
+    value: str = Field(max_length=200)
+    key: Optional[str] = Field(default=None, max_length=64)  # the phone's retry key
+
+
 class AnswerBody(PlayerBody):
     item_id: str = Field(min_length=1, max_length=80)
     choice: int = Field(ge=1, le=4)
     elapsed_ms: Optional[int] = Field(default=None, ge=0, le=3_600_000)
 
 
-def create_player_app(quiz: QuizService) -> FastAPI:
-    """The public player app over the main app's ``quiz`` service: ``/play`` routes only, no docs."""
+def create_player_app(quiz: QuizService, polls: Optional[RoomPolls] = None) -> FastAPI:
+    """The public player app over the main app's ``quiz`` and room ``polls``: ``/play`` routes only, no docs."""
     app = FastAPI(title="facilitation-suite player", docs_url=None, redoc_url=None, openapi_url=None)
     # A room of phones on one game: each answer carries Server-Timing and a slow one is logged.
     app.add_middleware(RequestTimingMiddleware, timed_prefix=f"{PREFIX}/api/")
     limiter = ratelimit.RateLimiter()
     refused_logged: dict[tuple[str, str], float] = {}
-
-    def view_message(player_id: str, secret: str) -> dict[str, Any]:
-        if quiz.live.session_id is None:
-            return {"type": "view", "state": "no_game", "view": None}
-        view = quiz.player_view(player_id, secret)
-        return {"type": "view", "state": "ok" if view is not None else "unknown_player", "view": view}
-
-    push = PlayerPush(view_message)
-    app.state.push = push
+    view_message = _view_messages(quiz, polls)
+    push = _attach_push(app, quiz, polls, view_message)
     sockets: set[WebSocket] = set()  # every accepted socket, said hello or not
     app.state.sockets = sockets
     app.state.limiter = limiter
-    app.state.detach = lambda: quiz.change_listeners.remove(push.notify)  # the listener calls it on stop
-    quiz.change_listeners.append(push.notify)
 
     def client_ip(request: Request) -> str:
         return request.client.host if request.client else "?"
@@ -149,17 +167,7 @@ def create_player_app(quiz: QuizService) -> FastAPI:
             logger.warning("⚠️ quiz player: %s rate limit reached for %s (logged once a minute)", name, ip)
         raise PlayerError(429, "slow_down", "Too many tries — wait a moment", {"retry_after_s": round(wait, 1)})
 
-    @app.exception_handler(DomainError)
-    async def _domain_error(request: Request, exc: DomainError) -> Response:
-        return error_response(exc.status, exc.code, str(exc), exc.detail)
-
-    @app.exception_handler(RequestValidationError)
-    async def _validation_error(request: Request, exc: RequestValidationError) -> Response:
-        return error_response(422, "validation_error", "invalid request")
-
-    @app.exception_handler(StarletteHTTPException)
-    async def _http_error(request: Request, exc: StarletteHTTPException) -> Response:
-        return error_response(exc.status_code, "not_found" if exc.status_code == 404 else "http_error", str(exc.detail))
+    _install_error_handlers(app)
 
     @app.get(PREFIX, include_in_schema=False)
     async def play() -> FileResponse:
@@ -169,13 +177,16 @@ def create_player_app(quiz: QuizService) -> FastAPI:
 
     @app.get(f"{PREFIX}/api/ping")
     async def ping() -> dict[str, object]:
-        return {"ok": True, "time": time.time(), "lang": quiz.language()}
+        return {"ok": True, "time": time.time(), "lang": quiz.language(),
+                "name_required": polls is None or quiz.game_on_stage() is not None}
 
     @app.post(f"{PREFIX}/api/join")
     async def join(request: Request, body: JoinBody) -> dict[str, Any]:
         ip = client_ip(request)
         limit("wrong_pin", ip, ratelimit.WRONG_PIN, take=False)
         limit("join", ip, ratelimit.JOIN)
+        if polls is not None and quiz.game_on_stage() is None and quiz.pin_matches(body.pin):
+            return _join_room(quiz, body, view_message)  # no quiz on stage: the room only, a name optional
         res = quiz.join_pin(body.pin, body.nickname, body.key)
         if res.state == WRONG_PIN:
             limiter.allow("wrong_pin", ip, ratelimit.WRONG_PIN)
@@ -190,6 +201,11 @@ def create_player_app(quiz: QuizService) -> FastAPI:
         if quiz.live.session_id is None:
             return {"state": "no_game", "now_ms": now_ms()}
         res = quiz.resume(body.player_id, body.secret)
+        if res.state == UNKNOWN_PLAYER and polls is not None:  # a room member who plays no quiz
+            member = quiz.room.resume(body.player_id, body.secret)
+            if member.state == ROOM_RESUMED:
+                return {**_member_dict(member, RESUMED), "view": view_message(body.player_id, body.secret),
+                        "now_ms": now_ms()}
         out = res.as_dict()
         if res.state == RESUMED:
             out["view"] = view_message(body.player_id, body.secret)
@@ -203,6 +219,16 @@ def create_player_app(quiz: QuizService) -> FastAPI:
         res = quiz.answer(body.player_id, body.secret, body.item_id, body.choice, body.elapsed_ms)
         return {**res.as_dict(), "now_ms": now_ms()}
 
+    @app.post(f"{PREFIX}/api/poll")
+    async def poll(request: Request, body: PollBody) -> dict[str, Any]:
+        limit("answer", client_ip(request), ratelimit.ANSWER)
+        if polls is None:
+            raise PlayerError(404, "not_found", "No room polls here")
+        if quiz.live.session_id is None:  # after a restart, until the presenter goes live: retry with the same key
+            return {"state": "no_game", "item_id": body.item_id, "answer": None, "now_ms": now_ms()}
+        res = polls.answer(body.player_id, body.secret, body.item_id, body.value, body.key)
+        return {**res.as_dict(), "now_ms": now_ms()}
+
     @app.get(f"{PREFIX}/api/state")
     async def state(player_id: str = "", secret: str = "") -> dict[str, Any]:
         return {**view_message(player_id[:40], secret[:64]), "now_ms": now_ms()}
@@ -212,6 +238,75 @@ def create_player_app(quiz: QuizService) -> FastAPI:
         await _serve_socket(ws, push, sockets)
 
     return app
+
+
+ViewMessage = Callable[[str, str], dict[str, Any]]
+
+
+def _view_messages(quiz: QuizService, polls: Optional[RoomPolls]) -> ViewMessage:
+    """(player_id, secret) → that phone's view message (see the module docstring)."""
+
+    def view_message(player_id: str, secret: str) -> dict[str, Any]:
+        if quiz.live.session_id is None:
+            return {"type": "view", "state": "no_game", "view": None}
+        view = polls.view(player_id, secret) if polls is not None else None
+        if view is None:
+            view = quiz.player_view(player_id, secret)
+        if view is None and polls is not None and not polls.refused(player_id, secret):
+            game = quiz.game_on_stage()
+            view = {"kind": "room", "lang": quiz.language(),
+                    "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
+        return {"type": "view", "state": "ok" if view is not None else "unknown_player", "view": view}
+
+    return view_message
+
+
+def _attach_push(app: FastAPI, quiz: QuizService, polls: Optional[RoomPolls], view_message: ViewMessage) -> PlayerPush:
+    """The phones' push, run on every quiz change and, with room polls, on every live-state push
+    (a poll opens, closes or leaves the stage); ``app.state.detach`` undoes both (the listener calls it on stop)."""
+    push = PlayerPush(view_message)
+    app.state.push = push
+    quiz.change_listeners.append(push.notify)
+    if polls is not None:
+        quiz.live.push_listeners.append(push.notify)
+
+    def detach() -> None:
+        quiz.change_listeners.remove(push.notify)
+        if polls is not None:
+            quiz.live.push_listeners.remove(push.notify)
+
+    app.state.detach = detach
+    return push
+
+
+def _install_error_handlers(app: FastAPI) -> None:
+    """Every refusal in the one JSON error envelope the phone reads."""
+
+    @app.exception_handler(DomainError)
+    async def _domain_error(request: Request, exc: DomainError) -> Response:
+        return error_response(exc.status, exc.code, str(exc), exc.detail)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(request: Request, exc: RequestValidationError) -> Response:
+        return error_response(422, "validation_error", "invalid request")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(request: Request, exc: StarletteHTTPException) -> Response:
+        return error_response(exc.status_code, "not_found" if exc.status_code == 404 else "http_error", str(exc.detail))
+
+
+def _member_dict(member: RoomJoin, state: str) -> dict[str, Any]:
+    """A room member's join or resume answer, shaped like the quiz's (no game)."""
+    return {"state": state, "game_id": None, "player_id": member.player_id, "secret": member.secret, "name": member.name}
+
+
+def _join_room(quiz: QuizService, body: JoinBody, view_message: ViewMessage) -> dict[str, Any]:
+    """Join the session room only (no quiz on stage): the name may be empty."""
+    member = quiz.room.join(body.nickname, body.key)
+    out = _member_dict(member, member.state)
+    if member.state == JOINED:
+        out["view"] = view_message(str(member.player_id), str(member.secret))
+    return {**out, "now_ms": now_ms()}
 
 
 async def _serve_socket(ws: WebSocket, push: PlayerPush, sockets: set[WebSocket]) -> None:
