@@ -98,6 +98,8 @@ const TEXT = {
     can_change: 'You can change it until the poll closes.',
     poll_closed: 'The poll is closed.',
     poll_not_open: 'This poll is not open — watch the screen.',
+    your_number: 'Your number',
+    stars: (n) => `${n} star${n === 1 ? '' : 's'}`,
   },
   es: {
     title: 'Quiz',
@@ -165,6 +167,8 @@ const TEXT = {
     can_change: 'Puedes cambiarla hasta que se cierre la votación.',
     poll_closed: 'La votación está cerrada.',
     poll_not_open: 'Esta votación no está abierta: mira la pantalla.',
+    your_number: 'Tu número',
+    stars: (n) => `${n} estrella${n === 1 ? '' : 's'}`,
   },
 };
 let lang = 'en';
@@ -185,6 +189,7 @@ let msg = null; // the last view message
 let offset = 0; // server clock − Date.now()
 let pending = null; // {item_id, choice, state: 'sending' | ack state, message?}
 let pollPending = null; // a poll answer on its way: {item_id, value, state: 'sending' | 'error', retrying?}
+let picks = { item_id: null, keys: [] }; // a multiple-choice poll's choices picked but not sent yet
 let nameRequired = true; // a quiz is on stage (/play/api/ping): its players need a nickname
 const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
 const shownAt = {}; // item_id → performance.now() when its tiles appeared on this phone
@@ -616,8 +621,9 @@ async function answer(itemId, choice) {
 
 // ------------------------------------------------------------------ polls
 
-// A room poll on stage: its question and one control (a text answer, or a button per scale number).
-// The phone's counted answer comes from the server; it can be changed until the poll closes.
+// A room poll on stage: its question and one control (a text answer, a button per scale number or
+// star, a lettered button per choice, or a number box). The phone's counted answer comes from the
+// server; it can be changed until the poll closes.
 function drawPoll(v) {
   if (pollPending && pollPending.item_id !== v.item_id) pollPending = null;
   const p = pollPending;
@@ -625,19 +631,19 @@ function drawPoll(v) {
   const q = $('[data-poll-question]');
   q.textContent = v.question || '';
   q.hidden = !v.question;
-  const form = $('[data-poll-text]');
-  const input = $('#pollText');
-  form.hidden = v.control !== 'text' || !v.open;
-  if (input.dataset.item !== v.item_id) { // a new poll: start from what this phone already sent
-    input.dataset.item = v.item_id;
-    input.value = v.answer || '';
-  }
-  input.maxLength = v.max_length || 80;
-  input.disabled = busy;
-  $('[data-poll-send]').disabled = busy;
+  drawTyped($('[data-poll-text]'), $('#pollText'), v.control === 'text', v, busy);
+  $('#pollText').maxLength = v.max_length || 80;
+  drawTyped($('[data-poll-number]'), $('#pollNumber'), v.control === 'number', v, busy);
+  $('[data-poll-unit]').textContent = v.unit || '';
   const scale = $('[data-poll-scale]');
-  scale.hidden = v.control !== 'scale' || !v.open;
-  if (v.control === 'scale') drawScale(scale, v, p ? p.value : v.answer, busy);
+  scale.hidden = !['scale', 'stars'].includes(v.control) || !v.open;
+  if (!scale.hidden) drawScale(scale, v, p ? p.value : v.answer, busy);
+  const choices = $('[data-poll-choices]');
+  choices.hidden = v.control !== 'choice' || !v.open;
+  if (!choices.hidden) drawChoices(choices, v, p ? p.value : v.answer, busy);
+  const send = $('[data-poll-choice-send]');
+  send.hidden = choices.hidden || !v.multiple;
+  send.disabled = busy || !(picks.item_id === v.item_id && picks.keys.length);
   const st = $('[data-poll-status]');
   const note = $('[data-poll-note]');
   if (busy) {
@@ -651,7 +657,7 @@ function drawPoll(v) {
   } else if (v.answer) {
     st.dataset.kind = 'ok';
     st.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> ${esc(T.sent)}`;
-    note.textContent = `${T.answer_is(v.answer)} · ${v.open ? T.can_change : T.poll_closed}`;
+    note.textContent = `${T.answer_is(answerShown(v))} · ${v.open ? T.can_change : T.poll_closed}`;
   } else {
     st.dataset.kind = '';
     st.textContent = '';
@@ -660,20 +666,70 @@ function drawPoll(v) {
   render('poll');
 }
 
+// A text or number box with its Send: shown while its poll is open, starting from what this phone sent.
+function drawTyped(form, input, shown, v, busy) {
+  form.hidden = !shown || !v.open;
+  if (!shown) return;
+  if (input.dataset.item !== v.item_id) { // a new poll: start from what this phone already sent
+    input.dataset.item = v.item_id;
+    input.value = v.answer || '';
+  }
+  input.disabled = busy;
+  form.querySelector('button').disabled = busy;
+}
+
+// The phone's answer as people read it: a choice's letters with their words, stars as a count.
+function answerShown(v) {
+  if (v.control === 'stars') return T.stars(Number(v.answer));
+  if (v.control === 'number' && v.unit) return `${v.answer} ${v.unit}`;
+  if (v.control !== 'choice') return v.answer;
+  const label = Object.fromEntries((v.choices || []).map((c) => [c.key, c.label]));
+  return String(v.answer).split(',').map((k) => (label[k] ? `${k} · ${label[k]}` : k)).join(', ');
+}
+
 function drawScale(box, v, chosen, busy) {
   const nums = [];
   for (let n = v.min; n <= v.max; n++) nums.push(n);
-  const sig = JSON.stringify([v.item_id, nums, v.labels]);
+  const stars = v.control === 'stars';
+  const sig = JSON.stringify([v.item_id, v.control, nums, v.labels]);
   if (box.dataset.sig !== sig) {
     box.dataset.sig = sig;
-    box.innerHTML = nums.map((n, i) => `<button type="button" class="play-scale-btn" data-value="${n}" aria-pressed="false">${n}`
+    box.toggleAttribute('data-stars', stars);
+    box.innerHTML = nums.map((n, i) => `<button type="button" class="play-scale-btn" data-value="${n}" aria-pressed="false"`
+      + `${stars ? ` aria-label="${esc(T.stars(n))}">★` : `>${n}`}`
       + `${v.labels && v.labels[i] ? `<small>${esc(v.labels[i])}</small>` : ''}</button>`).join('');
     box.querySelectorAll('.play-scale-btn').forEach((b) => b.addEventListener('click', () => sendPoll(v.item_id, b.dataset.value)));
   }
   box.querySelectorAll('.play-scale-btn').forEach((b) => {
     b.setAttribute('aria-pressed', String(b.dataset.value === String(chosen ?? '')));
+    b.toggleAttribute('data-on', stars && chosen != null && Number(b.dataset.value) <= Number(chosen));
     b.disabled = busy;
   });
+}
+
+// One lettered button per choice: a tap sends it, or with several allowed toggles it until Send.
+function drawChoices(box, v, chosen, busy) {
+  const sig = JSON.stringify([v.item_id, v.choices, v.multiple]);
+  if (box.dataset.sig !== sig) {
+    box.dataset.sig = sig;
+    box.innerHTML = (v.choices || []).map((c) => `<button type="button" class="play-choice-btn" data-key="${esc(c.key)}" aria-pressed="false">`
+      + `<b>${esc(c.key)}</b><span>${esc(c.label)}</span></button>`).join('');
+    box.querySelectorAll('.play-choice-btn').forEach((b) => b.addEventListener('click', () => pickChoice(b.dataset.key)));
+  }
+  if (picks.item_id !== v.item_id) picks = { item_id: v.item_id, keys: chosen ? String(chosen).split(',') : [] };
+  const on = v.multiple ? picks.keys : String(chosen ?? '').split(',');
+  box.querySelectorAll('.play-choice-btn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(on.includes(b.dataset.key)));
+    b.disabled = busy;
+  });
+}
+
+function pickChoice(key) {
+  const v = msg && msg.view;
+  if (!v || v.kind !== 'poll' || v.control !== 'choice') return;
+  if (!v.multiple) return sendPoll(v.item_id, key);
+  picks.keys = picks.keys.includes(key) ? picks.keys.filter((k) => k !== key) : [...picks.keys, key].sort();
+  draw();
 }
 
 // Send a poll answer until the server acks it: one key for every retry, so it is never counted twice.
@@ -711,11 +767,15 @@ async function sendPoll(itemId, value) {
   }
 }
 
-$('[data-poll-text]').addEventListener('submit', (ev) => {
+['[data-poll-text]', '[data-poll-number]'].forEach((sel) => $(sel).addEventListener('submit', (ev) => {
   ev.preventDefault();
   const v = msg && msg.view;
-  const text = $('#pollText').value.trim();
+  const text = ev.target.querySelector('input').value.trim();
   if (v && v.kind === 'poll' && text) sendPoll(v.item_id, text);
+}));
+$('[data-poll-choice-send]').addEventListener('click', () => {
+  const v = msg && msg.view;
+  if (v && v.kind === 'poll' && picks.item_id === v.item_id && picks.keys.length) sendPoll(v.item_id, picks.keys.join(','));
 });
 
 // ------------------------------------------------------------------ theme

@@ -161,7 +161,8 @@ body {
 .play-status[data-kind="ok"] { color: var(--success-text); }
 .play-status[data-kind="bad"] { color: var(--danger-text); }
 .play-status[data-kind="wait"] { color: var(--muted); }
-/* A room poll: the question, then one control — a text answer or a button per scale number. */
+/* A room poll: the question, then one control — a text answer, a button per scale number or star,
+   a lettered button per choice, or a number box. */
 .play-poll { gap: var(--gap); }
 .play-poll [hidden] { display: none; }
 .play-scale { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-sm); }
@@ -174,6 +175,29 @@ body {
 .play-scale-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-fill); color: var(--accent-fg); }
 .play-scale-btn[aria-pressed="true"] small { color: inherit; }
 .play-scale-btn:disabled { cursor: default; opacity: 0.6; }
+/* Stars: five star buttons, every star up to the chosen one filled. */
+.play-scale[data-stars] { grid-template-columns: repeat(5, 1fr); }
+.play-scale[data-stars] .play-scale-btn { font-size: 32px; line-height: 1; color: var(--muted); }
+.play-scale[data-stars] .play-scale-btn[data-on] { border-color: var(--accent); color: var(--accent); }
+.play-scale[data-stars] .play-scale-btn[aria-pressed="true"] { color: var(--accent-fg); }
+/* Choice: one row per lettered choice; several can be picked, then Send, when the poll allows it. */
+.play-choices { display: grid; gap: var(--space-sm); }
+.play-choice-btn {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: var(--space-sm);
+  min-height: 56px; padding: var(--space-sm); border: 2px solid var(--control-border); border-radius: var(--radius);
+  background: var(--card); color: var(--ink); font: inherit; font-size: var(--font-body); font-weight: 600;
+  text-align: left; overflow-wrap: anywhere; cursor: pointer;
+}
+.play-choice-btn b {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent-fill); color: var(--accent-fg); font-weight: 700;
+}
+.play-choice-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-fill); color: var(--accent-fg); }
+.play-choice-btn[aria-pressed="true"] b { background: var(--card); color: var(--accent); }
+.play-choice-btn:disabled { cursor: default; opacity: 0.6; }
+.play-number { display: flex; align-items: center; gap: var(--space-sm); }
+.play-number .play-input { flex: 1; min-width: 0; }
+.play-unit { color: var(--muted); font-weight: 600; }
 .play-result-title { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: var(--font-heading-lg); font-weight: 700; }
 .play-result-title[data-kind="ok"] { color: var(--success-text); }
 .play-result-title[data-kind="bad"] { color: var(--danger-text); }

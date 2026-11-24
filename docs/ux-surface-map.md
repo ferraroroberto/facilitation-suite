@@ -41,7 +41,7 @@ Walked 2026-11-18 against build `0d935a0`, at widths 390, 1280, themes light, da
 | [Results](#results) | 13 |
 | [Settings](#settings) | 21 |
 | [Presenter cockpit](#presenter-cockpit) | 30 |
-| [Stage](#stage) | 14 |
+| [Stage](#stage) | 18 |
 | [Phone remote](#phone-remote) | 10 |
 | [Quiz player](#quiz-player) | 9 |
 
@@ -1923,10 +1923,14 @@ flowchart LR
   s127["Scale"]
   s128["Cards"]
   s129["Feed"]
-  s130["Who are you with?"]
-  s131["Quiz"]
-  s132["Blackout"]
-  s133["Frozen capture"]
+  s130["Choice"]
+  s131["Stars"]
+  s132["NPS"]
+  s133["Number"]
+  s134["Who are you with?"]
+  s135["Quiz"]
+  s136["Blackout"]
+  s137["Frozen capture"]
   s17(["Session detail · Sessions"])
   s93(["Status chips · Presenter cockpit"])
   s17 -->|"Open stage window"| s120
@@ -1935,8 +1939,8 @@ flowchart LR
   s120 --> s122
   s120 --> s123
   s120 --> s124
-  s120 --> s132
-  s120 -->|"a capture's picture"| s133
+  s120 --> s136
+  s120 -->|"a capture's picture"| s137
   s124 --> s125
   s124 --> s126
   s124 --> s127
@@ -1944,6 +1948,10 @@ flowchart LR
   s124 --> s129
   s124 --> s130
   s124 --> s131
+  s124 --> s132
+  s124 --> s133
+  s124 --> s134
+  s124 --> s135
 ```
 
 ### `stage.live` Stage
@@ -2001,6 +2009,10 @@ flowchart LR
   - [Scale](#stagescale-scale)
   - [Cards](#stagecards-cards)
   - [Feed](#stagefeed-feed)
+  - [Choice](#stagechoice-choice)
+  - [Stars](#stagestars-stars)
+  - [NPS](#stagenps-nps)
+  - [Number](#stagenumber-number)
   - [Who are you with?](#stagegroups-reveal-who-are-you-with)
   - [Quiz](#stagequiz-quiz)
 
@@ -2034,6 +2046,36 @@ flowchart LR
 - **Root:** none — an activity body inside `stage.activity`
 - **Reach:** a Feed item
 - **Holds:** answers as bubbles, the newest first and largest; older ones shrink and fade
+
+### `stage.choice` Choice
+
+- **Root:** none — an activity body inside `stage.activity`
+- **Reach:** a Choice item
+- **Holds:** one row per lettered choice: its letter, its words and a bar with the count and share, the leader in full colour; optionally the names under each bar
+
+### `stage.stars` Stars
+
+- **Root:** none — an activity body inside `stage.activity`
+- **Reach:** a Stars item
+- **Holds:**
+  - the average as a number and as five stars filled to it, the spread under it
+  - one bar per rating, 5 stars down to 1
+
+### `stage.nps` NPS
+
+- **Root:** none — an activity body inside `stage.activity`
+- **Reach:** an NPS item
+- **Holds:**
+  - the score from -100 to 100, green above zero and red below
+  - one bar split by the shares of detractors, passives and promoters, with each group's count
+
+### `stage.number` Number
+
+- **Root:** none — an activity body inside `stage.activity`
+- **Reach:** a Number item
+- **Holds:**
+  - the median with the unit and the range of the answers
+  - a histogram, one bar per whole number or per range
 
 ### `stage.groups-reveal` Who are you with?
 
@@ -2070,24 +2112,24 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s134["Remote navigation"]
-  s135["Remote live"]
-  s136["Remote with no live session"]
-  s137["Remote not paired"]
-  s138["Remote Copilot strip"]
-  s139["Remote quiz block"]
-  s140["Remote quiz locked"]
-  s141["Remote music block"]
-  s142["Remote chat"]
-  s143["Remote groups"]
-  s134 -->|"Live"| s135
-  s134 -->|"Chat"| s142
-  s134 -->|"Groups"| s143
-  s135 --> s138
-  s135 --> s139
-  s135 --> s141
-  s135 -->|"no session"| s136
-  s139 -->|"after Lock"| s140
+  s138["Remote navigation"]
+  s139["Remote live"]
+  s140["Remote with no live session"]
+  s141["Remote not paired"]
+  s142["Remote Copilot strip"]
+  s143["Remote quiz block"]
+  s144["Remote quiz locked"]
+  s145["Remote music block"]
+  s146["Remote chat"]
+  s147["Remote groups"]
+  s138 -->|"Live"| s139
+  s138 -->|"Chat"| s146
+  s138 -->|"Groups"| s147
+  s139 --> s142
+  s139 --> s143
+  s139 --> s145
+  s139 -->|"no session"| s140
+  s143 -->|"after Lock"| s144
 ```
 
 ### `remote.nav` Remote navigation
@@ -2210,20 +2252,20 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  s144["Player loading"]
-  s145["Join"]
-  s146["Waiting"]
-  s147["Room poll"]
-  s148["Question"]
-  s149["Answer sent"]
-  s150["Result"]
-  s151["Removed"]
-  s152["Player theme toggle"]
-  s145 -->|"joined"| s146
-  s146 -->|"a question opens"| s148
-  s146 -->|"a word cloud or scale goes on stage"| s147
-  s148 -->|"after a tap"| s149
-  s150 -->|"removed by the host"| s151
+  s148["Player loading"]
+  s149["Join"]
+  s150["Waiting"]
+  s151["Room poll"]
+  s152["Question"]
+  s153["Answer sent"]
+  s154["Result"]
+  s155["Removed"]
+  s156["Player theme toggle"]
+  s149 -->|"joined"| s150
+  s150 -->|"a question opens"| s152
+  s150 -->|"an activity a phone can answer goes on stage"| s151
+  s152 -->|"after a tap"| s153
+  s154 -->|"removed by the host"| s155
 ```
 
 ### `player.loading` Player loading
@@ -2252,15 +2294,15 @@ flowchart LR
 - **Holds:** the player's name and "You're in! Watch the screen — the quiz starts soon." or "Watch the screen."
 - **Leads to:**
   - [Question](#playerquestion-question) (a question opens)
-  - [Room poll](#playerpoll-room-poll) (a word cloud or scale goes on stage)
+  - [Room poll](#playerpoll-room-poll) (an activity a phone can answer goes on stage)
 
 ### `player.poll` Room poll
 
 - **Root:** `data-surface`
-- **Reach:** a word cloud or scale on stage, for every phone in the session room
+- **Reach:** a word cloud, cards, feed, scale, choice, stars, NPS or number on stage, for every phone in the session room
 - **Holds:**
   - the activity's question
-  - one control while its capture runs: a text answer with Send (word cloud), or one button per number of the scale, with its keyword under it when the scale has one per number
+  - one control while its capture runs: a text answer with Send (word cloud, cards, feed); one button per number (scale, with its keyword under it when the scale has one per number; NPS, 0 to 10); five star buttons (stars); a lettered button per choice, toggled then sent with Send when more than one is allowed (choice); or a number box with its unit and Send (number)
   - Sent with the answer counted and "You can change it until the poll closes", Sending… or Retrying, or Not sent; once the capture stops, "The poll is closed"
 - **Does:** Send or a number sends the answer, retried with one key until the server acks it; a new answer replaces this phone's earlier one
 - **Why:** people in the room answer on their phones while people online type in the chat, and one capture counts both
@@ -2477,6 +2519,10 @@ flowchart LR
 | [Activity](#stageactivity-activity) |  | [Scale](#stagescale-scale) |
 | [Activity](#stageactivity-activity) |  | [Cards](#stagecards-cards) |
 | [Activity](#stageactivity-activity) |  | [Feed](#stagefeed-feed) |
+| [Activity](#stageactivity-activity) |  | [Choice](#stagechoice-choice) |
+| [Activity](#stageactivity-activity) |  | [Stars](#stagestars-stars) |
+| [Activity](#stageactivity-activity) |  | [NPS](#stagenps-nps) |
+| [Activity](#stageactivity-activity) |  | [Number](#stagenumber-number) |
 | [Activity](#stageactivity-activity) |  | [Who are you with?](#stagegroups-reveal-who-are-you-with) |
 | [Activity](#stageactivity-activity) |  | [Quiz](#stagequiz-quiz) |
 | [Remote navigation](#remotenav-remote-navigation) | Live | [Remote live](#remotelive-remote-live) |
@@ -2489,6 +2535,6 @@ flowchart LR
 | [Remote quiz block](#remotequiz-remote-quiz-block) | after Lock | [Remote quiz locked](#remotequiz-locked-remote-quiz-locked) |
 | [Join](#playerjoin-join) | joined | [Waiting](#playerwait-waiting) |
 | [Waiting](#playerwait-waiting) | a question opens | [Question](#playerquestion-question) |
-| [Waiting](#playerwait-waiting) | a word cloud or scale goes on stage | [Room poll](#playerpoll-room-poll) |
+| [Waiting](#playerwait-waiting) | an activity a phone can answer goes on stage | [Room poll](#playerpoll-room-poll) |
 | [Question](#playerquestion-question) | after a tap | [Answer sent](#playerlocked-answer-sent) |
 | [Result](#playerresult-result) | removed by the host | [Removed](#playerkicked-removed) |

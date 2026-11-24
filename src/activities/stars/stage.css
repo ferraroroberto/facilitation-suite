@@ -1,0 +1,13 @@
+/* Stars: the average and five stars filled to it on the left, the votes per rating on the right. */
+.stage-canvas .stv { position: absolute; inset: 0; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 64px; }
+.stage-canvas .stv-avg { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.stage-canvas .stv-avg b { font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: 150px; font-weight: 400; line-height: 1; color: var(--st-c4); }
+.stage-canvas .stv-avg small { font-size: 36px; color: var(--st-muted); min-height: 1.2em; }
+.stage-canvas .stv-stars { position: relative; display: inline-block; font-size: 64px; line-height: 1; letter-spacing: 4px; color: color-mix(in srgb, var(--st-muted) 30%, transparent); white-space: nowrap; }
+.stage-canvas .stv-on { position: absolute; inset: 0 auto 0 0; overflow: hidden; color: var(--st-c4); transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.stage-canvas .stv-rows { display: flex; flex-direction: column; gap: 18px; }
+.stage-canvas .stv-row { display: grid; grid-template-columns: 110px 1fr 90px; align-items: center; gap: 20px; }
+.stage-canvas .stv-label { font-size: 40px; font-weight: 700; color: var(--st-c4); white-space: nowrap; }
+.stage-canvas .stv-track { display: block; height: 40px; border-radius: 20px; background: color-mix(in srgb, var(--st-muted) 15%, transparent); overflow: hidden; }
+.stage-canvas .stv-fill { display: block; height: 100%; width: 0; border-radius: 20px; background: var(--st-c4); transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.stage-canvas .stv-count { font-size: 40px; font-weight: 700; text-align: right; }

@@ -1,0 +1,41 @@
+{
+  "type": "choice",
+  "label": "Choice",
+  "icon": "list-checks",
+  "order": 10,
+  "description": "Lettered choices; a letter, a number or a choice's words counts, one vote per person. Bars with counts and shares.",
+  "chat_prompt_hint": "A letter: A, B, C…",
+  "options": [
+    {
+      "key": "choices",
+      "label": "Choices, separated by commas",
+      "kind": "text",
+      "default": "Yes, No, Not sure",
+      "placeholder": "Office, Remote, Hybrid"
+    },
+    {
+      "key": "multiple",
+      "label": "Allow more than one choice",
+      "kind": "switch",
+      "default": false
+    },
+    {
+      "key": "show_percent",
+      "label": "Show shares (%)",
+      "kind": "switch",
+      "default": true
+    }
+  ],
+  "samples": [
+    "A",
+    "b",
+    "A",
+    "Not sure",
+    "1",
+    "B) depends on the day",
+    "a",
+    "C",
+    "A",
+    "b"
+  ]
+}

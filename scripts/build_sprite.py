@@ -35,6 +35,8 @@ GLYPHS = [
     "coffee", "image", "keyboard", "camera", "video", "radio", "gauge", "list-ordered",
     "cloud-off", "hard-drive", "grip-vertical", "circle-plus", "sliders-horizontal", "rotate-ccw",
     "smartphone", "text-cursor-input", "type", "wand-sparkles",
+    # poll types
+    "list-checks", "star", "thumbs-up", "hash",
     # plan editing
     "chevrons-down-up", "chevrons-up-down", "list-plus", "copy-plus", "door-open",
     # music

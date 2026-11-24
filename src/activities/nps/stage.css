@@ -1,0 +1,22 @@
+/* NPS: the score, then one bar split by group share (red, grey, green) and its legend. */
+.stage-canvas .nps { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
+.stage-canvas .nps-score { display: flex; align-items: baseline; gap: 20px; }
+.stage-canvas .nps-score b { font-family: var(--st-font); -webkit-text-stroke: var(--st-font-stroke) currentColor; paint-order: stroke fill; font-size: 170px; font-weight: 400; line-height: 1; color: var(--st-ink); }
+.stage-canvas .nps-score[data-sign="up"] b { color: var(--st-c2); }
+.stage-canvas .nps-score[data-sign="down"] b { color: var(--st-c1); }
+.stage-canvas .nps-score span { font-size: 48px; font-weight: 700; color: var(--st-muted); }
+.stage-canvas .nps-bar { display: flex; height: 90px; border-radius: 45px; overflow: hidden; gap: 4px; }
+.stage-canvas .nps-seg {
+  flex: 1 1 0; min-width: 0; display: grid; place-items: center;
+  font-size: 36px; font-weight: 700; color: #ffffff; overflow: hidden; white-space: nowrap;
+  transition: flex-grow 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.stage-canvas [data-g="detractors"] i, .stage-canvas .nps-seg[data-g="detractors"] { background: var(--st-c1); }
+.stage-canvas [data-g="passives"] i, .stage-canvas .nps-seg[data-g="passives"] { background: color-mix(in srgb, var(--st-muted) 70%, #ffffff); }
+.stage-canvas [data-g="promoters"] i, .stage-canvas .nps-seg[data-g="promoters"] { background: var(--st-c2); }
+.stage-canvas .nps-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.stage-canvas .nps-g { display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: center; }
+.stage-canvas .nps-g i { width: 28px; height: 28px; border-radius: 50%; }
+.stage-canvas .nps-name { font-size: 36px; font-weight: 700; }
+.stage-canvas .nps-name small { font-size: 26px; font-weight: 400; color: var(--st-muted); }
+.stage-canvas .nps-n { grid-column: 2; font-size: 40px; font-weight: 400; }

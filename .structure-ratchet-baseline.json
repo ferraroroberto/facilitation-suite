@@ -7,13 +7,17 @@
     "redundant": [],
     "folder_types": {
       "src/activities/cards": 2,
+      "src/activities/choice": 2,
       "src/activities/feed": 2,
       "src/activities/groups_reveal": 2,
       "src/activities/map": 6,
+      "src/activities/nps": 2,
+      "src/activities/number": 2,
       "src/activities/quiz": 2,
       "src/activities/quiz_lobby": 2,
       "src/activities/quiz_podium": 2,
       "src/activities/scale": 2,
+      "src/activities/stars": 2,
       "src/activities/word_cloud": 4
     }
   },

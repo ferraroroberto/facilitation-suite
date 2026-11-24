@@ -6,10 +6,9 @@ chat, and one capture counts both. A phone's answer is stored by
 ``player_id``), so the activity's own parser counts it, hiding and excluded
 senders work on it, and the offline replay sees it.
 
-**Which activities.** A type whose answers a phone can give with one control
-(``PHONE_CONTROLS``): ``word_cloud`` (a short text) and ``scale`` (one number
-in the item's range, a button each). Any other item shows the phone a
-"watch the screen" view.
+**Which activities.** A type whose answers a phone can give with one control:
+the table in ``src/room/controls.py`` (text, scale, stars, choice, number).
+Any other item shows the phone a "watch the screen" view.
 
 **Rules.**
 
@@ -26,14 +25,16 @@ in the item's range, a button each). Any other item shows the phone a
 
 - ``view(player_id, secret) -> Optional[dict]`` — the phone's poll view while
   a phone-answerable activity is on stage: ``kind: poll``, ``item_id``,
-  ``type``, ``control`` (``text`` | ``scale``), ``question``, ``open``,
-  ``answer`` (the phone's counted answer or ``None``), ``max_length`` (text)
-  or ``min``/``max``/``labels`` (scale), ``lang``. ``None`` otherwise, or for
+  ``type``, ``control``, ``question``, ``open``, ``answer`` (the phone's
+  counted answer or ``None``), the control's own fields (``controls.fields``:
+  ``max_length``; ``min``/``max``/``labels``; ``choices``/``multiple``;
+  ``min``/``max``/``unit``), ``lang``. ``None`` otherwise, or for
   someone who is not a member of the open room.
 - ``answer(player_id, secret, item_id, value, key=None) -> PollAck`` —
   ``accepted`` (with the phone's counted ``answer``), ``not_open``,
-  ``unknown_player`` or ``closed`` (the room closed). Raises ``PollError`` 422
-  ``bad_value`` for an empty text or a number outside the scale.
+  ``unknown_player`` or ``closed`` (the room closed). Raises ``controls.PollError`` 422
+  ``bad_value`` for an answer its control cannot send (an empty text, a number
+  out of range, an unknown choice, two choices where one is allowed).
 """
 
 from __future__ import annotations
@@ -42,24 +43,17 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from src.activities.registry import options_with_defaults
 from src.chat.hub import ChatHub
-from src.errors import DomainError
 from src.live.capture import CaptureService
 from src.live.hub import LiveHub
+from src.room.controls import clean_value, control_of, fields
 from src.room.model import CLOSED, ROOM_SOURCE
 from src.room.service import RoomService
 
 logger = logging.getLogger(__name__)
 
-PHONE_CONTROLS = {"word_cloud": "text", "scale": "scale"}
-MAX_TEXT = 80  # characters in a typed answer: a word cloud entry, never an essay
 ACCEPTED = "accepted"
 NOT_OPEN = "not_open"  # no live capture on that item: the poll has not started or is closed
-
-
-class PollError(DomainError):
-    """A phone's poll answer that cannot be counted as sent."""
 
 
 @dataclass
@@ -70,40 +64,6 @@ class PollAck:
 
     def as_dict(self) -> dict[str, Any]:
         return {"state": self.state, "item_id": self.item_id, "answer": self.answer}
-
-
-def control_of(item: Optional[dict[str, Any]]) -> Optional[str]:
-    """The phone control of a run item (``text`` | ``scale``), ``None`` for one phones cannot answer."""
-    if not item or item.get("kind") != "activity" or not item.get("capture"):
-        return None
-    return PHONE_CONTROLS.get(str(item.get("type") or ""))
-
-
-def scale_range(options: dict[str, Any]) -> tuple[int, int]:
-    """The scale's lowest and highest number, as its parser reads them."""
-    opts = options_with_defaults("scale", options)
-    try:
-        lo, hi = int(opts.get("min", 1)), int(opts.get("max", 5))
-    except (TypeError, ValueError):
-        lo, hi = 1, 5
-    return (lo, hi) if lo <= hi else (hi, lo)
-
-
-def clean_value(item: dict[str, Any], value: Any) -> str:
-    """The answer as the message text the item's parser reads; ``PollError`` when it is not one."""
-    if control_of(item) == "scale":
-        lo, hi = scale_range(item.get("options") or {})
-        try:
-            n = int(str(value).strip())
-        except ValueError as exc:
-            raise PollError(422, "bad_value", f"pick a number from {lo} to {hi}") from exc
-        if not lo <= n <= hi:
-            raise PollError(422, "bad_value", f"pick a number from {lo} to {hi}")
-        return str(n)
-    text = " ".join(str(value or "").split())[:MAX_TEXT].strip()
-    if not text:
-        raise PollError(422, "bad_value", "the answer is empty")
-    return text
 
 
 class RoomPolls:
@@ -127,13 +87,7 @@ class RoomPolls:
             "question": str(cur.get("question") or ""), "open": self._open(cur["id"]),
             "answer": self.answer_of(cur["id"], player_id), "lang": self.language(),
         }
-        if control == "scale":
-            lo, hi = scale_range(cur.get("options") or {})
-            words = [w.strip() for w in str(options_with_defaults("scale", cur.get("options") or {}).get("keywords") or "")
-                     .split(",") if w.strip()]
-            out.update({"min": lo, "max": hi, "labels": words if len(words) == hi - lo + 1 else []})
-        else:
-            out["max_length"] = MAX_TEXT
+        out.update(fields(cur))
         return out
 
     def answer_of(self, item_id: str, player_id: str) -> Optional[str]:

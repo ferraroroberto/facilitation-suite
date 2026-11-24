@@ -1,8 +1,12 @@
-"""Shared pieces of the plug-ins that show free-text answers as they arrive (cards, feed)."""
+"""Shared pieces of the plug-ins: free-text answers as they arrive (cards, feed) and one vote per
+person (choice, stars, NPS, number)."""
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
+
+NUMBER = re.compile(r"(?<![\d.,])-?\d+(?:[.,]\d+)?")
 
 
 def parse_text(message: dict[str, Any], options: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -35,3 +39,31 @@ def count_report(result: dict[str, Any], noun: str) -> dict[str, Any]:
 def text_value(parsed: dict[str, Any]) -> str:
     """One answer's parsed value for the Excel report."""
     return parsed.get("text", "")
+
+
+def numbers(text: str) -> list[float]:
+    """Every number in a chat line, in order ("4,5" and "4.5" are one number)."""
+    return [float(m.group().replace(",", ".")) for m in NUMBER.finditer(text or "")]
+
+
+def first_whole(text: str, lo: int, hi: int) -> Optional[int]:
+    """The first whole number from ``lo`` to ``hi`` in a chat line, or None."""
+    return next((int(n) for n in numbers(text) if n.is_integer() and lo <= n <= hi), None)
+
+
+def one_vote_each(contributions: list[dict[str, Any]]) -> tuple[dict[str, Any], list[Any]]:
+    """``(latest value per named sender, every anonymous value)``: a later answer replaces an earlier one."""
+    latest: dict[str, Any] = {}
+    anonymous: list[Any] = []
+    for c in contributions:
+        if c["sender"]:
+            latest[c["sender"]] = c["value"]
+        else:
+            anonymous.append(c["value"])
+    return latest, anonymous
+
+
+def names_with(latest: dict[str, Any], hit: Any) -> list[str]:
+    """The people whose counted vote matches ``hit`` (a value, or a predicate on the value)."""
+    test = hit if callable(hit) else (lambda v: v == hit)
+    return [n for n, v in latest.items() if test(v)]

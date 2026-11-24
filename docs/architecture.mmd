@@ -153,7 +153,7 @@ flowchart LR
   quizsvc -->|PIN · phone identity| roomsvc["src/room/service.py<br/>RoomService · one room per live session · PIN · members · close kills the PIN"]
   roomsvc --> hub
   roomsvc --> roomfile[("live/room.jsonl<br/>open · joins · close, replayed on activate")]
-  roompolls["src/room/polls.py<br/>RoomPolls · word cloud / scale answers from phones"] -->|members| roomsvc
+  roompolls["src/room/polls.py<br/>RoomPolls · poll answers from phones<br/>src/room/controls.py · each type's phone control"] -->|members| roomsvc
   roompolls -->|"add_room · source: room"| chathub
   stage -->|img| quizr["routers/quiz.py<br/>GET /api/quiz/qr.svg (RemoteAuth)"]
   quizr --> quizsvc

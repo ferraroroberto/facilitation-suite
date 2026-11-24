@@ -4,7 +4,7 @@ One local app for running a live online workshop:
 
 - a **stage** (a full-screen browser window on the display OBS already captures, so Zoom sees it through the OBS virtual camera),
 - a **presenter** cockpit on the second monitor (on stage now, what comes next by title, notes, clocks, the live Zoom chat),
-- **activities fed by the Zoom chat**: participants just type in the chat and the stage comes alive (word cloud, map, scale, cards, feed), read locally through Windows accessibility, with **no bot joining the meeting**,
+- **activities fed by the Zoom chat**: participants just type in the chat and the stage comes alive (word cloud, map, scale, cards, feed, choice, stars, NPS, number), read locally through Windows accessibility, with **no bot joining the meeting**,
 - **breakout groups** (pairs, then two rounds of four with no repeats), per-item **timers**, and **results** after the session.
 
 Slides stay authored in PowerPoint and are imported as images. Everything runs on one Windows PC; nothing leaves it except Zoom itself (and, while the optional live copilot is on, what the local LLM hub sends to the model it routes hints to).
@@ -62,7 +62,7 @@ Each feature has its own reference in `docs/`:
 - **Planning** — the Plan tab, per-item timers, stage lettering and timer colours: [docs/planning.md](docs/planning.md)
 - **Presenting live** — stage and presenter, keys, restart behaviour: [docs/live.md](docs/live.md)
 - **Music** — files and Spotify per item, the Spotify setup: [docs/music.md](docs/music.md)
-- **Activities and captures** — word cloud, scale, map, cards, feed: [docs/activities.md](docs/activities.md)
+- **Activities and captures** — word cloud, scale, map, cards, feed, choice, stars, NPS, number: [docs/activities.md](docs/activities.md)
 - **Quiz** — the Kahoot-style game, scoring, stage, sound cues: [docs/quiz.md](docs/quiz.md)
 - **Quiz player (public)** — the separate phone app and its Cloudflare tunnel: [docs/quiz-player.md](docs/quiz-player.md)
 - **Running a quiz** — import to podium, the reachability check, measured limits: [docs/running-a-quiz.md](docs/running-a-quiz.md)
