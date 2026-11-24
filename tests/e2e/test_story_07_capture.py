@@ -94,8 +94,8 @@ def phones_answer_the_cloud(page: Page, browser: Browser, stage: Page, webapp) -
     """Two phones in the room answer the same word cloud as the chat: one named, one anonymous; the
     named one changes its answer, which replaces the old one; the stage shows chat and phones apart."""
     pin = page.request.get(f"{webapp.base_url}/api/live").json()["state"]["room"]["pin"]
-    phones = [browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True).new_page()
-              for _ in range(2)]
+    spec = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True}
+    phones = [browser.new_context(**spec).new_page(), browser.new_context(**spec).new_page()]  # two phones, two storages
     try:
         for phone, name in zip(phones, ("Ana", ""), strict=True):
             phone.goto(f"{webapp.player_url}/play?pin={pin}")
