@@ -63,8 +63,8 @@ body {
 .play[data-screen="question"] [data-for="question"],
 .play[data-screen="locked"] [data-for="locked"],
 .play[data-screen="result"] [data-for="result"],
-.play[data-screen="kicked"] [data-for="kicked"],
-.play[data-screen="poll"] [data-for="poll"] { display: block; }
+.play[data-screen="kicked"] [data-for="kicked"] { display: block; }
+.play[data-screen="poll"] [data-for="poll"] { display: grid; }
 .play[data-screen="question"] [data-for="question"] { display: flex; }
 
 .play-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
@@ -162,7 +162,7 @@ body {
 .play-status[data-kind="bad"] { color: var(--danger-text); }
 .play-status[data-kind="wait"] { color: var(--muted); }
 /* A room poll: the question, then one control — a text answer or a button per scale number. */
-.play-poll { display: grid; gap: var(--gap); }
+.play-poll { gap: var(--gap); }
 .play-poll [hidden] { display: none; }
 .play-scale { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-sm); }
 .play-scale-btn {
