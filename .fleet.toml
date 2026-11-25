@@ -90,6 +90,60 @@ windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "7c49213
 # the gate. Vendored copies are duplicates by design, so they are excluded. Procedure +
 # limits: project-scaffolding docs/static-ratchet.md.
 self_restart = { src = "src/self_restart.py", sha = "48602060fffdacbcdcdde66b9886c6471d835ff3", dest = "src/self_restart.py" }
+installer = { src = "src/installer.py", sha = "c23c5bf575a3f375a4ddbfb99a31763a80c6bee5", dest = "src/installer.py" }
+
+# [install] -- what setup.bat (src/installer.py) does on this app; the playbook is docs/install.md, the
+# schema project-scaffolding docs/installer.md. config/config.json is topped up with the keys it lacks.
+# Never rewritten: .env (the owner's Spotify login, created empty when missing), and sessions.local.yaml
+# and webapp/cloudflared.yml, which no pair declares: their templates hold placeholder entries the app
+# would treat as real, so the owner makes them.
+[install]
+settings = ["config/config.json"]
+
+[[install.config]]
+sample = ".env.example"
+target = ".env"
+
+# Playwright's own Chromium renders the frozen captures and the session PDF.
+[install.deps]
+command = ["{python}", "-m", "playwright", "install", "chromium"]
+inputs  = ["requirements.txt"]
+
+[[install.check]]
+name    = "Python 3.14 in .venv"
+command = ["{python}", "-c", "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 14) else 1)"]
+hint    = "install Python 3.14, delete .venv and run setup.bat again"
+
+[[install.check]]
+name    = "PowerPoint desktop (slide import)"
+command = ["{python}", "-c", "import winreg; winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, 'PowerPoint.Application')"]
+hint    = "install PowerPoint desktop"
+
+[[install.check]]
+name  = "Sessions ledger (sessions.local.yaml)"
+paths = ["sessions.local.yaml"]
+hint  = "created when you add the first session; to keep another copy's sessions, copy its file here"
+
+[[install.check]]
+name  = "Tailscale CLI (optional: phone remote)"
+which = "tailscale"
+hint  = "install Tailscale and sign in"
+
+[[install.check]]
+name  = "HTTPS certificate (optional: phone remote)"
+paths = ["webapp/certificates/cert.pem", "webapp/certificates/key.pem"]
+hint  = "run: .venv\\Scripts\\python.exe scripts\\gen_tailscale_cert.py"
+
+[[install.check]]
+name  = "cloudflared CLI (optional: public quiz)"
+which = "cloudflared"
+hint  = "winget install Cloudflare.cloudflared"
+
+[[install.check]]
+name  = "Quiz tunnel config (optional: public quiz)"
+paths = ["webapp/cloudflared.yml"]
+hint  = "one-time setup: docs/quiz-player.md"
+
 [static_ratchet]
 enabled  = true
 baseline = ".ratchets/static.json"

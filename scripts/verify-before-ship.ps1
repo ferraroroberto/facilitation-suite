@@ -175,7 +175,7 @@ Invoke-Stage "personal-data guard" {
         ($_ -match '(^|/)(chat|events|quiz|room|forms|transcript|hints|recorder-transcript)\.jsonl$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -match '(^|/)recorder-summary\.json$' -and $_ -notmatch '^tests/fixtures/') -or
         ($_ -eq 'sessions.local.yaml') -or
-        ($_ -eq 'config/config.json') -or
+        ($_ -match '^config/config\.json') -or
         ($_ -match '^data/') -or
         ($_ -eq '.env')
     }

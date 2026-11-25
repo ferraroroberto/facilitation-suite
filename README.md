@@ -22,21 +22,18 @@ A clean clone runs the same on any Windows PC: nothing outside the repo and the 
 - Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams in the browser with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom)), or a Google Meet tab with its chat panel open (see [Google Meet](docs/chat-reader.md#google-meet))
 - Optional: OBS Studio 28+ with obs-websocket enabled (scene switching per item), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), and a `.env` with the Spotify login (item music from Spotify)
 
-**Steps**, from the repo root in PowerShell:
+**Install**, from PowerShell — the full playbook (fresh PC, update, moving an existing install, uninstall) is [docs/install.md](docs/install.md):
 
 ```powershell
-py -3.14 -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-& .\.venv\Scripts\python.exe -m playwright install chromium
-copy config\config.sample.json config\config.json   # then edit session_root, OBS password
-.\tray.bat                                           # then open http://127.0.0.1:8456/
+git clone https://github.com/ferraroroberto/facilitation-suite.git
+cd facilitation-suite
+.\setup.bat      # venv, requirements, Chromium, configs, then a checklist of what is still missing
+.\tray.bat       # then open http://127.0.0.1:8456/
 ```
 
-Never activate the venv; invoke its interpreter directly. Playwright's Chromium renders the frozen captures and the session PDF. `tray.bat` and `tray.bat --restart` need nothing but the repo's own `.venv`; when the fleet's shared tray helper happens to be installed they use it, and the result is the same.
+`setup.bat` is safe to run again: it never overwrites what a PC has configured, and `-WhatIf` changes nothing. Never activate the venv; invoke its interpreter directly. `tray.bat` and `tray.bat --restart` need nothing but the repo's own `.venv`; when the fleet's shared tray helper happens to be installed they use it, and the result is the same. Settings: [docs/configuration.md](docs/configuration.md).
 
-**What stays on the PC and is carried over by hand** (none of it is in the repo): the session folders (`session_root` in `config/config.json`, default under OneDrive), the ledger `sessions.local.yaml` that lists them (shape: `sessions.example.yaml`; the app creates an empty one), `config/config.json`, `.env`, and the Tailscale certificate and cloudflared config under `webapp/`. Copy the folders and the ledger, fix the paths in the ledger, and the sessions open as they were. Settings: [docs/configuration.md](docs/configuration.md).
-
-**Updating** any PC is `git pull`, then `tray.bat --restart`, with no other step: every file a run writes (config, ledger, `data/`, `tmp/`, logs, the certificate and tunnel config) is gitignored, no tracked file is rewritten at runtime, and the scripts start under any PowerShell execution policy, `AllSigned` included, without a signature or a policy override (under `AllSigned` the gate runs as `& .\.venv\Scripts\python.exe -m src.ps_script scripts\verify-before-ship.ps1`).
+**Updating** any PC is `git pull --ff-only`, then `tray.bat --restart` (plus `setup.bat` when `requirements.txt` changed): every file a run writes (config, ledger, `data/`, `tmp/`, logs, the certificate and tunnel config) is gitignored, no tracked file is rewritten at runtime, and the scripts start under any PowerShell execution policy, `AllSigned` included, without a signature or a policy override (under `AllSigned` the gate runs as `& .\.venv\Scripts\python.exe -m src.ps_script scripts\verify-before-ship.ps1`).
 
 **Settings → Available features** switches off, for this PC only (`config.json` `features`), a block it cannot or will not run: the chat reader, OBS scene switching, the live copilot, music, the public quiz link and the phone remote. A block switched off hides its parts and stops its work; one whose dependency is missing on this PC says why. Details: [docs/settings.md](docs/settings.md#available-features).
 
@@ -46,6 +43,7 @@ Never activate the venv; invoke its interpreter directly. Playwright's Chromium 
 
 | Command | What |
 |---|---|
+| `setup.bat` | install on this PC, or bring its setup up to date ([docs/install.md](docs/install.md)) |
 | `tray.bat` | tray icon that owns the server on **:8449** (and the loopback-only listener on **:8456**; idempotent; put it in the Startup folder) |
 | `tray.bat --restart` | orphan-proof restart; verifies the served build (`/api/version`) matches `HEAD`; without the shared tray helper it ends only this app's own tray and server and starts them again |
 | `scripts/webapp.bat` | foreground server (dev / headless) |
