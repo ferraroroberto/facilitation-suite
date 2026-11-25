@@ -71,20 +71,3 @@ def remote(request: Request) -> Response:
     """The phone remote. The page itself is open (an unpaired phone is told how
     to pair); everything it loads needs the token (``app/webapp/auth.py``)."""
     return _page(request, "remote.html")
-
-
-@router.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-@router.get("/api/version")
-def version(request: Request) -> dict[str, object]:
-    build = request.app.state.build
-    return {
-        "app": "facilitation-suite",
-        "git_sha": build["git_sha"],
-        "built_at": build["built_at"],
-        "asset_hash": request.app.state.assets.fleet_hash,
-        "schema_version": SCHEMA_VERSION,
-    }
