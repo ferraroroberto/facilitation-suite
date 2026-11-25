@@ -1,6 +1,6 @@
 # Layout
 
-Where code goes. The structure ratchet (`scripts/structure_ratchet.py`, `.fleet.toml [structure_ratchet]`) enforces this page: a file stays under 1,000 lines, a function under 100, a directory under 40 modules, `src/` never imports `app/`, and the root folders match the declared shape. The offender that predates the ratchet is held in `.structure-ratchet-baseline.json` at its size and may not grow; new code goes where this page says instead.
+Where code goes. The structure ratchet (`scripts/structure_ratchet.py`, `.fleet.toml [structure_ratchet]`) enforces this page: a file stays under 1,000 lines, a function under 100, a directory under 40 modules, `src/` never imports `app/`, and the root folders match the declared shape. The offender that predates the ratchet is held in `.ratchets/structure.json` at its size and may not grow; new code goes where this page says instead.
 
 The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tray, UI under `app/`, logic under `src/`.
 
