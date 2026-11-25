@@ -12,7 +12,7 @@ command line carries this checkout's ``.venv`` directory (a venv-launched interp
 the base python, so the image path is the shared one and only the command line still says
 which app it is). Of those, it ends
 
-* the tray: the command line also matches ``launcher.py tray``, and
+* the tray: the command line also matches ``launcher.py tray`` (under ``scripts/`` or the repo root), and
 * whatever listens on this app's configured ports (server, local listener, quiz player) -- an
   orphan that outlived its tray and would otherwise keep serving the old build.
 
@@ -49,8 +49,9 @@ from src.no_window import NO_WINDOW
 ROOT = Path(os.path.abspath(__file__)).parent.parent
 VENV_DIR = ROOT / ".venv"
 APP_ID = "facilitation-suite"
-# The tray's launch arguments in tray.bat (TRAY_LAUNCH).
-TRAY_PATTERN = re.compile(r"launcher\.py\s+tray", re.IGNORECASE)
+# The tray's launch arguments in tray.bat (TRAY_LAUNCH); the optional scripts folder also
+# matches a tray that was started while the launcher still sat in the repo root.
+TRAY_PATTERN = re.compile(r"(scripts[\\/]+)?launcher\.py\s+tray", re.IGNORECASE)
 STOP_TIMEOUT_S = 15.0
 VERIFY_TIMEOUT_S = 30.0
 POLL_S = 0.5

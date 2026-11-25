@@ -82,15 +82,16 @@ REM  inherits it, and so does every session and app it spawns -- where APP_NAME
 REM  is another project's own config key (app-launcher#963).
 set "TRAY_APP_NAME=facilitation-suite"
 REM === ADAPT (2/4): the args python is started with to launch the tray,
-REM     e.g. "launcher.py tray"  or  "-m tray" ===
-set "TRAY_LAUNCH=launcher.py tray"
+REM     e.g. "scripts\launcher.py tray"  or  "-m tray" ===
+set "TRAY_LAUNCH=scripts\launcher.py tray"
 
 set "WANT_RESTART="
 if /i "%~1"=="--restart" set "WANT_RESTART=1"
 if /i "%~1"=="-r"        set "WANT_RESTART=1"
 
 REM === ADAPT (3/4): the -TrayMatch below is a regex matching THIS app's tray
-REM     invocation (launcher\.py\s+tray) -- filled in from the template.
+REM     invocation ((scripts\\)?launcher\.py\s+tray) -- filled in from the template. The
+REM     optional scripts\ also matches a tray started before the launcher moved there.
 set "PS=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 set "TRAY_VENV=%SCRIPT_DIR%.venv"
 REM  ONE shared, machine-local copy owned by fleet-config (project-scaffolding#153)
@@ -120,7 +121,7 @@ REM  policy on the command line would weaken the machine's own control. The valu
 REM  environment (set above), so no quoting nests inside the -Command string, and the process that
 REM  carries them is powershell.exe, which the helper's tray detection (python processes only)
 REM  can never mistake for the tray. An `exit` inside the helper ends this process with its code.
-%PS% -NoProfile -NonInteractive -Command "$a = @{ AppName = $env:TRAY_APP_NAME; ScriptDir = $env:SCRIPT_DIR_ARG; VenvDir = $env:TRAY_VENV; TrayMatch = 'launcher\.py\s+tray'; Ports = $env:OWNED_PORTS; TrayLaunch = $env:TRAY_LAUNCH; VersionUrl = $env:VERSION_URL }; if ($env:WANT_RESTART) { $a.Restart = $true }; try { & ([scriptblock]::Create([IO.File]::ReadAllText($env:TRAY_PS))) launch @a } catch { [Console]::Error.WriteLine(($_ | Out-String)); exit 1 }; exit 0"
+%PS% -NoProfile -NonInteractive -Command "$a = @{ AppName = $env:TRAY_APP_NAME; ScriptDir = $env:SCRIPT_DIR_ARG; VenvDir = $env:TRAY_VENV; TrayMatch = '(scripts[\\/]+)?launcher\.py\s+tray'; Ports = $env:OWNED_PORTS; TrayLaunch = $env:TRAY_LAUNCH; VersionUrl = $env:VERSION_URL }; if ($env:WANT_RESTART) { $a.Restart = $true }; try { & ([scriptblock]::Create([IO.File]::ReadAllText($env:TRAY_PS))) launch @a } catch { [Console]::Error.WriteLine(($_ | Out-String)); exit 1 }; exit 0"
 exit /b %ERRORLEVEL%
 
 REM  Standalone start (project-scaffolding#345): the shared helper is missing,

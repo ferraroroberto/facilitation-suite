@@ -27,8 +27,8 @@ CLI invocations (the tray's ``WebappManager._build_command`` in
 ``app/webapp/manager.py``, the e2e autoboot spawn in
 ``tests/e2e/conftest.py``) and
 ``loop="app.webapp.event_loop:selector_loop_factory"`` for the
-programmatic ``uvicorn.run()`` call in ``launcher.py webapp`` (which
-``webapp.bat`` hands over to). Keep all of them pointed at the same dotted
+programmatic ``uvicorn.run()`` call in ``scripts/launcher.py webapp`` (which
+``scripts/webapp.bat`` hands over to). Keep all of them pointed at the same dotted
 path below.
 
 For a *custom* ``--loop``/``loop=`` value (anything outside uvicorn's
