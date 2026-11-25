@@ -133,8 +133,8 @@ def test_loopback_bind_opens_the_loopback_url(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_launcher_webapp_binds_what_the_config_says(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from scripts import launcher
     from app.webapp import serve
+    from scripts import launcher
     from src import certs
 
     _loopback_config(tmp_path, monkeypatch)
