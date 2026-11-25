@@ -58,3 +58,6 @@ test-results/
 .agents/
 .codex/
 .proof/
+
+# Top-up backups of a settings file hold its values (src/installer.py)
+*.json.bak-*
