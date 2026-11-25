@@ -111,6 +111,7 @@ def _join_room(page: Page, base: str, webapp, stage: Page, phones: list[Page], p
         phone.fill("#nickname", name)
         phone.click("#joinBtn")
         expect(phone.locator("[data-for=wait]")).to_contain_text("You're in")
+        expect(phone.locator("[data-heading]")).to_have_text("Room")  # joined, nothing to answer yet
     assert page.request.get(f"{base}/api/live").json()["state"]["room"]["member_count"] == 2
     proof.snap("The Join slide; two phones joined (one named, one anonymous)", stage=stage, phone=phones[0])
 
@@ -130,6 +131,7 @@ def _play_quiz(page: Page, base: str, stage: Page, phones: list[Page], proof: Pr
     for right, wrong in (("2", "1"), ("1", "2")):  # each question: Ana right, Bo wrong
         assert page.request.post(f"{base}/api/actions/next").ok
         expect(ana.locator(".tile").first).to_be_visible()
+        expect(ana.locator("[data-heading]")).to_have_text("Quiz")
         ana.locator(f'.tile[data-choice="{right}"]').click()
         anon.locator(f'.tile[data-choice="{wrong}"]').click()
         for phone in phones:
@@ -174,6 +176,7 @@ def _run_poll(page: Page, base: str, stage: Page, phones: list[Page], folder: Pa
     expect(page.locator("[data-captoggle]")).to_contain_text("Stop capture")
     for phone, (how, value) in zip(phones, plan["phones"], strict=True):
         expect(phone.locator("[data-poll-question]")).to_contain_text(item["question"][:20])
+        expect(phone.locator("[data-heading]")).to_have_text("Poll")
         _answer_on_phone(phone, how, value)
     chat = {"batch": item["id"], "messages": [{"sender": who, "text": text, "time": "10:0" + str(n)}
                                               for n, (who, text) in enumerate(zip(CHAT_PEOPLE, plan["chat"], strict=True))]}
@@ -209,6 +212,7 @@ def _send_the_form(page: Page, base: str, webapp, stage: Page, phones: list[Page
     expect(page.locator("[data-fstate]")).to_have_text("Open — taking responses")
     expect(stage.locator("[data-form-slide]")).to_be_visible()
     ana, anon = phones
+    expect(ana.locator("[data-heading]")).to_have_text("Feedback")  # the room view shows the form link
     ana.click("[data-form-link]")
     _send_form(ana, "Ana", ["q1=9", "q2=4", "q3=A", "q3=B", "q4=4"], "More time for the polls")
     proof.snap("The private form, sent from a phone", phone=ana)

@@ -72,7 +72,7 @@ def test_listener_serves_the_player_app_only(player) -> None:
     main, addr = player
     assert main.app.state.player.running
     status, html = _get(f"http://{addr}/play")
-    assert status == 200 and "<title>Quiz</title>" in html
+    assert status == 200 and "<title>Join</title>" in html
     status, body = _get(f"http://{addr}/play/api/ping")
     assert status == 200 and json.loads(body)["ok"] is True
     with connect(f"ws://{addr}/play/ws", open_timeout=5) as ws:

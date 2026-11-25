@@ -171,6 +171,7 @@ def _check_first_question(page: Page, base: str, ana: Page, bo: Page, stage: Pag
     for phone in (ana, bo):
         expect(phone.locator(".tile")).to_have_count(4)
         expect(phone.locator("[data-qindex]")).to_have_text("Question 1 of 2")
+        expect(phone.locator("[data-heading]")).to_have_text("Quiz")
     # the stage: four tiles, nothing marks the correct answer before the reveal (the plan it gets holds it)
     expect(stage.locator(".qz-tile")).to_have_count(4)
     expect(stage.locator("[data-qz-index]")).to_have_text("Question 1 of 2")

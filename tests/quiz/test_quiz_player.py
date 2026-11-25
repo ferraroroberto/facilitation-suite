@@ -486,7 +486,7 @@ def test_the_page_and_its_fleet_copies(game) -> None:
     phone = Phone(base)
     with urllib.request.urlopen(base + "/play?pin=123456", timeout=5) as r:
         html = r.read().decode("utf-8")
-    assert "<title>Quiz</title>" in html and "/play/static/play.js" in html
+    assert "<title>Join</title>" in html and "/play/static/play.js" in html
     assert not re.search(r'(?:href|src)="/(?!play/)', html)  # nothing from the main app, not even its /static
     for name in ("play.js", "play.css", "fleet/tokens.css", "fleet/button.css", "fleet/poll.js"):
         with urllib.request.urlopen(f"{base}/play/static/{name}", timeout=5) as r:
