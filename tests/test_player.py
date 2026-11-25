@@ -86,7 +86,7 @@ def test_listener_serves_the_player_app_only(player) -> None:
     with pytest.raises(InvalidStatus):
         connect(f"ws://{addr}/ws", open_timeout=5)
     # …and the main app itself is untouched.
-    assert main.get("/healthz").json() == {"status": "ok"}
+    assert main.get("/healthz").json() == {"ok": True, "service": "facilitation-suite"}
     assert main.get("/play").status_code == 404
 
 
@@ -113,7 +113,7 @@ def test_busy_port_is_logged_and_the_main_app_keeps_serving(isolated_env: Path, 
         _with_player_port(isolated_env, port)
         with caplog.at_level("ERROR", logger=LISTENER_LOG), TestClient(create_app(), client=("127.0.0.1", 50000)) as main:
             assert not main.app.state.player.running
-            assert main.get("/healthz").json() == {"status": "ok"}
+            assert main.get("/healthz").json() == {"ok": True, "service": "facilitation-suite"}
     errors = [r.getMessage() for r in caplog.records if r.name == LISTENER_LOG and r.levelname == "ERROR"]
     assert len(errors) == 1
     assert "❌ quiz player listener" in errors[0] and f":{port} is busy" in errors[0]
