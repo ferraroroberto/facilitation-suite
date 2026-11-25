@@ -2,7 +2,7 @@
 
 Started inside the main app's lifespan as a task on the **same event loop**,
 with the main app's one ``QuizService`` (the player routes call it directly —
-no second engine), stopped when the main app stops. ``launcher.py`` and the
+no second engine), stopped when the main app stops. ``scripts/launcher.py`` and the
 tray stay as they are.
 
 - **Loopback only, always.** Whatever ``config.host`` says, this binds

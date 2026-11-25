@@ -163,7 +163,7 @@ def test_tray_bat_starts_the_shared_helper_under_allsigned(tmp_path: Path) -> No
     assert match and " launch @a " in match.group(1)
     command = match.group(1).replace(" launch @a ", " detect @a ")
     env = {**os.environ, "PSExecutionPolicyPreference": "AllSigned", "TRAY_PS": str(TRAY_HELPER), "TRAY_VENV": str(tmp_path),
-           "TRAY_APP_NAME": "probe", "SCRIPT_DIR_ARG": str(tmp_path), "OWNED_PORTS": "", "TRAY_LAUNCH": "launcher.py tray"}
+           "TRAY_APP_NAME": "probe", "SCRIPT_DIR_ARG": str(tmp_path), "OWNED_PORTS": "", "TRAY_LAUNCH": r"scripts\launcher.py tray"}
     done = subprocess.run([POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", command], capture_output=True,
                           text=True, timeout=PS_TIMEOUT_S, env=env, creationflags=NO_WINDOW)
     assert done.returncode == 0, done.stderr
@@ -172,7 +172,8 @@ def test_tray_bat_starts_the_shared_helper_under_allsigned(tmp_path: Path) -> No
 
 def test_no_script_overrides_the_policy_or_carries_a_signature() -> None:
     """A signature appended to a tracked script turns every ``git pull`` on an AllSigned PC into a conflict."""
-    scripts = [*REPO_ROOT.glob("*.bat"), *(REPO_ROOT / "scripts").glob("*.ps1"), REPO_ROOT / "src" / "ps_script.py"]
+    scripts = [*REPO_ROOT.glob("*.bat"), *(REPO_ROOT / "scripts").glob("*.bat"), *(REPO_ROOT / "scripts").glob("*.ps1"),
+               REPO_ROOT / "src" / "ps_script.py"]
     texts = {p.name: p.read_text(encoding="utf-8") for p in scripts}
     assert [n for n, t in texts.items() if re.search(r"-ExecutionPolicy\s+Bypass", t, re.I)] == []
     assert [n for n, t in texts.items() if "SIG # Begin signature block" in t] == []

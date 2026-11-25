@@ -48,7 +48,7 @@ Never activate the venv; invoke its interpreter directly. Playwright's Chromium 
 |---|---|
 | `tray.bat` | tray icon that owns the server on **:8449** (and the loopback-only listener on **:8456**; idempotent; put it in the Startup folder) |
 | `tray.bat --restart` | orphan-proof restart; verifies the served build (`/api/version`) matches `HEAD`; without the shared tray helper it ends only this app's own tray and server and starts them again |
-| `webapp.bat` | foreground server (dev / headless) |
+| `scripts/webapp.bat` | foreground server (dev / headless) |
 
 Open the app, `/presenter` on the second monitor, and `/stage` full-screen (F11) on the display OBS captures — on this PC at `http://127.0.0.1:8456/` (the tray's **Open**: plain HTTP on loopback only, so no certificate warning and no tailnet hop). Other devices (the phone remote, a Stream Deck) use `https://<this PC>.<tailnet>.ts.net:8449/` once [HTTPS](docs/operations.md#https) is set up, or `http://127.0.0.1:8449/` while it is not. This PC never needs a token either way.
 

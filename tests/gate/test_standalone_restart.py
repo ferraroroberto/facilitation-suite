@@ -29,8 +29,7 @@ def _py(venv: Path, args: str, exe: str = "pythonw.exe") -> str:
 
 def _table() -> list[sr.Proc]:
     return [
-        sr.Proc(10, 1, _py(VENV, "launcher.py tray")),
-        sr.Proc(11, 10, _py(VENV, "-m uvicorn app.webapp.server:app --port 8449", "python.exe")),
+        sr.Proc(10, 1, _py(VENV, r"scripts\launcher.py tray")),        sr.Proc(11, 10, _py(VENV, "-m uvicorn app.webapp.server:app --port 8449", "python.exe")),
         sr.Proc(12, 11, _py(VENV, "-m src.chat.reader", "python.exe")),
         sr.Proc(20, 1, _py(OTHER_VENV, "launcher.py tray")),
         sr.Proc(21, 20, _py(OTHER_VENV, "-m uvicorn other.server:app", "python.exe")),
@@ -84,8 +83,13 @@ def test_the_script_and_its_callers_are_never_selected() -> None:
 
 
 def test_path_case_and_slashes_do_not_matter() -> None:
-    table = [sr.Proc(50, 1, 'X:/APPS/Facilitation-Suite/.VENV/Scripts/pythonw.exe launcher.py  tray')]
+    table = [sr.Proc(50, 1, 'X:/APPS/Facilitation-Suite/.VENV/Scripts/pythonw.exe scripts/launcher.py  tray')]
     assert sr.select_targets(table, set(), VENV, set()) == [50]
+
+
+def test_a_tray_started_from_the_old_root_launcher_is_still_selected() -> None:
+    table = [sr.Proc(51, 1, _py(VENV, "launcher.py tray"))]
+    assert sr.select_targets(table, set(), VENV, set()) == [51]
 
 
 def test_a_process_table_without_this_app_selects_nothing() -> None:

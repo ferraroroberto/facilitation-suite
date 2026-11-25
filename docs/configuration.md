@@ -4,7 +4,7 @@
 
 | Key | Meaning |
 |---|---|
-| `host` | bind address for the tray's and `webapp.bat`'s server: `0.0.0.0` (default) listens on every interface, which the phone remote and the Stream Deck over the tailnet need; `127.0.0.1` keeps the app on this PC only (off the LAN and the tailnet — the tray's **Open** then uses the loopback URL). Restart the tray after changing it |
+| `host` | bind address for the tray's and `scripts/webapp.bat`'s server: `0.0.0.0` (default) listens on every interface, which the phone remote and the Stream Deck over the tailnet need; `127.0.0.1` keeps the app on this PC only (off the LAN and the tailnet — the tray's **Open** then uses the loopback URL). Restart the tray after changing it |
 | `port` | server port (8449) |
 | `local_port` | the local listener: the same app in plain HTTP on `127.0.0.1` only (8456; `0` = off), what the tray's **Open** uses on this PC while `port` serves HTTPS to other devices. A busy port is logged and the tray opens the HTTPS URL instead. Restart the tray after changing it (see [HTTPS](operations.md#https)) |
 | `session_root` | default parent folder for new sessions (`<root>\<workshop>\<session>\`) |

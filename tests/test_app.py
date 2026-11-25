@@ -133,7 +133,7 @@ def test_loopback_bind_opens_the_loopback_url(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_launcher_webapp_binds_what_the_config_says(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import launcher
+    from scripts import launcher
     from app.webapp import serve
     from src import certs
 
@@ -143,7 +143,7 @@ def test_launcher_webapp_binds_what_the_config_says(tmp_path: Path, monkeypatch:
     monkeypatch.setattr(certs, "ensure_cert_fresh", lambda *args, **kwargs: None)
     monkeypatch.setattr(certs, "uvicorn_ssl_kwargs", lambda: {})
     monkeypatch.setattr(logger_mod, "configure_logging", lambda *args, **kwargs: None)
-    assert launcher.main(["launcher.py", "webapp"]) == 0
+    assert launcher.main(["scripts/launcher.py", "webapp"]) == 0
     assert (seen["host"], seen["port"]) == ("127.0.0.1", 8601)
     assert seen["server"] == "hypercorn"
 
@@ -211,15 +211,15 @@ def fill(*_args, **_kwargs):
 if role == "tray":
     import app.tray.tray as tray
     tray.run_tray = lambda config: fill() and 0
-    import launcher
-    sys.exit(launcher.main(["launcher.py", "tray"]))
+    from scripts import launcher
+    sys.exit(launcher.main(["scripts/launcher.py", "tray"]))
 elif role == "webapp":
     import app.webapp.serve as serve
     import src.certs as certs
     serve.run = fill
     certs.ensure_cert_fresh = lambda *args, **kwargs: None
-    import launcher
-    sys.exit(launcher.main(["launcher.py", "webapp"]))
+    from scripts import launcher
+    sys.exit(launcher.main(["scripts/launcher.py", "webapp"]))
 else:  # the PDF helper the webapp spawns
     import src.results.pdf as pdf
     pdf.print_pdf = lambda html, out: fill()

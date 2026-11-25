@@ -7,7 +7,7 @@
     Stages, fail-fast:
       1. personal-data guard - no tracked roster/deck/ledger/config/session file
                                outside tests/fixtures (the repo is public)
-      2. byte-compile        - every .py under app/ src/ scripts/ tests/ + launcher.py
+      2. byte-compile        - every .py under app/ src/ scripts/ tests/
       3. ruff                - lint the whole repo (pyproject.toml owns strictness)
       4. static ratchet      - no new duplicate block (jscpd via npx) or unused
                                import/variable (ruff F401,F841), or ruff bug (B) /
@@ -187,7 +187,7 @@ Invoke-Stage "personal-data guard" {
         $global:LASTEXITCODE = 0
     }
 }
-Invoke-Stage "byte-compile"            { & $py -m compileall -q app src scripts tests launcher.py }
+Invoke-Stage "byte-compile"            { & $py -m compileall -q app src scripts tests }
 Invoke-Stage "ruff"                    { & $py -m ruff check . }
 # The wrapper maps the script's exit 3 to NOT CONFIRMED (tests/test_static_ratchet_gate.py
 # pins it); call it, never scripts/static_ratchet.py directly.

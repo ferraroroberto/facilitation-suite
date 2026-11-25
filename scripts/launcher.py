@@ -1,13 +1,13 @@
-"""Thin launcher — the one entrypoint ``tray.bat`` / ``webapp.bat`` invoke.
+"""Thin launcher — the one entrypoint ``tray.bat`` / ``scripts/webapp.bat`` invoke.
 
 Usage:
-    python launcher.py            # same as `tray`
-    python launcher.py tray       # tray icon owning the webapp (config.json host:port, :8449)
-    python launcher.py webapp     # foreground uvicorn (dev / headless box), same bind
+    python scripts/launcher.py            # same as `tray`
+    python scripts/launcher.py tray       # tray icon owning the webapp (config.json host:port, :8449)
+    python scripts/launcher.py webapp     # foreground uvicorn (dev / headless box), same bind
 
-Puts its own folder on ``sys.path`` so the top-level packages (``app``,
-``src``, ``scripts``) resolve without an outer namespace — the folder is the
-root of its own repository.
+Puts the repository root (the parent of ``scripts/``) on ``sys.path`` so the
+top-level packages (``app``, ``src``, ``scripts``) resolve without an outer
+namespace — the folder is the root of its own repository.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
