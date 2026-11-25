@@ -256,6 +256,29 @@ if ($tier -eq "skip") {
     # The timing record /e2e-audit reads ([e2e] junit_xml in .fleet.toml); data/ is gitignored.
     $e2eArgs += @("--junitxml", "data/e2e-junit.xml")
     Invoke-Stage "pytest e2e (${tier}: $e2eTarget)" { & $py -m pytest @e2eArgs }
+
+    if ($tier -eq "static") {
+        Write-Host "[SKIP] request budget on webkit - an inert-asset diff runs only the smoke target" -ForegroundColor DarkGray
+    } else {
+        # The Mac nightly runs the request-budget tests on WebKit, which the Chromium
+        # slice above never does. 0 passed; 4 (WebKit not installed) and 5 (the repo
+        # has no budget test) are "not run", printed as such and never as a pass;
+        # anything else, 3 (not confirmed) included, fails the gate.
+        Write-Host ""
+        Write-Host ">> request budget on webkit" -ForegroundColor Cyan
+        & $py "scripts/tools/webkit_budget_check.py"
+        $webkitBudget = $LASTEXITCODE
+        if ($webkitBudget -eq 0) {
+            Write-Host "[PASS] request budget on webkit" -ForegroundColor Green
+        } elseif ($webkitBudget -eq 4) {
+            Write-Host "[NOT RUN] request budget on webkit - WebKit is not installed here, so the nightly's engine was not checked" -ForegroundColor Yellow
+        } elseif ($webkitBudget -eq 5) {
+            Write-Host "[NOT RUN] request budget on webkit - no request-budget test in this repo" -ForegroundColor Yellow
+        } else {
+            Write-Host "[FAIL] request budget on webkit (exit $webkitBudget)" -ForegroundColor Red
+            Complete-Gate 1
+        }
+    }
 }
 
 # Runtime write probe, second half: any file the unit and e2e runs left under a code folder.

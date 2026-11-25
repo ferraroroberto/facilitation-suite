@@ -59,7 +59,8 @@ conventions_readers = { src = "scripts/conventions_readers.py", sha = "9f5d6b727
 conventions_state = { src = "scripts/conventions_state.py", sha = "4d0b0ff30e23eb95c73c4b0b1517ec6a43d3a836", dest = "scripts/conventions_state.py" }
 synthetic_host = { src = "tests/host/_synthetic_host.py", sha = "3f1dcc76d5ba40c8b3d12a80a99659816ce1dd0e", dest = "tests/host/_synthetic_host.py" }
 paced_browser = { src = "tests/e2e/_paced_browser.py", sha = "ce64203b017ba636c82737ee7f768c9ef6f422cd", dest = "tests/e2e/_paced_browser.py" }
-request_budget_probe = { src = "tests/e2e/budget/_request_budget.py", sha = "2a65b20ee0b426fa8246bfc7ac3dd28e019a39b3", dest = "tests/e2e/budget/_request_budget.py" }
+request_budget_probe = { src = "tests/e2e/budget/_request_budget.py", sha = "7c49213a6df844dc30987037913ba54e09de35d9", dest = "tests/e2e/budget/_request_budget.py" }
+webkit_budget_check = { src = "scripts/tools/webkit_budget_check.py", sha = "7c49213a6df844dc30987037913ba54e09de35d9", dest = "scripts/tools/webkit_budget_check.py" }
 runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "7c49213a6df844dc30987037913ba54e09de35d9", dest = "scripts/runtime_write_ratchet.py" }
 runtime_write_resolve = { src = "scripts/runtime_write_resolve.py", sha = "ce64203b017ba636c82737ee7f768c9ef6f422cd", dest = "scripts/runtime_write_resolve.py" }
 runtime_data    = { src = "src/runtime_data.py", sha = "4d0b0ff30e23eb95c73c4b0b1517ec6a43d3a836", dest = "src/runtime_data.py" }
@@ -303,7 +304,7 @@ exclude_marker = "not windows_only and not needs_chromium"
 # Diff-proportionate e2e routing (project-scaffolding#180): first match wins; an
 # unmatched path, a mixed diff, or an empty diff fails safe to the full suite.
 [e2e]
-static_pytest_target = "tests/e2e/test_smoke.py"
+static_pytest_target = "tests/e2e/test_smoke.py tests/e2e/budget/test_main_page_budget.py"
 static_browsers       = ["chromium"]
 full_pytest_target    = "tests/e2e"
 junit_xml             = "data/e2e-junit.xml"  # the gate writes it; /e2e-audit reads timing from it
@@ -494,7 +495,7 @@ marker     = "windows_only"
 test_paths = ["tests/**"]
 
 # What the main page may read in a visible minute, held by the browser probe in
-# tests/e2e/test_smoke.py (tests/e2e/budget/_request_budget.py). The measured minute is 4: the
+# tests/e2e/budget/test_main_page_budget.py (the probe: tests/e2e/budget/_request_budget.py). The measured minute is 4: the
 # sessions list is read three times as the page boots and the usage log flushes once. The only
 # poll, the build check, ticks every five minutes, so a longer visit adds almost nothing.
 [request_budget]
