@@ -12,59 +12,59 @@
       4. static ratchet      - no new duplicate block (jscpd via npx) or unused
                                import/variable (ruff F401,F841), or ruff bug (B) /
                                security (S) finding (S113 strict), beyond
-                               .static-ratchet-baseline.json. Whole tree, never
+                               .ratchets/static.json. Whole tree, never
                                routed; exit 3 (a detector could not run) is
                                NOT CONFIRMED and fails, never a pass or a skip.
       5. docs ratchet        - README.md stays under 40 KiB and README.md /
                                docs/**/*.md gain no history marker (issue
                                reference, dated or changelog heading) beyond
-                               .docs-ratchet-baseline.json. Whole tree, never
+                               .ratchets/docs.json. Whole tree, never
                                routed; exit 3 (docs unreadable) is NOT CONFIRMED
                                and fails.
       6. comment ratchet     - no file's count of `#NNN` issue references
                                inside comments rises beyond
-                               .comment-ratchet-baseline.json. Whole tree, never
+                               .ratchets/comment.json. Whole tree, never
                                routed; exit 3 (a file could not be scanned) is
                                NOT CONFIRMED and fails.
       7. structure ratchet   - no new file over 1,000 lines, function over 100
                                lines or directory over 40 modules, no baselined
                                offender growing past
-                               .structure-ratchet-baseline.json, and the root
+                               .ratchets/structure.json, and the root
                                folders match .fleet.toml shape + extra_roots.
                                Whole tree, never routed; exit 3 (git unusable,
                                an unparseable file, an unknown shape) is NOT
                                CONFIRMED and fails.
       8. instruction ratchet - no instruction file (CLAUDE.md, AGENTS.md, skills)
                                gains a prompt-audit rule hit or passes its size
-                               cap beyond .instruction-ratchet-baseline.json.
+                               cap beyond .ratchets/instruction.json.
                                Whole tree, never routed; exit 3 (git unusable, an
                                unreadable file or skill description) is NOT
                                CONFIRMED and fails.
       9. doc-refs ratchet    - README.md, CLAUDE.md and docs/**/*.md name no repo
                                path, `python -m` module, relative link or
                                loopback port that does not exist beyond
-                               .doc-refs-ratchet-baseline.json. Whole tree, never
+                               .ratchets/doc-refs.json. Whole tree, never
                                routed; exit 3 (git unusable, a file not UTF-8, an
                                unclosed fence) is NOT CONFIRMED and fails.
      10. dead-code ratchet   - no function, class or method that nothing in the
                                tracked Python tree refers to beyond
-                               .dead-code-ratchet-baseline.json. Whole tree, never
+                               .ratchets/dead-code.json. Whole tree, never
                                routed; exit 3 (git unusable, a file that does not
                                parse) is NOT CONFIRMED and fails.
      11. conventions ratchet - no file's count of a fleet-convention hit (spawn
                                without CREATE_NO_WINDOW, print in library code,
                                hardcoded drive path) rises beyond
-                               .conventions-ratchet-baseline.json. Whole tree,
+                               .ratchets/conventions.json. Whole tree,
                                never routed; exit 3 (git unusable, a file that
                                does not parse) is NOT CONFIRMED and fails.
      11b. runtime write ratchet - no file's count of write targets resolving under
                                a code folder rises beyond
-                               .runtime-write-ratchet-baseline.json. Whole tree,
+                               .ratchets/runtime-write.json. Whole tree,
                                never routed; exit 3 (a new target it cannot
                                resolve) is NOT CONFIRMED and fails.
      11c. usage track ratchet - no file's count of untracked controls, untracked
                                sheets or built ids rises beyond
-                               .usage-track-ratchet-baseline.json, and the usage log
+                               .ratchets/usage-track.json, and the usage log
                                is wired. Whole tree, never routed; exit 3 (a file
                                that cannot be read or closed) is NOT CONFIRMED and
                                fails.
@@ -72,7 +72,7 @@
                                without an entry in docs/ux-surfaces.yaml, no entry
                                no element carries, no id on two roots, no link to a
                                missing entry, and docs/ux-surface-map.md is what the
-                               map generates, beyond .ux-surface-ratchet-baseline.json.
+                               map generates, beyond .ratchets/ux-surface.json.
                                Whole tree, never routed; exit 3 (a file that cannot be
                                read or closed) is NOT CONFIRMED and fails.
      11e. request budget ratchet - no file's count of fixed-rate browser polls that
@@ -80,14 +80,14 @@
                                fast server loops, directory scans in a request handler,
                                shared default-pool submits or a missing request-timing
                                middleware rises beyond
-                               .request-budget-ratchet-baseline.json. Whole tree, never
+                               .ratchets/request-budget.json. Whole tree, never
                                routed; exit 3 is NOT CONFIRMED and fails.
      11f. windows only ratchet - no file's count of tests that touch a Windows-only API
                                (a win32/winreg import, subprocess.CREATE_NO_WINDOW,
                                ctypes.windll, a Windows-only env var read, a planted
                                .exe under a fake install folder) without the
                                `windows_only` marker rises beyond
-                               .windows-only-ratchet-baseline.json, which is empty;
+                               .ratchets/windows-only.json, which is empty;
                                the Mac nightly leaves that marker out. Whole tree,
                                never routed; exit 3 is NOT CONFIRMED and fails.
      12. pytest (unit)      - hermetic suite, tests/e2e excluded; stages 12-13 run

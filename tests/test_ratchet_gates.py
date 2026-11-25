@@ -173,6 +173,10 @@ def _repo(tmp_path: Path, stage: Stage) -> Path:
     (repo / "scripts" / f"{stage.key}.py").write_bytes(
         (REPO_ROOT / "scripts" / f"{stage.key}.py").read_bytes()
     )
+    # every vendored ratchet loads its baseline helper from beside itself
+    (repo / "scripts" / "ratchet_baseline.py").write_bytes(
+        (REPO_ROOT / "scripts" / "ratchet_baseline.py").read_bytes()
+    )
     (repo / ".fleet.toml").write_text(f"[{stage.key}]\nenabled = true\n", encoding="utf-8")
     _write(repo, stage, stage.clean)
     for argv in (["init", "-q"], ["add", "-A"]):
