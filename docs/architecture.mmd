@@ -139,6 +139,7 @@ flowchart LR
   importer -->|job state| jobstate["src/importer/job_state.py<br/>ImportState · advance · is_active"]
   importer -->|child process| com["src/importer/pptx_com.py<br/>PowerPoint COM export"]
   importer --> analyze["src/importer/analyze.py<br/>dHash · OBS profile"]
+  importer --> menti["src/importer/mentimeter.py<br/>Mentimeter slide → poll"]
   importer -->|re-import| staged[("slides/incoming/<br/>staged export")]
   slidesr --> review["src/importer/review.py<br/>diff · per-change apply · anchors"]
   review --> staged

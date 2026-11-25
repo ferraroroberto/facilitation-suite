@@ -227,7 +227,7 @@ def diff(old_meta: Optional[dict[str, Any]], new_meta: dict[str, Any], session: 
             elif ph and ph.get("kind") in ("break", "breakout"):
                 detail = "New breakout slide · becomes a breakout card"
             elif ph:
-                detail = "New slide · skipped in the plan"
+                detail = "New slide · skipped in the plan" + (f" · {ph['reason']}" if ph.get("reason") else "")
             else:
                 prof = PROFILE_LABEL.get(s.get("profile") or "", "")
                 detail = f"New slide · {prof.lower()} detected" if prof else "New slide · camera layout unsure"

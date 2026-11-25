@@ -14,7 +14,8 @@ process with a timeout, reports progress, then:
      slide — and turns *placeholder slides* into plan items: a slide titled
      ``activity – <question>`` (or the old ``streamalive N – <question>``)
      becomes an activity, ``breakout – <title>`` a breakout card, ``mentimeter …``
-     a skipped slide;
+     a poll activity of the closest type (``mentimeter.py``), or a skipped
+     slide with a reason when it has no readable question;
    - **re-import**: nothing changes yet — the export is staged in
      ``slides/incoming/`` and the review screen (``review.py``) says what
      changed; each change is accepted one by one before it applies.
@@ -35,7 +36,7 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +45,7 @@ from typing import Any, Optional
 from src.errors import DomainError
 from src.importer.analyze import detect_profile, dhash, text_hash
 from src.importer.job_state import ImportState, advance, is_active, is_succeeded
+from src.importer.mentimeter import classify_mentimeter
 from src.no_window import NO_WINDOW
 from src.sessions.model import Item, Section, Session, Source, ensure_ids
 from src.write_target import outside_code
@@ -57,7 +59,6 @@ INCOMING = "incoming"  # slides/incoming/: a re-import waiting for review
 _DASH = r"\s*[\-–—:]\s*"
 ACTIVITY_RE = re.compile(rf"^\s*(?:streamalive|activity|actividad)\s*\d*{_DASH}(.+)$", re.I | re.S)
 BREAKOUT_RE = re.compile(rf"^\s*breakout\s*\d*{_DASH}(.+)$", re.I | re.S)
-SKIP_RE = re.compile(r"^\s*mentimeter\b", re.I)
 _MAP_WORDS = re.compile(r"\b(map|mapa|where|dónde|donde)\b", re.I)
 _SCALE_WORDS = re.compile(r"\b(weather|tiempo|clima|scale|escala|1\s*[-–a]\s*5)\b", re.I)
 
@@ -80,8 +81,8 @@ def display_title(s: dict[str, Any]) -> str:
     return f"Slide {s['index']}"
 
 
-def classify_placeholder(title: str) -> Optional[dict[str, Any]]:
-    """A placeholder slide → the item it stands for, else None."""
+def classify_placeholder(title: str, texts: Iterable[str] = ()) -> Optional[dict[str, Any]]:
+    """A placeholder slide → the item it stands for, else None; ``texts`` are the slide's text boxes."""
     m = ACTIVITY_RE.match(title or "")
     if m:
         question = " ".join(m.group(1).split())
@@ -91,9 +92,7 @@ def classify_placeholder(title: str) -> Optional[dict[str, Any]]:
     m = BREAKOUT_RE.match(title or "")
     if m:
         return {"kind": "breakout", "title": " ".join(m.group(1).split())}
-    if SKIP_RE.match(title or ""):
-        return {"kind": "skip"}
-    return None
+    return classify_mentimeter(title or "", texts)
 
 
 def _is_divider(s: dict[str, Any]) -> bool:
@@ -184,7 +183,7 @@ def build_slides_meta(export: dict[str, Any], slides_dir: Path, deck: Path) -> d
             "background": s.get("background", ""),
             "fp": {"image": dhash(png), "title": text_hash(s.get("title", "")), "notes": text_hash(s.get("notes", ""))},
             "profile": guess.profile, "profile_source": guess.source, "zone": guess.zone,
-            "placeholder": classify_placeholder(s.get("title", "")),
+            "placeholder": classify_placeholder(s.get("title", ""), s.get("texts") or []),
             **({"bg_file": s["bg_file"], "boxes": stage_boxes(s["boxes"], export.get("slide_width", 960), export.get("slide_height", 540))}
                if s.get("bg_file") and s.get("boxes") and (slides_dir / s["bg_file"]).is_file() else {}),
         })
@@ -279,7 +278,7 @@ def placeholder_item(s: dict[str, Any], ph: dict[str, Any]) -> Optional[Item]:
         return Item(kind="slide", slide_id=s["slide_id"], include=False, profile=s["profile"])
     if ph["kind"] == "activity":
         return Item(kind="activity", type=ph["type"], question=ph["question"], title=ph["title"],
-                    chat_prompt="", profile="camera_pip")
+                    chat_prompt="", profile="camera_pip", options=dict(ph.get("options") or {}))
     return Item(kind=ph["kind"], title=ph["title"])  # a breakout (or an older export's break)
 
 
@@ -401,6 +400,8 @@ class Importer:
             (target / "slides.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
             exported = len(export["slides"])
             unsure = sum(1 for s in meta["slides"] if s["profile"] is None and not s.get("placeholder"))
+            unread = [{"index": s["index"], "title": s["title"], "reason": s["placeholder"]["reason"]}
+                      for s in meta["slides"] if (s.get("placeholder") or {}).get("reason")]
             if first:
                 session.sections = first_plan(meta, session.duration_minutes)
                 session.source = Source(pptx=job.deck, imported_at=datetime.now().replace(microsecond=0))
@@ -411,7 +412,7 @@ class Importer:
             else:
                 summary = {"first_import": False, "review": True}
                 job.message = f"Exported {exported} slides — review the changes"
-            job.result = {"slides": exported, "unsure_profiles": unsure, **summary}
+            job.result = {"slides": exported, "unsure_profiles": unsure, "unreadable": unread, **summary}
             job.move(ImportState.DONE)
             logger.info("✅ import: %s slides for session %s (%s)", exported, job.session_id, summary)
         except DeckImportError as exc:

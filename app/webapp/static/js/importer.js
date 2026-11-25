@@ -76,9 +76,13 @@ export function importDialog(sid, { lastPath = '', reimport = false, slides = nu
         bar.style.width = '100%';
         const r = job.result;
         finished = r;
-        toast(r.first_import
+        const unread = (r.unreadable || []).length;
+        const skipped = unread
+          ? ` · ${unread} Mentimeter slide${unread === 1 ? '' : 's'} with no readable question stay${unread === 1 ? 's' : ''} skipped`
+          : '';
+        toast((r.first_import
           ? `Imported ${r.slides} slides into ${r.sections} sections`
-          : `Exported ${r.slides} slides — review what changed before it applies`);
+          : `Exported ${r.slides} slides — review what changed before it applies`) + skipped);
         dlg.close();
       } else {
         prog.classList.add('failed');
