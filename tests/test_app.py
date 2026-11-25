@@ -43,7 +43,7 @@ def test_version_serves_the_captured_build_unmapped(client) -> None:
 
 
 def test_healthz(client) -> None:
-    assert client.get("/healthz").json() == {"status": "ok"}
+    assert client.get("/healthz").json() == {"ok": True, "service": "facilitation-suite"}
 
 
 @pytest.mark.parametrize("path", ["/", "/presenter", "/stage"])

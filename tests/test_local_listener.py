@@ -65,7 +65,7 @@ def test_listener_serves_the_main_app(local) -> None:
     main, port = local
     assert main.app.state.local_listener.running
     base = f"http://127.0.0.1:{port}"
-    assert json.loads(_get(base + "/healthz")[1]) == {"status": "ok"}
+    assert json.loads(_get(base + "/healthz")[1]) == {"ok": True, "service": "facilitation-suite"}
     assert json.loads(_get(base + "/api/version")[1])["git_sha"]
     for path in ("/", "/presenter", "/stage"):
         assert _get(base + path)[0] == 200, path
@@ -107,7 +107,7 @@ def test_busy_port_is_logged_and_the_main_app_keeps_serving(isolated_env: Path, 
         _with_local_port(isolated_env, port)
         with caplog.at_level("ERROR", logger=LISTENER_LOG), TestClient(create_app(), client=("127.0.0.1", 50000)) as main:
             assert not main.app.state.local_listener.running
-            assert main.get("/healthz").json() == {"status": "ok"}
+            assert main.get("/healthz").json() == {"ok": True, "service": "facilitation-suite"}
     errors = [r.getMessage() for r in caplog.records if r.name == LISTENER_LOG and r.levelname == "ERROR"]
     assert len(errors) == 1
     assert "❌ local listener" in errors[0] and f":{port} is busy" in errors[0]

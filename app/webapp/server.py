@@ -94,6 +94,7 @@ from src.copilot.service import CopilotService
 from src.errors import DomainError
 from src.forms.model import FORM_TYPE
 from src.forms.service import FormsService
+from src.health_routes import health_router
 from src.importer.service import Importer
 from src.live.actions import Action, register
 from src.live.capture import CaptureService
@@ -392,6 +393,8 @@ def create_app() -> FastAPI:
     app.mount("/static", CachingStaticFiles(directory=str(STATIC_DIR), prefix="/static", versions=ASSETS), name="static")
     # Stage themes (public, repo-level): the stage follows the session theme, not the fleet design.
     app.mount("/themes", CachingStaticFiles(directory=str(THEMES_DIR), prefix="/themes", versions=ASSETS), name="themes")
+    # The fleet's standard liveness and build identity routes (vendored).
+    app.include_router(health_router(service="facilitation-suite", identity=BUILD, extra={"app": "facilitation-suite", "asset_hash": ASSETS.fleet_hash, "schema_version": pages.SCHEMA_VERSION}))
     app.include_router(pages.router)
     app.include_router(sessions.router)
     app.include_router(slides.router)
