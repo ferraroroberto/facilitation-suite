@@ -47,6 +47,9 @@ from tests.host._synthetic_host import synthetic_host_env
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOTS_DIR = REPO_ROOT / "docs" / "screenshots"
 LIVE_ENV = "FS_E2E_LIVE"  # setting it is refused: the stories are not read-only
+# The Room Polls demo walk-through is an on-demand proof run, kept out of the gate's node budget:
+# a directory run skips it, naming the file on the command line still runs it.
+collect_ignore = ["test_room_polls_demo.py"]
 LOOP_FACTORY = "app.webapp.event_loop:selector_loop_factory"
 
 

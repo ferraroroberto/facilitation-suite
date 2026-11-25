@@ -68,6 +68,7 @@ Each feature has its own reference in `docs/`:
 - **Quiz** — the Kahoot-style game, scoring, stage, sound cues: [docs/quiz.md](docs/quiz.md)
 - **Quiz player (public)** — the separate phone app and its Cloudflare tunnel: [docs/quiz-player.md](docs/quiz-player.md)
 - **Running a quiz** — import to podium, the reachability check, measured limits: [docs/running-a-quiz.md](docs/running-a-quiz.md)
+- **Room Polls demo** — a session with every phone feature, the owner's phone test script and its automated walk-through: [docs/room-polls.md](docs/room-polls.md)
 - **Phone remote** — `/remote`, pairing, the token: [docs/phone-remote.md](docs/phone-remote.md)
 - **Results and exports** — the Results tab, session PDF, Excel report, chat reconciliation, the session analysis (run through the LLM hub, or the skill with its JSON dump), rebuilding a past session's results with today's rules, a one-tap *Finish session* wrap-up, the live copilot's conversation read back with its hints: [docs/results.md](docs/results.md)
 - **Breakout groups** — roster, shuffle, Zoom pre-assign: [docs/groups.md](docs/groups.md)
