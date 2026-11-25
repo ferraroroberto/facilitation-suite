@@ -21,7 +21,7 @@ from src.forms.service import FORMS_FILE
 from src.quiz.reach import OK, Reach
 from tests.fixtures.demo import build_demo_session
 from tests.fixtures.forms import FORM_QUESTIONS, FORM_SECTION
-from tests.fixtures.quiz_plan import add_quiz_section
+from tests.fixtures.quiz_plan import PLAYER_QUIZ, add_quiz_section
 
 JOIN_BASE = "https://quiz.example.org"
 # Distinctive answers: none of them may ever show up in a snapshot or a phone's view.
@@ -29,10 +29,11 @@ SECRET_TEXT = "Loved the zebra exercise"
 SECRET_NAME = "Wilhelmina"
 
 
-@pytest.fixture
-def rig(client: TestClient, isolated_env: Path) -> Iterator[tuple[TestClient, TestClient, str]]:
-    """The main app live on a session with a form, the player app over its services, the session id."""
+def _live_rig(client: TestClient, isolated_env: Path, *sections: dict[str, Any]) -> Iterator[tuple[TestClient, TestClient, str]]:
+    """The main app live on a session with ``sections`` and a form last, the player app over its services, the session id."""
     sid, folder = build_demo_session(isolated_env / "sessions" / "demo" / "forms", isolated_env / "sessions.local.yaml")
+    for section in sections:
+        add_quiz_section(folder, section)
     add_quiz_section(folder, FORM_SECTION, at=99)
     app = client.app
     app.state.quiz.public_url = lambda: JOIN_BASE
@@ -42,6 +43,17 @@ def rig(client: TestClient, isolated_env: Path) -> Iterator[tuple[TestClient, Te
     with TestClient(player, client=("127.0.0.1", 50001)) as phone:
         yield client, phone, sid
     player.state.detach()
+
+
+@pytest.fixture
+def rig(client: TestClient, isolated_env: Path) -> Iterator[tuple[TestClient, TestClient, str]]:
+    yield from _live_rig(client, isolated_env)
+
+
+@pytest.fixture
+def quiz_rig(client: TestClient, isolated_env: Path) -> Iterator[tuple[TestClient, TestClient, str]]:
+    """The same, with the player quiz before the form."""
+    yield from _live_rig(client, isolated_env, PLAYER_QUIZ)
 
 
 def goto(client: TestClient, item_id: str) -> None:
@@ -151,6 +163,22 @@ def test_the_stage_and_the_phones_never_receive_an_answer(rig) -> None:
                              "open": True, "count": 1}
     seen += [json.dumps(state), json.dumps(view), json.dumps(phone.get(f"/play/api/form?t={token}").json())]
     assert all(SECRET_TEXT not in s and SECRET_NAME not in s for s in seen)
+
+
+def test_a_phone_that_played_the_quiz_sees_the_form_link(quiz_rig) -> None:
+    """A form on stage comes before the phone's last quiz screen (its podium), or it could never open the form."""
+    client, phone, _ = quiz_rig
+    goto(client, "pq-lobby")
+    pin = client.get("/api/live").json()["state"]["room"]["pin"]
+    player = phone.post("/play/api/join", json={"pin": pin, "nickname": "Ana"}).json()
+    assert player["state"] == "joined"
+    goto(client, "act-form")
+    view = phone.get(f"/play/api/state?player_id={player['player_id']}&secret={player['secret']}").json()["view"]
+    assert view.get("kind") == "form", view
+    assert view["link"] == f"/play/form?t={token_of(client)}"
+    goto(client, "pq-podium")  # the quiz again: the phone is back in its game
+    view = phone.get(f"/play/api/state?player_id={player['player_id']}&secret={player['secret']}").json()["view"]
+    assert view.get("game_id") == "pq-lobby-1" and view.get("kind") != "form"
 
 
 def test_the_chat_link_opens_the_form_and_a_closed_form_says_so(rig) -> None:
