@@ -90,7 +90,7 @@ windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "7c49213
 # the gate. Vendored copies are duplicates by design, so they are excluded. Procedure +
 # limits: project-scaffolding docs/static-ratchet.md.
 self_restart = { src = "src/self_restart.py", sha = "48602060fffdacbcdcdde66b9886c6471d835ff3", dest = "src/self_restart.py" }
-installer = { src = "src/installer.py", sha = "c23c5bf575a3f375a4ddbfb99a31763a80c6bee5", dest = "src/installer.py" }
+installer = { src = "src/installer.py", sha = "bafa9446b907dcb7fc6d833c1edfb1a069b7ca38", dest = "src/installer.py" }
 
 # [install] -- what setup.bat (src/installer.py) does on this app; the playbook is docs/install.md, the
 # schema project-scaffolding docs/installer.md. config/config.json is topped up with the keys it lacks.
