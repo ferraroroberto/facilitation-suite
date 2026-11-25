@@ -52,6 +52,7 @@
 /scripts/windows_only_ratchet.py
 /src/build_info.py
 /src/compression.py
+/src/health_routes.py
 /src/no_window.py
 /src/request_timing.py
 /src/restart_check.py
