@@ -287,13 +287,16 @@ def _view_messages(quiz: QuizService, polls: Optional[RoomPolls], forms: Optiona
         if quiz.live.session_id is None:
             return {"type": "view", "state": "no_game", "view": None}
         view = polls.view(player_id, secret) if polls is not None else None
+        member = polls is not None and not polls.refused(player_id, secret)
+        if view is None and member and forms is not None:
+            # a form on stage before the quiz: a phone that played keeps its last game's screen otherwise
+            view = forms.room_view()
         if view is None:
             view = quiz.player_view(player_id, secret)
-        if view is None and polls is not None and not polls.refused(player_id, secret):
+        if view is None and member:
             game = quiz.game_on_stage()
-            view = (forms.room_view() if forms is not None else None) or {
-                "kind": "room", "lang": quiz.language(),
-                "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
+            view = {"kind": "room", "lang": quiz.language(),
+                    "quiz_join": game is not None and game.phase != "podium" and player_id not in game.players}
         return {"type": "view", "state": "ok" if view is not None else "unknown_player", "view": view}
 
     return view_message

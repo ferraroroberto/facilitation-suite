@@ -1,0 +1,157 @@
+# A synthetic Room Polls demo session: every phone-answerable feature in one plan.
+# Create it on a running app with: python -m scripts.room_polls_demo (see docs/room-polls.md).
+schema: 1
+title: Room Polls demo
+duration_minutes: 45
+theme: default
+language: en
+chat_hint: ''
+excluded_senders: []
+stop_capture_on_leave: false
+copilot_local_only: false
+copilot_mode: workshop
+copilot_interviewee: ''
+copilot_recorder_folder: ''
+checklist: {}
+sections:
+- id: sec-join
+  name: Join
+  minutes: 5
+  items:
+  - kind: activity
+    id: demo-join
+    title: Join on your phone
+    profile: screen_only
+    type: room_join
+- id: sec-quiz
+  name: Warm-up quiz
+  minutes: 8
+  items:
+  - kind: activity
+    id: demo-quiz-lobby
+    type: quiz_lobby
+    options:
+      title: Warm-up
+  - kind: activity
+    id: demo-quiz-1
+    type: quiz
+    question: How many sides has a hexagon?
+    options:
+      answer_1: Five
+      answer_2: Six
+      answer_3: Seven
+      answer_4: Eight
+      correct: '2'
+      time_limit: 60
+      points: standard
+  - kind: activity
+    id: demo-quiz-2
+    type: quiz
+    question: Is the sun a star?
+    options:
+      answer_1: 'Yes'
+      answer_2: 'No'
+      correct: '1'
+      time_limit: 60
+  - kind: activity
+    id: demo-quiz-podium
+    type: quiz_podium
+- id: sec-polls
+  name: Polls
+  minutes: 25
+  items:
+  - kind: activity
+    id: demo-cloud
+    profile: camera_pip
+    type: word_cloud
+    question: One word for how you feel right now
+    chat_prompt: One or two words
+  - kind: activity
+    id: demo-choice
+    profile: camera_pip
+    type: choice
+    question: Where do you work best?
+    chat_prompt: 'A letter: A, B or C'
+    options:
+      choices: Office, Home, Café
+  - kind: activity
+    id: demo-multi
+    profile: camera_pip
+    type: choice
+    question: Which drinks keep you going?
+    chat_prompt: 'One or more letters: A, C'
+    options:
+      choices: Coffee, Tea, Water, Juice
+      multiple: true
+  - kind: activity
+    id: demo-scale
+    profile: camera_pip
+    type: scale
+    question: How full is your energy tank, 0 to 10?
+    chat_prompt: A number from 0 to 10
+    options:
+      min: 0
+      max: 10
+  - kind: activity
+    id: demo-stars
+    profile: camera_pip
+    type: stars
+    question: Rate this morning's coffee
+    chat_prompt: 1 to 5 stars
+  - kind: activity
+    id: demo-nps
+    profile: camera_pip
+    type: nps
+    question: How likely are you to recommend this session to a colleague?
+    chat_prompt: A number from 0 to 10
+  - kind: activity
+    id: demo-number
+    profile: camera_pip
+    type: number
+    question: How many minutes did your commute take?
+    chat_prompt: A number of minutes
+    options:
+      min: 0
+      max: 180
+      unit: min
+  - kind: activity
+    id: demo-text
+    profile: camera_pip
+    type: feed
+    question: One thing you want to try after today
+    chat_prompt: Your idea in one sentence
+- id: sec-form
+  name: Feedback
+  minutes: 7
+  items:
+  - kind: activity
+    id: demo-form
+    title: Session feedback
+    profile: screen_only
+    type: form
+    options:
+      intro: Five quick questions, thank you!
+      questions:
+      - id: q1
+        type: nps
+        text: How likely are you to recommend this session?
+        required: true
+      - id: q2
+        type: stars
+        text: Rate the pace
+      - id: q3
+        type: choice
+        text: Which parts did you enjoy?
+        choices:
+        - Quiz
+        - Polls
+        - Discussion
+        multiple: true
+      - id: q4
+        type: scale
+        text: How clear were the instructions?
+        low: Not clear
+        high: Very clear
+      - id: q5
+        type: text
+        text: What should we change next time?
