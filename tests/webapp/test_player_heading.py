@@ -31,11 +31,11 @@ VIEWS = {
 
 SCRIPT = """
 const m = await import(process.argv[1]);
-const views = %s;
+const views = __VIEWS__;
 const out = { kinds: [...m.HEADINGS], heading: {} };
 for (const [name, view] of Object.entries(views)) out.heading[name] = m.headingKind(view);
 console.log(JSON.stringify(out));
-""" % json.dumps(VIEWS)
+""".replace("__VIEWS__", json.dumps(VIEWS))
 
 
 @pytest.fixture(scope="module")
