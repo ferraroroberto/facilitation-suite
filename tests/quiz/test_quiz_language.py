@@ -53,7 +53,7 @@ def test_both_languages_have_every_key_the_code_uses(path: Path, name: str, pref
 
 
 @pytest.mark.parametrize(("page", "code", "expected"), [
-    (PAGE, PHONE, {"title", "join", "nickname_placeholder", "theme", "removed"}),
+    (PAGE, PHONE, {"join", "nickname_placeholder", "theme", "removed"}),
     (FORM_PAGE, FORM_PHONE, {"title", "send", "name_placeholder", "theme", "closed", "again"}),
 ])
 def test_the_player_page_words_are_in_the_phone_table(page: Path, code: Path, expected: set[str]) -> None:

@@ -9,6 +9,7 @@
 //   forces polling (a dev toggle).
 
 import { ConnState, connState } from '/play/static/conn-state.js';
+import { headingKind } from '/play/static/heading.js';
 import { startPoll, singleFlight } from '/play/static/fleet/poll.js';
 
 const STORE = 'facilitation-suite.play';
@@ -33,7 +34,11 @@ const WS_OPEN_TIMEOUT_MS = 5000; // a socket not open by now is stuck behind a p
 // every key used here and there. The texts the facilitator wrote (questions, answers) are as typed.
 const TEXT = {
   en: {
-    title: 'Quiz',
+    head_quiz: 'Quiz',
+    head_poll: 'Poll',
+    head_form: 'Feedback',
+    head_room: 'Room',
+    head_idle: 'Join',
     loading: 'Loading…',
     theme: 'Switch light or dark',
     conn_offline: 'Offline',
@@ -104,7 +109,11 @@ const TEXT = {
     stars: (n) => `${n} star${n === 1 ? '' : 's'}`,
   },
   es: {
-    title: 'Quiz',
+    head_quiz: 'Quiz',
+    head_poll: 'Encuesta',
+    head_form: 'Opinión',
+    head_room: 'Sala',
+    head_idle: 'Entrar',
     loading: 'Cargando…',
     theme: 'Cambiar a modo claro u oscuro',
     conn_offline: 'Sin conexión',
@@ -194,6 +203,7 @@ let offset = 0; // server clock − Date.now()
 let pending = null; // {item_id, choice, state: 'sending' | ack state, message?}
 let pollPending = null; // a poll answer on its way: {item_id, value, state: 'sending' | 'error', retrying?}
 let picks = { item_id: null, keys: [] }; // a multiple-choice poll's choices picked but not sent yet
+let heading = 'idle'; // which activity the header names: quiz | poll | form | room | idle (nothing to answer yet)
 let nameRequired = true; // a quiz is on stage (/play/api/ping): its players need a nickname
 const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
 const shownAt = {}; // item_id → performance.now() when its tiles appeared on this phone
@@ -331,6 +341,7 @@ document.addEventListener('visibilitychange', () => {
 // The join form. A room member asked into a quiz on stage (`forQuiz`) sees it again with the
 // nickname now required; a phone on the form already (a poll tick) keeps its focus and typing.
 function showJoin(error, forQuiz = false) {
+  setHeading(forQuiz ? 'quiz' : 'idle');
   if (forQuiz) nameRequired = true;
   $('#nickname').placeholder = nameRequired ? T.nickname_placeholder : T.name_optional;
   const box = $('#joinError');
@@ -407,6 +418,14 @@ async function resume() {
 
 // ------------------------------------------------------------------ views
 
+// The header and the tab title name the activity on stage, in the phone's language.
+function setHeading(kind) {
+  heading = kind;
+  const text = T[`head_${kind}`];
+  $('[data-heading]').textContent = text;
+  document.title = text;
+}
+
 function showWait(text) {
   $('[data-name]').textContent = me ? me.name : '';
   $('[data-wait-text]').textContent = text;
@@ -424,7 +443,7 @@ function onView(m) {
     stopTick();
     return showJoin(T.gone);
   }
-  if (m.state === 'no_game') return showWait(T.no_quiz);
+  if (m.state === 'no_game') { setHeading('idle'); return showWait(T.no_quiz); }
   if (m.view && m.view.lang) setLang(m.view.lang);
   msg = m;
   draw();
@@ -445,6 +464,7 @@ function answerText(v, n) {
 function draw() {
   const v = msg && msg.view;
   if (!v) return;
+  setHeading(headingKind(v));
   if (v.kind === 'poll') { stopTick(); return drawPoll(v); }
   if (v.kind === 'room') { stopTick(); return v.quiz_join ? showJoin('', true) : showWait(T.room_wait); }
   if (v.kind === 'form') { stopTick(); return drawFormLink(v); }
@@ -808,7 +828,7 @@ function setLang(l) {
   lang = next;
   T = TEXT[lang];
   document.documentElement.lang = lang;
-  document.title = T.title;
+  setHeading(heading);
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
   document.querySelectorAll('[data-t-placeholder]').forEach((el) => { el.placeholder = T[el.dataset.tPlaceholder]; });
   document.querySelectorAll('[data-t-label]').forEach((el) => { el.setAttribute('aria-label', T[el.dataset.tLabel]); });
