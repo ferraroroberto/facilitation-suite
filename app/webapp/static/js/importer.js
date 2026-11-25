@@ -7,6 +7,16 @@ import { api, esc, toast } from '/static/js/ui.js';
 const IMPORT_POLL_MS = 400; // short enough that the progress bar follows each slide, long enough not to flood a COM-bound import
 
 /** Resolves the job's result when an import finished (`result.review`: a re-import waits for review), else null. */
+function doneMessage(r) {
+  const unread = (r.unreadable || []).length;
+  const skipped = unread
+    ? ` · ${unread} Mentimeter slide${unread === 1 ? '' : 's'} with no readable question stay${unread === 1 ? 's' : ''} skipped`
+    : '';
+  return (r.first_import
+    ? `Imported ${r.slides} slides into ${r.sections} sections`
+    : `Exported ${r.slides} slides — review what changed before it applies`) + skipped;
+}
+
 export function importDialog(sid, { lastPath = '', reimport = false, slides = null } = {}) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
@@ -76,9 +86,7 @@ export function importDialog(sid, { lastPath = '', reimport = false, slides = nu
         bar.style.width = '100%';
         const r = job.result;
         finished = r;
-        toast(r.first_import
-          ? `Imported ${r.slides} slides into ${r.sections} sections`
-          : `Exported ${r.slides} slides — review what changed before it applies`);
+        toast(doneMessage(r));
         dlg.close();
       } else {
         prog.classList.add('failed');
