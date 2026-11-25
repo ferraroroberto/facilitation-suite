@@ -231,7 +231,7 @@ def test_the_room_polls_demo_end_to_end(page: Page, browser: Browser, webapp) ->
     sid, _ = build_room_polls_demo(folder, webapp.root / "sessions.local.yaml")
     proof = Proof(Path(os.environ.get("FS_PROOF_DIR") or REPO / "data" / "proof" / "room-polls-demo"))
     stage = browser.new_context(viewport={"width": 1280, "height": 720}).new_page()
-    phones = [browser.new_context(**PHONE).new_page() for _ in range(2)]  # two phones, two storages
+    phones = [browser.new_context(**PHONE).new_page(), browser.new_context(**PHONE).new_page()]  # two phones, two storages
     verdict = "FAILED"
     try:
         _open_session(page, base, sid, proof)
