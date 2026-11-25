@@ -5,7 +5,7 @@
   "server": "hypercorn",
   "session_root": "",
   "appearance": "system",
-  "features": { "chat_reader": true, "obs": true, "copilot": true, "music": true, "quiz_public": true, "remote": true },
+  "features": { "copilot": true, "music": true, "quiz_public": true, "remote": true },
   "obs": { "host": "127.0.0.1", "port": 4455, "password": "" },
   "reader": { "start_on_live": true, "source": "zoom", "poll_ms": 500, "window_class": "ZConfChatPopupContainerWndClass", "window_title": "Meeting chat", "teams_title": "Microsoft Teams", "meet_title": "Meet", "meet_panel": "In-call messages" },
   "remote": { "token": "" },

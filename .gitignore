@@ -4,6 +4,8 @@
 data/
 config/*.json
 !config/*.sample.json
+# setup.bat's backup of a topped-up config: it holds the same OBS password and remote token
+config/*.json.bak-*
 .env
 sessions.local.yaml
 /webapp/*

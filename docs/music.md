@@ -51,7 +51,7 @@ The in-app login (Settings → Music → Connect Spotify) has four states, decla
 
 ## Spotify setup (once)
 
-Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** only — never a web player (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`. `.env.example` (committed) lists the keys; copy it to `.env` before starting.
+Spotify is driven through its official Web API, on the **Spotify desktop app of this PC** only — never a web player (a **Premium** account — Spotify allows playback control only for Premium). The app keeps its client id and login in `.env` (gitignored) — never in the repo or `config/config.json`. `.env.example` (committed) lists the keys; `setup.bat` creates `.env` from it when that is missing.
 
 1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard), log in with the Premium account and **Create app**: any name and description, **Redirect URI** `http://127.0.0.1:8765/callback` (exactly — Spotify only accepts the loopback address, not `localhost`), API **Web API**. Save.
 2. In the app's **Settings**, copy the **Client ID** into `.env` at the repo root: `SPOTIFY_CLIENT_ID=<client id>`. (No client secret: the login uses PKCE.)

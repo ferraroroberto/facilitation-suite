@@ -19,6 +19,6 @@
 | `live` | `resume_on_start`: after a restart, take the session that was live when the server stopped live again (default `true`; a closed session never comes back) |
 | `quiz` | `public_port`: the quiz player listener on `127.0.0.1` (8451; `0` = off) · `public_url`: its public address (`https://quiz.robertoferraro.net`, the Cloudflare tunnel), empty until published (see [Quiz player](quiz-player.md)). Restart the tray after changing it |
 
-**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see [Spotify setup](music.md#spotify-setup-once)); `FS_ENV_PATH` points elsewhere. `.env.example` (committed) documents the same keys with placeholder values — copy it to `.env` and fill in real values, never commit `.env` itself.
+**`.env`** (gitignored, repo root) holds secrets only: `SPOTIFY_CLIENT_ID`, `SPOTIFY_REFRESH_TOKEN` and the optional `SPOTIFY_DEVICE_NAME` (see [Spotify setup](music.md#spotify-setup-once)); `FS_ENV_PATH` points elsewhere. `.env.example` (committed) documents the same keys with empty values — `setup.bat` copies it to `.env` when that is missing; fill in real values, never commit `.env` itself.
 
 The **ledger** `sessions.local.yaml` (gitignored; example in `sessions.example.yaml`) lists session names and folders only. Each session lives in its own folder with its own `session.yaml`.

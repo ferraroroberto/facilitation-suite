@@ -35,6 +35,7 @@ RUNTIME_FILES = (
     "sessions.local.yaml", ".env", "webapp/watchdog.log", "webapp/cloudflared.yml", "webapp/cloudflared.log",
     "webapp/certificates/cert.pem", ".launcher-tmp/x", ".proof/x.json", ".ruff_cache/x", "app/__pycache__/x.pyc",
     "test-results/x", "tests/e2e/_shots/x.png",
+    "config/config.json.bak-20000101-000000",  # setup.bat's backup: it holds what the config holds
 )
 
 _PROBE = """\
