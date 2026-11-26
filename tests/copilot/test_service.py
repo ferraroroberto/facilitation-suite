@@ -4,6 +4,7 @@ transcript.jsonl with speaker labels → hints; stale hints dropped; failures to
 from __future__ import annotations
 
 import json
+import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import replace
@@ -13,6 +14,7 @@ import pytest
 
 from src.config import CopilotConfig, load_config
 from src.copilot.audio import read_pcm, write_wav
+from src.copilot.context import Run
 from src.copilot.service import CopilotError, CopilotService
 from src.jsonl import read_jsonl
 from src.live.actions import ACTIONS, Action, run_action
@@ -242,6 +244,35 @@ def test_past_the_hourly_cap_no_hint_is_asked_and_the_cap_is_its_own_line(live: 
     assert [(p["code"], p["level"]) for p in problems] == [("hint_capped", "warn")]
     assert problems[0]["message"].startswith("Hint cap reached — 2 hint calls in the last hour")
     assert copilot.snapshot()["stats"]["capped"] == 1
+
+
+def test_switching_off_drops_the_waiting_hint_instead_of_waiting_for_the_call_in_flight(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", **FAST)
+    hub_fake.delay_s = 1.5  # a slow hub: the first call is still out when Copilot goes off
+    before = set(threading.enumerate())
+    copilot.start()
+    run = copilot._run
+    worker = next(t for t in set(threading.enumerate()) - before if t.name == "copilot-hints")
+    copilot.inject([("them", "The first point")])
+    wait_for(run.hints.empty)  # the worker has it: in flight
+    copilot.inject([("them", "The second point")])  # waits behind it
+    asked_at = time.monotonic()
+    copilot.stop()
+    assert time.monotonic() - asked_at < 0.5
+    worker.join(10)
+    assert not worker.is_alive()
+    assert len(hub_fake.hint_calls()) == 1
+    assert len(copilot.hinting.limit.calls) == 1  # the dropped request's place in the hourly cap came back
+
+
+def test_a_hint_the_worker_picks_up_after_switching_off_is_never_asked(live: LiveHub, hub_fake: FakeHub) -> None:
+    copilot, _ = make(live, hub_url=hub_fake.url, capture="off", **FAST)
+    run = Run(live.session_id, "en", False)
+    run.stopped.set()
+    run.hints.put(object())  # taken just as Copilot went off, before the queue was emptied
+    copilot.hinting.limit.take(0)
+    copilot.hinting.worker(run)
+    assert hub_fake.hint_calls() == [] and not copilot.hinting.limit.calls
 
 
 def test_the_playbook_feeds_the_hint_prompt_and_a_changed_file_is_read_again(live: LiveHub, hub_fake: FakeHub) -> None:

@@ -211,7 +211,7 @@ class CopilotService:
         self.channels = {}
         self.hinting.clear()
         run.stopped.set()
-        run.hints.put(None)
+        self.hinting.end(run)
         run.summaries.put(None)
         threading.Thread(target=self._close_sources, args=(run,), name="copilot-close", daemon=True).start()
         logger.info("ℹ️ copilot off (%d lines, %d hints)", self.status.stats["lines"], self.status.stats["hints"])
