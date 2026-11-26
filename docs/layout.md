@@ -38,7 +38,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `importer/` | PowerPoint import through COM and the re-import review |
 | `live/` | live state: the plan clock, capture, freeze, the hub, actions |
 | `chat/` | the chat reader (Zoom through MSAA, Teams and Meet through UI Automation) and answer parsing |
-| `copilot/` | the live copilot: audio capture, chunking, the hub client, hints, the rolling summary and call caps, and the service that runs them |
+| `copilot/` | the live copilot: audio capture, chunking, the hub client, the hint and drift pipeline, the rolling summary pipeline and call caps, and the service that composes them |
 | `activities/` | the activity registry and the answer handling the plug-ins share |
 | `activities/<type>/` | one folder per activity plug-in (word cloud, scale, map, cards, feed, choice, stars, NPS, number, the Join slide, quiz screens): editor definition, parser, stage renderer, served to the stage at `/activities/<type>/` |
 | `groups/` | roster and shuffle |

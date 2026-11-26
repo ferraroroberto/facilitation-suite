@@ -197,7 +197,7 @@ def test_the_rolling_summary_waits_its_interval_then_rides_in_the_hint_prompt(li
     copilot.inject([("them", "Releases slip because changes come late")])
     wait_for(lambda: hub_fake.hint_calls())
     assert hub_fake.summary_calls() == []  # less than five minutes of transcript: nothing to fold yet
-    copilot._summary_due -= 300  # five minutes later
+    copilot.summariser.due -= 300  # five minutes later
     copilot.inject([("them", "So a change freeze one week before")])
     wait_for(lambda: (live.folder / "live" / "copilot" / "summary.json").is_file())
     folded = hub_fake.summary_calls()[0]["messages"][1]["content"]
@@ -211,7 +211,7 @@ def test_the_rolling_summary_waits_its_interval_then_rides_in_the_hint_prompt(li
     assert copilot.snapshot()["stats"]["summaries"] == 1
     copilot.stop()
     copilot.start()  # switched off and on: the summary is still there for the next prompt
-    assert copilot.summary["text"] == hub_fake.summary
+    assert copilot.summariser.text == hub_fake.summary
 
 
 def test_a_section_running_late_gets_one_computed_drift_hint_and_no_model_call(live: LiveHub, hub_fake: FakeHub) -> None:
@@ -220,8 +220,8 @@ def test_a_section_running_late_gets_one_computed_drift_hint_and_no_model_call(l
     section = live.current()["section_id"]
     live.clock_started_at = now_ms() - 40 * 60_000  # 40 min into a 20-minute first section: 20 behind
     live.section_entered = {section: live.clock_started_at}
-    copilot.check_drift()
-    copilot.check_drift()  # once per section
+    copilot.hinting.check_drift()
+    copilot.hinting.check_drift()  # once per section
     snap = copilot.snapshot()
     assert snap["hints"] == [{"type": "drift", "text": "20 min behind the plan in Welcome"}] and snap["hints_model"] == "clock"
     assert hub_fake.calls_to("/v1/chat/completions") == []
