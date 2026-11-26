@@ -28,7 +28,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.copilot.after_call import read_recorded, read_recorded_summary
-from src.copilot.service import HINTS_FILE, TRANSCRIPT_FILE
+from src.copilot.context import HINTS_FILE
+from src.copilot.service import TRANSCRIPT_FILE
 from src.importer.review import read_meta
 from src.jsonl import read_jsonl
 from src.live.plan import build_run, one_line
