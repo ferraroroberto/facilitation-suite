@@ -19,7 +19,7 @@ from app.webapp.route_pools import OUTBOUND, PROCESSES, SETTINGS_WRITES, run_on
 from src import defaults, features, library
 from src import settings as settings_file
 from src.certs import cert_hostname
-from src.config import profiles
+from src.config import AppConfig, load_config, profiles
 from src.env_file import get_value
 from src.music.spotify import CLIENT_ID_KEY, REFRESH_KEY
 from src.obs.connection_state import is_connecting, is_off
@@ -132,7 +132,7 @@ def get_settings(request: Request) -> dict[str, Any]:
 
 
 @router.put("")
-def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
+async def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
     require_local(request, "Settings can only be changed on this PC")
     patch: dict[str, Any] = {}
     if body.obs:
@@ -158,7 +158,7 @@ def put_settings(request: Request, body: SettingsPatch) -> dict[str, Any]:
     if body.stage_click:
         patch["stage_click"] = body.stage_click.model_dump(exclude_none=True)
     if patch:
-        request.app.state.config = settings_file.update(patch)
+        request.app.state.config = await run_on(SETTINGS_WRITES, settings_file.update, patch)
         if "obs" in patch or "profiles" in patch:
             request.app.state.obs.reconnect()
         hub = request.app.state.live
@@ -217,19 +217,20 @@ async def put_features(request: Request, body: dict[FeatureKey, bool]) -> dict[s
 
 
 @router.post("/remote/token", dependencies=[Depends(require("remote"))])
-def new_remote_token(request: Request) -> dict[str, Any]:
+async def new_remote_token(request: Request) -> dict[str, Any]:
     """A fresh phone-remote token: turns the remote on, or unpairs every phone that had the old one."""
     require_local(request, "The phone link can only be made on this PC")
-    request.app.state.config = settings_file.update({"remote": {"token": secrets.token_urlsafe(24)}})
+    request.app.state.config = await run_on(
+        SETTINGS_WRITES, settings_file.update, {"remote": {"token": secrets.token_urlsafe(24)}})
     logger.info("✅ phone remote: new token (every earlier pairing is void)")
     return payload(request)
 
 
 @router.delete("/remote/token", dependencies=[Depends(require("remote"))])
-def remote_off(request: Request) -> dict[str, Any]:
+async def remote_off(request: Request) -> dict[str, Any]:
     """Turn the phone remote off: no other device gets in."""
     require_local(request, "The phone remote can only be switched off on this PC")
-    request.app.state.config = settings_file.update({"remote": {"token": ""}})
+    request.app.state.config = await run_on(SETTINGS_WRITES, settings_file.update, {"remote": {"token": ""}})
     logger.info("ℹ️ phone remote switched off")
     return payload(request)
 
@@ -240,22 +241,22 @@ DEFAULT_FONT_URL = "/api/settings/defaults/font"
 DEFAULT_FAMILY = "Default Font"
 
 
-def defaults_payload(request: Request) -> dict[str, Any]:
-    cfg = request.app.state.config
+def defaults_payload(cfg: AppConfig) -> dict[str, Any]:
     return {**defaults.payload(defaults.load(cfg)), "library": library.payload(cfg)}
 
 
 @router.get("/defaults")
 def get_defaults(request: Request) -> dict[str, Any]:
     """What new sessions start from (stage theme + lettering, music fades) and the stage library."""
-    return defaults_payload(request)
+    return defaults_payload(request.app.state.config)
 
 
-@router.put("/defaults")
-def put_defaults(request: Request, body: DefaultsPatch) -> dict[str, Any]:
-    """Change the defaults. Only new sessions take them; an existing session keeps its own look."""
-    require_local(request, "Defaults can only be changed on this PC")
-    cfg = request.app.state.config
+def _write_defaults(body: DefaultsPatch) -> tuple[AppConfig, dict[str, Any]]:
+    """Save ``body`` over the current defaults: the new config and the payload to answer with.
+
+    Runs whole on ``SETTINGS_WRITES``: the defaults are written as one block, so they are read
+    from the file this write replaces (``app.state.config`` lags a save that is still queued)."""
+    cfg = load_config()
     now = defaults.load(cfg)
     theme, font, fade_in, fade_out = now.theme, now.font, now.fade_in_s, now.fade_out_s
     if body.stage is not None:
@@ -272,8 +273,16 @@ def put_defaults(request: Request, body: DefaultsPatch) -> dict[str, Any]:
         fade_in = body.music.fade_in_s if body.music.fade_in_s is not None else fade_in
         fade_out = body.music.fade_out_s if body.music.fade_out_s is not None else fade_out
     new = defaults.Defaults(theme=theme, font=font, fade_in_s=fade_in, fade_out_s=fade_out)
-    request.app.state.config = settings_file.update({"defaults": defaults.to_config(new)}, replace=("defaults",))
-    return defaults_payload(request)
+    saved = settings_file.update({"defaults": defaults.to_config(new)}, replace=("defaults",))
+    return saved, defaults_payload(saved)
+
+
+@router.put("/defaults")
+async def put_defaults(request: Request, body: DefaultsPatch) -> dict[str, Any]:
+    """Change the defaults. Only new sessions take them; an existing session keeps its own look."""
+    require_local(request, "Defaults can only be changed on this PC")
+    request.app.state.config, answer = await run_on(SETTINGS_WRITES, _write_defaults, body)
+    return answer
 
 
 @router.post("/library/{kind}")
@@ -281,7 +290,7 @@ def add_to_library(request: Request, kind: Literal["font", "theme"], body: Libra
     """Copy a font file or a stage theme (.css) on this PC into the stage library."""
     require_local(request, "The stage library can only be changed on this PC")
     added = library.add(request.app.state.config, kind, body.path)
-    return {**defaults_payload(request), "added": {"name": added.name, "path": str(added)}}
+    return {**defaults_payload(request.app.state.config), "added": {"name": added.name, "path": str(added)}}
 
 
 @router.get("/defaults/font.css", include_in_schema=False)
