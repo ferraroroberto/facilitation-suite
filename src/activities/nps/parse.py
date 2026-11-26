@@ -9,9 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from src.activities.answers import first_whole, names_with, one_vote_each
-
-GROUPS = (("promoters", 9, 10), ("passives", 7, 8), ("detractors", 0, 6))
+from src.activities.answers import NPS_GROUPS, first_whole, names_with, one_vote_each
 
 
 def parse(message: dict[str, Any], options: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -23,7 +21,7 @@ def aggregate(contributions: list[dict[str, Any]], options: dict[str, Any]) -> d
     latest, anonymous = one_vote_each(contributions)
     votes = list(latest.values()) + anonymous
     groups: dict[str, dict[str, Any]] = {}
-    for name, lo, hi in GROUPS:
+    for name, lo, hi in NPS_GROUPS:
         count = sum(1 for v in votes if lo <= v <= hi)
         groups[name] = {"count": count, "percent": round(100 * count / len(votes)) if votes else 0,
                         "names": names_with(latest, lambda v, lo=lo, hi=hi: lo <= v <= hi)}
@@ -41,7 +39,7 @@ def report(result: dict[str, Any]) -> dict[str, Any]:
     return {
         "summary": f"{result.get('votes', 0)} votes · NPS {signed(result.get('score'))}",
         "top_label": "Votes",
-        "top": [{"label": name.capitalize(), "count": (result.get(name) or {}).get("count", 0)} for name, _, _ in GROUPS],
+        "top": [{"label": name.capitalize(), "count": (result.get(name) or {}).get("count", 0)} for name, _, _ in NPS_GROUPS],
         "tile": signed(result.get("score")),
     }
 

@@ -95,6 +95,9 @@ def test_answers_are_checked_against_each_question() -> None:
     with pytest.raises(FormError) as bad:
         clean_answers(qs, {"q1": "", "q2": "99", "q3": "3.5", "q4": 6, "q6": ["D"]})
     assert set(bad.value.detail["errors"]) == {"q1", "q2", "q3", "q4", "q5", "q6"}
+    with pytest.raises(FormError) as nothing:  # separators alone pick no choice, so they answer nothing
+        clean_answers(qs, {"q1": "ok", "q2": 1, "q3": 7, "q4": 4, "q5": 10, "q6": " , "})
+    assert nothing.value.detail["errors"] == {"q6": "pick one of the choices"}
 
 
 def test_phones_submit_and_the_backstage_and_the_csv_add_them_up(rig) -> None:

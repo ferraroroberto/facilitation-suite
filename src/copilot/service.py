@@ -148,11 +148,8 @@ class CopilotService:
         def change(session: Session) -> None:
             session.checklist[COPILOT_CONSENT] = True
 
-        try:
-            self.live.store.edit(sid, change)
-        except (SessionError, OSError) as exc:
-            logger.error("❌ copilot: consent could not be saved (%s)", exc)
-            raise CopilotError(500, "consent_not_saved", "The confirmation could not be saved to session.yaml") from exc
+        self.live.edit_session(change, "consent_not_saved", "The confirmation could not be saved to session.yaml",
+                               CopilotError)
         self.live.checklist[COPILOT_CONSENT] = True
         self.live.event("copilot_consent")
         logger.info("ℹ️ copilot: consent confirmed for session %s", sid)
@@ -273,17 +270,11 @@ class CopilotService:
 
     def set_local_only(self, value: bool) -> None:
         """Save the session's local-only switch in ``session.yaml`` (the file first: a failed save changes nothing)."""
-        if self.live.session_id is None:
-            raise CopilotError(409, "not_live", "No session is live")
-
         def change(session: Session) -> None:
             session.copilot_local_only = value
 
-        try:
-            self.live.store.edit(self.live.session_id, change)
-        except (SessionError, OSError) as exc:
-            logger.error("❌ copilot: local only could not be saved (%s)", exc)
-            raise CopilotError(500, "local_only_not_saved", "Local only could not be saved to session.yaml") from exc
+        self.live.edit_session(change, "local_only_not_saved", "Local only could not be saved to session.yaml",
+                               CopilotError)
         self.local_only = value
         if self._run is not None:
             self._run.local_only = value
@@ -302,11 +293,7 @@ class CopilotService:
         def change(session: Session) -> None:
             session.copilot_mode, session.copilot_interviewee = mode, name
 
-        try:
-            self.live.store.edit(self.live.session_id, change)
-        except (SessionError, OSError) as exc:
-            logger.error("❌ copilot: mode could not be saved (%s)", exc)
-            raise CopilotError(500, "mode_not_saved", "The mode could not be saved to session.yaml") from exc
+        self.live.edit_session(change, "mode_not_saved", "The mode could not be saved to session.yaml", CopilotError)
         changed = (mode, name) != (self.mode, self.interviewee)
         self.mode, self.interviewee = mode, name
         logger.info("ℹ️ copilot: %s mode%s", mode, " (interviewee named)" if mode == "interview" and name else "")
