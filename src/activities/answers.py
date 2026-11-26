@@ -1,5 +1,5 @@
 """Shared pieces of the plug-ins: free-text answers as they arrive (cards, feed) and one vote per
-person (choice, stars, NPS, number)."""
+person (choice, stars, NPS, number) — and the NPS bands and choice check the forms and room polls share."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import re
 from typing import Any, Optional
 
 NUMBER = re.compile(r"(?<![\d.,])-?\d+(?:[.,]\d+)?")
+NPS_GROUPS = (("promoters", 9, 10), ("passives", 7, 8), ("detractors", 0, 6))
 
 
 def parse_text(message: dict[str, Any], options: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -49,6 +50,19 @@ def numbers(text: str) -> list[float]:
 def first_whole(text: str, lo: int, hi: int) -> Optional[int]:
     """The first whole number from ``lo`` to ``hi`` in a chat line, or None."""
     return next((int(n) for n in numbers(text) if n.is_integer() and lo <= n <= hi), None)
+
+
+def clean_choice_keys(value: Any, n: int, multiple: bool) -> str:
+    """A phone's pick among ``n`` lettered choices as stored (``"B"``, ``"A,C"``), from a list or a
+    comma-separated string; ``ValueError`` with the phone's message when it is not one."""
+    keys = [chr(ord("A") + i) for i in range(n)]
+    raw = value if isinstance(value, list) else str(value or "").split(",")
+    picked = sorted(dict.fromkeys(str(k).strip().upper() for k in raw if str(k).strip()))
+    if not picked or any(k not in keys for k in picked):
+        raise ValueError("pick one of the choices")
+    if len(picked) > 1 and not multiple:
+        raise ValueError("pick one choice only")
+    return ",".join(picked)
 
 
 def one_vote_each(contributions: list[dict[str, Any]]) -> tuple[dict[str, Any], list[Any]]:

@@ -26,6 +26,7 @@ import re
 from playwright.sync_api import Browser, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
+from tests.e2e._flaky import fail_first
 from tests.e2e._page_errors import record_page_errors
 from tests.e2e._surface import surface
 from tests.fixtures.demo import build_demo_session
@@ -198,10 +199,15 @@ def _check_first_question(page: Page, base: str, ana: Page, bo: Page, stage: Pag
 def _answer_and_reveal(page: Page, base: str, ana: Page, bo: Page) -> None:
     """Both phones lock an answer in (one survives a reload); the reveal tells each its result."""
     surface(ana, "player.question")
+    # each first send fails (a dropped link, a 429): the phone sends the same answer again until acked
+    dropped = fail_first(ana, "/play/api/answer")
+    slowed = fail_first(bo, "/play/api/answer", 429)
     ana.locator('.tile[data-choice="2"]').click()  # right
     bo.locator('.tile[data-choice="1"]').click()  # wrong
     for phone in (ana, bo):
         expect(phone.locator("[data-answer-status]")).to_contain_text("Locked in")
+    for sent in (dropped, slowed):
+        assert len(sent) == 2 and sent[0] == sent[1], sent
     ana.reload()  # the same player, still locked in
     expect(ana.locator("[data-answer-status]")).to_contain_text("Locked in")
     expect(ana.locator("[data-locked-shape]")).to_have_attribute("data-choice", "2")

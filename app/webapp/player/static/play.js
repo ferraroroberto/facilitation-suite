@@ -610,6 +610,25 @@ function stopTick() {
 
 // ------------------------------------------------------------------ answer
 
+// Send an answer until the server settles it: the ack, or a 422 refusal, is what comes back. Offline,
+// a proxy error, 429 or a restart (no_game until it is live again) call `onRetry` and send the same
+// body again, after the backoff or the server's retry_after_s, whichever is longer.
+async function postUntilAcked(path, body, onRetry) {
+  for (let attempt = 0; ; attempt++) {
+    let r = null;
+    try { r = await post(path, body); } catch { r = null; }
+    if (r && r.ok && r.data.state !== 'no_game') {
+      clock(r.data);
+      online = true;
+      return r;
+    }
+    if (r && r.status === 422) return r;
+    onRetry();
+    const wait = r && r.status === 429 ? (r.data?.error?.detail?.retry_after_s || 1) * 1000 : 0;
+    await sleep(Math.max(wait, Math.min(ANSWER_MAX_MS, ANSWER_BASE_MS * 2 ** attempt)));
+  }
+}
+
 async function answer(itemId, choice) {
   if (!me || (pending && pending.item_id === itemId)) return; // one answer per question
   document.querySelectorAll('.tile').forEach((b) => { b.disabled = true; });
@@ -619,29 +638,16 @@ async function answer(itemId, choice) {
   draw();
   const body = { player_id: me.player_id, secret: me.secret, item_id: itemId, choice, elapsed_ms: elapsed };
   const redraw = () => { if (pending === mine) draw(); }; // a later question may have taken over
-  for (let attempt = 0; ; attempt++) {
-    let r = null;
-    try { r = await post('/play/api/answer', body); } catch { r = null; }
-    const paused = r && r.ok && r.data.state === 'no_game'; // the server restarted and is not live yet: keep trying
-    if (r && r.ok && !paused) {
-      clock(r.data);
-      online = true;
-      Object.assign(mine, { choice: r.data.choice || choice, state: r.data.state, retrying: false });
-      if (r.data.state === 'kicked') return render('kicked');
-      if (r.data.state === 'unknown_player') { save(null); return showJoin(T.gone); }
-      if (r.data.state === 'not_open' && pending === mine) { pending = null; return draw(); } // not asked yet: wait
-      return redraw();
-    }
-    if (r && r.status === 422) {
-      mine.state = 'error';
-      return redraw();
-    }
-    // offline, a proxy error, 429 or a restart (no_game until it is live again): the same answer until acked
-    mine.retrying = true;
-    redraw();
-    const wait = r && r.status === 429 ? (r.data?.error?.detail?.retry_after_s || 1) * 1000 : 0;
-    await sleep(Math.max(wait, Math.min(ANSWER_MAX_MS, ANSWER_BASE_MS * 2 ** attempt)));
+  const r = await postUntilAcked('/play/api/answer', body, () => { mine.retrying = true; redraw(); });
+  if (r.status === 422) {
+    mine.state = 'error';
+    return redraw();
   }
+  Object.assign(mine, { choice: r.data.choice || choice, state: r.data.state, retrying: false });
+  if (r.data.state === 'kicked') return render('kicked');
+  if (r.data.state === 'unknown_player') { save(null); return showJoin(T.gone); }
+  if (r.data.state === 'not_open' && pending === mine) { pending = null; return draw(); } // not asked yet: wait
+  return redraw();
 }
 
 // ------------------------------------------------------------------ polls
@@ -771,32 +777,20 @@ async function sendPoll(itemId, value) {
   pollPending = mine;
   draw();
   const body = { player_id: me.player_id, secret: me.secret, item_id: itemId, value, key: newKey() };
-  for (let attempt = 0; ; attempt++) {
-    let r = null;
-    try { r = await post('/play/api/poll', body); } catch { r = null; }
-    const paused = r && r.ok && r.data.state === 'no_game'; // the server restarted and is not live yet: keep trying
-    if (r && r.ok && !paused) {
-      clock(r.data);
-      online = true;
-      if (pollPending === mine) pollPending = null;
-      const st = r.data.state;
-      if (st === 'unknown_player' || st === 'closed') { save(null); return showJoin(T.gone); }
-      const v = msg && msg.view;
-      if (v && v.kind === 'poll' && v.item_id === itemId) {
-        v.answer = r.data.answer ?? v.answer;
-        if (st === 'not_open') v.open = false;
-      }
-      return draw();
-    }
-    if (r && r.status === 422) {
-      mine.state = 'error';
-      return draw();
-    }
-    mine.retrying = true; // offline, a proxy error, 429 or a restart: the same answer, the same key
-    draw();
-    const wait = r && r.status === 429 ? (r.data?.error?.detail?.retry_after_s || 1) * 1000 : 0;
-    await sleep(Math.max(wait, Math.min(ANSWER_MAX_MS, ANSWER_BASE_MS * 2 ** attempt)));
+  const r = await postUntilAcked('/play/api/poll', body, () => { mine.retrying = true; draw(); });
+  if (r.status === 422) {
+    mine.state = 'error';
+    return draw();
   }
+  if (pollPending === mine) pollPending = null;
+  const st = r.data.state;
+  if (st === 'unknown_player' || st === 'closed') { save(null); return showJoin(T.gone); }
+  const v = msg && msg.view;
+  if (v && v.kind === 'poll' && v.item_id === itemId) {
+    v.answer = r.data.answer ?? v.answer;
+    if (st === 'not_open') v.open = false;
+  }
+  return draw();
 }
 
 ['[data-poll-text]', '[data-poll-number]'].forEach((sel) => $(sel).addEventListener('submit', (ev) => {

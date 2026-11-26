@@ -335,19 +335,24 @@ class LiveHub:
         self.stop_capture_on_leave = session.stop_capture_on_leave
         self.checklist = dict(session.checklist)
 
-    def set_excluded_senders(self, names: list[str]) -> None:
-        """Save the excluded senders in ``session.yaml`` (the file first: a failed save changes nothing)."""
+    def edit_session(self, change: Callable[[Session], None], code: str, message: str,
+                     error: type[DomainError] = LiveError) -> None:
+        """Apply ``change`` to the live session's ``session.yaml``. A save that fails raises ``error``
+        500 ``code`` with ``message``, so a caller mirrors the change in memory only once it is on disk."""
         if self.session_id is None:
-            raise LiveError(409, "not_live", "No session is live")
-
-        def change(session: Session) -> None:
-            session.excluded_senders = names
-
+            raise error(409, "not_live", "No session is live")
         try:
             self.store.edit(self.session_id, change)
         except (SessionError, OSError) as exc:
-            logger.error("❌ live: the excluded senders could not be saved (%s)", exc)
-            raise LiveError(500, "excluded_not_saved", "The excluded senders could not be saved to session.yaml") from exc
+            logger.error("❌ live: %s (%s)", message, exc)
+            raise error(500, code, message) from exc
+
+    def set_excluded_senders(self, names: list[str]) -> None:
+        """Save the excluded senders in ``session.yaml`` (the file first: a failed save changes nothing)."""
+        def change(session: Session) -> None:
+            session.excluded_senders = names
+
+        self.edit_session(change, "excluded_not_saved", "The excluded senders could not be saved to session.yaml")
         self.excluded_senders = list(names)
 
     def reset(self) -> None:

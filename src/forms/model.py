@@ -29,6 +29,7 @@ import math
 from datetime import UTC, datetime
 from typing import Any, Optional
 
+from src.activities.answers import NPS_GROUPS, clean_choice_keys
 from src.errors import DomainError
 
 FORM_TYPE = "form"
@@ -37,7 +38,6 @@ MAX_QUESTIONS = 40
 MAX_TEXT = 1000  # characters in one free-text answer: a paragraph, never an essay
 MAX_NAME = 40
 RANGES = {"scale": (0, 10), "stars": (1, 5), "nps": (0, 10)}
-NPS_GROUPS = (("promoters", 9, 10), ("passives", 7, 8), ("detractors", 0, 6))
 
 
 class FormError(DomainError):
@@ -110,14 +110,7 @@ def _clean_one(q: dict[str, Any], value: Any) -> Any:
         # Line breaks stay (a paragraph of feedback), runs of spaces inside a line do not.
         return "\n".join(" ".join(line.split()) for line in str(value).splitlines()).strip()[:MAX_TEXT]
     if kind == "choice":
-        keys = [chr(ord("A") + i) for i in range(len(q["choices"]))]
-        raw = value if isinstance(value, list) else str(value).split(",")
-        picked = sorted(dict.fromkeys(str(k).strip().upper() for k in raw if str(k).strip()))
-        if any(k not in keys for k in picked):
-            raise ValueError("pick one of the choices")
-        if len(picked) > 1 and not q["multiple"]:
-            raise ValueError("pick one choice only")
-        return ",".join(picked)
+        return clean_choice_keys(value, len(q["choices"]), q["multiple"])
     n = _num(value)
     if n is None:
         raise ValueError("type a number")

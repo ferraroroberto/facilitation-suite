@@ -22,6 +22,7 @@ from __future__ import annotations
 import math
 from typing import Any, Optional
 
+from src.activities.answers import clean_choice_keys
 from src.activities.registry import options_with_defaults, parser
 from src.errors import DomainError
 
@@ -102,14 +103,10 @@ def _whole(item: dict[str, Any], value: Any) -> str:
 
 
 def _picked(item: dict[str, Any], value: Any) -> str:
-    keys = [chr(ord("A") + i) for i in range(len(_choices(item)))]
-    raw = value if isinstance(value, list) else str(value or "").split(",")
-    picked = list(dict.fromkeys(str(k).strip().upper() for k in raw if str(k).strip()))
-    if not picked or any(k not in keys for k in picked):
-        raise PollError(422, "bad_value", "pick one of the choices")
-    if len(picked) > 1 and not _options(item).get("multiple"):
-        raise PollError(422, "bad_value", "pick one choice only")
-    return ",".join(sorted(picked))
+    try:
+        return clean_choice_keys(value, len(_choices(item)), bool(_options(item).get("multiple")))
+    except ValueError as exc:
+        raise PollError(422, "bad_value", str(exc)) from exc
 
 
 def _number(item: dict[str, Any], value: Any) -> str:

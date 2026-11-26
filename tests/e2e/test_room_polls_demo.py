@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._flaky import fail_first
 from tests.fixtures.room_polls_demo import build_room_polls_demo, demo_items
 
 REPO = Path(__file__).resolve().parents[2]
@@ -243,9 +244,11 @@ def test_the_room_polls_demo_end_to_end(page: Page, browser: Browser, webapp) ->
         _join_room(page, base, webapp, stage, phones, proof)
         _play_quiz(page, base, stage, phones, proof)
         items = page.request.get(f"{base}/api/live").json()["plan"]["run"]["items"]
+        slowed = fail_first(phones[0], "/play/api/poll", 429)  # the first poll answer is sent again until acked
         for item in items:
             if item["id"] in ANSWERS:
                 _run_poll(page, base, stage, phones, folder, item, proof)
+        assert len(slowed) > 1 and slowed[0] == slowed[1], slowed[:2]
         assert {it["id"] for it in demo_items()} >= set(ANSWERS)
         _send_the_form(page, base, webapp, stage, phones, folder, proof)
         verdict = "PASSED"
