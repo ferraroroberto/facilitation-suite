@@ -55,6 +55,7 @@
 /src/health_routes.py
 /src/installer.py
 /src/no_window.py
+/src/ps_script.py
 /src/request_timing.py
 /src/restart_check.py
 /src/runtime_data.py

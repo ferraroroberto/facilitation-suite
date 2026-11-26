@@ -23,8 +23,8 @@ REM
 REM  The full detect -> kill -> reclaim -> start -> verify lifecycle lives in
 REM  the ONE shared, machine-local tray_lifecycle.ps1 owned by fleet-config
 REM  (project-scaffolding#153) -- exposed at %USERPROFILE%\.claude\tray\ by
-REM  fleet-config's install.ps1 junction, shelled to once (loaded as a ScriptBlock,
-REM  see below), NOT in cmd-side `for /f` output capture or inline logic in a
+REM  fleet-config's install.ps1 junction, shelled to as one script run, NOT in
+REM  cmd-side `for /f` output capture of PowerShell or inline logic in a
 REM  `powershell -Command "..."` string.
 REM  Both cmd shapes have failed under non-interactive nested callers (Git Bash
 REM  -> `cmd /c "tray.bat --restart"`, or a finisher skill's Bash tool): detect
@@ -56,6 +56,12 @@ REM  on unrelated later lines (project-scaffolding#183). Write prose docs with
 REM  em-dashes elsewhere; keep this file plain ASCII, same rule as the shared
 REM  tray_lifecycle.ps1 (docs/windows-tray.md, "Platform gotcha") for a
 REM  different underlying reason (PS 5.1 parsing, not cmd.exe read-ahead).
+REM
+REM  The helper is started through this repo's src\ps_script.py (vendored from
+REM  the scaffold): under AllSigned / Restricted, where `-File` refuses an
+REM  unsigned script, it loads the helper as a ScriptBlock; the machine's
+REM  execution policy is never set or overridden. It prints which launch it
+REM  used, and a helper it cannot run exits non-zero.
 REM ============================================================================
 
 setlocal EnableDelayedExpansion
@@ -89,9 +95,9 @@ set "WANT_RESTART="
 if /i "%~1"=="--restart" set "WANT_RESTART=1"
 if /i "%~1"=="-r"        set "WANT_RESTART=1"
 
-REM === ADAPT (3/4): the -TrayMatch below is a regex matching THIS app's tray
-REM     invocation ((scripts\\)?launcher\.py\s+tray) -- filled in from the template. The
-REM     optional scripts\ also matches a tray started before the launcher moved there.
+REM === ADAPT (3/4): a regex matching THIS app's tray invocation. Keep it that
+REM     specific: a bare word such as `tray` also matches the script launcher.
+set "TRAY_MATCH=(scripts[\\/]+)?launcher\.py\s+tray"
 set "PS=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 set "TRAY_VENV=%SCRIPT_DIR%.venv"
 REM  ONE shared, machine-local copy owned by fleet-config (project-scaffolding#153)
@@ -115,13 +121,32 @@ REM takes its bypass and a public-name leaf's cert is skipped - #147). Set this
 REM only for a non-standard path, e.g. http://127.0.0.1:8000/admin/api/version.
 set "VERSION_URL="
 
-REM  The helper is loaded as text and run as a ScriptBlock, not started with -File: -File refuses
-REM  an unsigned script under an AllSigned (or Restricted) execution policy, and overriding the
-REM  policy on the command line would weaken the machine's own control. The values travel in the
-REM  environment (set above), so no quoting nests inside the -Command string, and the process that
-REM  carries them is powershell.exe, which the helper's tray detection (python processes only)
-REM  can never mistake for the tray. An `exit` inside the helper ends this process with its code.
-%PS% -NoProfile -NonInteractive -Command "$a = @{ AppName = $env:TRAY_APP_NAME; ScriptDir = $env:SCRIPT_DIR_ARG; VenvDir = $env:TRAY_VENV; TrayMatch = '(scripts[\\/]+)?launcher\.py\s+tray'; Ports = $env:OWNED_PORTS; TrayLaunch = $env:TRAY_LAUNCH; VersionUrl = $env:VERSION_URL }; if ($env:WANT_RESTART) { $a.Restart = $true }; try { & ([scriptblock]::Create([IO.File]::ReadAllText($env:TRAY_PS))) launch @a } catch { [Console]::Error.WriteLine(($_ | Out-String)); exit 1 }; exit 0"
+REM  No parenthesised if-block below: a path holding ")" would end it early.
+if not exist "%TRAY_VENV%\Scripts\python.exe" goto :file_start
+
+REM  The helper's arguments travel as environment variables, never on the
+REM  launcher's command line: the helper finds a running tray by matching the
+REM  command lines of python.exe processes under this .venv, and would take a
+REM  launcher carrying TRAY_LAUNCH for the tray itself. The switch is cleared
+REM  first so a value inherited from the caller can never ask for a restart.
+set "PSL_ARG_AppName=%TRAY_APP_NAME%"
+set "PSL_ARG_ScriptDir=%SCRIPT_DIR_ARG%"
+set "PSL_ARG_VenvDir=%TRAY_VENV%"
+set "PSL_ARG_TrayMatch=%TRAY_MATCH%"
+set "PSL_ARG_Ports=%OWNED_PORTS%"
+set "PSL_ARG_TrayLaunch=%TRAY_LAUNCH%"
+set "PSL_ARG_VersionUrl=%VERSION_URL%"
+set "PSL_SWITCH_Restart="
+if defined WANT_RESTART set "PSL_SWITCH_Restart=1"
+"%TRAY_VENV%\Scripts\python.exe" -m src.ps_script "%TRAY_PS%" launch
+exit /b %ERRORLEVEL%
+
+REM  Only a checkout with no .venv takes the plain -File line.
+:file_start
+set "RESTART_ARG="
+if defined WANT_RESTART set "RESTART_ARG=-Restart"
+echo PowerShell launch: -File for tray_lifecycle.ps1 (no .venv, so the execution policy was not read)
+%PS% -NoProfile -NonInteractive -File "%TRAY_PS%" launch -AppName "%TRAY_APP_NAME%" -ScriptDir "%SCRIPT_DIR_ARG%" -VenvDir "%TRAY_VENV%" -TrayMatch "%TRAY_MATCH%" -Ports "%OWNED_PORTS%" -TrayLaunch "%TRAY_LAUNCH%" -VersionUrl "%VERSION_URL%" !RESTART_ARG!
 exit /b %ERRORLEVEL%
 
 REM  Standalone start (project-scaffolding#345): the shared helper is missing,
