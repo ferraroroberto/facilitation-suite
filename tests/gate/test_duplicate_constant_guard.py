@@ -9,7 +9,7 @@ import ast
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCAN_DIRS = ("src", "app")
 # Vendored components are copies by design.
 EXCLUDE_PARTS = ("_vendored",)
