@@ -135,17 +135,30 @@ class HintPipeline:
                                                             speaker_labels(mode, interviewee),
                                                             self.playbook()[0])}]
         request = _HintRequest(self._seq, cur["id"] if cur else None, reason, messages, now, test)
-        try:
-            run.hints.get_nowait()  # an older request still waiting is superseded by this one
-            self.limit.refund()  # and never reached the hub
-        except queue.Empty:
-            pass
+        self._drop_waiting(run)  # an older request still waiting is superseded by this one
         run.hints.put_nowait(request)
+
+    def _drop_waiting(self, run: Run) -> None:
+        """Take back a request the worker has not started: it never reaches the hub, so the cap gets its place back."""
+        try:
+            run.hints.get_nowait()
+        except queue.Empty:
+            return
+        self.limit.refund()
+
+    def end(self, run: Run) -> None:
+        """Tell the worker this run is over, without waiting for a call it may be inside: the one-slot queue
+        is emptied first, so the end marker always fits."""
+        self._drop_waiting(run)
+        run.hints.put_nowait(None)
 
     def worker(self, run: Run) -> None:
         while True:
             request = run.hints.get()
             if request is None:
+                return
+            if run.stopped.is_set():  # picked up between Copilot going off and ``end`` emptying the queue
+                self.ctx.on_loop(self.limit.refund)
                 return
             cfg = self.ctx.config()
             if not cfg.hub_url.strip():
