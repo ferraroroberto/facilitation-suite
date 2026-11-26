@@ -464,7 +464,7 @@ export function planFields(ctx) {
   return {
     loadDefaults: () => loadDefaults(ctx),
     letteringChip: (it) => letteringChip(ctx, it),
-    fontField: (it, label, defaultSize) => fontField(ctx, it, label, defaultSize),
+    fontField: (it, label, sized) => fontField(ctx, it, label, sized),
     rolesField: (it, keys) => rolesField(ctx, it, keys),
     notesField: (it) => notesField(ctx, it),
     timerField: (it) => timerField(ctx, it),
