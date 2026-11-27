@@ -734,7 +734,7 @@ function drawScale(box, v, chosen, busy) {
     box.dataset.sig = sig;
     box.toggleAttribute('data-stars', stars);
     box.innerHTML = nums.map((n, i) => `<button type="button" class="play-scale-btn" data-value="${n}" aria-pressed="false"`
-      + `${stars ? ` aria-label="${esc(T.stars(n))}">★` : `>${n}`}`
+      + `${stars ? ` aria-label="${esc(T.stars(n))}"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>` : `>${n}`}`
       + `${v.labels && v.labels[i] ? `<small>${esc(v.labels[i])}</small>` : ''}</button>`).join('');
     box.querySelectorAll('.play-scale-btn').forEach((b) => b.addEventListener('click', () => sendPoll(v.item_id, b.dataset.value)));
   }
