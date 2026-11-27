@@ -22,7 +22,7 @@ A clean clone runs the same on any Windows PC: nothing outside the repo and the 
 - Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams in the browser with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom)), or a Google Meet tab with its chat panel open (see [Google Meet](docs/chat-reader.md#google-meet))
 - Optional: OBS Studio 28+ with obs-websocket enabled (scene switching per item), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), and a `.env` with the Spotify login (item music from Spotify)
 
-**Install**, from PowerShell — the full playbook (fresh PC, update, moving an existing install, uninstall) is [docs/install.md](docs/install.md):
+**Install**, from PowerShell — the full playbook (install, update, migrate, uninstall) is [docs/install.md](docs/install.md):
 
 ```powershell
 git clone https://github.com/ferraroroberto/facilitation-suite.git
@@ -33,7 +33,7 @@ cd facilitation-suite
 
 `setup.bat` is safe to run again: it never overwrites what a PC has configured, and `-WhatIf` changes nothing. Never activate the venv; invoke its interpreter directly. `tray.bat` and `tray.bat --restart` need nothing but the repo's own `.venv`; when the fleet's shared tray helper happens to be installed they use it, and the result is the same. Settings: [docs/configuration.md](docs/configuration.md).
 
-**Updating** any PC is `git pull --ff-only`, then `tray.bat --restart` (plus `setup.bat` when `requirements.txt` changed): every file a run writes (config, ledger, `data/`, `tmp/`, logs, the certificate and tunnel config) is gitignored, no tracked file is rewritten at runtime, and the scripts start under any PowerShell execution policy, `AllSigned` included, without a signature or a policy override (under `AllSigned` the gate runs as `& .\.venv\Scripts\python.exe -m src.ps_script scripts\verify-before-ship.ps1`).
+**Updating** any PC is `git pull --ff-only`, `setup.bat`, then `tray.bat --restart`: every file a run writes (config, ledger, `data/`, `tmp/`, logs, the certificate and tunnel config) is gitignored, no tracked file is rewritten at runtime, and the scripts start under any PowerShell execution policy, `AllSigned` included, without a signature or a policy override (under `AllSigned` the gate runs as `& .\.venv\Scripts\python.exe -m src.ps_script scripts\verify-before-ship.ps1`).
 
 **Settings → Available features** switches off, for this PC only (`config.json` `features`), a block it cannot or will not run: the chat reader, OBS scene switching, the live copilot, music, the public quiz link and the phone remote. A block switched off hides its parts and stops its work; one whose dependency is missing on this PC says why. Details: [docs/settings.md](docs/settings.md#available-features).
 

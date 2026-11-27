@@ -90,7 +90,12 @@ windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "7c49213
 # the gate. Vendored copies are duplicates by design, so they are excluded. Procedure +
 # limits: project-scaffolding docs/static-ratchet.md.
 self_restart = { src = "src/self_restart.py", sha = "48602060fffdacbcdcdde66b9886c6471d835ff3", dest = "src/self_restart.py" }
-installer = { src = "src/installer.py", sha = "f774234582bc8fe2ce2e44804275b690b192f40d", dest = "src/installer.py" }
+installer = { src = "src/installer.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer.py" }
+installer_migrate = { src = "src/installer_migrate.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer_migrate.py" }
+installer_declaration = { src = "src/installer_declaration.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer_declaration.py" }
+installer_inplace = { src = "src/installer_inplace.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer_inplace.py" }
+# Pins the installer modules' content: re-vendor it with the four above.
+install_standard_ratchet = { src = "scripts/install_standard_ratchet.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "scripts/install_standard_ratchet.py" }
 ps_script = { src = "src/ps_script.py", sha = "2d786d295c9b8d545aaf35703889638096f251ad", dest = "src/ps_script.py" }
 
 # [install] -- what setup.bat (src/installer.py) does on this app; the playbook is docs/install.md, the
@@ -109,6 +114,34 @@ target = ".env"
 [install.deps]
 command = ["{python}", "-m", "playwright", "install", "chromium"]
 inputs  = ["requirements.txt"]
+
+# What `setup.bat -MigrateFrom <old folder>` and `setup.bat -InPlace` verify and carry over
+# (docs/install.md "Migrate"). :8449 serves the tailnet certificate, which does not name 127.0.0.1,
+# or plain HTTP without one; a PC that sets another `port` in its config is asked there. Start is the
+# default `tray.bat --restart`.
+[install.endpoint]
+scheme       = "https"
+port         = 8449
+version_path = "/api/version"
+self_signed  = true
+port_config  = "config/config.json"
+port_key     = "port"
+
+# This PC's own gitignored files. Logs, data/tmp/ and .venv are rebuilt. The usage log is not listed:
+# it lives in the shared runtime-data folder, and the session folders are outside the app.
+[install.migrate]
+copy = [
+    "config/config.json",
+    ".env",
+    "sessions.local.yaml",
+    "webapp/certificates",
+    "webapp/cloudflared.yml",
+    "data/live.json",
+    "data/spotify-names.json",
+    "data/replay",
+]
+secrets = ["config/config.json", ".env", "webapp/certificates/key.pem"]
+shared  = ["facilitation-suite"]
 
 [[install.check]]
 name   = "Python 3.14"
@@ -559,6 +592,15 @@ enabled    = true
 baseline   = ".ratchets/windows-only.json"
 marker     = "windows_only"
 test_paths = ["tests/**"]
+
+# [install_standard_ratchet] -- scripts/install_standard_ratchet.py fails when the repo lacks a piece of
+# the fleet install standard: an installer module missing, undeclared or not at the scaffold's current
+# content, an [install.migrate] that does not parse, or a docs/install.md without its Install, Update and
+# Migrate sections, beyond .ratchets/install-standard.json. Exit 3 is "not confirmed", never clean.
+# Mechanism: project-scaffolding docs/install-standard-ratchet.md.
+[install_standard_ratchet]
+enabled  = true
+baseline = ".ratchets/install-standard.json"
 
 # What the main page may read in a visible minute, held by the browser probe in
 # tests/e2e/budget/test_main_page_budget.py (the probe: tests/e2e/budget/_request_budget.py). The measured minute is 4: the
