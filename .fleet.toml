@@ -143,11 +143,12 @@ copy = [
 secrets = ["config/config.json", ".env", "webapp/certificates/key.pem"]
 shared  = ["facilitation-suite"]
 
+# The oldest Python the whole gate passes on, the fleet's baseline; newer ones are accepted.
 [[install.check]]
-name   = "Python 3.14"
+name   = "Python 3.12"
 level  = "required"
-python = "3.14"
-hint   = "install Python 3.14, delete .venv and run setup.bat again"
+python = "3.12"
+hint   = "install Python 3.12 or newer, delete .venv and run setup.bat again"
 
 [[install.check]]
 name    = "PowerPoint desktop"
@@ -394,8 +395,9 @@ why    = "src/atomic_write.py is the one atomic file writer (unique temp, cleanu
 # in Chromium); the local gate keeps running all of them. The WebKit e2e leg skips its own `needs_chromium`
 # stories through the e2e conftest, since `exclude_marker` reaches the unit leg only. The e2e suite boots its own disposable instance,
 # so there is no autoboot flag; the smoke opens its `[design.review.synthetic]` instance at `/`.
+# It runs the install's oldest Python; the local gate runs whatever the dev PC's .venv holds.
 [ci.nightly]
-python         = "3.14"
+python         = "3.12"
 requirements   = ["requirements.txt"]
 samples        = "config"
 unit           = ["tests", "--ignore=tests/e2e"]

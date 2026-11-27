@@ -5,6 +5,7 @@
 # files only, the commit rather than somebody's working tree. It runs the unit suite
 # and the e2e suite; ruff, byte-compile and the personal-data guard are the local
 # gate's. The repo's `## CI expectations` block in CLAUDE.md states the duration.
+# It runs on both ends of the supported range: the installer's oldest Python and the newest.
 #
 # One run per commit (push on main + pull_request), a dated runner image and a timeout
 # that caps a wedge.
@@ -39,12 +40,16 @@ jobs:
     # that can slow down on the hosted runner; a wedge is a flake, not the
     # diff. About 4x the typical green run.
     timeout-minutes: 25
+    strategy:
+      fail-fast: false        # one version failing must not hide the other's result
+      matrix:
+        python-version: ['3.12', '3.14']
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python-version }}
 
       - name: Create .venv and install deps
         # The install is part of what this job checks: the requirements files
@@ -93,7 +98,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-failure-artifacts
+          name: e2e-failure-artifacts-py${{ matrix.python-version }}
           path: test-results
           if-no-files-found: ignore
           retention-days: 7
