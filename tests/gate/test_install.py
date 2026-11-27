@@ -22,7 +22,8 @@ TRACKED_INPUTS = (".fleet.toml", "requirements.txt", "config/config.sample.json"
 
 
 def _runner(command: list[str], **_: Any) -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(command, 0)
+    asks_version = installer.PYTHON_VERSION_SNIPPET in command
+    return subprocess.CompletedProcess(command, 0, stdout="3.14\n" if asks_version else "")
 
 
 def _checkout(tmp_path: Path) -> Path:
@@ -57,7 +58,7 @@ def test_a_fresh_checkout_gets_its_configs_and_a_second_run_changes_nothing(tmp_
     assert (root / ".env").read_bytes() == (root / ".env.example").read_bytes()
     # Their templates hold placeholder entries the app would read as real.
     assert not (root / "sessions.local.yaml").exists() and not (root / "webapp").exists()
-    assert {name for _, name, _ in first.checklist} >= {"config/config.json", ".env", "Python 3.14 in .venv"}
+    assert {name for _, name, _ in first.required} >= {"config/config.json", ".env", "Python 3.14"}
 
     installed = _files(root)
     second = _run(root)

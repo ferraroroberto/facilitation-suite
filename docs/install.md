@@ -4,7 +4,7 @@ facilitation-suite moves to another Windows PC like this: clone it and run one `
 
 ## What you need
 
-- Windows 10 or 11, `git`, and Python 3.14 (the `py` launcher, or `python` on `PATH`). `setup.bat` builds `.venv` with the newest Python the `py` launcher finds.
+- Windows 10 or 11, `git`, and Python 3.14 (the `py` launcher, or `python` on `PATH`). `setup.bat` builds `.venv` with the newest Python the `py` launcher finds, and stops before installing anything when that one (or an existing `.venv`) is older than 3.14.
 - PowerPoint desktop (slide import).
 - Zoom desktop, or Microsoft Teams or Google Meet in the browser (the chat the activities read: [The chat reader](chat-reader.md)).
 - Optional: OBS Studio 28+ with obs-websocket enabled (scene switching), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), a Spotify Premium account (item music from Spotify).
@@ -24,15 +24,15 @@ cd facilitation-suite
 2. installs `requirements.txt`, and later reinstalls only when that file changed (its hash is kept inside `.venv`);
 3. downloads Playwright's Chromium (the frozen captures and the session PDF render in it), again only when `requirements.txt` changed;
 4. creates `config/config.json` from its sample and `.env` from `.env.example` when they are missing;
-5. ends with a checklist that marks each item `ok`, `missing` or `unknown`.
+5. ends with two lists: the required items, each `ok`, `missing` or `unknown`, and the optional features, each `available`, `off` or `unknown` with what it unlocks. Setup has succeeded when it ends with `Setup complete` and exits 0; an optional feature that is `off` never changes that.
 
 `.\setup.bat -WhatIf` lists every change it would make and makes none.
 
 Then set `session_root` (the folder new sessions go under) and, with OBS, its password in `config/config.json` or in the app's Settings ([Configuration](configuration.md)).
 
-What the checklist can still ask for:
+The optional features that may read `off`:
 
-- **Sessions ledger:** `missing` until you add your first session; the app creates it then.
+- **Sessions ledger:** `off` until you add your first session; the app creates it then.
 - **HTTPS certificate** (phone remote only): `& .\.venv\Scripts\python.exe scripts\gen_tailscale_cert.py`, then `.\tray.bat --restart` ([HTTPS](operations.md#https)).
 - **Quiz tunnel config** (public quiz only): the one-time setup in [Quiz player](quiz-player.md).
 - **Tailscale and cloudflared** (the same two optional parts): install the one you want.
