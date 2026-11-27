@@ -92,15 +92,16 @@ What moves is declared in `[install.migrate]` of `.fleet.toml`, each file only w
 
 **Before you start:** end any live session, and move any session folder or `session_root` that sits **inside** the app folder out of it, fixing its path in `sessions.local.yaml` or `config/config.json`. Neither is copied.
 
-**Reinstall in the same folder (the usual case).** From a terminal whose current folder is outside the app, after `git pull --ff-only` in the app so it has the current `setup.bat`:
+**Reinstall in the same folder (the usual case).** It works whatever version the installed copy is, because it runs from a fresh clone and never runs the old copy's code. Run these in order from `<root>`, the folder that holds `facilitation-suite`:
 
 ```powershell
-cd <PARENT FOLDER>
-.\facilitation-suite\setup.bat -InPlace -WhatIf    # read the backup name and every step; nothing changes
-.\facilitation-suite\setup.bat -InPlace
+cd <root>
+git clone https://github.com/ferraroroberto/facilitation-suite.git facilitation-suite.incoming   # a fresh clone beside the install; run nothing else in it
+.\facilitation-suite.incoming\setup.bat -Replace facilitation-suite -WhatIf   # read the backup name and every step; nothing changes
+.\facilitation-suite.incoming\setup.bat -Replace facilitation-suite
 ```
 
-It stops the app, keeps the replaced copy as `facilitation-suite.bak-YYYYMMDD-N`, clones this folder's `origin` into the same path and passes only when the new clone serves its own commit on `/api/version`. The path is unchanged, so the `shell:startup` shortcut needs no edit.
+It stops the app, renames `facilitation-suite` to `facilitation-suite.bak-YYYYMMDD-N` (uncommitted edits stay there), moves `facilitation-suite.incoming` to `facilitation-suite`, migrates and passes only when the new clone serves its own commit on `/api/version`. The path is unchanged, so the `shell:startup` shortcut needs no edit. The clone's `origin` must be the install's own (`git -C facilitation-suite remote get-url origin` prints it). On an install whose `setup.bat` already has `-InPlace`, `.\facilitation-suite\setup.bat -InPlace` does the same and makes the clone itself.
 
 **Beside it (another folder, or an old copy that is not a git clone):**
 
