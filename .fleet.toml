@@ -90,7 +90,7 @@ windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "7c49213
 # the gate. Vendored copies are duplicates by design, so they are excluded. Procedure +
 # limits: project-scaffolding docs/static-ratchet.md.
 self_restart = { src = "src/self_restart.py", sha = "48602060fffdacbcdcdde66b9886c6471d835ff3", dest = "src/self_restart.py" }
-installer = { src = "src/installer.py", sha = "bafa9446b907dcb7fc6d833c1edfb1a069b7ca38", dest = "src/installer.py" }
+installer = { src = "src/installer.py", sha = "f774234582bc8fe2ce2e44804275b690b192f40d", dest = "src/installer.py" }
 ps_script = { src = "src/ps_script.py", sha = "2d786d295c9b8d545aaf35703889638096f251ad", dest = "src/ps_script.py" }
 
 # [install] -- what setup.bat (src/installer.py) does on this app; the playbook is docs/install.md, the
@@ -111,39 +111,52 @@ command = ["{python}", "-m", "playwright", "install", "chromium"]
 inputs  = ["requirements.txt"]
 
 [[install.check]]
-name    = "Python 3.14 in .venv"
-command = ["{python}", "-c", "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 14) else 1)"]
-hint    = "install Python 3.14, delete .venv and run setup.bat again"
+name   = "Python 3.14"
+level  = "required"
+python = "3.14"
+hint   = "install Python 3.14, delete .venv and run setup.bat again"
 
 [[install.check]]
-name    = "PowerPoint desktop (slide import)"
+name    = "PowerPoint desktop"
+level   = "optional"
+blocks  = "slide import"
 command = ["{python}", "-c", "import winreg; winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, 'PowerPoint.Application')"]
 hint    = "install PowerPoint desktop"
 
 [[install.check]]
-name  = "Sessions ledger (sessions.local.yaml)"
-paths = ["sessions.local.yaml"]
-hint  = "created when you add the first session; to keep another copy's sessions, copy its file here"
+name   = "Sessions ledger (sessions.local.yaml)"
+level  = "optional"
+blocks = "your list of sessions"
+paths  = ["sessions.local.yaml"]
+hint   = "created when you add the first session; to keep another copy's sessions, copy its file here"
 
 [[install.check]]
-name  = "Tailscale CLI (optional: phone remote)"
-which = "tailscale"
-hint  = "install Tailscale and sign in"
+name   = "Tailscale CLI"
+level  = "optional"
+blocks = "phone remote"
+which  = "tailscale"
+hint   = "install Tailscale and sign in"
 
 [[install.check]]
-name  = "HTTPS certificate (optional: phone remote)"
-paths = ["webapp/certificates/cert.pem", "webapp/certificates/key.pem"]
-hint  = "run: .venv\\Scripts\\python.exe scripts\\gen_tailscale_cert.py"
+name   = "HTTPS certificate"
+level  = "optional"
+blocks = "phone remote"
+paths  = ["webapp/certificates/cert.pem", "webapp/certificates/key.pem"]
+hint   = "run: .venv\\Scripts\\python.exe scripts\\gen_tailscale_cert.py"
 
 [[install.check]]
-name  = "cloudflared CLI (optional: public quiz)"
-which = "cloudflared"
-hint  = "winget install Cloudflare.cloudflared"
+name   = "cloudflared CLI"
+level  = "optional"
+blocks = "public quiz"
+which  = "cloudflared"
+hint   = "winget install Cloudflare.cloudflared"
 
 [[install.check]]
-name  = "Quiz tunnel config (optional: public quiz)"
-paths = ["webapp/cloudflared.yml"]
-hint  = "one-time setup: docs/quiz-player.md"
+name   = "Quiz tunnel config"
+level  = "optional"
+blocks = "public quiz"
+paths  = ["webapp/cloudflared.yml"]
+hint   = "one-time setup: docs/quiz-player.md"
 
 [static_ratchet]
 enabled  = true
