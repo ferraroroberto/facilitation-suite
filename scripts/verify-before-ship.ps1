@@ -90,6 +90,11 @@
                                .ratchets/windows-only.json, which is empty;
                                the Mac nightly leaves that marker out. Whole tree,
                                never routed; exit 3 is NOT CONFIRMED and fails.
+     11g. install standard ratchet - no installer module missing, undeclared or behind the
+                               scaffold's, no [install.migrate] that does not parse, no
+                               docs/install.md without Install, Update and Migrate, beyond
+                               .ratchets/install-standard.json, which is empty. Exit 3 is
+                               NOT CONFIRMED and fails.
      12. pytest (unit)      - hermetic suite, tests/e2e excluded; stages 12-13 run
                                inside the runtime write probe (--snapshot before,
                                --probe after), which fails on any untracked or
@@ -217,6 +222,8 @@ Invoke-Stage "ux surface ratchet"      { & $py "scripts/ux_surface_ratchet.py" }
 Invoke-Stage "request budget ratchet"  { & $py "scripts/request_budget_ratchet.py" }
 # Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
 Invoke-Stage "windows only ratchet"    { & $py "scripts/windows_only_ratchet.py" }
+# Called directly for the same reason: exit 3 (NOT CONFIRMED) fails the stage like exit 1 and 2.
+Invoke-Stage "install standard ratchet" { & $py "scripts/install_standard_ratchet.py" }
 # Runtime write probe, first half: what already sits untracked or ignored under
 # the code folders, so the probe after the tests names only what they wrote.
 $runtimeSnapshot = Join-Path ([IO.Path]::GetTempPath()) "runtime-write-snapshot-$PID.json"
