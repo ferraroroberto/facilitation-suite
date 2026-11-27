@@ -90,12 +90,12 @@ windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "7c49213
 # the gate. Vendored copies are duplicates by design, so they are excluded. Procedure +
 # limits: project-scaffolding docs/static-ratchet.md.
 self_restart = { src = "src/self_restart.py", sha = "48602060fffdacbcdcdde66b9886c6471d835ff3", dest = "src/self_restart.py" }
-installer = { src = "src/installer.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer.py" }
-installer_migrate = { src = "src/installer_migrate.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer_migrate.py" }
-installer_declaration = { src = "src/installer_declaration.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer_declaration.py" }
-installer_inplace = { src = "src/installer_inplace.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "src/installer_inplace.py" }
+installer = { src = "src/installer.py", sha = "87981135d4ea66f76621d9b2f400efc28b68d2d9", dest = "src/installer.py" }
+installer_migrate = { src = "src/installer_migrate.py", sha = "87981135d4ea66f76621d9b2f400efc28b68d2d9", dest = "src/installer_migrate.py" }
+installer_declaration = { src = "src/installer_declaration.py", sha = "87981135d4ea66f76621d9b2f400efc28b68d2d9", dest = "src/installer_declaration.py" }
+installer_inplace = { src = "src/installer_inplace.py", sha = "87981135d4ea66f76621d9b2f400efc28b68d2d9", dest = "src/installer_inplace.py" }
 # Pins the installer modules' content: re-vendor it with the four above.
-install_standard_ratchet = { src = "scripts/install_standard_ratchet.py", sha = "a40310fe47f82ed7af62835fbfb3ea7ba9e04f8d", dest = "scripts/install_standard_ratchet.py" }
+install_standard_ratchet = { src = "scripts/install_standard_ratchet.py", sha = "87981135d4ea66f76621d9b2f400efc28b68d2d9", dest = "scripts/install_standard_ratchet.py" }
 ps_script = { src = "src/ps_script.py", sha = "2d786d295c9b8d545aaf35703889638096f251ad", dest = "src/ps_script.py" }
 
 # [install] -- what setup.bat (src/installer.py) does on this app; the playbook is docs/install.md, the
@@ -115,7 +115,7 @@ target = ".env"
 command = ["{python}", "-m", "playwright", "install", "chromium"]
 inputs  = ["requirements.txt"]
 
-# What `setup.bat -MigrateFrom <old folder>` and `setup.bat -InPlace` verify and carry over
+# What `setup.bat -MigrateFrom <old folder>`, `-Replace <install>` and `-InPlace` verify and carry over
 # (docs/install.md "Migrate"). :8449 serves the tailnet certificate, which does not name 127.0.0.1,
 # or plain HTTP without one; a PC that sets another `port` in its config is asked there. Start is the
 # default `tray.bat --restart`.

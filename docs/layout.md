@@ -49,7 +49,7 @@ The shape is `webapp-tray` (`.fleet.toml`): a FastAPI web app with a pystray tra
 | `quiz/` | the quiz engine, importer, scoring, cues, reachability |
 | `results/` | collection, reconciliation, PDF and Excel exports, the copilot's conversation read back |
 | `geo/` | the offline gazetteer behind the map |
-| `no_window.py`, `build_info.py`, `usage_log.py`, `installer.py`, `installer_migrate.py`, `installer_declaration.py`, `installer_inplace.py` | vendored from project-scaffolding; the `installer*.py` modules are what `setup.bat` runs for an install, `-MigrateFrom` and `-InPlace` ([install.md](install.md)) |
+| `no_window.py`, `build_info.py`, `usage_log.py`, `installer.py`, `installer_migrate.py`, `installer_declaration.py`, `installer_inplace.py` | vendored from project-scaffolding; the `installer*.py` modules are what `setup.bat` runs for an install, `-MigrateFrom`, `-Replace` and `-InPlace` ([install.md](install.md)) |
 | the other top-level modules | small shared helpers: errors, atomic writes (`atomic_write.py`, the one `os.replace`), stopping a child process (`process_stop.py`), the write guard (`write_target.py`), files, JSONL, text folding, logging, env file, certificates, the tunnel, starting a PowerShell script under any execution policy (`ps_script.py`) |
 
 ## Where new code goes
