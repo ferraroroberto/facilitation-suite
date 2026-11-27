@@ -23,7 +23,7 @@ disclosure      = { src = "app/webapp/static/_vendored/disclosure", sha = "5d460
 empty-state     = { src = "app/webapp/static/_vendored/empty-state", sha = "a04abc7b3af872cbac974401dd0945587eac6cef", dest = "app/webapp/static/_vendored/empty-state" }
 switch          = { src = "app/webapp/static/_vendored/switch", sha = "8f15c49560adbc076d24a8a63dd671868ffa7a4e", dest = "app/webapp/static/_vendored/switch" }
 settings-group = { src = "app/webapp/static/_vendored/settings-group", sha = "7577aece617ad366e7df8ef522d511184b445144", dest = "app/webapp/static/_vendored/settings-group" }
-toast           = { src = "app/webapp/static/_vendored/toast", sha = "e56c8330f8500b83635773033a09de6fc3cba342", dest = "app/webapp/static/_vendored/toast" }
+toast           = { src = "app/webapp/static/_vendored/toast", sha = "886f342372f517b89c4b42f548c08347aef6e7e4", dest = "app/webapp/static/_vendored/toast" }
 build-watch = { src = "app/webapp/static/_vendored/build-watch", sha = "48602060fffdacbcdcdde66b9886c6471d835ff3", dest = "app/webapp/static/_vendored/build-watch" }
 select-native   = { src = "app/webapp/static/_vendored/select-native", sha = "09fe2436b6bf3ee608d43fc8a26165e3e2400840", dest = "app/webapp/static/_vendored/select-native" }
 home-head       = { src = "app/webapp/static/_vendored/home-head", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "app/webapp/static/_vendored/home-head" }
@@ -652,6 +652,12 @@ reason = "the arrow characters are keyboard-key legends, aria-label text, menu-p
 [[design.accepted]]
 check  = "icon-sizes"
 reason = "every size outside 16/18/20/24 is on the projector stage or in the presenter's miniature slide thumbnail (12px beside 11px text); the stage follows the session theme, not the fleet design"
+
+[[design.accepted]]
+check  = "dark-track-fill"
+target = "src/activities/choice/stage.css"
+detail = "2 rule(s) whose background is not statically resolvable, so not measured against the dark card (1 measured): src/activities/choice/stage.css:12 .stage-canvas .ch-track; src/activities/stars/stage.css:11 .stage-canvas .stv-track"
+reason = "checked by hand: both tracks are on the projector stage, which follows the session theme (light, --st-bg #f2f2f2) and has no dark palette or card, so there is no dark card for them to read as a hole in"
 
 [design.review]
 # /design-review's e2e capture (tests/e2e/_surface.py) flips light/dark in place on an open surface; every

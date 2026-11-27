@@ -108,7 +108,7 @@ function controlHtml(q) {
   const stars = q.type === 'stars';
   const ends = (q.low || q.high) ? `<div class="fm-ends"><span>${esc(q.low || '')}</span><span>${esc(q.high || '')}</span></div>` : '';
   return `<div class="play-scale" role="group"${stars ? ' data-stars' : ''}>${nums.map((n) => `<button type="button" class="play-scale-btn" data-pick="${n}" aria-pressed="false"`
-    + `${stars ? ` aria-label="${esc(T.stars(n))}">★` : `>${n}`}</button>`).join('')}</div>${ends}`;
+    + `${stars ? ` aria-label="${esc(T.stars(n))}"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>` : `>${n}`}</button>`).join('')}</div>${ends}`;
 }
 
 function drawForm() {

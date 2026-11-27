@@ -66,7 +66,7 @@ function questionHtml(q) {
     const score = q.score == null ? '–' : (q.score > 0 ? `+${q.score}` : String(q.score));
     return head + `<p class="small p-form-stat">NPS <b>${score}</b> · ${q.promoters} promoters · ${q.passives} passives · ${q.detractors} detractors</p>`;
   }
-  const label = q.type === 'stars' ? `${avg} ★ average` : `${avg} average`;
+  const label = q.type === 'stars' ? `${avg} ${icon('star')} average` : `${avg} average`;
   return head + `<p class="small p-form-stat"><b>${label}</b>${q.type === 'number' && q.min != null ? ` · ${q.min} to ${q.max}` : ''}</p>`;
 }
 
