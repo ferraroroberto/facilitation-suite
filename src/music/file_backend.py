@@ -1,6 +1,6 @@
 """Audio files played on this PC's default output device (miniaudio, in process).
 
-miniaudio (a cp314 wheel, no system install) decodes mp3, wav, ogg (Vorbis)
+miniaudio (a prebuilt wheel, no system install) decodes mp3, wav, ogg (Vorbis)
 and flac to 44.1 kHz float stereo and plays to the default device. The
 device pulls audio through one **mixer** generator on miniaudio's own audio
 thread; every track being played is a ``Voice`` with its own decoder and gain

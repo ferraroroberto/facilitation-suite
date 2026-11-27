@@ -17,7 +17,7 @@ A clean clone runs the same on any Windows PC: nothing outside the repo and the 
 
 **Prerequisites**
 
-- Windows 10/11, Python 3.14 (the `py` launcher), Git
+- Windows 10/11, Python 3.12 or newer (the `py` launcher), Git
 - PowerPoint desktop (slide import through COM)
 - Zoom desktop with the meeting chat **popped out** (the chat reader targets that window) — or Microsoft Teams in the browser with the meeting chat open (see [Teams instead of Zoom](docs/chat-reader.md#teams-instead-of-zoom)), or a Google Meet tab with its chat panel open (see [Google Meet](docs/chat-reader.md#google-meet))
 - Optional: OBS Studio 28+ with obs-websocket enabled (scene switching per item), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), and a `.env` with the Spotify login (item music from Spotify)

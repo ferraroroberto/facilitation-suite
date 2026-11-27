@@ -21,9 +21,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TRACKED_INPUTS = (".fleet.toml", "requirements.txt", "config/config.sample.json", ".env.example")
 
 
+# The oldest Python the app takes (the fleet's baseline): a PC with only this one must install.
+OLDEST_PYTHON = "3.12"
+
+
 def _runner(command: list[str], **_: Any) -> subprocess.CompletedProcess:
     asks_version = installer.PYTHON_VERSION_SNIPPET in command
-    return subprocess.CompletedProcess(command, 0, stdout="3.14\n" if asks_version else "")
+    return subprocess.CompletedProcess(command, 0, stdout=f"{OLDEST_PYTHON}\n" if asks_version else "")
 
 
 def _checkout(tmp_path: Path) -> Path:
@@ -58,7 +62,7 @@ def test_a_fresh_checkout_gets_its_configs_and_a_second_run_changes_nothing(tmp_
     assert (root / ".env").read_bytes() == (root / ".env.example").read_bytes()
     # Their templates hold placeholder entries the app would read as real.
     assert not (root / "sessions.local.yaml").exists() and not (root / "webapp").exists()
-    assert {name for _, name, _ in first.required} >= {"config/config.json", ".env", "Python 3.14"}
+    assert {name for _, name, _ in first.required} >= {"config/config.json", ".env", f"Python {OLDEST_PYTHON}"}
 
     installed = _files(root)
     second = _run(root)

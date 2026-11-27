@@ -6,7 +6,7 @@ facilitation-suite installs, updates and migrates the way any app in the toolbox
 
 You need:
 
-- Windows 10 or 11, `git`, and Python 3.14 (the `py` launcher, or `python` on `PATH`). `setup.bat` builds `.venv` with the newest Python the `py` launcher finds, and stops before installing anything when that one (or an existing `.venv`) is older than 3.14.
+- Windows 10 or 11, `git`, and Python 3.12 or newer (the `py` launcher, or `python` on `PATH`). `setup.bat` builds `.venv` with the newest Python the `py` launcher finds, and stops before installing anything when that one (or an existing `.venv`) is older than 3.12.
 - PowerPoint desktop (slide import).
 - Zoom desktop, or Microsoft Teams or Google Meet in the browser (the chat the activities read: [The chat reader](chat-reader.md)).
 - Optional: OBS Studio 28+ with obs-websocket enabled (scene switching), Tailscale (the phone remote over HTTPS), cloudflared (the public quiz), a Spotify Premium account (item music from Spotify).
