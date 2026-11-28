@@ -1,4 +1,4 @@
-"""The podcast recorder's per-side tracks (content-management's ``recorder/``), found and read for one session.
+"""The podcast recorder's per-side tracks (a separate app's), found and read for one session.
 
 The recorder holds a two-sided call, a **host** (the owner, ``me`` here) and a **guest** (``them``), and
 leaves each side's take in the episode folder's ``video editing/`` as
@@ -9,8 +9,8 @@ a side's own camera and mic, ``ref`` for the other side as heard over the call),
 The time in the file name is when the recorder's server took the take's first chunk, in this PC's
 local time to the second. The server runs on this PC, the clock ``live/events.jsonl`` uses, so a take
 is placed on the session's clock from its name; the guest's take also carries its upload delay, so
-the two sides line up to within a second or two (content-management's sync stage measures it exactly
-for the podcast, from the ``ref`` files; this app does not repeat that).
+the two sides line up to within a second or two (the podcast pipeline's sync stage measures it exactly
+from the ``ref`` files; this app does not repeat that).
 
 A take's audio is read as 16 kHz mono PCM, the shape the chunker cuts: through ``ffmpeg`` for the
 recorder's ``.mp4``, directly for a ``.wav`` (the synthetic fixtures).

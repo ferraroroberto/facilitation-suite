@@ -1,4 +1,4 @@
-"""A synthetic podcast-recorder episode: per-side takes named and sidecar'd the way content-management's
+"""A synthetic podcast-recorder episode: per-side takes named and sidecar'd the way the podcast
 recorder leaves them in ``video editing/``, with tone bursts for voices. No recording of anyone.
 
 The recorder writes ``.mp4``; the fixtures write the same names as ``.wav`` (16 kHz mono), which the

@@ -6,7 +6,7 @@ layer       = "working-web"
 icon        = "🎤"
 port        = ":8449"
 description = "<b>facilitation-suite</b> — live workshop app: stage, cockpit, Zoom chat, live copilot."
-chips       = ["public: cloudflared quiz.robertoferraro.net → :8451 /play", "this PC: http://127.0.0.1:8456 (loopback)"]
+chips       = ["public: cloudflared quiz.example.com → :8451 /play", "this PC: http://127.0.0.1:8456 (loopback)"]
 depends_on  = ["local-llm-hub"]
 shape       = "webapp-tray"
 
@@ -78,8 +78,8 @@ request_budget_ratchet = { src = "scripts/request_budget_ratchet.py", sha = "7c4
 request_budget_scan = { src = "scripts/request_budget_scan.py", sha = "2e2a4cca9d3180980db6f8cd7f03a6f12737b7db", dest = "scripts/request_budget_scan.py" }
 request_timing  = { src = "src/request_timing.py", sha = "2e2a4cca9d3180980db6f8cd7f03a6f12737b7db", dest = "src/request_timing.py" }
 windows_only_ratchet = { src = "scripts/windows_only_ratchet.py", sha = "7c49213a6df844dc30987037913ba54e09de35d9", dest = "scripts/windows_only_ratchet.py" }
-# Not scaffold-owned: app/webapp/event_loop.py (selector loop) is app-launcher's
-# (via task-os), code verbatim; src/certs.py and scripts/gen_tailscale_cert.py are
+# Not scaffold-owned: app/webapp/event_loop.py (selector loop) is another fleet
+# app's, code verbatim; src/certs.py and scripts/gen_tailscale_cert.py are
 # copy-to-adapt (project-scaffolding#232), so they carry no [vendored] entry.
 
 # [static_ratchet] -- the scaffold's baseline-and-ratchet static analysis. The gate

@@ -4,7 +4,7 @@ End to end, from a Kahoot spreadsheet to the podium. The details of each part ar
 
 1. **Import.** Plan tab → **Import Kahoot** → pick the `.xlsx` (Kahoot's spreadsheet template). A new section holds the lobby, one item per question and the podium; edit any question in the Plan tab.
 2. **Sound (optional).** Put `quiz-lobby.*`, `quiz-countdown.*`, `quiz-reveal.*` and `quiz-podium.*` (`.mp3`, `.wav`, `.ogg` or `.flac`) in the session's `audio/` folder; the Readiness list does not check them, a missing one is simply silent.
-3. **Tunnel up.** With the one-time setup done ([Quiz player](quiz-player.md)), the tray runs cloudflared and `quiz.public_url` = `https://quiz.robertoferraro.net`; the Reachability chip says *reachable*. Nothing to switch on per session: between sessions the tunnel serves the player page with no game (*no game* on the phone).
+3. **Tunnel up.** With the one-time setup done ([Quiz player](quiz-player.md)), the tray runs cloudflared and `quiz.public_url` = `https://quiz.example.com`; the Reachability chip says *reachable*. Nothing to switch on per session: between sessions the tunnel serves the player page with no game (*no game* on the phone).
 4. **The player link.** On the lobby the stage shows the QR code, the link and the PIN; the presenter's Quiz card has **Copy link** for the chat. Players open it on their phone (mobile data works; they are not on the tailnet).
 5. **Rehearse.**
    - *Alone, through the chat:* on a quiz question, **Simulate answers** (the presenter) makes twelve simulated people answer in the chat; the game runs lobby to podium.

@@ -1,4 +1,4 @@
-"""The breakout-group algorithm, ported verbatim from facilitation-shuffle.
+"""The breakout-group algorithm, kept verbatim from the standalone shuffle tool it was written for.
 
 ``build_groups(present) -> {"pairs", "g4a", "g4b"}`` — three rounds for a
 1-2-4-all workshop:

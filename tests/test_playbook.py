@@ -62,7 +62,7 @@ def test_a_link_to_a_script_keeps_its_label_only() -> None:
         html = render_markdown(f"[click]({target})")
         assert "href" not in html and "click" in html, target
     assert 'href="docs/a.md"' in render_markdown("[a](docs/a.md)")
-    assert 'href="mailto:a@b.co"' in render_markdown("[a](mailto:a@b.co)")
+    assert 'href="mailto:a@example.com"' in render_markdown("[a](mailto:a@example.com)")
 
 
 def test_a_trailing_hash_in_a_heading_text_is_kept() -> None:
