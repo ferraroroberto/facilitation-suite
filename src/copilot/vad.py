@@ -1,7 +1,7 @@
 """Voice-activity chunking: one channel's 16 kHz mono PCM cut into chunks worth transcribing.
 
-The gate is the RMS level of each 20 ms frame in dBFS (voice-transcriber's silence check, per
-frame here): a frame under ``silence_dbfs`` is silence. A chunk is cut at the first run of
+The gate is the RMS level of each 20 ms frame in dBFS (a silence check made
+frame by frame): a frame under ``silence_dbfs`` is silence. A chunk is cut at the first run of
 ``silence_ms`` of silence once it is ``min_s`` long, and at ``max_s`` whatever is being said, so
 the transcript trails the voice by at most a chunk. A chunk with almost no voice in it is dropped
 before it reaches whisper, which invents plausible text ("Thanks for watching!") on near-silence.

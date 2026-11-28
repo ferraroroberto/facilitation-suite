@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "webapp" / "cloudflared.yml"
 METRICS_HOST = "127.0.0.1"
-METRICS_PORT = 8452  # next to the player listener's 8451; 8450 is parking-manager's
+METRICS_PORT = 8452  # next to the player listener's 8451; 8450 is another local service's
 READY_TIMEOUT_S = 2.0
 RESPAWN_FIRST_S = 30.0
 # `taskkill /T` on one orphaned tree answers in well under a second; 15 s means it is wedged.

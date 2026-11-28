@@ -1,7 +1,6 @@
 """The Stream Deck surface — ``POST /api/actions/{action_id}[/{arg}]``.
 
-The same contract as home-automation's generalized action alias
-(the same alias in home-automation): one stable URL per button, the id looked up in one
+A generalized action alias: one stable URL per button, the id looked up in one
 registry (``src/live/actions.py`` — the very intents the keyboard and the
 presenter send), ``{"action_id", "ok": true}`` back. A caller names itself in
 ``X-Automation-Source`` (the fleet Stream Deck plugin sends it).

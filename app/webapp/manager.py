@@ -1,6 +1,6 @@
 """Webapp process manager — race-safe adopt-or-spawn for the HTTP/2 webapp child.
 
-Same shape as the sister trays (photo-ocr / voice-transcriber / app-launcher):
+The same shape as the sister trays:
 
 - ``status()`` — a real ``GET /healthz`` round-trip plus a TCP probe. A port
   open with no answer from ``/healthz`` is reported as wedged, a state of its

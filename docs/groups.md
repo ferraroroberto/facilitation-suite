@@ -1,6 +1,6 @@
 # Breakout groups
 
-The **Groups** tab makes the 1-2-4-all breakout rooms (the algorithm ported from `facilitation-shuffle`, unchanged):
+The **Groups** tab makes the 1-2-4-all breakout rooms (an algorithm carried over unchanged from a standalone shuffle tool):
 
 1. **Import roster** (an Excel file) — the first sheet, columns by header in any order: `name` (required; without a `name` header the first column is used), `role`, `company`, `country`, `present`, `email` (optional). The file is copied into the session folder as `roster.xlsx`; the original is never edited.
 2. **Mark who is here** with the switches (they win over the file's `present` column and are saved in `groups.yaml`).

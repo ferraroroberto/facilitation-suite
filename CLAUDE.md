@@ -55,6 +55,6 @@ One local app for running a live online workshop: a **stage** (full-screen on th
 
 ## CI expectations
 
-- **The `ci` workflow is switched off** (`disabled_manually` on GitHub): a PR or a push to `main` starts no run, so the local gate (`scripts/verify-before-ship.ps1`) is the only check and the contract. Do not re-enable it without Roberto's say; a green CI run is not part of done.
+- **The `ci` workflow is switched off** (`disabled_manually` on GitHub): a PR or a push to `main` starts no run, so the local gate (`scripts/verify-before-ship.ps1`) is the only check and the contract. Do not re-enable it without the owner's say; a green CI run is not part of done.
 - `.github/workflows/ci.yml` is kept, job `gate`, so the repo can be switched back on: a fresh `.venv` from `requirements.txt` on a clean machine (Python 3.12 and 3.14), the unit suite (`pytest --ignore=tests/e2e`) and the e2e suite on one desktop chromium leg (no phone/WebKit leg: the phone viewport is emulated inside chromium by the tests that need it). It does not run ruff, byte-compile or the personal-data guard. The one test that drives real PowerPoint COM skips itself unless `FS_TEST_POWERPOINT=1`.
 - Hosted-runner timing is the e2e suite's weak spot (about 3x slower than this machine), so an e2e step waits for an explicit state, such as a card being open, before it acts, instead of trusting that a click has landed.
