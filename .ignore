@@ -32,9 +32,11 @@
 /scripts/dead_code_ratchet.py
 /scripts/doc_refs_ratchet.py
 /scripts/docs_ratchet.py
+/scripts/install_standard_ratchet.py
 /scripts/instruction_frontmatter.py
 /scripts/instruction_ratchet.py
 /scripts/instruction_repeats.py
+/scripts/personal_data_ratchet.py
 /scripts/ratchet_baseline.py
 /scripts/request_budget_ratchet.py
 /scripts/request_budget_scan.py
@@ -54,6 +56,9 @@
 /src/compression.py
 /src/health_routes.py
 /src/installer.py
+/src/installer_declaration.py
+/src/installer_inplace.py
+/src/installer_migrate.py
 /src/no_window.py
 /src/ps_script.py
 /src/request_timing.py
