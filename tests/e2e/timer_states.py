@@ -48,7 +48,7 @@ def rgb(css: str) -> tuple[int, int, int]:
 
 
 WHITE, DARK = (255, 255, 255), (31, 31, 31)
-# Roberto's four state colours (#211): the pill's fill and ink, the big clock's text. The paused
+# The owner's four state colours (#211): the pill's fill and ink, the big clock's text. The paused
 # clock is the yellow darkened by a third, so it can be read on the light stage.
 DEFAULT_STATES = {
     "idle": {"pill": (31, 31, 31), "ink": WHITE, "clock": (31, 31, 31)},

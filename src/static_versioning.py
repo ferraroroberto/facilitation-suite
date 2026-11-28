@@ -5,7 +5,7 @@ changes, ``b.js``'s own bytes do not, yet ``b.js`` now pulls in something differ
 hash** — a digest over every hashable file's own digest — moves every ``?v=`` stamp on any edit to any
 asset, so the whole graph is re-fetched together and a deploy can never leave a device on old code.
 
-Shape follows ``home-automation/src/static_versioning.py`` (the fleet reference, project-scaffolding
+Shape follows the fleet reference (project-scaffolding
 ``docs/app-onboarding.md`` §4a), with two differences this app needs:
 
 - assets live under several URL prefixes (``/static``, ``/themes``, ``/activities``), so the hash map is

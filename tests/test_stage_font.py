@@ -208,7 +208,7 @@ def test_timer_colours_are_checked_and_become_theme_variables() -> None:
 
 
 def test_timer_defaults_match_the_theme_and_their_inks_hold_contrast() -> None:
-    """#211: the defaults are Roberto's four colours, the theme (assets/themes/default.css) says the same, and the
+    """#211: the defaults are the owner's four colours, the theme (assets/themes/default.css) says the same, and the
     pill's ink is white where white holds 3:1 (large text) on the fill, else the dark ink."""
     from src.sessions.theme import TIMER_DEFAULTS, contrast, timer_ink
 

@@ -1,4 +1,4 @@
-"""The Stream Deck surface: POST /api/actions/{id}[/{arg}] — home-automation's contract."""
+"""The Stream Deck surface: POST /api/actions/{id}[/{arg}] — one stable URL per button."""
 
 from __future__ import annotations
 

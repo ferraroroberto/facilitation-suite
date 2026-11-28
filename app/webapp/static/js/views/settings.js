@@ -241,7 +241,7 @@ function openDeck() {
   const base = data.remote.base_url;
   body.classList.add('settings-sheet-stack');
   body.innerHTML =
-    `<p class="small muted settings-note">Each button sends a POST to <code>${esc(base)}</code> plus the path below — the same pattern as home-automation's action alias, so the fleet Stream Deck plugin's “Call Action” key works with it. No token is needed from this PC (the fleet plugin's <code>FACILITATION_SUITE_BASE_URL</code> is this address).</p>` +
+    `<p class="small muted settings-note">Each button sends a POST to <code>${esc(base)}</code> plus the path below, so the fleet Stream Deck plugin's “Call Action” key works with it. No token is needed from this PC (the fleet plugin's <code>FACILITATION_SUITE_BASE_URL</code> is this address).</p>` +
     `<div class="list deck-list" data-deck><p class="muted small">Loading…</p></div>`;
   loadActions().then((list) => {
     const box = body.querySelector('[data-deck]');
